@@ -5,10 +5,10 @@ const sequelize = new Sequelize(
   process.env.DATABASE_USERNAME, // username
   process.env.DATABASE_PASSWORD, // password
   {
-    host: process.env.DATABASE_HOST || "localhost",
+    host: process.env.DATABASE_HOST || "127.0.0.1",
     port: Number(process.env.DATABASE_PORT) || 3307,
     dialect: "mysql",
-    logging: false,
+    logging: false, // console.log
   }
 );
 
