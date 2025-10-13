@@ -24,6 +24,18 @@ app.get("/products", async (req, res) => {
   }
 });
 
+app.get("/products/detail/:id", async (req: Request, res: Response) => {
+  const id = req.params.id;
+  
+  const products = await Product.findOne({
+    where: { 
+      id,
+      deleted: 0 },
+  });
+
+  res.json(products);
+});
+
 app.listen(port, () => {
   console.log(`App listening on port ${port}`);
 });
