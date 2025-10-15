@@ -69,3 +69,21 @@ export const index = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const detail = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const includeDeleted = Number(req.query.includeDeleted || 0) === 1;
+
+    const where: any = { id };
+    if (!includeDeleted) where.deleted = 0;
+
+    const product = await Product.findOne({ where, raw: true });
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+
+    return res.status(200).json({ success: true, data: product });
+  } catch (err) {
+    console.error("detail error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
