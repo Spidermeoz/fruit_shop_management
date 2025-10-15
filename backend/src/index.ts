@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express } from "express";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -11,6 +11,8 @@ sequelize;
 
 const app: Express = express();
 const port: number | string = process.env.PORT || 3000;
+
+app.use(express.json());
 
 mainV1Routes(app);
 adminRoutes(app);

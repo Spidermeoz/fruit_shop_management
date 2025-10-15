@@ -87,3 +87,39 @@ export const detail = async (req: Request, res: Response) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const createProduct = async (req: Request, res: Response) => {
+  try {
+    const payload = req.body as Partial<Record<string, any>>;
+
+    // bảo vệ tối thiểu các trường quan trọng; còn lại để Sequelize/DB validate
+    if (!payload.title) return res.status(400).json({ success: false, message: "title is required" });
+
+    const created = await Product.create({
+      product_category_id: payload.product_category_id ?? null,
+      title: payload.title,
+      description: payload.description ?? null,
+      price: payload.price ?? null,
+      discount_percentage: payload.discount_percentage ?? null,
+      stock: payload.stock ?? 0,
+      thumbnail: payload.thumbnail ?? null,
+      status: payload.status ?? "active",
+      featured: payload.featured ?? 0,
+      position: payload.position ?? null,
+      slug: payload.slug ?? null,
+      average_rating: payload.average_rating ?? 0.0,
+      review_count: payload.review_count ?? 0,
+      created_by_id: payload.created_by_id ?? null,
+      updated_by_id: payload.updated_by_id ?? null,
+      deleted_by_id: null,
+      deleted: 0,
+      deleted_at: null,
+      // created_at/updated_at do timestamps handle
+    });
+
+    return res.status(201).json({ success: true, data: created });
+  } catch (err: any) {
+    console.error("createProduct error:", err);
+    return res.status(500).json({ success: false, message: err?.message || "Internal server error" });
+  }
+};
