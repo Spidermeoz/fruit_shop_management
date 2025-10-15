@@ -70,6 +70,7 @@ export const index = async (req: Request, res: Response) => {
   }
 };
 
+// GET /api/v1/admin/products/detail/:id
 export const detail = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -88,6 +89,7 @@ export const detail = async (req: Request, res: Response) => {
   }
 };
 
+// POST /api/v1/admin/products/create
 export const createProduct = async (req: Request, res: Response) => {
   try {
     const payload = req.body as Partial<Record<string, any>>;
@@ -121,5 +123,89 @@ export const createProduct = async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error("createProduct error:", err);
     return res.status(500).json({ success: false, message: err?.message || "Internal server error" });
+  }
+};
+
+// GET /api/v1/admin/products/edit/:id
+export const editProduct = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const includeDeleted = Number(req.query.includeDeleted || 0) === 1;
+
+    const where: any = { id };
+    if (!includeDeleted) where.deleted = 0;
+
+    const product = await Product.findOne({ where, raw: true });
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+
+    return res.status(200).json({ success: true, data: product });
+  } catch (err) {
+    console.error("get detail error:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// PATCH /api/v1/admin/products/edit/:id
+export const editPatchProduct = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      return res.status(400).json({ success: false, message: "Invalid product id" });
+    }
+
+    const payload = req.body as Partial<Record<string, any>>;
+
+    // Kiểm tra sản phẩm tồn tại & chưa bị xóa
+    const product = await Product.findOne({ where: { id, deleted: 0 } });
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    // Tạo object chỉ chứa field cần update
+    const fieldsToUpdate: Record<string, any> = {};
+
+    const allowedFields = [
+      "product_category_id",
+      "title",
+      "description",
+      "price",
+      "discount_percentage",
+      "stock",
+      "thumbnail",
+      "status",
+      "featured",
+      "position",
+      "slug",
+      "average_rating",
+      "review_count",
+      "updated_by_id",
+    ];
+
+    for (const key of allowedFields) {
+      if (payload[key] !== undefined) {
+        fieldsToUpdate[key] = payload[key];
+      }
+    }
+
+    if (Object.keys(fieldsToUpdate).length === 0) {
+      return res.status(400).json({ success: false, message: "No valid fields provided to update" });
+    }
+
+    await Product.update(fieldsToUpdate, { where: { id } });
+
+    // Lấy bản ghi mới sau khi update
+    const updated = await Product.findOne({ where: { id }, raw: true });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product updated successfully",
+      data: updated,
+    });
+  } catch (err: any) {
+    console.error("patchProduct error:", err);
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Internal server error",
+    });
   }
 };
