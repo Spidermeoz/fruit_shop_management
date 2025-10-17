@@ -1,10 +1,10 @@
 // src/pages/DashboardPage.jsx
 import React from 'react';
-import Card from '../components/ui/Card';
+import Card from '../components/layouts/Card';
 import RevenueChart from '../components/charts/LineChart';
 import SalesByCategoryChart from '../components/charts/BarChart';
 import TrafficSourcesChart from '../components/charts/PieChart';
-import RecentTransactions from '../components/RecentTransactions';
+import RecentTransactions from '../components/layouts/RecentTransactions';
 import { TrendingUp, Users, DollarSign, ShoppingCart } from 'lucide-react';
 
 const statCards = [

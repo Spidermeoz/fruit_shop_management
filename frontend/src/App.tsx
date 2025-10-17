@@ -1,9 +1,10 @@
-import React from 'react'; // Import React để sử dụng kiểu React.FC
-import { Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from './context/ThemeContext';
-import DashboardPage from './pages/DashboardPage';
-import Sidebar from './components/ui/Sidebar';
-import DashboardHeader from './components/DashboardHeader';
+import React from "react"; // Import React để sử dụng kiểu React.FC
+import { Routes, Route } from "react-router-dom";
+import { ThemeProvider } from "./context/ThemeContext";
+import DashboardPage from "./pages/DashboardPage";
+import ProductsPage from "./pages/ProductsPage";
+import Sidebar from "./components/layouts/Sidebar";
+import DashboardHeader from "./components/layouts/DashboardHeader";
 
 // Sử dụng React.FC (Functional Component) để định nghĩa kiểu cho component
 const App: React.FC = () => {
@@ -15,7 +16,8 @@ const App: React.FC = () => {
           <DashboardHeader />
           <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
             <Routes>
-              <Route path="/" element={<DashboardPage />} />
+              <Route path="/admin/dashboard" element={<DashboardPage />} />
+              <Route path="/admin/products" element={<ProductsPage />} />
               {/* Thêm các route khác tại đây */}
             </Routes>
           </main>

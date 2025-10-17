@@ -15,12 +15,16 @@ import Product from "../../models/product.model";
 export const index = async (req: Request, res: Response) => {
   try {
     const page = Math.max(parseInt(String(req.query.page || 1), 10), 1);
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit || 10), 10), 1), 100);
+    const limit = Math.min(
+      Math.max(parseInt(String(req.query.limit || 10), 10), 1),
+      100
+    );
     const offset = (page - 1) * limit;
 
     const q = (req.query.q as string)?.trim();
     const status = (req.query.status as string)?.trim();
-    const featured = req.query.featured !== undefined ? Number(req.query.featured) : undefined;
+    const featured =
+      req.query.featured !== undefined ? Number(req.query.featured) : undefined;
     const includeDeleted = Number(req.query.includeDeleted || 0) === 1;
 
     // sort
@@ -29,8 +33,16 @@ export const index = async (req: Request, res: Response) => {
       const [col, dirRaw] = String(req.query.sort).split(":");
       const dir = (dirRaw || "asc").toUpperCase() as "ASC" | "DESC";
       const allowCols = [
-        "id","price","stock","position","average_rating","review_count",
-        "created_at","updated_at","title","slug"
+        "id",
+        "price",
+        "stock",
+        "position",
+        "average_rating",
+        "review_count",
+        "created_at",
+        "updated_at",
+        "title",
+        "slug",
       ];
       if (allowCols.includes(col)) order = [[col, dir]];
     }
@@ -43,7 +55,7 @@ export const index = async (req: Request, res: Response) => {
     if (q) {
       where[Op.or] = [
         { title: { [Op.like]: `%${q}%` } },
-        { slug:  { [Op.like]: `%${q}%` } },
+        { slug: { [Op.like]: `%${q}%` } },
       ];
     }
 
@@ -59,14 +71,18 @@ export const index = async (req: Request, res: Response) => {
       success: true,
       data: rows,
       meta: {
-        page, limit, total: count,
+        page,
+        limit,
+        total: count,
         totalPages: Math.ceil(count / limit),
         sort: order,
       },
     });
   } catch (err) {
     console.error("listProducts error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -80,12 +96,17 @@ export const detail = async (req: Request, res: Response) => {
     if (!includeDeleted) where.deleted = 0;
 
     const product = await Product.findOne({ where, raw: true });
-    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
 
     return res.status(200).json({ success: true, data: product });
   } catch (err) {
     console.error("detail error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -95,7 +116,10 @@ export const createProduct = async (req: Request, res: Response) => {
     const payload = req.body as Partial<Record<string, any>>;
 
     // bảo vệ tối thiểu các trường quan trọng; còn lại để Sequelize/DB validate
-    if (!payload.title) return res.status(400).json({ success: false, message: "title is required" });
+    if (!payload.title)
+      return res
+        .status(400)
+        .json({ success: false, message: "title is required" });
 
     const created = await Product.create({
       product_category_id: payload.product_category_id ?? null,
@@ -122,7 +146,12 @@ export const createProduct = async (req: Request, res: Response) => {
     return res.status(201).json({ success: true, data: created });
   } catch (err: any) {
     console.error("createProduct error:", err);
-    return res.status(500).json({ success: false, message: err?.message || "Internal server error" });
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: err?.message || "Internal server error",
+      });
   }
 };
 
@@ -136,12 +165,17 @@ export const editProduct = async (req: Request, res: Response) => {
     if (!includeDeleted) where.deleted = 0;
 
     const product = await Product.findOne({ where, raw: true });
-    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    if (!product)
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
 
     return res.status(200).json({ success: true, data: product });
   } catch (err) {
     console.error("get detail error:", err);
-    return res.status(500).json({ success: false, message: "Internal server error" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -150,7 +184,9 @@ export const editPatchProduct = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
     if (!id) {
-      return res.status(400).json({ success: false, message: "Invalid product id" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid product id" });
     }
 
     const payload = req.body as Partial<Record<string, any>>;
@@ -158,7 +194,9 @@ export const editPatchProduct = async (req: Request, res: Response) => {
     // Kiểm tra sản phẩm tồn tại & chưa bị xóa
     const product = await Product.findOne({ where: { id, deleted: 0 } });
     if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     // Tạo object chỉ chứa field cần update
@@ -188,7 +226,12 @@ export const editPatchProduct = async (req: Request, res: Response) => {
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      return res.status(400).json({ success: false, message: "No valid fields provided to update" });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "No valid fields provided to update",
+        });
     }
 
     await Product.update(fieldsToUpdate, { where: { id } });
@@ -206,6 +249,67 @@ export const editPatchProduct = async (req: Request, res: Response) => {
     return res.status(500).json({
       success: false,
       message: err?.message || "Internal server error",
+    });
+  }
+};
+
+// PATCH /api/v1/admin/products/:id/status
+export const updateProductStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // Validate id
+    const productId = Number(id);
+    if (!productId) {
+      console.error("Invalid product ID:", id);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+      });
+    }
+
+    // Validate status
+    const validStatuses = ["active", "inactive"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    // Kiểm tra sản phẩm tồn tại
+    const product = await Product.findOne({
+      where: { id: productId, deleted: 0 },
+    });
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Cập nhật trạng thái
+    await Product.update(
+      { status, updated_at: new Date() },
+      { where: { id: productId } }
+    );
+
+    const updated = await Product.findOne({
+      where: { id: productId },
+      raw: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Product status updated to '${status}'`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("updateProductStatus error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
     });
   }
 };

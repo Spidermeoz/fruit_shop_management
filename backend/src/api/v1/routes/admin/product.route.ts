@@ -9,5 +9,6 @@ router.get("/detail/:id", controller.detail);
 router.post("/create", controller.createProduct);
 router.get("/edit/:id", controller.editProduct);
 router.patch("/edit/:id", controller.editPatchProduct);
+router.patch("/:id/status", controller.updateProductStatus);
 
 export const productRoutes: Router = router;

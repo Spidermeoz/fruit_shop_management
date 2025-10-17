@@ -4,10 +4,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, Settings, ShoppingBag, Menu, X } from 'lucide-react';
 
 const sidebarItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Users', href: '/users', icon: Users },
-  { name: 'Products', href: '/products', icon: ShoppingBag },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+  // { name: 'Users', href: '/admin/users', icon: Users },
+  { name: 'Products', href: '/admin/products', icon: ShoppingBag },
+  // { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 const Sidebar = () => {
