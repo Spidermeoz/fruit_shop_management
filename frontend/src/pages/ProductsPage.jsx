@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../components/common/Pagination";
 
 const ProductsPage = () => {
@@ -33,6 +33,8 @@ const ProductsPage = () => {
     review_count: 0,
     created_by_id: 1,
   });
+
+  const navigate = useNavigate();
 
   // Gọi API lấy sản phẩm thật
   const fetchProducts = async () => {
@@ -542,7 +544,9 @@ const ProductsPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleViewProduct(product.id)}
+                          onClick={() =>
+                            navigate(`/admin/products/${product.id}`)
+                          } // ✅ chuyển sang trang chi tiết
                           className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                           title="View"
                         >

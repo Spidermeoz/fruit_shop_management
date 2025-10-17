@@ -3,6 +3,7 @@ import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 import DashboardPage from "./pages/DashboardPage";
 import ProductsPage from "./pages/ProductsPage";
+import ProductDetailPage from "./pages/ProductDetailPage";
 import Sidebar from "./components/layouts/Sidebar";
 import DashboardHeader from "./components/layouts/DashboardHeader";
 
@@ -18,6 +19,7 @@ const App: React.FC = () => {
             <Routes>
               <Route path="/admin/dashboard" element={<DashboardPage />} />
               <Route path="/admin/products" element={<ProductsPage />} />
+              <Route path="/admin/products/:id" element={<ProductDetailPage />} />
               {/* Thêm các route khác tại đây */}
             </Routes>
           </main>
