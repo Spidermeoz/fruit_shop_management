@@ -146,12 +146,10 @@ export const createProduct = async (req: Request, res: Response) => {
     return res.status(201).json({ success: true, data: created });
   } catch (err: any) {
     console.error("createProduct error:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: err?.message || "Internal server error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Internal server error",
+    });
   }
 };
 
@@ -226,12 +224,10 @@ export const editPatchProduct = async (req: Request, res: Response) => {
     }
 
     if (Object.keys(fieldsToUpdate).length === 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No valid fields provided to update",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields provided to update",
+      });
     }
 
     await Product.update(fieldsToUpdate, { where: { id } });
@@ -307,6 +303,56 @@ export const updateProductStatus = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("updateProductStatus error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// DELETE /api/v1/admin/products/delete/:id
+export const softDeleteProduct = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const deleted_by_id = (req.body?.deleted_by_id as number) ?? null;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid product ID",
+      });
+    }
+
+    // Kiểm tra sản phẩm tồn tại
+    const product = await Product.findOne({ where: { id, deleted: 0 } });
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found or already deleted",
+      });
+    }
+
+    // Thực hiện xóa mềm
+    await Product.update(
+      {
+        deleted: 1,
+        deleted_at: new Date(),
+        deleted_by_id,
+        updated_at: new Date(),
+      },
+      { where: { id } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product soft-deleted successfully",
+      meta: {
+        deletedAt: new Date().toISOString(),
+        deletedBy: deleted_by_id,
+      },
+    });
+  } catch (error) {
+    console.error("softDeleteProduct error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

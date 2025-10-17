@@ -10,5 +10,6 @@ router.post("/create", controller.createProduct);
 router.get("/edit/:id", controller.editProduct);
 router.patch("/edit/:id", controller.editPatchProduct);
 router.patch("/:id/status", controller.updateProductStatus);
+router.delete("/delete/:id", controller.softDeleteProduct);
 
 export const productRoutes: Router = router;

@@ -58,11 +58,34 @@ const ProductsPage = () => {
   // Các handler hành động
   const handleAddProduct = () => console.log("Add new product");
   const handleEditProduct = (id) => console.log("Edit product:", id);
-  const handleDeleteProduct = (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      console.log("Delete product:", id);
+  const handleDeleteProduct = async (id) => {
+    if (!window.confirm("Bạn có chắc muốn xóa sản phẩm này không?")) return;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const res = await fetch(`/api/v1/admin/products/delete/${id}`, {
+        method: "DELETE",
+      });
+
+      const json = await res.json();
+
+      if (json.success) {
+        // ✅ Cập nhật lại UI ngay
+        setProducts((prev) => prev.filter((p) => p.id !== id));
+        alert("Đã xóa sản phẩm thành công!");
+      } else {
+        alert(json.message || "Xóa sản phẩm thất bại!");
+      }
+    } catch (err) {
+      console.error("Delete product error:", err);
+      alert("Không thể kết nối đến server!");
+    } finally {
+      setLoading(false);
     }
   };
+
   const handleViewProduct = (id) => console.log("View product details:", id);
 
   // Toggle trạng thái sản phẩm
