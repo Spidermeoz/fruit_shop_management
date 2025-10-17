@@ -2,13 +2,19 @@
 import React, { useEffect, useState } from "react";
 import Card from "../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import Pagination from "../components/common/Pagination";
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all"); // ✅ Bộ lọc trạng thái
+  const [totalPages, setTotalPages] = useState(1); // ✅ thêm dòng này
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const statusFilter = searchParams.get("status") || "all";
+  const currentPage = Number(searchParams.get("page")) || 1;
 
   // Gọi API lấy sản phẩm thật
   const fetchProducts = async () => {
@@ -16,19 +22,15 @@ const ProductsPage = () => {
       setLoading(true);
       setError("");
 
-      // ✅ Tạo URL động theo bộ lọc
-      let url = "/api/v1/admin/products";
-      if (statusFilter !== "all") {
-        url += `?status=${statusFilter}`;
-      }
+      let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
+      if (statusFilter !== "all") url += `&status=${statusFilter}`;
 
       const res = await fetch(url);
       const json = await res.json();
 
       if (json.success && Array.isArray(json.data)) {
         setProducts(json.data);
-      } else if (Array.isArray(json)) {
-        setProducts(json);
+        setTotalPages(json.meta?.totalPages || 1);
       } else {
         setError(json.message || "Không thể tải sản phẩm.");
       }
@@ -42,7 +44,8 @@ const ProductsPage = () => {
 
   useEffect(() => {
     fetchProducts();
-  }, [statusFilter]); // ✅ Tự động reload khi đổi bộ lọc
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter, currentPage]); // ✅ chỉ phụ thuộc vào 2 giá trị thật
 
   // Lọc theo từ khóa tìm kiếm
   const filteredProducts = products.filter(
@@ -93,6 +96,14 @@ const ProductsPage = () => {
     }
   };
 
+  const handleFilterChange = (filter) => {
+    const params = new URLSearchParams(searchParams);
+    if (filter === "all") params.delete("status");
+    else params.set("status", filter);
+    params.delete("page");
+    setSearchParams(params);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -130,7 +141,7 @@ const ProductsPage = () => {
       {/* ✅ Bộ lọc trạng thái */}
       <div className="flex gap-3 mb-4">
         <button
-          onClick={() => setStatusFilter("all")}
+          onClick={() => handleFilterChange("all")}
           className={`px-4 py-2 rounded-md text-sm font-medium border ${
             statusFilter === "all"
               ? "bg-blue-600 text-white border-blue-600"
@@ -139,8 +150,9 @@ const ProductsPage = () => {
         >
           Tất cả
         </button>
+
         <button
-          onClick={() => setStatusFilter("active")}
+          onClick={() => handleFilterChange("active")}
           className={`px-4 py-2 rounded-md text-sm font-medium border ${
             statusFilter === "active"
               ? "bg-green-600 text-white border-green-600"
@@ -149,8 +161,9 @@ const ProductsPage = () => {
         >
           Hoạt động
         </button>
+
         <button
-          onClick={() => setStatusFilter("inactive")}
+          onClick={() => handleFilterChange("inactive")}
           className={`px-4 py-2 rounded-md text-sm font-medium border ${
             statusFilter === "inactive"
               ? "bg-red-600 text-white border-red-600"
@@ -287,6 +300,17 @@ const ProductsPage = () => {
           )}
         </div>
       </Card>
+
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={(page) => {
+          const params = new URLSearchParams(searchParams);
+          if (page === 1) params.delete("page");
+          else params.set("page", String(page));
+          setSearchParams(params);
+        }}
+      />
     </div>
   );
 };
