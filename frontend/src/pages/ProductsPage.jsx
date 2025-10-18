@@ -36,6 +36,8 @@ const ProductsPage = () => {
 
   const navigate = useNavigate();
 
+  const [sortOrder, setSortOrder] = useState(""); // ✅ quản lý sắp xếp
+
   // Gọi API lấy sản phẩm thật
   const fetchProducts = async () => {
     try {
@@ -44,6 +46,7 @@ const ProductsPage = () => {
 
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
+      if (sortOrder) url += `&sort=${sortOrder}`; // ✅ thêm tham số sort
 
       const res = await fetch(url);
       const json = await res.json();
@@ -65,7 +68,7 @@ const ProductsPage = () => {
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, currentPage]); // ✅ chỉ phụ thuộc vào 2 giá trị thật
+  }, [statusFilter, currentPage, sortOrder]);
 
   // Lọc theo từ khóa tìm kiếm
   const filteredProducts = products.filter(
@@ -159,8 +162,6 @@ const ProductsPage = () => {
       setLoading(false);
     }
   };
-
-  const handleViewProduct = (id) => console.log("View product details:", id);
 
   // Toggle trạng thái sản phẩm
   const handleToggleStatus = async (product) => {
@@ -445,6 +446,34 @@ const ProductsPage = () => {
         >
           Dừng hoạt động
         </button>
+      </div>
+
+      {/* Thanh sắp xếp */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Sắp xếp:
+        </label>
+        <select
+          value={sortOrder}
+          onChange={(e) => {
+            setSortOrder(e.target.value);
+            const params = new URLSearchParams(searchParams);
+            if (e.target.value) params.set("sort", e.target.value);
+            else params.delete("sort");
+            setSearchParams(params);
+
+            setCurrentPage(1); // ✅ reset về trang đầu
+          }}
+          className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="">-- Mặc định --</option>
+          <option value="position:asc">Vị trí tăng dần</option>
+          <option value="position:desc">Vị trí giảm dần</option>
+          <option value="price:asc">Giá thấp → cao</option>
+          <option value="price:desc">Giá cao → thấp</option>
+          <option value="title:asc">Tiêu đề A → Z</option>
+          <option value="title:desc">Tiêu đề Z → A</option>
+        </select>
       </div>
 
       {/* Products Table */}
