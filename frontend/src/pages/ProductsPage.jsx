@@ -376,15 +376,54 @@ const ProductsPage = () => {
               {/* --- Hình ảnh --- */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Ảnh minh họa (URL)
+                  Ảnh minh họa
                 </label>
+
                 <input
-                  type="text"
-                  name="thumbnail"
-                  value={formData.thumbnail}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const formDataImg = new FormData();
+                    formDataImg.append("file", file);
+
+                    try {
+                      setLoading(true);
+                      const res = await fetch("/api/v1/admin/upload", {
+                        method: "POST",
+                        body: formDataImg,
+                      });
+
+                      const data = await res.json();
+                      if (data.success) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          thumbnail: data.url,
+                        }));
+                        alert("Tải ảnh thành công ✅");
+                      } else {
+                        alert("Lỗi tải ảnh lên server ❌");
+                      }
+                    } catch (err) {
+                      console.error("Upload error:", err);
+                      alert("Không thể tải ảnh lên server!");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
                 />
+
+                {formData.thumbnail && (
+                  <div className="mt-3">
+                    <img
+                      src={formData.thumbnail}
+                      alt="preview"
+                      className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* --- Vị trí hiển thị --- */}
