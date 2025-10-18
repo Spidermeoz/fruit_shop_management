@@ -113,7 +113,7 @@ export const createProduct = async (req: Request, res: Response) => {
         .json({ success: false, message: "title is required" });
 
     if (!payload.position) {
-      const maxPosition:number = await Product.max("position");
+      const maxPosition: number = await Product.max("position");
       payload.position = (maxPosition || 0) + 1;
     }
 
@@ -349,6 +349,113 @@ export const softDeleteProduct = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("softDeleteProduct error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// PATCH /api/v1/admin/products/bulk-edit
+export const bulkEditProducts = async (req: Request, res: Response) => {
+  try {
+    const { ids, action, value, updated_by_id } = req.body;
+
+    // ✅ Validate dữ liệu
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'ids' must be a non-empty array",
+      });
+    }
+
+    if (!action) {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'action' is required (status | delete | position)",
+      });
+    }
+
+    const now = new Date();
+    let resultMessage = "";
+    let updateData: any = {};
+
+    // ✅ Xử lý theo hành động
+    switch (action) {
+      case "status":
+        if (!["active", "inactive"].includes(value)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid status value (must be 'active' or 'inactive')",
+          });
+        }
+        updateData = {
+          status: value,
+          updated_by_id: updated_by_id ?? null,
+          updated_at: now,
+        };
+        resultMessage = `Products status updated to '${value}'`;
+        break;
+
+      case "delete":
+        updateData = {
+          deleted: 1,
+          deleted_at: now,
+          deleted_by_id: updated_by_id ?? null,
+        };
+        resultMessage = "Products soft-deleted successfully";
+        break;
+
+      case "position":
+        // `value` có thể là object chứa map {id: position}
+        if (typeof value !== "object" || Array.isArray(value)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid 'value' format for position update",
+          });
+        }
+
+        // Chạy riêng từng bản ghi (do position khác nhau)
+        for (const id of ids) {
+          const position = value[id];
+          if (position !== undefined && !isNaN(position)) {
+            await Product.update(
+              {
+                position,
+                updated_by_id: updated_by_id ?? null,
+                updated_at: now,
+              },
+              { where: { id } }
+            );
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "Products positions updated successfully",
+        });
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported action: ${action}`,
+        });
+    }
+
+    // ✅ Thực hiện update hàng loạt
+    await Product.update(updateData, { where: { id: { [Op.in]: ids } } });
+
+    return res.status(200).json({
+      success: true,
+      message: resultMessage,
+      data: {
+        affectedIds: ids,
+        action,
+        updatedAt: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("bulkEditProducts error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

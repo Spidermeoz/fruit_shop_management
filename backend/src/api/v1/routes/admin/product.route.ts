@@ -11,5 +11,6 @@ router.get("/edit/:id", controller.editProduct);
 router.patch("/edit/:id", controller.editPatchProduct);
 router.patch("/:id/status", controller.updateProductStatus);
 router.delete("/delete/:id", controller.softDeleteProduct);
+router.patch("/bulk-edit", controller.bulkEditProducts);
 
 export const productRoutes: Router = router;

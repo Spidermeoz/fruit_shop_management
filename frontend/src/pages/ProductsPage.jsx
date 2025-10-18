@@ -7,6 +7,9 @@ import Pagination from "../components/common/Pagination";
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
+  const [selectedProducts, setSelectedProducts] = useState([]); // ✅ lưu danh sách id đã chọn
+  const [bulkAction, setBulkAction] = useState(""); // ✅ hành động chọn
+
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -492,6 +495,105 @@ const ProductsPage = () => {
         </select>
       </div>
 
+      {/* ✅ Thanh chọn hành động khi có sản phẩm được chọn */}
+      {selectedProducts.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Đã chọn <strong>{selectedProducts.length}</strong> sản phẩm
+          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={bulkAction}
+              onChange={(e) => setBulkAction(e.target.value)}
+              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+            >
+              <option value="">-- Chọn hành động --</option>
+              <option value="activate">Hoạt động</option>
+              <option value="deactivate">Dừng hoạt động</option>
+              <option value="delete">Xóa mềm</option>
+              <option value="update_position">Cập nhật vị trí</option>
+            </select>
+
+            <button
+              onClick={async () => {
+                if (!bulkAction) {
+                  alert("Vui lòng chọn hành động!");
+                  return;
+                }
+
+                if (
+                  !window.confirm(
+                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedProducts.length} sản phẩm?`
+                  )
+                )
+                  return;
+
+                try {
+                  let body = {
+                    ids: selectedProducts,
+                    updated_by_id: 1, // ✅ tạm thời cố định, sau này lấy từ user login
+                  };
+
+                  // ✅ Gửi đúng định dạng theo action
+                  switch (bulkAction) {
+                    case "activate":
+                      body.action = "status";
+                      body.value = "active";
+                      break;
+
+                    case "deactivate":
+                      body.action = "status";
+                      body.value = "inactive";
+                      break;
+
+                    case "delete":
+                      body.action = "delete";
+                      break;
+
+                    case "update_position":
+                      body.action = "position";
+                      body.value = {};
+
+                      products
+                        .filter((p) => selectedProducts.includes(p.id))
+                        .forEach((p) => {
+                          body.value[p.id] = Number(p.position) || 0;
+                        });
+                      break;
+
+                    default:
+                      alert("Hành động không hợp lệ!");
+                      return;
+                  }
+
+                  const res = await fetch("/api/v1/admin/products/bulk-edit", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(body),
+                  });
+
+                  const json = await res.json();
+                  if (json.success) {
+                    alert("Cập nhật thành công!");
+                    setSelectedProducts([]);
+                    fetchProducts();
+                  } else {
+                    alert(json.message || "Không thể cập nhật!");
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert("Lỗi kết nối server!");
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+            >
+              Áp dụng
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Products Table */}
       <Card>
         <div className="overflow-x-auto">
@@ -510,8 +612,32 @@ const ProductsPage = () => {
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
+                  <th className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedProducts.length > 0 &&
+                        selectedProducts.length === filteredProducts.length
+                      }
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedProducts(
+                            filteredProducts.map((p) => p.id)
+                          );
+                        } else {
+                          setSelectedProducts([]);
+                        }
+                      }}
+                    />
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    STT
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Position
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Category
@@ -531,11 +657,32 @@ const ProductsPage = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredProducts.map((product) => (
+                {filteredProducts.map((product, index) => (
                   <tr
                     key={product.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
+                    <td className="px-4 py-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.includes(product.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedProducts((prev) => [
+                              ...prev,
+                              product.id,
+                            ]);
+                          } else {
+                            setSelectedProducts((prev) =>
+                              prev.filter((id) => id !== product.id)
+                            );
+                          }
+                        }}
+                      />
+                    </td>
+                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700 dark:text-gray-300">
+                      {(currentPage - 1) * 10 + index + 1}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <img
@@ -555,6 +702,23 @@ const ProductsPage = () => {
                           </div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      <input
+                        type="number"
+                        value={product.position || ""}
+                        onChange={(e) => {
+                          const newPos = e.target.value;
+                          setProducts((prev) =>
+                            prev.map((p) =>
+                              p.id === product.id
+                                ? { ...p, position: newPos }
+                                : p
+                            )
+                          );
+                        }}
+                        className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
+                      />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {product.category_name || "—"}
