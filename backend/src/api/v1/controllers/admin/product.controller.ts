@@ -2,16 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import Product from "../../models/product.model";
 
-/**
- * GET /api/v1/admin/products
- * Query hỗ trợ:
- *  - page, limit (mặc định 1, 10)
- *  - q (search theo title, slug)
- *  - status (active/inactive)
- *  - featured (0/1)
- *  - sort (vd: "created_at:desc", "price:asc")
- *  - includeDeleted (0/1) - mặc định 0 (chỉ bản ghi chưa xóa mềm)
- */
+// GET /api/v1/admin/products
 export const index = async (req: Request, res: Response) => {
   try {
     const page = Math.max(parseInt(String(req.query.page || 1), 10), 1);
@@ -120,6 +111,11 @@ export const createProduct = async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ success: false, message: "title is required" });
+
+    if (!payload.position) {
+      const maxPosition:number = await Product.max("position");
+      payload.position = (maxPosition || 0) + 1;
+    }
 
     const created = await Product.create({
       product_category_id: payload.product_category_id ?? null,

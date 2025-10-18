@@ -134,7 +134,8 @@ const ProductsPage = () => {
     }
   };
 
-  const handleEditProduct = (id) => console.log("Edit product:", id);
+  const handleEditProduct = (id) => navigate(`/admin/products/edit/${id}`);
+
   const handleDeleteProduct = async (id) => {
     if (!window.confirm("Bạn có chắc muốn xóa sản phẩm này không?")) return;
 
@@ -352,6 +353,21 @@ const ProductsPage = () => {
                   name="thumbnail"
                   value={formData.thumbnail}
                   onChange={handleInputChange}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              {/* --- Vị trí hiển thị --- */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Vị trí hiển thị
+                </label>
+                <input
+                  type="number"
+                  name="position"
+                  value={formData.position || ""}
+                  onChange={handleInputChange}
+                  placeholder="Nếu bỏ trống, hệ thống sẽ tự thêm ở cuối"
                   className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>

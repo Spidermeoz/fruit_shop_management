@@ -102,6 +102,7 @@ const ProductDetailPage = () => {
             <div className="grid grid-cols-2 gap-2 text-sm mt-2">
               <p><span className="font-medium">Danh mục:</span> {product.product_category_id || "—"}</p>
               <p><span className="font-medium">Giá:</span> {Number(product.price).toLocaleString()}₫</p>
+              <p><span className="font-medium">Vị trí hiển thị:</span> {product.position ?? "—"}</p>
               <p><span className="font-medium">Giảm giá:</span> {product.discount_percentage ?? "0"}%</p>
               <p><span className="font-medium">Tồn kho:</span> {product.stock}</p>
               <p>
