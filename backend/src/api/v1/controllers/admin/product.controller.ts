@@ -12,7 +12,12 @@ export const index = async (req: Request, res: Response) => {
     );
     const offset = (page - 1) * limit;
 
-    const q = (req.query.q as string)?.trim();
+    // ✅ Cho phép cả ?q=... và ?keyword=...
+    const q =
+      (req.query.q as string)?.trim() ||
+      (req.query.keyword as string)?.trim() ||
+      "";
+
     const status = (req.query.status as string)?.trim();
     const featured =
       req.query.featured !== undefined ? Number(req.query.featured) : undefined;
@@ -67,6 +72,7 @@ export const index = async (req: Request, res: Response) => {
         total: count,
         totalPages: Math.ceil(count / limit),
         sort: order,
+        keyword: q, // 👈 thêm keyword đã search
       },
     });
   } catch (err) {

@@ -10,12 +10,14 @@ const ProductsPage = () => {
   const [selectedProducts, setSelectedProducts] = useState([]); // ✅ lưu danh sách id đã chọn
   const [bulkAction, setBulkAction] = useState(""); // ✅ hành động chọn
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(
+    searchParams.get("keyword") || ""
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [totalPages, setTotalPages] = useState(1); // ✅ thêm dòng này
 
-  const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get("status") || "all";
   const currentPage = Number(searchParams.get("page")) || 1;
 
@@ -50,6 +52,8 @@ const ProductsPage = () => {
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
       if (sortOrder) url += `&sort=${sortOrder}`; // ✅ thêm tham số sort
+      if (searchTerm.trim())
+        url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
       const res = await fetch(url);
       const json = await res.json();
@@ -71,7 +75,21 @@ const ProductsPage = () => {
   useEffect(() => {
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, currentPage, sortOrder]);
+  }, [statusFilter, currentPage, sortOrder, searchTerm]);
+
+  useEffect(() => {
+    const delay = setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+
+      if (searchTerm.trim()) params.set("keyword", searchTerm.trim());
+      else params.delete("keyword");
+
+      params.delete("page"); // reset về trang đầu khi tìm kiếm mới
+      setSearchParams(params);
+    }, 500); // ⏳ debounce 0.5s
+
+    return () => clearTimeout(delay);
+  }, [searchTerm]);
 
   // Lọc theo từ khóa tìm kiếm
   const filteredProducts = products.filter(
@@ -223,11 +241,20 @@ const ProductsPage = () => {
             <input
               type="text"
               className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Search products..."
+              placeholder="Tìm kiếm sản phẩm..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+            >
+              ✕
+            </button>
+          )}
 
           {/* Add Product */}
           <button
