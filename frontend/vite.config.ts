@@ -10,4 +10,14 @@ export default defineConfig({
       },
     }),
   ],
+
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000', // 🔥 thay bằng port backend thật của bạn
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
 })
