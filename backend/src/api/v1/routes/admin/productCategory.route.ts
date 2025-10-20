@@ -8,5 +8,6 @@ router.post("/create", controller.create);
 router.get("/detail/:id", controller.detail);
 router.get("/edit/:id", controller.editProductCategory);
 router.patch("/edit/:id", controller.editPatchProductCategory);
+router.patch("/:id/status", controller.updateProductCategoryStatus);
 
 export const productCategoryRoutes = router;

@@ -300,6 +300,7 @@ export const editProductCategory = async (req: Request, res: Response) => {
   }
 };
 
+// PATCH /api/v1/admin/product-category/edit/:id
 export const editPatchProductCategory = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -395,6 +396,69 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("editProductCategory error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+
+// PATCH /api/v1/admin/product-category/:id/status
+export const updateProductCategoryStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    // ✅ Validate id
+    const categoryId = Number(id);
+    if (!categoryId) {
+      console.error("Invalid category ID:", id);
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // ✅ Validate status
+    const validStatuses = ["active", "inactive"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Allowed values: ${validStatuses.join(", ")}`,
+      });
+    }
+
+    // ✅ Kiểm tra danh mục tồn tại
+    const category = await ProductCategory.findOne({
+      where: { id: categoryId, deleted: 0 },
+    });
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Product category not found",
+      });
+    }
+
+    // ✅ Cập nhật trạng thái
+    await ProductCategory.update(
+      { status, updated_at: new Date() },
+      { where: { id: categoryId } }
+    );
+
+    // ✅ Lấy lại dữ liệu sau khi cập nhật
+    const updated = await ProductCategory.findOne({
+      where: { id: categoryId },
+      raw: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Product category status updated to '${status}'`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error("updateProductCategoryStatus error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",
