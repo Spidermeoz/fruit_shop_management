@@ -153,3 +153,72 @@ export const create = async (req: Request, res: Response) => {
     });
   }
 };
+
+// GET /api/v1/admin/product-category/detail/:id
+export const detail = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // Lấy thông tin danh mục chính
+    const category = await ProductCategory.findOne({
+      where: { id, deleted: 0 },
+      raw: true,
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Product category not found",
+      });
+    }
+
+    // Lấy danh mục cha (nếu có)
+    let parent = null;
+    if (category.parent_id) {
+      parent = await ProductCategory.findOne({
+        where: { id: category.parent_id, deleted: 0 },
+        attributes: ["id", "title", "slug"],
+        raw: true,
+      });
+    }
+
+    // Lấy danh sách danh mục con
+    const children = await ProductCategory.findAll({
+      where: { parent_id: id, deleted: 0 },
+      attributes: ["id", "title", "slug", "status", "position"],
+      order: [["position", "ASC"]],
+      raw: true,
+    });
+
+    // (Tuỳ chọn) Lấy tổng số sản phẩm thuộc danh mục này
+    const productCount = await Product.count({
+      where: { product_category_id: id, deleted: 0 },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...category,
+        parent,
+        children,
+        product_count: productCount,
+      },
+      meta: {
+        fetchedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("getProductCategoryById error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
