@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Card from "../components/layouts/Card";
+import Card from "../../components/layouts/Card";
 
 const ProductDetailPage = () => {
   const { id } = useParams();
@@ -42,7 +42,9 @@ const ProductDetailPage = () => {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải...</span>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải...
+        </span>
       </div>
     );
   }
@@ -100,11 +102,25 @@ const ProductDetailPage = () => {
             </p>
 
             <div className="grid grid-cols-2 gap-2 text-sm mt-2">
-              <p><span className="font-medium">Danh mục:</span> {product.product_category_id || "—"}</p>
-              <p><span className="font-medium">Giá:</span> {Number(product.price).toLocaleString()}₫</p>
-              <p><span className="font-medium">Vị trí hiển thị:</span> {product.position ?? "—"}</p>
-              <p><span className="font-medium">Giảm giá:</span> {product.discount_percentage ?? "0"}%</p>
-              <p><span className="font-medium">Tồn kho:</span> {product.stock}</p>
+              <p>
+                <span className="font-medium">Danh mục:</span>{" "}
+                {product.product_category_id || "—"}
+              </p>
+              <p>
+                <span className="font-medium">Giá:</span>{" "}
+                {Number(product.price).toLocaleString()}₫
+              </p>
+              <p>
+                <span className="font-medium">Vị trí hiển thị:</span>{" "}
+                {product.position ?? "—"}
+              </p>
+              <p>
+                <span className="font-medium">Giảm giá:</span>{" "}
+                {product.discount_percentage ?? "0"}%
+              </p>
+              <p>
+                <span className="font-medium">Tồn kho:</span> {product.stock}
+              </p>
               <p>
                 <span className="font-medium">Trạng thái:</span>{" "}
                 <span
@@ -117,26 +133,47 @@ const ProductDetailPage = () => {
                   {product.status}
                 </span>
               </p>
-              <p><span className="font-medium">Đánh giá TB:</span> {product.average_rating}</p>
-              <p><span className="font-medium">Lượt đánh giá:</span> {product.review_count}</p>
+              <p>
+                <span className="font-medium">Đánh giá TB:</span>{" "}
+                {product.average_rating}
+              </p>
+              <p>
+                <span className="font-medium">Lượt đánh giá:</span>{" "}
+                {product.review_count}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Mô tả */}
-        <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-          <h3 className="text-lg font-semibold mb-2 text-gray-800 dark:text-gray-100">Mô tả</h3>
-          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">
-            {product.description || "Không có mô tả"}
-          </p>
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
+            Mô tả sản phẩm
+          </h2>
+          <div
+            className="prose dark:prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: product.description }}
+          />
         </div>
 
         {/* Thông tin hệ thống */}
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-2">
-          <p><span className="font-medium">Người tạo:</span> {product.created_by_id}</p>
-          <p><span className="font-medium">Người cập nhật:</span> {product.updated_by_id || "—"}</p>
-          <p><span className="font-medium">Ngày tạo:</span> {new Date(product.created_at).toLocaleString()}</p>
-          <p><span className="font-medium">Cập nhật gần nhất:</span> {new Date(product.updated_at).toLocaleString()}</p>
+          <p>
+            <span className="font-medium">Người tạo:</span>{" "}
+            {product.created_by_id}
+          </p>
+          <p>
+            <span className="font-medium">Người cập nhật:</span>{" "}
+            {product.updated_by_id || "—"}
+          </p>
+          <p>
+            <span className="font-medium">Ngày tạo:</span>{" "}
+            {new Date(product.created_at).toLocaleString()}
+          </p>
+          <p>
+            <span className="font-medium">Cập nhật gần nhất:</span>{" "}
+            {new Date(product.updated_at).toLocaleString()}
+          </p>
         </div>
       </Card>
     </div>

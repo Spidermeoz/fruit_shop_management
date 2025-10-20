@@ -5,10 +5,10 @@ import { ThemeProvider } from "./context/ThemeContext";
 // 🧱 Import layout & pages cho Admin
 import Sidebar from "./components/layouts/Sidebar";
 import DashboardHeader from "./components/layouts/DashboardHeader";
-import DashboardPage from "./pages/DashboardPage";
-import ProductsPage from "./pages/ProductsPage";
-import ProductEditPage from "./pages/ProductEditPage";
-import ProductDetailPage from "./pages/ProductDetailPage";
+import DashboardPage from "./pages/admin/DashboardPage";
+import ProductsPage from "./pages/admin/ProductsPage";
+import ProductEditPage from "./pages/admin/ProductEditPage";
+import ProductDetailPage from "./pages/admin/ProductDetailPage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -43,8 +43,14 @@ const App: React.FC = () => {
                   <Routes>
                     <Route path="dashboard" element={<DashboardPage />} />
                     <Route path="products" element={<ProductsPage />} />
-                    <Route path="products/:id" element={<ProductDetailPage />} />
-                    <Route path="products/edit/:id" element={<ProductEditPage />} />
+                    <Route
+                      path="products/:id"
+                      element={<ProductDetailPage />}
+                    />
+                    <Route
+                      path="products/edit/:id"
+                      element={<ProductEditPage />}
+                    />
                   </Routes>
                 </main>
               </div>
@@ -62,12 +68,18 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/shop" element={<ShopPage />} />
-                  <Route path="/product/:id" element={<ProductClientDetailPage />} />
+                  <Route
+                    path="/product/:id"
+                    element={<ProductClientDetailPage />}
+                  />
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/checkout" element={<CheckoutPage />} />
                   <Route path="/login" element={<LoginPage />} />
                   <Route path="/register" element={<RegisterPage />} />
-                  <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/orders" element={<OrderHistoryPage />} />
                   <Route path="/orders/:id" element={<OrderDetailPage />} />

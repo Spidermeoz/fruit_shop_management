@@ -1,9 +1,10 @@
 // src/pages/ProductsPage.jsx
 import React, { useEffect, useState } from "react";
-import Card from "../components/layouts/Card";
+import Card from "../../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import Pagination from "../components/common/Pagination";
+import Pagination from "../../components/common/Pagination";
+import RichTextEditor from "../../components/common/RichTextEditor";
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
@@ -313,16 +314,15 @@ const ProductsPage = () => {
 
               {/* --- Mô tả --- */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Mô tả
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Mô tả sản phẩm
                 </label>
-                <textarea
-                  name="description"
+                <RichTextEditor
                   value={formData.description}
-                  onChange={handleInputChange}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  rows="3"
-                ></textarea>
+                  onChange={(content) =>
+                    setFormData((prev) => ({ ...prev, description: content }))
+                  }
+                />
               </div>
 
               {/* --- Giá & Giảm giá --- */}

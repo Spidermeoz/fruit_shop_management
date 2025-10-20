@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
-import Card from "../components/layouts/Card";
+import Card from "../../components/layouts/Card";
+import RichTextEditor from "../../components/common/RichTextEditor";
 
 const ProductEditPage = () => {
   const { id } = useParams();
@@ -56,7 +57,9 @@ const ProductEditPage = () => {
         type === "number"
           ? Number(value)
           : type === "checkbox"
-          ? e.target.checked ? 1 : 0
+          ? e.target.checked
+            ? 1
+            : 0
           : value,
     }));
   };
@@ -160,18 +163,12 @@ const ProductEditPage = () => {
           </div>
 
           {/* Mô tả */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Mô tả
-            </label>
-            <textarea
-              name="description"
-              rows="4"
-              value={product.description || ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
-          </div>
+          <RichTextEditor
+            value={product.description}
+            onChange={(content) =>
+              setProduct((prev) => ({ ...prev, description: content }))
+            }
+          />
 
           {/* Giá & Giảm giá */}
           <div className="grid grid-cols-2 gap-4">
