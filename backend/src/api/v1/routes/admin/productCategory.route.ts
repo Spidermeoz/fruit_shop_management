@@ -10,5 +10,6 @@ router.get("/edit/:id", controller.editProductCategory);
 router.patch("/edit/:id", controller.editPatchProductCategory);
 router.patch("/:id/status", controller.updateProductCategoryStatus);
 router.delete("/delete/:id", controller.softDeleteProductCategory);
+router.patch("/bulk-edit", controller.bulkEditProductCategory);
 
 export const productCategoryRoutes = router;

@@ -517,3 +517,107 @@ export const softDeleteProductCategory = async (req: Request, res: Response) => 
     });
   }
 };
+
+// PATCH /api/v1/admin/product-category/bulk-edit
+export const bulkEditProductCategory = async (req: Request, res: Response) => {
+  try {
+    const { ids, action, value, updated_by_id } = req.body;
+
+    // ✅ Validate cơ bản
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'ids' must be a non-empty array.",
+      });
+    }
+
+    if (!action) {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'action' is required (status | delete | position).",
+      });
+    }
+
+    const now = new Date();
+    let resultMessage = "";
+    let updateData: any = {};
+
+    // ✅ Xử lý hành động
+    switch (action) {
+      case "status":
+        if (!["active", "inactive"].includes(value)) {
+          return res.status(400).json({
+            success: false,
+            message: "Invalid status value. Must be 'active' or 'inactive'.",
+          });
+        }
+        updateData = {
+          status: value,
+          updated_at: now,
+        };
+        resultMessage = `Categories status updated to '${value}'.`;
+        break;
+
+      case "delete":
+        updateData = {
+          deleted: 1,
+          deleted_at: now,
+          updated_at: now,
+        };
+        resultMessage = "Categories soft-deleted successfully.";
+        break;
+
+      case "position":
+        if (typeof value !== "object" || Array.isArray(value)) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Invalid 'value' for position update. Must be an object {id: position}.",
+          });
+        }
+
+        // cập nhật riêng từng danh mục
+        for (const id of ids) {
+          const pos = value[id];
+          if (pos !== undefined && !isNaN(pos)) {
+            await ProductCategory.update(
+              { position: pos, updated_at: now },
+              { where: { id } }
+            );
+          }
+        }
+
+        return res.status(200).json({
+          success: true,
+          message: "Categories positions updated successfully.",
+        });
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: `Unsupported action '${action}'.`,
+        });
+    }
+
+    // ✅ Update hàng loạt (status | delete)
+    await ProductCategory.update(updateData, {
+      where: { id: { [Op.in]: ids } },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: resultMessage,
+      data: {
+        affectedIds: ids,
+        action,
+        updatedAt: now.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("bulkEditProductCategory error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
