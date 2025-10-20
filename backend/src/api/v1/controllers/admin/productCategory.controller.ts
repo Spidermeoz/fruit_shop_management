@@ -403,7 +403,6 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
   }
 };
 
-
 // PATCH /api/v1/admin/product-category/:id/status
 export const updateProductCategoryStatus = async (req: Request, res: Response) => {
   try {
@@ -459,6 +458,59 @@ export const updateProductCategoryStatus = async (req: Request, res: Response) =
     });
   } catch (error) {
     console.error("updateProductCategoryStatus error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+// DELETE /api/v1/admin/product-category/delete/:id
+export const softDeleteProductCategory = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deleted_by_id = (req.body?.deleted_by_id as number) ?? null;
+
+    const categoryId = Number(id);
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // 1️⃣ Kiểm tra danh mục tồn tại
+    const category = await ProductCategory.findOne({
+      where: { id: categoryId, deleted: 0 },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Product category not found or already deleted",
+      });
+    }
+
+    // 2️⃣ Thực hiện xóa mềm
+    await ProductCategory.update(
+      {
+        deleted: 1,
+        deleted_at: new Date(),
+        updated_at: new Date(),
+      },
+      { where: { id: categoryId } }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Product category soft-deleted successfully.",
+      meta: {
+        deletedAt: new Date().toISOString(),
+        deletedBy: deleted_by_id,
+      },
+    });
+  } catch (error) {
+    console.error("softDeleteProductCategory error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

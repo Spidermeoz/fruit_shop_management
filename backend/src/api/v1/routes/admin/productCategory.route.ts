@@ -9,5 +9,6 @@ router.get("/detail/:id", controller.detail);
 router.get("/edit/:id", controller.editProductCategory);
 router.patch("/edit/:id", controller.editPatchProductCategory);
 router.patch("/:id/status", controller.updateProductCategoryStatus);
+router.delete("/delete/:id", controller.softDeleteProductCategory);
 
 export const productCategoryRoutes = router;
