@@ -222,3 +222,182 @@ export const detail = async (req: Request, res: Response) => {
     });
   }
 };
+
+// GET /api/v1/admin/product-category/edit/:id
+export const editProductCategory = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // 1️⃣ Lấy chi tiết danh mục
+    const category = await ProductCategory.findOne({
+      where: { id, deleted: 0 },
+      raw: true,
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Product category not found",
+      });
+    }
+
+    // 2️⃣ Lấy danh mục cha (nếu có)
+    let parent = null;
+    if (category.parent_id) {
+      parent = await ProductCategory.findOne({
+        where: { id: category.parent_id, deleted: 0 },
+        attributes: ["id", "title", "slug"],
+        raw: true,
+      });
+    }
+
+    // 3️⃣ Lấy tất cả danh mục khác để chọn làm parent (loại trừ chính nó)
+    const allCategories = await ProductCategory.findAll({
+      where: {
+        id: { [Op.ne]: id },
+        deleted: 0,
+        status: "active",
+      },
+      attributes: ["id", "title", "slug", "parent_id"],
+      order: [["position", "ASC"]],
+      raw: true,
+    });
+
+    // 4️⃣ Gợi ý option status
+    const statusOptions = [
+      { value: "active", label: "Hoạt động" },
+      { value: "inactive", label: "Dừng hoạt động" },
+    ];
+
+    // 5️⃣ Trả kết quả
+    return res.status(200).json({
+      success: true,
+      data: {
+        category,
+        parent,
+        formOptions: {
+          status: statusOptions,
+          parents: allCategories, // dropdown chọn danh mục cha
+        },
+      },
+      meta: {
+        fetchedAt: new Date().toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error("getProductCategoryForEdit error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+export const editPatchProductCategory = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id);
+    const payload = req.body as Partial<Record<string, any>>;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // 1️⃣ Kiểm tra danh mục có tồn tại không
+    const category = await ProductCategory.findOne({ where: { id, deleted: 0 } });
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Product category not found",
+      });
+    }
+
+    // 2️⃣ Nếu có parent_id → kiểm tra hợp lệ
+    if (payload.parent_id) {
+      if (Number(payload.parent_id) === id) {
+        return res.status(400).json({
+          success: false,
+          message: "A category cannot be its own parent.",
+        });
+      }
+
+      const parent = await ProductCategory.findOne({
+        where: { id: payload.parent_id, deleted: 0 },
+      });
+
+      if (!parent) {
+        return res.status(400).json({
+          success: false,
+          message: `Parent category with id=${payload.parent_id} not found or deleted.`,
+        });
+      }
+
+      // (Tuỳ chọn) kiểm tra vòng lặp cha–con (chống chọn con của chính nó làm cha)
+      const descendants = await ProductCategory.findAll({
+        where: { parent_id: id },
+        attributes: ["id"],
+        raw: true,
+      });
+      const childIds = descendants.map((c) => c.id);
+      if (childIds.includes(Number(payload.parent_id))) {
+        return res.status(400).json({
+          success: false,
+          message: "Cannot set a child category as parent.",
+        });
+      }
+    }
+
+    // 3️⃣ Chuẩn bị dữ liệu để cập nhật
+    const allowedFields = [
+      "title",
+      "description",
+      "thumbnail",
+      "status",
+      "position",
+      "parent_id",
+      "slug",
+    ];
+
+    const updateData: Record<string, any> = {};
+    for (const key of allowedFields) {
+      if (payload[key] !== undefined) updateData[key] = payload[key];
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid fields provided for update",
+      });
+    }
+
+    // 4️⃣ Thực hiện cập nhật
+    await ProductCategory.update(updateData, { where: { id } });
+
+    // 5️⃣ Lấy dữ liệu mới sau update
+    const updated = await ProductCategory.findOne({
+      where: { id },
+      raw: true,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Product category updated successfully.",
+      data: updated,
+    });
+  } catch (error) {
+    console.error("editProductCategory error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};

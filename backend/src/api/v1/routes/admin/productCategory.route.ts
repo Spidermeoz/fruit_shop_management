@@ -6,5 +6,7 @@ const router = Router();
 router.get("/", controller.index);
 router.post("/create", controller.create);
 router.get("/detail/:id", controller.detail);
+router.get("/edit/:id", controller.editProductCategory);
+router.patch("/edit/:id", controller.editPatchProductCategory);
 
 export const productCategoryRoutes = router;
