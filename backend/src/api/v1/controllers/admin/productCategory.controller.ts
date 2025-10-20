@@ -101,3 +101,55 @@ export const index = async (req: Request, res: Response) => {
       .json({ success: false, message: "Internal server error" });
   }
 };
+
+// POST /api/v1/admin/product-category
+export const create = async (req: Request, res: Response) => {
+  try {
+    const payload = req.body as Partial<Record<string, any>>;
+
+    // ===== Validate =====
+    if (!payload.title || typeof payload.title !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Field 'title' is required and must be a string.",
+      });
+    }
+
+    // Nếu có parent_id, đảm bảo parent tồn tại và chưa bị xóa
+    if (payload.parent_id) {
+      const parent = await ProductCategory.findOne({
+        where: { id: payload.parent_id, deleted: 0 },
+      });
+      if (!parent) {
+        return res.status(400).json({
+          success: false,
+          message: `Parent category with id=${payload.parent_id} not found or deleted.`,
+        });
+      }
+    }
+
+    // ===== Tạo danh mục =====
+    const newCategory = await ProductCategory.create({
+      title: payload.title,
+      parent_id: payload.parent_id ?? null,
+      description: payload.description ?? null,
+      thumbnail: payload.thumbnail ?? null,
+      status: payload.status ?? "active",
+      position: payload.position ?? null,
+      deleted: 0,
+      deleted_at: null,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Product category created successfully.",
+      data: newCategory,
+    });
+  } catch (error: any) {
+    console.error("createProductCategory error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error?.message || "Internal server error",
+    });
+  }
+};
