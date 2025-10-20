@@ -3,15 +3,35 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Card from "../../components/layouts/Card";
 
-const ProductDetailPage = () => {
-  const { id } = useParams();
+// 🔹 Định nghĩa kiểu sản phẩm
+interface Product {
+  id: number;
+  title: string;
+  description: string;
+  product_category_id: number | string;
+  thumbnail?: string;
+  price: number;
+  discount_percentage?: number;
+  stock: number;
+  status: "active" | "inactive" | string;
+  position?: number;
+  average_rating?: number;
+  review_count?: number;
+  created_by_id?: number | string;
+  updated_by_id?: number | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const ProductDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
 
-  // Gọi API chi tiết sản phẩm
+  // 🔹 API chi tiết sản phẩm
   const fetchProductDetail = async () => {
     try {
       setLoading(true);
@@ -21,7 +41,7 @@ const ProductDetailPage = () => {
       const json = await res.json();
 
       if (json.success && json.data) {
-        setProduct(json.data);
+        setProduct(json.data as Product);
       } else {
         setError(json.message || "Không thể tải chi tiết sản phẩm.");
       }
@@ -37,19 +57,17 @@ const ProductDetailPage = () => {
     fetchProductDetail();
   }, [id]);
 
-  // Hiển thị loading
+  // 🔹 Hiển thị loading
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">
-          Đang tải...
-        </span>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải...</span>
       </div>
     );
   }
 
-  // Hiển thị lỗi
+  // 🔹 Hiển thị lỗi
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-[70vh] text-center">
@@ -135,11 +153,11 @@ const ProductDetailPage = () => {
               </p>
               <p>
                 <span className="font-medium">Đánh giá TB:</span>{" "}
-                {product.average_rating}
+                {product.average_rating ?? "—"}
               </p>
               <p>
                 <span className="font-medium">Lượt đánh giá:</span>{" "}
-                {product.review_count}
+                {product.review_count ?? "—"}
               </p>
             </div>
           </div>
@@ -160,19 +178,23 @@ const ProductDetailPage = () => {
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-2">
           <p>
             <span className="font-medium">Người tạo:</span>{" "}
-            {product.created_by_id}
+            {product.created_by_id ?? "—"}
           </p>
           <p>
             <span className="font-medium">Người cập nhật:</span>{" "}
-            {product.updated_by_id || "—"}
+            {product.updated_by_id ?? "—"}
           </p>
           <p>
             <span className="font-medium">Ngày tạo:</span>{" "}
-            {new Date(product.created_at).toLocaleString()}
+            {product.created_at
+              ? new Date(product.created_at).toLocaleString()
+              : "—"}
           </p>
           <p>
             <span className="font-medium">Cập nhật gần nhất:</span>{" "}
-            {new Date(product.updated_at).toLocaleString()}
+            {product.updated_at
+              ? new Date(product.updated_at).toLocaleString()
+              : "—"}
           </p>
         </div>
       </Card>

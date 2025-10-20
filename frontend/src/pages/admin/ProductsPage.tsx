@@ -1,29 +1,70 @@
-// src/pages/ProductsPage.jsx
 import React, { useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import Card from "../../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../components/common/Pagination";
 import RichTextEditor from "../../components/common/RichTextEditor";
 
-const ProductsPage = () => {
-  const [products, setProducts] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState([]); // ✅ lưu danh sách id đã chọn
-  const [bulkAction, setBulkAction] = useState(""); // ✅ hành động chọn
+// 🔹 Kiểu dữ liệu sản phẩm
+interface Product {
+  id: number;
+  product_category_id: number | string;
+  category_name?: string;
+  title: string;
+  description: string;
+  price: number;
+  discount_percentage: number;
+  stock: number;
+  thumbnail: string;
+  status: string;
+  featured: number | string;
+  position: number;
+  slug: string;
+  average_rating?: number;
+  review_count?: number;
+  created_by_id?: number;
+}
+
+// 🔹 Dữ liệu form sản phẩm
+interface ProductFormData {
+  product_category_id: number | string;
+  title: string;
+  description: string;
+  price: number | string;
+  discount_percentage: number;
+  stock: number;
+  thumbnail: string;
+  status: string;
+  featured: number | string;
+  position: number | string;
+  slug: string;
+  average_rating: number;
+  review_count: number;
+  created_by_id: number;
+}
+
+const ProductsPage: React.FC = () => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  const [bulkAction, setBulkAction] = useState<string>("");
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(
+  const [searchTerm, setSearchTerm] = useState<string>(
     searchParams.get("keyword") || ""
   );
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [totalPages, setTotalPages] = useState(1); // ✅ thêm dòng này
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [totalPages, setTotalPages] = useState<number>(1);
 
   const statusFilter = searchParams.get("status") || "all";
   const currentPage = Number(searchParams.get("page")) || 1;
+  const navigate = useNavigate();
 
-  const [showForm, setShowForm] = useState(false);
-  const [formData, setFormData] = useState({
+  const [sortOrder, setSortOrder] = useState<string>("");
+  const [showForm, setShowForm] = useState<boolean>(false);
+
+  const [formData, setFormData] = useState<ProductFormData>({
     product_category_id: 1,
     title: "",
     description: "",
@@ -40,11 +81,7 @@ const ProductsPage = () => {
     created_by_id: 1,
   });
 
-  const navigate = useNavigate();
-
-  const [sortOrder, setSortOrder] = useState(""); // ✅ quản lý sắp xếp
-
-  // Gọi API lấy sản phẩm thật
+  // 🔹 Gọi API danh sách sản phẩm
   const fetchProducts = async () => {
     try {
       setLoading(true);
@@ -52,7 +89,7 @@ const ProductsPage = () => {
 
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (sortOrder) url += `&sort=${sortOrder}`; // ✅ thêm tham số sort
+      if (sortOrder) url += `&sort=${sortOrder}`;
       if (searchTerm.trim())
         url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
@@ -78,21 +115,19 @@ const ProductsPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, currentPage, sortOrder, searchTerm]);
 
+  // 🔹 Tự động cập nhật URL khi tìm kiếm
   useEffect(() => {
     const delay = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
-
       if (searchTerm.trim()) params.set("keyword", searchTerm.trim());
       else params.delete("keyword");
-
-      params.delete("page"); // reset về trang đầu khi tìm kiếm mới
+      params.delete("page");
       setSearchParams(params);
-    }, 500); // ⏳ debounce 0.5s
-
+    }, 500);
     return () => clearTimeout(delay);
   }, [searchTerm]);
 
-  // Lọc theo từ khóa tìm kiếm
+  // 🔹 Lọc hiển thị theo keyword
   const filteredProducts = products.filter(
     (product) =>
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -100,17 +135,16 @@ const ProductsPage = () => {
       product.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Các handler hành động
-  const handleAddProduct = () => {
-    setShowForm(true);
-  };
+  const handleAddProduct = () => setShowForm(true);
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     try {
@@ -142,8 +176,6 @@ const ProductsPage = () => {
           review_count: 0,
           created_by_id: 1,
         });
-
-        // ✅ reload lại danh sách (fetchProducts đã có sẵn)
         fetchProducts();
       } else {
         alert(json.message || "Không thể thêm sản phẩm!");
@@ -156,9 +188,10 @@ const ProductsPage = () => {
     }
   };
 
-  const handleEditProduct = (id) => navigate(`/admin/products/edit/${id}`);
+  const handleEditProduct = (id: number) =>
+    navigate(`/admin/products/edit/${id}`);
 
-  const handleDeleteProduct = async (id) => {
+  const handleDeleteProduct = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa sản phẩm này không?")) return;
 
     try {
@@ -172,7 +205,6 @@ const ProductsPage = () => {
       const json = await res.json();
 
       if (json.success) {
-        // ✅ Cập nhật lại UI ngay
         setProducts((prev) => prev.filter((p) => p.id !== id));
         alert("Đã xóa sản phẩm thành công!");
       } else {
@@ -186,13 +218,11 @@ const ProductsPage = () => {
     }
   };
 
-  // Toggle trạng thái sản phẩm
-  const handleToggleStatus = async (product) => {
+  const handleToggleStatus = async (product: Product) => {
     const newStatus =
       product.status.toLowerCase() === "active" ? "inactive" : "active";
 
     try {
-      // Gọi API cập nhật status
       const res = await fetch(`/api/v1/admin/products/${product.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -202,7 +232,6 @@ const ProductsPage = () => {
       const json = await res.json();
 
       if (json.success) {
-        // ✅ Cập nhật lại UI ngay mà không cần reload toàn bộ
         setProducts((prev) =>
           prev.map((p) =>
             p.id === product.id ? { ...p, status: newStatus } : p
@@ -217,7 +246,7 @@ const ProductsPage = () => {
     }
   };
 
-  const handleFilterChange = (filter) => {
+  const handleFilterChange = (filter: string) => {
     const params = new URLSearchParams(searchParams);
     if (filter === "all") params.delete("status");
     else params.set("status", filter);
@@ -319,7 +348,7 @@ const ProductsPage = () => {
                 </label>
                 <RichTextEditor
                   value={formData.description}
-                  onChange={(content) =>
+                  onChange={(content: string) =>
                     setFormData((prev) => ({ ...prev, description: content }))
                   }
                 />
@@ -383,7 +412,9 @@ const ProductsPage = () => {
                   type="file"
                   accept="image/*"
                   onChange={async (e) => {
-                    const file = e.target.files[0];
+                    const files = e.target.files;
+                    if (!files || files.length === 0) return;
+                    const file = files[0];
                     if (!file) return;
 
                     const formDataImg = new FormData();
@@ -546,8 +577,6 @@ const ProductsPage = () => {
             if (e.target.value) params.set("sort", e.target.value);
             else params.delete("sort");
             setSearchParams(params);
-
-            setCurrentPage(1); // ✅ reset về trang đầu
           }}
           className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
@@ -596,9 +625,14 @@ const ProductsPage = () => {
                   return;
 
                 try {
-                  let body = {
+                  let body: {
+                    ids: number[];
+                    updated_by_id: number;
+                    action?: string;
+                    value?: any;
+                  } = {
                     ids: selectedProducts,
-                    updated_by_id: 1, // ✅ tạm thời cố định, sau này lấy từ user login
+                    updated_by_id: 1,
                   };
 
                   // ✅ Gửi đúng định dạng theo action
@@ -774,7 +808,7 @@ const ProductsPage = () => {
                         type="number"
                         value={product.position || ""}
                         onChange={(e) => {
-                          const newPos = e.target.value;
+                          const newPos = Number(e.target.value); // ✅ ép kiểu rõ ràng
                           setProducts((prev) =>
                             prev.map((p) =>
                               p.id === product.id

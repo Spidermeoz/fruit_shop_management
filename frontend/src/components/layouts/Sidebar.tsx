@@ -1,23 +1,34 @@
-// src/components/ui/Sidebar.jsx
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Settings, ShoppingBag, Menu, X } from 'lucide-react';
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  Menu,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
-const sidebarItems = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  // { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Products', href: '/admin/products', icon: ShoppingBag },
-  // { name: 'Settings', href: '/settings', icon: Settings },
+// 🔹 Kiểu dữ liệu cho từng mục sidebar
+interface SidebarItem {
+  name: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+// 🔹 Danh sách menu sidebar
+const sidebarItems: SidebarItem[] = [
+  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Products", href: "/admin/products", icon: ShoppingBag },
 ];
 
-const Sidebar = () => {
+const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
   return (
     <div
       className={`${
-        isCollapsed ? 'w-20' : 'w-64'
+        isCollapsed ? "w-20" : "w-64"
       } bg-white dark:bg-gray-800 shadow-md flex flex-col transition-all duration-300 ease-in-out`}
     >
       {/* Header */}
@@ -28,7 +39,7 @@ const Sidebar = () => {
           </h1>
         )}
         <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={() => setIsCollapsed((prev) => !prev)}
           className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           {isCollapsed ? (
@@ -44,10 +55,10 @@ const Sidebar = () => {
         {sidebarItems.map((item) => {
           const Icon = item.icon;
 
-          // ✅ Active logic: check nếu path hiện tại bắt đầu bằng đường dẫn của item
+          // ✅ Check active route
           const isActive =
             location.pathname === item.href ||
-            location.pathname.startsWith(item.href + '/');
+            location.pathname.startsWith(item.href + "/");
 
           return (
             <Link
@@ -55,8 +66,8 @@ const Sidebar = () => {
               to={item.href}
               className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-blue-500 text-white'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  ? "bg-blue-500 text-white"
+                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
               }`}
             >
               <Icon className="w-6 h-6" />

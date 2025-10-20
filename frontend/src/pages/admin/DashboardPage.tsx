@@ -1,4 +1,3 @@
-// src/pages/DashboardPage.jsx
 import React from "react";
 import Card from "../../components/layouts/Card";
 import RevenueChart from "../../components/charts/LineChart";
@@ -6,8 +5,17 @@ import SalesByCategoryChart from "../../components/charts/BarChart";
 import TrafficSourcesChart from "../../components/charts/PieChart";
 import RecentTransactions from "../../components/layouts/RecentTransactions";
 import { TrendingUp, Users, DollarSign, ShoppingCart } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const statCards = [
+interface StatCard {
+  title: string;
+  value: string;
+  icon: LucideIcon;
+  change: string;
+  changeType: "positive" | "negative";
+}
+
+const statCards: StatCard[] = [
   {
     title: "Total Revenue",
     value: "$54,239",
@@ -38,7 +46,7 @@ const statCards = [
   },
 ];
 
-const DashboardPage = () => {
+const DashboardPage: React.FC = () => {
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">

@@ -1,26 +1,48 @@
 import React, { useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../components/layouts/Card";
 import RichTextEditor from "../../components/common/RichTextEditor";
 
-const ProductEditPage = () => {
-  const { id } = useParams();
+// 🔹 Kiểu dữ liệu sản phẩm
+interface Product {
+  id: number;
+  title: string;
+  description: string;
+  product_category_id: number | string;
+  price: number;
+  discount_percentage: number;
+  stock: number;
+  thumbnail: string;
+  status: "active" | "inactive";
+  featured: number;
+  position: number;
+}
+
+// 🔹 Kiểu dữ liệu danh mục
+interface Category {
+  id: number;
+  title: string;
+}
+
+const ProductEditPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [product, setProduct] = useState(null);
-  const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [product, setProduct] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
-  // ✅ Lấy dữ liệu sản phẩm theo ID
+  // ✅ Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
     try {
       setLoading(true);
       const res = await fetch(`/api/v1/admin/products/edit/${id}`);
       const json = await res.json();
-      if (json.success && json.data) setProduct(json.data);
+      if (json.success && json.data) setProduct(json.data as Product);
       else setError(json.message || "Không tìm thấy sản phẩm.");
     } catch (err) {
       console.error(err);
@@ -30,43 +52,60 @@ const ProductEditPage = () => {
     }
   };
 
-  // ✅ Lấy danh mục sản phẩm
+  // ✅ Lấy danh mục
   const fetchCategories = async () => {
     try {
       const res = await fetch("/api/v1/admin/categories");
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) setCategories(json.data);
-      else setCategories([]);
+      if (json.success && Array.isArray(json.data)) {
+        setCategories(json.data as Category[]);
+      } else {
+        setCategories([]);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
-  // ✅ Fetch khi load trang
   useEffect(() => {
     fetchProduct();
     fetchCategories();
   }, [id]);
 
-  // ✅ Cập nhật state khi nhập liệu
-  const handleChange = (e) => {
-    const { name, value, type } = e.target;
-    setProduct((prev) => ({
-      ...prev,
-      [name]:
-        type === "number"
-          ? Number(value)
-          : type === "checkbox"
-          ? e.target.checked
-            ? 1
-            : 0
-          : value,
-    }));
+  // ✅ Xử lý thay đổi input
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const { name, type, value } = e.target;
+
+  // ép kiểu đúng cho input có checked
+  const target = e.target as HTMLInputElement;
+  const checked = target.checked;
+
+  setProduct((prev) =>
+    prev
+      ? {
+          ...prev,
+          [name]:
+            type === "number"
+              ? Number(value)
+              : type === "checkbox"
+              ? checked
+                ? 1
+                : 0
+              : value,
+        }
+      : prev
+  );
+};
+
+  // ✅ Cập nhật mô tả (RichTextEditor)
+  const handleDescriptionChange = (content: string) => {
+    setProduct((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
-  // ✅ Gửi API cập nhật sản phẩm
-  const handleSave = async (e) => {
+  // ✅ Gửi API lưu thay đổi
+  const handleSave = async (e: FormEvent) => {
     e.preventDefault();
+    if (!product) return;
     if (!product.title) {
       alert("Vui lòng nhập tên sản phẩm.");
       return;
@@ -79,6 +118,7 @@ const ProductEditPage = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(product),
       });
+
       const json = await res.json();
       if (json.success) {
         alert("Cập nhật sản phẩm thành công!");
@@ -165,9 +205,7 @@ const ProductEditPage = () => {
           {/* Mô tả */}
           <RichTextEditor
             value={product.description}
-            onChange={(content) =>
-              setProduct((prev) => ({ ...prev, description: content }))
-            }
+            onChange={handleDescriptionChange}
           />
 
           {/* Giá & Giảm giá */}
@@ -199,7 +237,7 @@ const ProductEditPage = () => {
             </div>
           </div>
 
-          {/* Số lượng & Vị trí */}
+          {/* Số lượng & vị trí */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">

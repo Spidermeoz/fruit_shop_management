@@ -1,15 +1,26 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-const Pagination = ({ currentPage, totalPages, onPageChange }) => {
-//   if (totalPages <= 1) return null;
+// ✅ Định nghĩa kiểu props rõ ràng
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
 
-  const pages = [];
-  for (let i = 1; i <= totalPages; i++) pages.push(i);
+const Pagination: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  onPageChange,
+}) => {
+  // Nếu chỉ có 1 trang, không hiển thị phân trang
+  if (totalPages <= 1) return null;
+
+  const pages = Array.from({ length: totalPages }, (_, i) => i + 1);
 
   return (
     <div className="flex justify-center items-center gap-2 mt-6 select-none">
-      {/* Prev */}
+      {/* Nút Prev */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
@@ -18,7 +29,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         <ChevronLeft className="w-4 h-4" />
       </button>
 
-      {/* Numbers */}
+      {/* Danh sách số trang */}
       {pages.map((page) => (
         <button
           key={page}
@@ -33,7 +44,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => {
         </button>
       ))}
 
-      {/* Next */}
+      {/* Nút Next */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}

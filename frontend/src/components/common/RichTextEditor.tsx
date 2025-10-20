@@ -1,9 +1,17 @@
 import React from "react";
 import { Editor } from "@tinymce/tinymce-react";
 
-const RichTextEditor = ({ value, onChange }) => {
-  // ✅ Dùng API backend sẵn có
-  const uploadImage = async (blobInfo, progress) => {
+interface RichTextEditorProps {
+  value: string;
+  onChange?: (content: string) => void;
+}
+
+const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
+  // ✅ Hàm upload ảnh qua API backend
+  const uploadImage = async (
+    blobInfo: any,
+    _progress: (percent: number) => void
+  ): Promise<string> => {
     const formData = new FormData();
     formData.append("file", blobInfo.blob());
 
@@ -18,7 +26,7 @@ const RichTextEditor = ({ value, onChange }) => {
       throw new Error("Không thể upload ảnh!");
     }
 
-    // ✅ Trả về URL cho TinyMCE tự chèn vào nội dung
+    // ✅ Trả về URL ảnh để TinyMCE tự chèn vào nội dung
     return data.url;
   };
 
@@ -29,7 +37,7 @@ const RichTextEditor = ({ value, onChange }) => {
         height: 450,
         menubar: true,
         branding: false,
-        license_key: "gpl", // ✅ không cần key, chế độ open-source
+        licenseKey: 'gpl', // ✅ open-source mode, không cần key
         plugins:
           "advlist autolink lists link image charmap preview anchor " +
           "searchreplace visualblocks code fullscreen " +
@@ -40,15 +48,18 @@ const RichTextEditor = ({ value, onChange }) => {
           "bullist numlist outdent indent | link image | removeformat | help",
         automatic_uploads: true,
         file_picker_types: "image",
-        // ✅ Cho phép chọn ảnh từ máy local
-        file_picker_callback: (callback, value, meta) => {
+
+        // ✅ Cho phép upload ảnh thủ công từ local
+        file_picker_callback: (callback, _value, meta) => {
           if (meta.filetype === "image") {
             const input = document.createElement("input");
-            input.setAttribute("type", "file");
-            input.setAttribute("accept", "image/*");
+            input.type = "file";
+            input.accept = "image/*";
 
-            input.onchange = async function () {
-              const file = this.files[0];
+            input.onchange = async () => {
+              const file = input.files?.[0];
+              if (!file) return;
+
               const formData = new FormData();
               formData.append("file", file);
 
@@ -57,7 +68,6 @@ const RichTextEditor = ({ value, onChange }) => {
                   method: "POST",
                   body: formData,
                 });
-
                 const data = await res.json();
 
                 if (data.success && data.url) {
@@ -74,8 +84,10 @@ const RichTextEditor = ({ value, onChange }) => {
             input.click();
           }
         },
+
         // ✅ Khi dán hoặc kéo ảnh vào editor
         images_upload_handler: uploadImage,
+
         content_style: `
           body {
             font-family: Helvetica, Arial, sans-serif;

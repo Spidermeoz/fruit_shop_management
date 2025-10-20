@@ -1,14 +1,14 @@
-// src/components/DashboardHeader.jsx
 import React from "react";
+import { Moon, Sun, Bell } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext";
-import { Moon, Sun, Search, Bell } from "lucide-react";
 
-const DashboardHeader = () => {
+const DashboardHeader: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm z-10">
       <div className="flex items-center justify-between px-6 py-4">
+        {/* Left Section (Search - hiện tạm ẩn) */}
         <div className="flex items-center space-x-4">
           {/* <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -19,7 +19,10 @@ const DashboardHeader = () => {
             />
           </div> */}
         </div>
+
+        {/* Right Section */}
         <div className="flex items-center space-x-4">
+          {/* Toggle Theme */}
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -30,10 +33,14 @@ const DashboardHeader = () => {
               <Sun className="w-5 h-5 text-yellow-400" />
             )}
           </button>
+
+          {/* Notification Bell */}
           <button className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 relative">
             <Bell className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full" />
           </button>
+
+          {/* Avatar */}
           <img
             src="https://i.pravatar.cc/40"
             alt="User Avatar"
