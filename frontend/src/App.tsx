@@ -26,6 +26,7 @@ import ForgotPasswordPage from "./pages/client/ForgotPasswordPage";
 import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
+import ProductCreatePage from "./pages/admin/ProductCreatePage";
 
 const App: React.FC = () => {
   return (
@@ -51,6 +52,7 @@ const App: React.FC = () => {
                       path="products/edit/:id"
                       element={<ProductEditPage />}
                     />
+                    <Route path="/products/create" element={<ProductCreatePage />} />
                   </Routes>
                 </main>
               </div>
