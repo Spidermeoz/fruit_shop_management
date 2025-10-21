@@ -1,8 +1,12 @@
 import React, { useEffect, useState } from "react";
 import Card from "../../../components/layouts/Card";
-import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
+import { Search, Plus, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
+import {
+  buildCategoryTree,
+  CategoryTreeTableBody,
+} from "../../../utils/categoryTree";
 
 interface ProductCategory {
   id: number;
@@ -266,6 +270,22 @@ const ProductCategoryPage: React.FC = () => {
         </div>
       )}
 
+      {/* Nút mở/thu tất cả */}
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => (window as any).expandAllCategories?.()}
+          className="px-3 py-1 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700 transition mr-2"
+        >
+          Mở tất cả
+        </button>
+        <button
+          onClick={() => (window as any).collapseAllCategories?.()}
+          className="px-3 py-1 text-xs rounded-md bg-gray-500 text-white hover:bg-gray-600 transition"
+        >
+          Thu gọn tất cả
+        </button>
+      </div>
+
       {/* Table */}
       <Card>
         <div className="overflow-x-auto">
@@ -283,10 +303,10 @@ const ProductCategoryPage: React.FC = () => {
               Không có danh mục nào.
             </p>
           ) : (
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+            <table className="min-w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <thead className="bg-gray-100 dark:bg-gray-800">
                 <tr>
-                  <th className="px-4 py-3 text-center">
+                  <th className="w-[50px] px-3 py-3 text-center">
                     <input
                       type="checkbox"
                       checked={
@@ -302,122 +322,34 @@ const ProductCategoryPage: React.FC = () => {
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    STT
+                  <th className="w-[80px] px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
+                    Ảnh
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Tên danh mục
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[120px] text-center px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Vị trí
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[130px] text-center px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Trạng thái
                   </th>
-                  <th className="relative px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="w-[150px] text-right px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Hành động
                   </th>
                 </tr>
               </thead>
+
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {categories.map((cat, index) => (
-                  <tr
-                    key={cat.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    <td className="px-4 py-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedCategories.includes(cat.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedCategories((prev) => [...prev, cat.id]);
-                          } else {
-                            setSelectedCategories((prev) =>
-                              prev.filter((id) => id !== cat.id)
-                            );
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-4 py-4 text-center text-sm text-gray-700 dark:text-gray-300">
-                      {(currentPage - 1) * 10 + index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <img
-                        src={
-                          cat.thumbnail ||
-                          "https://via.placeholder.com/60x60?text=No+Image"
-                        }
-                        alt={cat.title}
-                        className="h-10 w-10 rounded-md object-cover border border-gray-300 dark:border-gray-600"
-                      />
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      {cat.title}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      <input
-                        type="number"
-                        value={cat.position || ""}
-                        onChange={(e) => {
-                          const newPos = Number(e.target.value);
-                          setCategories((prev) =>
-                            prev.map((c) =>
-                              c.id === cat.id ? { ...c, position: newPos } : c
-                            )
-                          );
-                        }}
-                        className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
-                      />
-                    </td>
-                    <td className="px-6 py-4 cursor-pointer">
-                      <span
-                        onClick={() => handleToggleStatus(cat)}
-                        title="Click để đổi trạng thái"
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full cursor-pointer ${
-                          cat.status?.toLowerCase() === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200"
-                        }`}
-                      >
-                        {cat.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() =>
-                            navigate(`/admin/product-category/detail/${cat.id}`)
-                          }
-                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            navigate(`/admin/product-category/edit/${cat.id}`)
-                          }
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(cat.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                <CategoryTreeTableBody
+                  categories={buildCategoryTree(categories)}
+                  selectedCategories={selectedCategories}
+                  setSelectedCategories={setSelectedCategories}
+                  setCategories={setCategories}
+                  navigate={navigate}
+                  handleToggleStatus={handleToggleStatus}
+                  handleDelete={handleDelete}
+                />
               </tbody>
             </table>
           )}
