@@ -5,6 +5,7 @@ import {
   ShoppingBag,
   Menu,
   X,
+  FolderTree,
   type LucideIcon,
 } from "lucide-react";
 
@@ -19,6 +20,7 @@ interface SidebarItem {
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
+  { name: "Categories", href: "/admin/product-category", icon: FolderTree },
 ];
 
 const Sidebar: React.FC = () => {

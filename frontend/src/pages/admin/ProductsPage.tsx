@@ -61,24 +61,6 @@ const ProductsPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [sortOrder, setSortOrder] = useState<string>("");
-  const [showForm, setShowForm] = useState<boolean>(false);
-
-  const [formData, setFormData] = useState<ProductFormData>({
-    product_category_id: 1,
-    title: "",
-    description: "",
-    price: "",
-    discount_percentage: 0,
-    stock: 0,
-    thumbnail: "",
-    status: "active",
-    featured: 0,
-    position: 0,
-    slug: "",
-    average_rating: 0,
-    review_count: 0,
-    created_by_id: 1,
-  });
 
   // 🔹 Gọi API danh sách sản phẩm
   const fetchProducts = async () => {
