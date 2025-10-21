@@ -9,6 +9,9 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import ProductsPage from "./pages/admin/products/ProductsPage";
 import ProductEditPage from "./pages/admin/products/ProductEditPage";
 import ProductDetailPage from "./pages/admin/products/ProductDetailPage";
+import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
+import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryPage";
+import ProductCategoryCreatePage from "./pages/admin/product-category/ProductCategoryCreatePage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -26,8 +29,6 @@ import ForgotPasswordPage from "./pages/client/ForgotPasswordPage";
 import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
-import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
-import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryPage";
 
 const App: React.FC = () => {
   return (
@@ -54,12 +55,16 @@ const App: React.FC = () => {
                       element={<ProductEditPage />}
                     />
                     <Route
-                      path="/products/create"
+                      path="products/create"
                       element={<ProductCreatePage />}
                     />
                     <Route
                       path="product-category"
                       element={<ProductCategoryPage />}
+                    />
+                    <Route
+                      path="product-category/create"
+                      element={<ProductCategoryCreatePage />}
                     />
                   </Routes>
                 </main>

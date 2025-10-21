@@ -102,7 +102,7 @@ export const index = async (req: Request, res: Response) => {
   }
 };
 
-// POST /api/v1/admin/product-category
+// POST /api/v1/admin/product-category/create
 export const create = async (req: Request, res: Response) => {
   try {
     const payload = req.body as Partial<Record<string, any>>;
@@ -115,7 +115,7 @@ export const create = async (req: Request, res: Response) => {
       });
     }
 
-    // Nếu có parent_id, đảm bảo parent tồn tại và chưa bị xóa
+    // ✅ Kiểm tra parent_id (nếu có)
     if (payload.parent_id) {
       const parent = await ProductCategory.findOne({
         where: { id: payload.parent_id, deleted: 0 },
@@ -128,14 +128,47 @@ export const create = async (req: Request, res: Response) => {
       }
     }
 
-    // ===== Tạo danh mục =====
+    // ✅ Tính position nếu không được gửi
+    let position: number;
+    if (
+      payload.position === undefined ||
+      payload.position === null ||
+      payload.position === ""
+    ) {
+      const whereCondition: any = { deleted: 0 };
+      if (
+        payload.parent_id === undefined ||
+        payload.parent_id === null ||
+        payload.parent_id === ""
+      ) {
+        whereCondition.parent_id = { [Op.is]: null };
+      } else {
+        whereCondition.parent_id = payload.parent_id;
+      }
+
+      const maxCategory = await ProductCategory.findOne({
+        where: whereCondition,
+        order: [["position", "DESC"]],
+        attributes: ["position"],
+        raw: true,
+      });
+
+      position = maxCategory?.position ? Number(maxCategory.position) + 1 : 1;
+    } else {
+      position = Number(payload.position);
+    }
+
+    // ✅ Tạo danh mục
     const newCategory = await ProductCategory.create({
       title: payload.title,
-      parent_id: payload.parent_id ?? null,
+      parent_id:
+        payload.parent_id === undefined || payload.parent_id === ""
+          ? null
+          : payload.parent_id,
       description: payload.description ?? null,
       thumbnail: payload.thumbnail ?? null,
       status: payload.status ?? "active",
-      position: payload.position ?? null,
+      position,
       deleted: 0,
       deleted_at: null,
     });
