@@ -12,6 +12,7 @@ import ProductDetailPage from "./pages/admin/products/ProductDetailPage";
 import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
 import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryPage";
 import ProductCategoryCreatePage from "./pages/admin/product-category/ProductCategoryCreatePage";
+import ProductCategoryDetailPage from "./pages/admin/product-category/ProductCategoryDetailPage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -65,6 +66,10 @@ const App: React.FC = () => {
                     <Route
                       path="product-category/create"
                       element={<ProductCategoryCreatePage />}
+                    />
+                    <Route
+                      path="product-category/detail/:id"
+                      element={<ProductCategoryDetailPage />}
                     />
                   </Routes>
                 </main>

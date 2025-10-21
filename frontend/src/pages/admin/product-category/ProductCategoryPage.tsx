@@ -391,7 +391,7 @@ const ProductCategoryPage: React.FC = () => {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() =>
-                            navigate(`/admin/product-category/${cat.id}`)
+                            navigate(`/admin/product-category/detail/${cat.id}`)
                           }
                           className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                           title="Xem chi tiết"

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, Edit } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 
 // 🔹 Định nghĩa kiểu sản phẩm
@@ -88,19 +88,26 @@ const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="p-4">
-      {/* Nút quay lại */}
-      <button
-        onClick={() => navigate("/admin/products")}
-        className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 mb-4"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span>Quay lại danh sách</span>
-      </button>
-
-      {/* Tiêu đề */}
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
-        Chi tiết sản phẩm
-      </h1>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+          Chi tiết sản phẩm
+        </h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate(`/admin/products/edit/${id}`)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md"
+          >
+            <Edit className="w-4 h-4" /> Chỉnh sửa
+          </button>
+          <button
+            onClick={() => navigate("/admin/products")}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại
+          </button>
+        </div>
+      </div>
 
       {/* Nội dung chính */}
       <Card>

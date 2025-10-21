@@ -190,68 +190,66 @@ export const create = async (req: Request, res: Response) => {
 // GET /api/v1/admin/product-category/detail/:id
 export const detail = async (req: Request, res: Response) => {
   try {
-    const id = Number(req.params.id);
+    const { id } = req.params;
 
-    if (!id) {
+    // ✅ Validate ID
+    const categoryId = Number(id);
+    if (!categoryId || isNaN(categoryId)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid category ID",
+        message: "Invalid category ID.",
       });
     }
 
-    // Lấy thông tin danh mục chính
+    // ✅ Lấy chi tiết danh mục + danh mục cha bằng quan hệ Sequelize
     const category = await ProductCategory.findOne({
-      where: { id, deleted: 0 },
-      raw: true,
+      where: {
+        id: categoryId,
+        deleted: 0,
+      },
+      include: [
+        {
+          model: ProductCategory,
+          as: "parent", // 👈 nhờ quan hệ belongsTo
+          attributes: ["id", "title"],
+        },
+      ],
+      attributes: [
+        "id",
+        "title",
+        "parent_id",
+        "description",
+        "thumbnail",
+        "status",
+        "position",
+        "slug",
+        "created_at",
+        "updated_at",
+      ],
     });
 
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: "Product category not found",
+        message: "Category not found.",
       });
     }
 
-    // Lấy danh mục cha (nếu có)
-    let parent = null;
-    if (category.parent_id) {
-      parent = await ProductCategory.findOne({
-        where: { id: category.parent_id, deleted: 0 },
-        attributes: ["id", "title", "slug"],
-        raw: true,
-      });
-    }
-
-    // Lấy danh sách danh mục con
-    const children = await ProductCategory.findAll({
-      where: { parent_id: id, deleted: 0 },
-      attributes: ["id", "title", "slug", "status", "position"],
-      order: [["position", "ASC"]],
-      raw: true,
-    });
-
-    // (Tuỳ chọn) Lấy tổng số sản phẩm thuộc danh mục này
-    const productCount = await Product.count({
-      where: { product_category_id: id, deleted: 0 },
-    });
+    // ✅ Chuyển dữ liệu trả về
+    const data = {
+      ...category.get({ plain: true }),
+      parent_name: category.parent ? category.parent.title : null,
+    };
 
     return res.status(200).json({
       success: true,
-      data: {
-        ...category,
-        parent,
-        children,
-        product_count: productCount,
-      },
-      meta: {
-        fetchedAt: new Date().toISOString(),
-      },
+      data,
     });
-  } catch (error) {
-    console.error("getProductCategoryById error:", error);
+  } catch (error: any) {
+    console.error("detailProductCategory error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: error?.message || "Internal server error",
     });
   }
 };

@@ -1,0 +1,203 @@
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { ArrowLeft, Loader2, Edit } from "lucide-react";
+import Card from "../../../components/layouts/Card";
+
+// 🔹 Kiểu dữ liệu danh mục
+interface ProductCategory {
+  id: number;
+  title: string;
+  description?: string;
+  thumbnail?: string;
+  parent_id?: number | null;
+  parent_name?: string;
+  status: string;
+  position: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+const ProductCategoryDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+
+  const [category, setCategory] = useState<ProductCategory | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  // 🔹 Gọi API chi tiết danh mục
+  const fetchCategoryDetail = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch(`/api/v1/admin/product-category/detail/${id}`);
+      const json = await res.json();
+
+      if (json.success && json.data) {
+        setCategory(json.data);
+      } else {
+        setError(json.message || "Không thể tải thông tin danh mục.");
+      }
+    } catch (err) {
+      console.error("Fetch category detail error:", err);
+      setError("Lỗi kết nối server.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategoryDetail();
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải chi tiết danh mục...
+        </span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return <p className="text-center text-red-500 py-10">{error}</p>;
+  }
+
+  if (!category) {
+    return (
+      <p className="text-center text-gray-500 py-10">
+        Không tìm thấy danh mục.
+      </p>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+          Chi tiết danh mục
+        </h1>
+        <div className="flex gap-3">
+          <button
+            onClick={() => navigate(`/admin/product-category/edit/${id}`)}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md"
+          >
+            <Edit className="w-4 h-4" /> Chỉnh sửa
+          </button>
+          <button
+            onClick={() => navigate("/admin/product-category")}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          >
+            <ArrowLeft className="w-4 h-4" /> Quay lại
+          </button>
+        </div>
+      </div>
+
+      <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Ảnh danh mục */}
+          <div>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">
+              Ảnh minh họa
+            </label>
+            {category.thumbnail ? (
+              <img
+                src={category.thumbnail}
+                alt={category.title}
+                className="rounded-lg border border-gray-300 dark:border-gray-700 w-full max-w-sm object-cover"
+              />
+            ) : (
+              <div className="w-full max-w-sm h-40 bg-gray-100 dark:bg-gray-800 flex items-center justify-center rounded-md text-gray-500 dark:text-gray-400">
+                Không có ảnh
+              </div>
+            )}
+          </div>
+
+          {/* Thông tin cơ bản */}
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
+                {category.title}
+              </h2>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                #{category.id}
+              </p>
+            </div>
+
+            <div>
+              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Danh mục cha:
+              </span>
+              <p className="text-gray-800 dark:text-gray-200 font-medium">
+                {category.parent_name || "— (Danh mục gốc)"}
+              </p>
+            </div>
+
+            <div>
+              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Vị trí hiển thị:
+              </span>
+              <p className="text-gray-800 dark:text-gray-200 font-medium">
+                {category.position}
+              </p>
+            </div>
+
+            <div>
+              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Trạng thái:
+              </span>
+              <span
+                className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
+                  category.status === "active"
+                    ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200"
+                    : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-200"
+                }`}
+              >
+                {category.status === "active"
+                  ? "Hoạt động"
+                  : "Dừng hoạt động"}
+              </span>
+            </div>
+
+            <div>
+              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                Ngày tạo:
+              </span>
+              <p className="text-gray-800 dark:text-gray-200">
+                {new Date(category.created_at).toLocaleString("vi-VN")}
+              </p>
+            </div>
+
+            {category.updated_at && (
+              <div>
+                <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+                  Cập nhật lần cuối:
+                </span>
+                <p className="text-gray-800 dark:text-gray-200">
+                  {new Date(category.updated_at).toLocaleString("vi-VN")}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Mô tả danh mục */}
+        {category.description && (
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+              Mô tả
+            </h3>
+            <div
+              className="prose dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: category.description }}
+            />
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+};
+
+export default ProductCategoryDetailPage;

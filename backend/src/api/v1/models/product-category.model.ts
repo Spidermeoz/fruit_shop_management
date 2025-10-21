@@ -21,13 +21,18 @@ interface ProductCategoryAttributes {
   updated_at?: Date;
 }
 
-type ProductCategoryCreationAttributes = Optional<ProductCategoryAttributes, "id" | "slug" | "deleted" | "deleted_at" | "created_at" | "updated_at">;
+type ProductCategoryCreationAttributes = Optional<
+  ProductCategoryAttributes,
+  "id" | "slug" | "deleted" | "deleted_at" | "created_at" | "updated_at"
+>;
 
 // ==============================
 // Model Class
 // ==============================
-class ProductCategory extends Model<ProductCategoryAttributes, ProductCategoryCreationAttributes>
-  implements ProductCategoryAttributes {
+class ProductCategory
+  extends Model<ProductCategoryAttributes, ProductCategoryCreationAttributes>
+  implements ProductCategoryAttributes
+{
   public id!: number;
   public title!: string;
   public parent_id!: number | null;
@@ -40,6 +45,8 @@ class ProductCategory extends Model<ProductCategoryAttributes, ProductCategoryCr
   public deleted_at!: Date | null;
   public created_at!: Date;
   public updated_at!: Date;
+  public parent?: ProductCategory | null;
+  public children?: ProductCategory[];
 }
 
 ProductCategory.init(
@@ -96,7 +103,12 @@ ProductCategory.init(
 // Hooks & Slug logic (giữ nguyên)
 // ==============================
 function makeBaseSlug(source: string) {
-  return slugify(source, { lower: true, strict: true, locale: "vi", trim: true });
+  return slugify(source, {
+    lower: true,
+    strict: true,
+    locale: "vi",
+    trim: true,
+  });
 }
 
 async function ensureUniqueSlug(base: string, idToExclude?: number) {
