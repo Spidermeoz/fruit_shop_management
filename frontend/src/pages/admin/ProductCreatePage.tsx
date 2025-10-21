@@ -2,8 +2,10 @@
 import React, { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import Card from "../../components/layouts/Card";
 import RichTextEditor from "../../components/common/RichTextEditor";
+import { uploadImagesInContent } from "../../utils/uploadImagesInContent";
 
 interface ProductFormData {
   product_category_id: number | string;
@@ -64,39 +66,46 @@ const ProductCreatePage: React.FC = () => {
     setPreviewImage(URL.createObjectURL(file)); // hiển thị ảnh tạm
   };
 
-  // ✅ Khi nhấn Lưu → mới upload ảnh nếu có chọn
+  // ✅ Khi nhấn Lưu → mới upload ảnh thật và ảnh trong nội dung
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     try {
       setLoading(true);
 
-      let thumbnailUrl = formData.thumbnail;
+      let uploadedThumbnailUrl = formData.thumbnail;
 
-      // Nếu user có chọn ảnh → upload trước khi tạo sản phẩm
+      // 🔹 Nếu người dùng có chọn file thumbnail thì upload lên server
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-
         const uploadRes = await fetch("/api/v1/admin/upload", {
           method: "POST",
           body: formDataImg,
         });
-
-        const uploadData = await uploadRes.json();
-        if (uploadData.success) {
-          thumbnailUrl = uploadData.url;
+        const uploadJson = await uploadRes.json();
+        if (uploadJson.success && uploadJson.url) {
+          uploadedThumbnailUrl = uploadJson.url;
         } else {
-          alert("❌ Lỗi tải ảnh lên Cloudinary, vui lòng thử lại");
+          alert("Không thể upload ảnh minh họa!");
           return;
         }
       }
 
-      // ✅ Sau khi có thumbnailUrl mới gọi API tạo sản phẩm
+      // 🔹 Upload ảnh trong nội dung TinyMCE trước khi gửi
+      const updatedDescription = await uploadImagesInContent(
+        formData.description
+      );
+
+      // 🔹 Gửi dữ liệu sản phẩm lên server
       const res = await fetch("/api/v1/admin/products/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, thumbnail: thumbnailUrl }),
+        body: JSON.stringify({
+          ...formData,
+          thumbnail: uploadedThumbnailUrl,
+          description: updatedDescription,
+        }),
       });
 
       const json = await res.json();
@@ -116,9 +125,17 @@ const ProductCreatePage: React.FC = () => {
 
   return (
     <Card>
-      <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">
-        Thêm sản phẩm mới
-      </h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+          Thêm sản phẩm
+        </h1>
+        <button
+          onClick={() => navigate("/admin/products")}
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+        >
+          <ArrowLeft className="w-4 h-4" /> Quay lại
+        </button>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* --- Tên sản phẩm --- */}
@@ -223,13 +240,7 @@ const ProductCreatePage: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Ảnh minh họa
           </label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleImageSelect}
-          />
-
-          {/* ✅ Preview ảnh local */}
+          <input type="file" accept="image/*" onChange={handleImageSelect} />
           {previewImage && (
             <div className="mt-3">
               <img
@@ -271,7 +282,9 @@ const ProductCreatePage: React.FC = () => {
                 onChange={handleInputChange}
                 className="text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-gray-800 dark:text-gray-200">Hoạt động</span>
+              <span className="text-gray-800 dark:text-gray-200">
+                Hoạt động
+              </span>
             </label>
             <label className="flex items-center space-x-2">
               <input

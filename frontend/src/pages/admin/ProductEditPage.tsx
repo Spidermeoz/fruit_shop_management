@@ -1,10 +1,11 @@
-// src/pages/ProductEditPage.tsx
+// src/pages/admin/ProductEditPage.tsx
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../components/layouts/Card";
 import RichTextEditor from "../../components/common/RichTextEditor";
+import { uploadImagesInContent } from "../../utils/uploadImagesInContent";
 
 interface Product {
   id: number;
@@ -35,11 +36,11 @@ const ProductEditPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  // ✅ file ảnh mới (để upload khi lưu)
+  // ✅ file ảnh mới (chưa upload)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
 
-  // ✅ Lấy dữ liệu sản phẩm
+  // 🔹 Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
     try {
       setLoading(true);
@@ -47,7 +48,7 @@ const ProductEditPage: React.FC = () => {
       const json = await res.json();
       if (json.success && json.data) {
         setProduct(json.data as Product);
-        setPreviewImage(json.data.thumbnail); // hiển thị ảnh cũ
+        setPreviewImage(json.data.thumbnail);
       } else {
         setError(json.message || "Không tìm thấy sản phẩm.");
       }
@@ -59,7 +60,7 @@ const ProductEditPage: React.FC = () => {
     }
   };
 
-  // ✅ Lấy danh mục
+  // 🔹 Lấy danh mục
   const fetchCategories = async () => {
     try {
       const res = await fetch("/api/v1/admin/categories");
@@ -79,7 +80,7 @@ const ProductEditPage: React.FC = () => {
     fetchCategories();
   }, [id]);
 
-  // ✅ Xử lý input
+  // 🔹 Xử lý input
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, type, value } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -101,12 +102,12 @@ const ProductEditPage: React.FC = () => {
     );
   };
 
-  // ✅ Mô tả
+  // 🔹 Mô tả
   const handleDescriptionChange = (content: string) => {
     setProduct((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
-  // ✅ Chọn ảnh (preview local)
+  // 🔹 Chọn ảnh mới → chỉ preview
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -114,7 +115,7 @@ const ProductEditPage: React.FC = () => {
     setPreviewImage(URL.createObjectURL(file));
   };
 
-  // ✅ Lưu sản phẩm (có upload ảnh nếu chọn)
+  // ✅ Lưu sản phẩm (upload thumbnail và ảnh trong mô tả)
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!product) return;
@@ -125,14 +126,12 @@ const ProductEditPage: React.FC = () => {
 
     try {
       setSaving(true);
-
       let thumbnailUrl = product.thumbnail;
 
-      // Nếu có ảnh mới → upload trước
+      // 🔸 Upload ảnh thumbnail nếu có chọn mới
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-
         const resUpload = await fetch("/api/v1/admin/upload", {
           method: "POST",
           body: formDataImg,
@@ -142,22 +141,29 @@ const ProductEditPage: React.FC = () => {
         if (dataUpload.success) {
           thumbnailUrl = dataUpload.url;
         } else {
-          alert("❌ Lỗi tải ảnh lên Cloudinary");
+          alert("❌ Lỗi tải ảnh thumbnail lên Cloudinary");
           return;
         }
       }
 
-      // ✅ Gửi PATCH cập nhật
+      // 🔸 Upload ảnh trong nội dung TinyMCE (lazy upload)
+      const updatedDescription = await uploadImagesInContent(product.description);
+
+      // 🔸 Gửi PATCH cập nhật
       const res = await fetch(`/api/v1/admin/products/edit/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...product, thumbnail: thumbnailUrl }),
+        body: JSON.stringify({
+          ...product,
+          thumbnail: thumbnailUrl,
+          description: updatedDescription,
+        }),
       });
 
       const json = await res.json();
       if (json.success) {
         alert("✅ Cập nhật sản phẩm thành công!");
-        navigate("/admin/products");
+        navigate(`/admin/products/edit/${id}`);
       } else {
         alert(json.message || "Cập nhật thất bại.");
       }
@@ -298,7 +304,7 @@ const ProductEditPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Ảnh sản phẩm (preview & upload) */}
+          {/* Ảnh sản phẩm */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Ảnh sản phẩm
@@ -311,7 +317,6 @@ const ProductEditPage: React.FC = () => {
                   alt="preview"
                   className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
                 />
-                {/* Nút xóa ảnh */}
                 <button
                   type="button"
                   onClick={() => {
@@ -326,7 +331,7 @@ const ProductEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Nổi bật & trạng thái */}
+          {/* Nổi bật & Trạng thái */}
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2">
               <input
