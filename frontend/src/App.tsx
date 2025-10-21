@@ -30,6 +30,7 @@ import ForgotPasswordPage from "./pages/client/ForgotPasswordPage";
 import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
+import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
 
 const App: React.FC = () => {
   return (
@@ -70,6 +71,10 @@ const App: React.FC = () => {
                     <Route
                       path="product-category/detail/:id"
                       element={<ProductCategoryDetailPage />}
+                    />
+                    <Route
+                      path="product-category/edit/:id"
+                      element={<ProductCategoryEditPage />}
                     />
                   </Routes>
                 </main>

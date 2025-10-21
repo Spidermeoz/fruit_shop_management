@@ -404,6 +404,32 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       if (payload[key] !== undefined) updateData[key] = payload[key];
     }
 
+    // 4️⃣ Nếu thay đổi parent_id hoặc không gửi position, tính lại position mới
+    let newParentId = payload.parent_id ?? category.parent_id ?? null;
+
+    if (
+      (payload.parent_id !== undefined &&
+        Number(payload.parent_id) !== category.parent_id) ||
+      payload.position === undefined ||
+      payload.position === null ||
+      payload.position === ""
+    ) {
+      const maxSibling = await ProductCategory.findOne({
+        where: {
+          deleted: 0,
+          parent_id: newParentId ?? null,
+          id: { [Op.ne]: id },
+        },
+        order: [["position", "DESC"]],
+        attributes: ["position"],
+        raw: true,
+      });
+
+      updateData.position = maxSibling?.position
+        ? Number(maxSibling.position) + 1
+        : 1;
+    }
+
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
         success: false,
@@ -411,10 +437,10 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       });
     }
 
-    // 4️⃣ Thực hiện cập nhật
+    // 5️⃣ Cập nhật vào DB
     await ProductCategory.update(updateData, { where: { id } });
 
-    // 5️⃣ Lấy dữ liệu mới sau update
+    // 6️⃣ Lấy lại bản ghi sau update
     const updated = await ProductCategory.findOne({
       where: { id },
       raw: true,
