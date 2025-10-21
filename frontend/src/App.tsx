@@ -6,9 +6,9 @@ import { ThemeProvider } from "./context/ThemeContext";
 import Sidebar from "./components/layouts/Sidebar";
 import DashboardHeader from "./components/layouts/DashboardHeader";
 import DashboardPage from "./pages/admin/DashboardPage";
-import ProductsPage from "./pages/admin/ProductsPage";
-import ProductEditPage from "./pages/admin/ProductEditPage";
-import ProductDetailPage from "./pages/admin/ProductDetailPage";
+import ProductsPage from "./pages/admin/products/ProductsPage";
+import ProductEditPage from "./pages/admin/products/ProductEditPage";
+import ProductDetailPage from "./pages/admin/products/ProductDetailPage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -26,7 +26,8 @@ import ForgotPasswordPage from "./pages/client/ForgotPasswordPage";
 import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
-import ProductCreatePage from "./pages/admin/ProductCreatePage";
+import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
+import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryPage";
 
 const App: React.FC = () => {
   return (
@@ -52,7 +53,14 @@ const App: React.FC = () => {
                       path="products/edit/:id"
                       element={<ProductEditPage />}
                     />
-                    <Route path="/products/create" element={<ProductCreatePage />} />
+                    <Route
+                      path="/products/create"
+                      element={<ProductCreatePage />}
+                    />
+                    <Route
+                      path="product-category"
+                      element={<ProductCategoryPage />}
+                    />
                   </Routes>
                 </main>
               </div>

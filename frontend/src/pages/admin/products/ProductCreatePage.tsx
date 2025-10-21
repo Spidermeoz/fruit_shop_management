@@ -3,9 +3,9 @@ import React, { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import Card from "../../components/layouts/Card";
-import RichTextEditor from "../../components/common/RichTextEditor";
-import { uploadImagesInContent } from "../../utils/uploadImagesInContent";
+import Card from "../../../components/layouts/Card";
+import RichTextEditor from "../../../components/common/RichTextEditor";
+import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
 interface ProductFormData {
   product_category_id: number | string;

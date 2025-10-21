@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Card from "../../components/layouts/Card";
+import Card from "../../../components/layouts/Card";
 
 // 🔹 Định nghĩa kiểu sản phẩm
 interface Product {
@@ -62,7 +62,9 @@ const ProductDetailPage: React.FC = () => {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải...</span>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải...
+        </span>
       </div>
     );
   }

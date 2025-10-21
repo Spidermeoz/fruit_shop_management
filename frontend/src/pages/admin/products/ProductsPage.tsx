@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
-import type { ChangeEvent } from "react";
-import Card from "../../components/layouts/Card";
+import Card from "../../../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import Pagination from "../../components/common/Pagination";
+import Pagination from "../../../components/common/Pagination";
 
 // 🔹 Kiểu dữ liệu sản phẩm
 interface Product {
@@ -23,24 +22,6 @@ interface Product {
   average_rating?: number;
   review_count?: number;
   created_by_id?: number;
-}
-
-// 🔹 Dữ liệu form sản phẩm
-interface ProductFormData {
-  product_category_id: number | string;
-  title: string;
-  description: string;
-  price: number | string;
-  discount_percentage: number;
-  stock: number;
-  thumbnail: string;
-  status: string;
-  featured: number | string;
-  position: number | string;
-  slug: string;
-  average_rating: number;
-  review_count: number;
-  created_by_id: number;
 }
 
 const ProductsPage: React.FC = () => {

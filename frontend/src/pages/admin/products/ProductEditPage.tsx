@@ -3,9 +3,9 @@ import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
-import Card from "../../components/layouts/Card";
-import RichTextEditor from "../../components/common/RichTextEditor";
-import { uploadImagesInContent } from "../../utils/uploadImagesInContent";
+import Card from "../../../components/layouts/Card";
+import RichTextEditor from "../../../components/common/RichTextEditor";
+import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
 interface Product {
   id: number;
@@ -81,7 +81,9 @@ const ProductEditPage: React.FC = () => {
   }, [id]);
 
   // 🔹 Xử lý input
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, type, value } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
 
@@ -147,7 +149,9 @@ const ProductEditPage: React.FC = () => {
       }
 
       // 🔸 Upload ảnh trong nội dung TinyMCE (lazy upload)
-      const updatedDescription = await uploadImagesInContent(product.description);
+      const updatedDescription = await uploadImagesInContent(
+        product.description
+      );
 
       // 🔸 Gửi PATCH cập nhật
       const res = await fetch(`/api/v1/admin/products/edit/${id}`, {
