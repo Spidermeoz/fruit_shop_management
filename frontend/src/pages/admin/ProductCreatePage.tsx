@@ -26,6 +26,12 @@ const ProductCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
+  // ✅ file ảnh gốc (để upload sau)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // ✅ preview ảnh local
+  const [previewImage, setPreviewImage] = useState<string>("");
+
   const [formData, setFormData] = useState<ProductFormData>({
     product_category_id: 1,
     title: "",
@@ -50,15 +56,47 @@ const ProductCreatePage: React.FC = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  // ✅ Khi chọn ảnh → chỉ hiển thị preview local, chưa upload
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewImage(URL.createObjectURL(file)); // hiển thị ảnh tạm
+  };
+
+  // ✅ Khi nhấn Lưu → mới upload ảnh nếu có chọn
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     try {
       setLoading(true);
+
+      let thumbnailUrl = formData.thumbnail;
+
+      // Nếu user có chọn ảnh → upload trước khi tạo sản phẩm
+      if (selectedFile) {
+        const formDataImg = new FormData();
+        formDataImg.append("file", selectedFile);
+
+        const uploadRes = await fetch("/api/v1/admin/upload", {
+          method: "POST",
+          body: formDataImg,
+        });
+
+        const uploadData = await uploadRes.json();
+        if (uploadData.success) {
+          thumbnailUrl = uploadData.url;
+        } else {
+          alert("❌ Lỗi tải ảnh lên Cloudinary, vui lòng thử lại");
+          return;
+        }
+      }
+
+      // ✅ Sau khi có thumbnailUrl mới gọi API tạo sản phẩm
       const res = await fetch("/api/v1/admin/products/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ ...formData, thumbnail: thumbnailUrl }),
       });
 
       const json = await res.json();
@@ -188,34 +226,14 @@ const ProductCreatePage: React.FC = () => {
           <input
             type="file"
             accept="image/*"
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              if (!file) return;
-              const formDataImg = new FormData();
-              formDataImg.append("file", file);
-              try {
-                setLoading(true);
-                const res = await fetch("/api/v1/admin/upload", {
-                  method: "POST",
-                  body: formDataImg,
-                });
-                const data = await res.json();
-                if (data.success) {
-                  setFormData((prev) => ({ ...prev, thumbnail: data.url }));
-                  alert("Tải ảnh thành công ✅");
-                } else alert("Lỗi tải ảnh lên server ❌");
-              } catch (err) {
-                console.error("Upload error:", err);
-                alert("Không thể tải ảnh lên server!");
-              } finally {
-                setLoading(false);
-              }
-            }}
+            onChange={handleImageSelect}
           />
-          {formData.thumbnail && (
+
+          {/* ✅ Preview ảnh local */}
+          {previewImage && (
             <div className="mt-3">
               <img
-                src={formData.thumbnail}
+                src={previewImage}
                 alt="preview"
                 className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
               />

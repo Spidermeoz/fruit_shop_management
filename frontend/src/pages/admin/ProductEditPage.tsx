@@ -1,3 +1,4 @@
+// src/pages/ProductEditPage.tsx
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -5,7 +6,6 @@ import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../components/layouts/Card";
 import RichTextEditor from "../../components/common/RichTextEditor";
 
-// 🔹 Kiểu dữ liệu sản phẩm
 interface Product {
   id: number;
   title: string;
@@ -20,7 +20,6 @@ interface Product {
   position: number;
 }
 
-// 🔹 Kiểu dữ liệu danh mục
 interface Category {
   id: number;
   title: string;
@@ -32,9 +31,13 @@ const ProductEditPage: React.FC = () => {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // ✅ file ảnh mới (để upload khi lưu)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string>("");
 
   // ✅ Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
@@ -42,8 +45,12 @@ const ProductEditPage: React.FC = () => {
       setLoading(true);
       const res = await fetch(`/api/v1/admin/products/edit/${id}`);
       const json = await res.json();
-      if (json.success && json.data) setProduct(json.data as Product);
-      else setError(json.message || "Không tìm thấy sản phẩm.");
+      if (json.success && json.data) {
+        setProduct(json.data as Product);
+        setPreviewImage(json.data.thumbnail); // hiển thị ảnh cũ
+      } else {
+        setError(json.message || "Không tìm thấy sản phẩm.");
+      }
     } catch (err) {
       console.error(err);
       setError("Không thể kết nối server.");
@@ -72,57 +79,85 @@ const ProductEditPage: React.FC = () => {
     fetchCategories();
   }, [id]);
 
-  // ✅ Xử lý thay đổi input
+  // ✅ Xử lý input
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-  const { name, type, value } = e.target;
+    const { name, type, value } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
 
-  // ép kiểu đúng cho input có checked
-  const target = e.target as HTMLInputElement;
-  const checked = target.checked;
+    setProduct((prev) =>
+      prev
+        ? {
+            ...prev,
+            [name]:
+              type === "number"
+                ? Number(value)
+                : type === "checkbox"
+                ? checked
+                  ? 1
+                  : 0
+                : value,
+          }
+        : prev
+    );
+  };
 
-  setProduct((prev) =>
-    prev
-      ? {
-          ...prev,
-          [name]:
-            type === "number"
-              ? Number(value)
-              : type === "checkbox"
-              ? checked
-                ? 1
-                : 0
-              : value,
-        }
-      : prev
-  );
-};
-
-  // ✅ Cập nhật mô tả (RichTextEditor)
+  // ✅ Mô tả
   const handleDescriptionChange = (content: string) => {
     setProduct((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
-  // ✅ Gửi API lưu thay đổi
+  // ✅ Chọn ảnh (preview local)
+  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewImage(URL.createObjectURL(file));
+  };
+
+  // ✅ Lưu sản phẩm (có upload ảnh nếu chọn)
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!product) return;
-    if (!product.title) {
+    if (!product.title.trim()) {
       alert("Vui lòng nhập tên sản phẩm.");
       return;
     }
 
     try {
       setSaving(true);
+
+      let thumbnailUrl = product.thumbnail;
+
+      // Nếu có ảnh mới → upload trước
+      if (selectedFile) {
+        const formDataImg = new FormData();
+        formDataImg.append("file", selectedFile);
+
+        const resUpload = await fetch("/api/v1/admin/upload", {
+          method: "POST",
+          body: formDataImg,
+        });
+        const dataUpload = await resUpload.json();
+
+        if (dataUpload.success) {
+          thumbnailUrl = dataUpload.url;
+        } else {
+          alert("❌ Lỗi tải ảnh lên Cloudinary");
+          return;
+        }
+      }
+
+      // ✅ Gửi PATCH cập nhật
       const res = await fetch(`/api/v1/admin/products/edit/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(product),
+        body: JSON.stringify({ ...product, thumbnail: thumbnailUrl }),
       });
 
       const json = await res.json();
       if (json.success) {
-        alert("Cập nhật sản phẩm thành công!");
-        navigate(`/admin/products/edit/${id}`);
+        alert("✅ Cập nhật sản phẩm thành công!");
+        navigate("/admin/products");
       } else {
         alert(json.message || "Cập nhật thất bại.");
       }
@@ -145,10 +180,7 @@ const ProductEditPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return <p className="text-center text-red-500 py-10">{error}</p>;
-  }
-
+  if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
   if (!product) return null;
 
   return (
@@ -237,7 +269,7 @@ const ProductEditPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Số lượng & vị trí */}
+          {/* Tồn kho & vị trí */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -266,39 +298,49 @@ const ProductEditPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Ảnh & Featured */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Ảnh sản phẩm (URL)
-              </label>
-              <input
-                type="text"
-                name="thumbnail"
-                value={product.thumbnail || ""}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              />
-            </div>
-            <div className="flex items-center gap-2 mt-6">
+          {/* Ảnh sản phẩm (preview & upload) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Ảnh sản phẩm
+            </label>
+            <input type="file" accept="image/*" onChange={handleImageSelect} />
+            {previewImage && (
+              <div className="mt-3 relative w-fit">
+                <img
+                  src={previewImage}
+                  alt="preview"
+                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                />
+                {/* Nút xóa ảnh */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setPreviewImage("");
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                >
+                  ×
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Nổi bật & trạng thái */}
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2">
               <input
                 type="checkbox"
                 name="featured"
                 checked={product.featured === 1}
                 onChange={handleChange}
               />
-              <label className="text-sm text-gray-700 dark:text-gray-300">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
                 Sản phẩm nổi bật
-              </label>
-            </div>
-          </div>
-
-          {/* Trạng thái */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Trạng thái
+              </span>
             </label>
-            <div className="flex items-center gap-4 mt-1">
+
+            <div className="flex items-center gap-4">
               <label className="flex items-center gap-1">
                 <input
                   type="radio"
