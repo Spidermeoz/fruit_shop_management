@@ -6,6 +6,7 @@ import Pagination from "../../../components/common/Pagination";
 
 // 🔹 Kiểu dữ liệu sản phẩm
 interface Product {
+  category: any;
   id: number;
   product_category_id: number | string;
   category_name?: string;
@@ -501,7 +502,7 @@ const ProductsPage: React.FC = () => {
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {product.category_name || "—"}
+                      {product.category?.title || "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {product.price?.toLocaleString()}₫

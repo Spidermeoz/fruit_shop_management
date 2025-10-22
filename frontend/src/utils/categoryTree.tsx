@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, type JSX } from "react";
 import {
   Eye,
   Edit,
@@ -294,4 +294,16 @@ export const CategoryTreeTableBody: React.FC<{
       ))}
     </>
   );
+};
+
+export const renderCategoryOptions = (
+  categories: ProductCategoryNode[],
+  level = 0
+): JSX.Element[] => {
+  return categories.flatMap((cat) => [
+    <option key={cat.id} value={cat.id}>
+      {"  ".repeat(level)}{level > 0 ? "↳ " : ""}{cat.title}
+    </option>,
+    ...(cat.children ? renderCategoryOptions(cat.children, level + 1) : []),
+  ]);
 };

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import Product from "../../models/product.model";
+import ProductCategory from "../../models/product-category.model";
 
 // GET /api/v1/admin/products
 export const index = async (req: Request, res: Response) => {
@@ -60,7 +61,14 @@ export const index = async (req: Request, res: Response) => {
       limit,
       offset,
       order,
-      raw: true,
+      include: [
+        {
+          model: ProductCategory,
+          as: "category",
+          attributes: ["id", "title"],
+        },
+      ],
+      raw: false,
     });
 
     return res.status(200).json({
@@ -92,7 +100,16 @@ export const detail = async (req: Request, res: Response) => {
     const where: any = { id };
     if (!includeDeleted) where.deleted = 0;
 
-    const product = await Product.findOne({ where, raw: true });
+    const product = await Product.findOne({
+      where: { id, deleted: 0 },
+      include: [
+        {
+          model: ProductCategory,
+          as: "category",
+          attributes: ["id", "title"],
+        },
+      ],
+    });
     if (!product)
       return res
         .status(404)

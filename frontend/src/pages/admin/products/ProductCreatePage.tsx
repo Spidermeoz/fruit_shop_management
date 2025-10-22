@@ -1,11 +1,24 @@
 // src/pages/ProductCreatePage.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import {
+  buildCategoryTree,
+  renderCategoryOptions,
+} from "../../../utils/categoryTree";
+
+interface ProductCategory {
+  id: number;
+  title: string;
+  parent_id?: number | null;
+  children?: ProductCategory[];
+  position: number;
+  status: string;
+}
 
 interface ProductFormData {
   product_category_id: number | string;
@@ -27,6 +40,8 @@ interface ProductFormData {
 const ProductCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
 
   // ✅ file ảnh gốc (để upload sau)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -50,6 +65,22 @@ const ProductCreatePage: React.FC = () => {
     review_count: 0,
     created_by_id: 1,
   });
+
+  // ✅ Lấy danh sách danh mục từ backend
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/v1/admin/product-category");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setCategories(json.data);
+        }
+      } catch (err) {
+        console.error("fetchCategories error:", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -165,12 +196,8 @@ const ProductCreatePage: React.FC = () => {
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             required
           >
-            <option value="">-- Chọn danh mục --</option>
-            <option value="1">Trái Cây Việt Nam</option>
-            <option value="2">Trái Cây Nhập Khẩu</option>
-            <option value="3">Combo & Quà Tặng</option>
-            <option value="4">Trái Cây Theo Mùa</option>
-            <option value="5">Táo & Nho Mỹ</option>
+            <option value="" disabled>-- Chọn danh mục --</option>
+            {renderCategoryOptions(buildCategoryTree(categories))}
           </select>
         </div>
 

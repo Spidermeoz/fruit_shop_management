@@ -5,6 +5,7 @@ import Card from "../../../components/layouts/Card";
 
 // 🔹 Định nghĩa kiểu sản phẩm
 interface Product {
+  category: any;
   id: number;
   title: string;
   description: string;
@@ -131,7 +132,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-2 text-sm mt-2">
               <p>
                 <span className="font-medium">Danh mục:</span>{" "}
-                {product.product_category_id || "—"}
+                {product.category?.title || "—"}
               </p>
               <p>
                 <span className="font-medium">Giá:</span>{" "}

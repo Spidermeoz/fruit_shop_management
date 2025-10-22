@@ -6,6 +6,19 @@ import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import {
+  buildCategoryTree,
+  renderCategoryOptions,
+} from "../../../utils/categoryTree";
+
+interface ProductCategory {
+  id: number;
+  title: string;
+  parent_id?: number | null;
+  children?: ProductCategory[];
+  position: number;
+  status: string;
+}
 
 interface Product {
   id: number;
@@ -31,7 +44,7 @@ const ProductEditPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
+  const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -60,24 +73,24 @@ const ProductEditPage: React.FC = () => {
     }
   };
 
-  // 🔹 Lấy danh mục
-  const fetchCategories = async () => {
-    try {
-      const res = await fetch("/api/v1/admin/categories");
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setCategories(json.data as Category[]);
-      } else {
-        setCategories([]);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  // ✅ Lấy danh sách danh mục từ backend
+    useEffect(() => {
+      const fetchCategories = async () => {
+        try {
+          const res = await fetch("/api/v1/admin/product-category");
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setCategories(json.data);
+          }
+        } catch (err) {
+          console.error("fetchCategories error:", err);
+        }
+      };
+      fetchCategories();
+    }, []);
 
   useEffect(() => {
     fetchProduct();
-    fetchCategories();
   }, [id]);
 
   // 🔹 Xử lý input
@@ -220,12 +233,8 @@ const ProductEditPage: React.FC = () => {
               onChange={handleChange}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="">-- Chọn danh mục --</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
+              <option value="" disabled>-- Chọn danh mục --</option>
+              {renderCategoryOptions(buildCategoryTree(categories))}
             </select>
           </div>
 
