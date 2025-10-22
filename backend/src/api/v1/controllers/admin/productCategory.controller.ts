@@ -527,8 +527,8 @@ export const softDeleteProductCategory = async (req: Request, res: Response) => 
   try {
     const { id } = req.params;
     const deleted_by_id = (req.body?.deleted_by_id as number) ?? null;
-
     const categoryId = Number(id);
+
     if (!categoryId) {
       return res.status(400).json({
         success: false,
@@ -536,19 +536,35 @@ export const softDeleteProductCategory = async (req: Request, res: Response) => 
       });
     }
 
-    // 1️⃣ Kiểm tra danh mục tồn tại
+    // 1️⃣ Kiểm tra danh mục có tồn tại không
     const category = await ProductCategory.findOne({
       where: { id: categoryId, deleted: 0 },
+      raw: true,
     });
 
     if (!category) {
       return res.status(404).json({
         success: false,
-        message: "Product category not found or already deleted",
+        message: "Product category not found or already deleted.",
       });
     }
 
-    // 2️⃣ Thực hiện xóa mềm
+    // 2️⃣ Kiểm tra xem có danh mục con không
+    const children = await ProductCategory.findAll({
+      where: { parent_id: categoryId, deleted: 0 },
+      attributes: ["id", "title"],
+      raw: true,
+    });
+
+    // 3️⃣ Nếu có con → reset parent_id = null
+    if (children.length > 0) {
+      await ProductCategory.update(
+        { parent_id: null, updated_at: new Date() },
+        { where: { parent_id: categoryId } }
+      );
+    }
+
+    // 4️⃣ Xóa mềm danh mục cha
     await ProductCategory.update(
       {
         deleted: 1,
@@ -558,11 +574,17 @@ export const softDeleteProductCategory = async (req: Request, res: Response) => 
       { where: { id: categoryId } }
     );
 
+    // 5️⃣ Trả phản hồi
     return res.status(200).json({
       success: true,
-      message: "Product category soft-deleted successfully.",
-      meta: {
+      message:
+        children.length > 0
+          ? `Category '${category.title}' deleted. ${children.length} child category(ies) have been detached (parent_id set to null).`
+          : "Product category soft-deleted successfully.",
+      data: {
+        id: categoryId,
         deletedAt: new Date().toISOString(),
+        detachedChildren: children.map((c) => ({ id: c.id, title: c.title })),
         deletedBy: deleted_by_id,
       },
     });
@@ -616,13 +638,34 @@ export const bulkEditProductCategory = async (req: Request, res: Response) => {
         break;
 
       case "delete":
-        updateData = {
-          deleted: 1,
-          deleted_at: now,
-          updated_at: now,
-        };
-        resultMessage = "Categories soft-deleted successfully.";
-        break;
+        // 1️⃣ Xóa mềm danh mục cha
+        await ProductCategory.update(
+          {
+            deleted: 1,
+            deleted_at: now,
+            updated_at: now,
+          },
+          { where: { id: { [Op.in]: ids } } }
+        );
+
+        // 2️⃣ Set parent_id = null cho các danh mục con
+        await ProductCategory.update(
+          {
+            parent_id: null,
+            updated_at: now,
+          },
+          { where: { parent_id: { [Op.in]: ids }, deleted: 0 } }
+        );
+
+        return res.status(200).json({
+          success: true,
+          message: "Soft-deleted categories and detached their children.",
+          data: {
+            affectedIds: ids,
+            action,
+            updatedAt: now.toISOString(),
+          },
+        });
 
       case "position":
         if (typeof value !== "object" || Array.isArray(value)) {
