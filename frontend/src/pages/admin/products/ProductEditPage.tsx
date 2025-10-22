@@ -34,11 +34,6 @@ interface Product {
   position: number;
 }
 
-interface Category {
-  id: number;
-  title: string;
-}
-
 const ProductEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
