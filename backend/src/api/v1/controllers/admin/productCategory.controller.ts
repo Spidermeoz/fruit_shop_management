@@ -345,7 +345,9 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
     }
 
     // 1️⃣ Kiểm tra danh mục có tồn tại không
-    const category = await ProductCategory.findOne({ where: { id, deleted: 0 } });
+    const category = await ProductCategory.findOne({
+      where: { id, deleted: 0 },
+    });
     if (!category) {
       return res.status(404).json({
         success: false,
@@ -353,42 +355,60 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       });
     }
 
-    // 2️⃣ Nếu có parent_id → kiểm tra hợp lệ
-    if (payload.parent_id) {
-      if (Number(payload.parent_id) === id) {
-        return res.status(400).json({
-          success: false,
-          message: "A category cannot be its own parent.",
-        });
-      }
+    // 2️⃣ Kiểm tra parent_id (nếu có trong payload)
+    if (payload.parent_id !== undefined) {
+      // ép kiểu và chuẩn hóa
+      const parentIdRaw = payload.parent_id;
+      const parentId =
+        parentIdRaw === null || parentIdRaw === "" ? null : Number(parentIdRaw);
 
-      const parent = await ProductCategory.findOne({
-        where: { id: payload.parent_id, deleted: 0 },
-      });
+      if (parentId === null) {
+        // người dùng chọn danh mục gốc → parent_id = null
+        payload.parent_id = null;
+      } else {
+        // chỉ kiểm tra nếu parentId là số hợp lệ > 0
+        if (isNaN(parentId) || parentId <= 0) {
+          payload.parent_id = null;
+        } else {
+          if (parentId === id) {
+            return res.status(400).json({
+              success: false,
+              message: "A category cannot be its own parent.",
+            });
+          }
 
-      if (!parent) {
-        return res.status(400).json({
-          success: false,
-          message: `Parent category with id=${payload.parent_id} not found or deleted.`,
-        });
-      }
+          const parent = await ProductCategory.findOne({
+            where: { id: parentId, deleted: 0 },
+          });
 
-      // (Tuỳ chọn) kiểm tra vòng lặp cha–con (chống chọn con của chính nó làm cha)
-      const descendants = await ProductCategory.findAll({
-        where: { parent_id: id },
-        attributes: ["id"],
-        raw: true,
-      });
-      const childIds = descendants.map((c) => c.id);
-      if (childIds.includes(Number(payload.parent_id))) {
-        return res.status(400).json({
-          success: false,
-          message: "Cannot set a child category as parent.",
-        });
+          if (!parent) {
+            return res.status(400).json({
+              success: false,
+              message: `Parent category with id=${parentId} not found or deleted.`,
+            });
+          }
+
+          // kiểm tra vòng lặp cha – con
+          const descendants = await ProductCategory.findAll({
+            where: { parent_id: id },
+            attributes: ["id"],
+            raw: true,
+          });
+          const childIds = descendants.map((c) => c.id);
+          if (childIds.includes(parentId)) {
+            return res.status(400).json({
+              success: false,
+              message: "Cannot set a child category as parent.",
+            });
+          }
+
+          // hợp lệ → gán lại vào payload
+          payload.parent_id = parentId;
+        }
       }
     }
 
-    // 3️⃣ Chuẩn bị dữ liệu để cập nhật
+    // 3️⃣ Chuẩn bị dữ liệu cập nhật
     const allowedFields = [
       "title",
       "description",
@@ -404,12 +424,14 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       if (payload[key] !== undefined) updateData[key] = payload[key];
     }
 
-    // 4️⃣ Nếu thay đổi parent_id hoặc không gửi position, tính lại position mới
-    let newParentId = payload.parent_id ?? category.parent_id ?? null;
+    // 4️⃣ Tính lại position nếu đổi cha hoặc chưa có
+    const newParentId = payload.parent_id ?? category.parent_id ?? null;
+    const parentChanged =
+      payload.parent_id !== undefined &&
+      Number(payload.parent_id) !== category.parent_id;
 
     if (
-      (payload.parent_id !== undefined &&
-        Number(payload.parent_id) !== category.parent_id) ||
+      parentChanged ||
       payload.position === undefined ||
       payload.position === null ||
       payload.position === ""
@@ -417,7 +439,7 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       const maxSibling = await ProductCategory.findOne({
         where: {
           deleted: 0,
-          parent_id: newParentId ?? null,
+          parent_id: newParentId,
           id: { [Op.ne]: id },
         },
         order: [["position", "DESC"]],
@@ -433,14 +455,14 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({
         success: false,
-        message: "No valid fields provided for update",
+        message: "No valid fields provided for update.",
       });
     }
 
-    // 5️⃣ Cập nhật vào DB
+    // 5️⃣ Cập nhật DB
     await ProductCategory.update(updateData, { where: { id } });
 
-    // 6️⃣ Lấy lại bản ghi sau update
+    // 6️⃣ Trả về bản ghi sau khi cập nhật
     const updated = await ProductCategory.findOne({
       where: { id },
       raw: true,
@@ -452,16 +474,18 @@ export const editPatchProductCategory = async (req: Request, res: Response) => {
       data: updated,
     });
   } catch (error) {
-    console.error("editProductCategory error:", error);
+    console.error("editPatchProductCategory error:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error.",
     });
   }
 };
-
 // PATCH /api/v1/admin/product-category/:id/status
-export const updateProductCategoryStatus = async (req: Request, res: Response) => {
+export const updateProductCategoryStatus = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
@@ -523,7 +547,10 @@ export const updateProductCategoryStatus = async (req: Request, res: Response) =
 };
 
 // DELETE /api/v1/admin/product-category/delete/:id
-export const softDeleteProductCategory = async (req: Request, res: Response) => {
+export const softDeleteProductCategory = async (
+  req: Request,
+  res: Response
+) => {
   try {
     const { id } = req.params;
     const deleted_by_id = (req.body?.deleted_by_id as number) ?? null;
