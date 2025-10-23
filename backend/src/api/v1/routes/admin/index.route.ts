@@ -4,6 +4,7 @@ import { productRoutes } from "./product.route";
 import uploadRoute from "./upload.route";
 import { productCategoryRoutes } from "./productCategory.route";
 import { roleRoutes } from "./role.route";
+import { userRoutes } from "./user.route";
 
 const adminRoutes = (app: Express): void => {
   const version = "/api/v1/admin";
@@ -14,6 +15,7 @@ const adminRoutes = (app: Express): void => {
   // Products
   app.use(`${version}/products`, productRoutes);
 
+  // Upload
   app.use(`${version}/upload`, uploadRoute);
 
   // Product Categories
@@ -21,6 +23,9 @@ const adminRoutes = (app: Express): void => {
 
   // Roles
   app.use(`${version}/roles`, roleRoutes);
+
+  // Users
+  app.use(`${version}/users`, userRoutes);
 };
 
 export default adminRoutes;

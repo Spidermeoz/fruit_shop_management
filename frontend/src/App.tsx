@@ -18,6 +18,10 @@ import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
 import RoleCreatePage from "./pages/admin/roles/RoleCreatePage";
 import PermissionsPage from "./pages/admin/roles/PermissionsPage";
+import UsersPage from "./pages/admin/users/UsersPage";
+import UserCreatePage from "./pages/admin/users/UserCreatePage";
+import UserEditPage from "./pages/admin/users/UserEditPage";
+import UserDetailPage from "./pages/admin/users/UserDetailPage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -100,6 +104,22 @@ const App: React.FC = () => {
                     <Route
                       path="roles/permissions"
                       element={<PermissionsPage />}
+                    />
+                    <Route
+                      path="users"
+                      element={<UsersPage />}
+                    />
+                    <Route
+                      path="users/create"
+                      element={<UserCreatePage />}
+                    />
+                    <Route
+                      path="users/edit/:id"
+                      element={<UserEditPage />}
+                    />
+                    <Route
+                      path="users/detail/:id"
+                      element={<UserDetailPage />}
                     />
                   </Routes>
                 </main>

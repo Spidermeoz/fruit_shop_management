@@ -116,7 +116,7 @@ const RolesPage: React.FC = () => {
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    ID
+                    STT
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Title
@@ -127,13 +127,13 @@ const RolesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {roles.map((role) => (
+                {roles.map((role, index) => (
                   <tr
                     key={role.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
-                      {role.id}
+                      {index + 1}
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                       {role.title}
