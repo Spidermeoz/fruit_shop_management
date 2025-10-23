@@ -6,6 +6,7 @@ import {
   Menu,
   X,
   FolderTree,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,6 +22,7 @@ const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Products", href: "/admin/products", icon: ShoppingBag },
   { name: "Categories", href: "/admin/product-category", icon: FolderTree },
+  { name: "Roles", href: "/admin/roles", icon: ShieldCheck },
 ];
 
 const Sidebar: React.FC = () => {
