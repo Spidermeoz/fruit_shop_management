@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 interface Role {
   id: number;
   title: string;
-  description?: string | null;
   permissions?: object | null;
 }
 
@@ -108,10 +107,9 @@ const RolesPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Title
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Description
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Actions
                   </th>
-                  <th className="px-6 py-3"></th>
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
@@ -125,9 +123,6 @@ const RolesPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">
                       {role.title}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {role.description || "—"}
                     </td>
                     <td className="px-6 py-4 text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">

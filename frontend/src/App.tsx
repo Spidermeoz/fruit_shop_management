@@ -14,6 +14,9 @@ import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryP
 import ProductCategoryCreatePage from "./pages/admin/product-category/ProductCategoryCreatePage";
 import ProductCategoryDetailPage from "./pages/admin/product-category/ProductCategoryDetailPage";
 import RolesPage from "./pages/admin/roles/RolesPage";
+import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
+import RoleEditPage from "./pages/admin/roles/RoleEditPage";
+import RoleCreatePage from "./pages/admin/roles/RoleCreatePage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -80,6 +83,18 @@ const App: React.FC = () => {
                     <Route
                       path="roles"
                       element={<RolesPage />}
+                    />
+                    <Route
+                      path="roles/detail/:id"
+                      element={<RoleDetailPage />}
+                    />
+                    <Route
+                      path="roles/edit/:id"
+                      element={<RoleEditPage />}
+                    />
+                    <Route
+                      path="roles/create"
+                      element={<RoleCreatePage />}
                     />
                   </Routes>
                 </main>
