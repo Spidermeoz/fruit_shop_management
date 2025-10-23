@@ -17,6 +17,7 @@ import RolesPage from "./pages/admin/roles/RolesPage";
 import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
 import RoleCreatePage from "./pages/admin/roles/RoleCreatePage";
+import PermissionsPage from "./pages/admin/roles/PermissionsPage";
 
 // 🌿 Import layout & pages cho Client
 import HomePage from "./pages/client/HomePage";
@@ -95,6 +96,10 @@ const App: React.FC = () => {
                     <Route
                       path="roles/create"
                       element={<RoleCreatePage />}
+                    />
+                    <Route
+                      path="roles/permissions"
+                      element={<PermissionsPage />}
                     />
                   </Routes>
                 </main>

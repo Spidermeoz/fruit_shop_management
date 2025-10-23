@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Loader2, ShieldCheck } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { useNavigate } from "react-router-dom";
 
@@ -45,6 +45,7 @@ const RolesPage: React.FC = () => {
   const handleAddRole = () => navigate("/admin/roles/create");
   const handleEditRole = (id: number) => navigate(`/admin/roles/edit/${id}`);
   const handleViewRole = (id: number) => navigate(`/admin/roles/detail/${id}`);
+  const handlePermissions = () => navigate("/admin/roles/permissions");
 
   const handleDeleteRole = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa vai trò này không?")) return;
@@ -71,17 +72,30 @@ const RolesPage: React.FC = () => {
   return (
     <div>
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Roles
         </h1>
-        <button
-          onClick={handleAddRole}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Role
-        </button>
+
+        <div className="flex flex-wrap gap-3">
+          {/* 🔹 Nút phân quyền */}
+          <button
+            onClick={handlePermissions}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 font-medium rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <ShieldCheck className="w-5 h-5" />
+            Permissions
+          </button>
+
+          {/* 🔹 Nút thêm vai trò */}
+          <button
+            onClick={handleAddRole}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Role
+          </button>
+        </div>
       </div>
 
       <Card>

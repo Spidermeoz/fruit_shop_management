@@ -184,6 +184,7 @@ export const editPatch = async (req: Request, res: Response) => {
   }
 };
 
+// DELETE /api/v1/admin/roles/delete/:id
 export const deleteRole = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id);
@@ -211,6 +212,159 @@ export const deleteRole = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error("deleteRole error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+};
+
+// GET /api/v1/admin/roles/permissions
+export const permissions = async (req: Request, res: Response) => {
+  try {
+    // 1️⃣ Lấy toàn bộ roles trong hệ thống
+    const roles = await Role.findAll({
+      where: { deleted: 0 },
+      attributes: ["id", "title", "permissions"],
+      order: [["id", "ASC"]],
+      raw: true,
+    });
+
+    // 2️⃣ Danh sách module & action (đây là cấu trúc cố định cho UI)
+    const modules = [
+      {
+        group: "Danh mục sản phẩm",
+        key: "product_category",
+        actions: [
+          { key: "view", label: "Xem" },
+          { key: "create", label: "Thêm mới" },
+          { key: "edit", label: "Chỉnh sửa" },
+          { key: "delete", label: "Xóa" },
+        ],
+      },
+      {
+        group: "Sản phẩm",
+        key: "product",
+        actions: [
+          { key: "view", label: "Xem" },
+          { key: "create", label: "Thêm mới" },
+          { key: "edit", label: "Chỉnh sửa" },
+          { key: "delete", label: "Xóa" },
+        ],
+      },
+      {
+        group: "Nhóm quyền",
+        key: "role",
+        actions: [
+          { key: "view", label: "Xem" },
+          { key: "create", label: "Thêm mới" },
+          { key: "edit", label: "Chỉnh sửa" },
+          { key: "delete", label: "Xóa" },
+          { key: "permissions", label: "Phân quyền" },
+        ],
+      },
+      {
+        group: "Tài khoản",
+        key: "user",
+        actions: [
+          { key: "view", label: "Xem" },
+          { key: "create", label: "Thêm mới" },
+          { key: "edit", label: "Chỉnh sửa" },
+          { key: "delete", label: "Xóa" },
+        ],
+      },
+    ];
+
+    // 3️⃣ Xây dữ liệu để UI render
+    const data = modules.map((mod) => {
+      const actions = mod.actions.map((action) => {
+        const rolesStatus = roles.map((role) => {
+          const perms = (role.permissions || {}) as Record<string, string[]>;
+          const checked = !!(
+            perms &&
+            perms[mod.key] &&
+            perms[mod.key].includes(action.key)
+          );
+          return {
+            role_id: role.id,
+            role_title: role.title,
+            checked,
+          };
+        });
+
+        return {
+          action_key: action.key,
+          action_label: action.label,
+          roles: rolesStatus,
+        };
+      });
+
+      return {
+        group: mod.group,
+        key: mod.key,
+        actions,
+      };
+    });
+
+    // 4️⃣ Trả kết quả gồm cả roles & data cho frontend
+    return res.status(200).json({
+      success: true,
+      roles: roles.map((r) => ({
+        id: r.id,
+        title: r.title,
+        permissions: r.permissions || {},
+      })),
+      data,
+    });
+  } catch (err: any) {
+    console.error("getPermissions error:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: err.message,
+    });
+  }
+};
+
+// PATCH /api/v1/admin/roles/permissions
+export const permissionsPatch = async (req: Request, res: Response) => {
+  try {
+    const { roles } = req.body;
+
+    if (!Array.isArray(roles)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid roles data" });
+    }
+
+    // Cập nhật tuần tự từng role
+    for (const r of roles) {
+      if (!r.id) continue;
+
+      // Đảm bảo permissions là object hợp lệ
+      let permissions = r.permissions;
+      if (typeof permissions === "string") {
+        try {
+          permissions = JSON.parse(permissions);
+        } catch {
+          permissions = {};
+        }
+      }
+
+      // Lưu vào DB
+      await Role.update(
+        { permissions },
+        { where: { id: r.id, deleted: 0 } }
+      );
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Permissions updated successfully",
+    });
+  } catch (err: any) {
+    console.error("updatePermissions error:", err);
     return res.status(500).json({
       success: false,
       message: "Internal server error",

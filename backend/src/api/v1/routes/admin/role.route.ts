@@ -10,5 +10,7 @@ router.post("/create", controller.create);
 router.get("/edit/:id", controller.edit);
 router.patch("/edit/:id", controller.editPatch);
 router.delete("/delete/:id", controller.deleteRole);
+router.get("/permissions", controller.permissions);
+router.patch("/permissions", controller.permissionsPatch);
 
 export const roleRoutes: Router = router;
