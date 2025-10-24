@@ -60,7 +60,7 @@ const HomePage: React.FC = () => {
           
           <nav className="hidden md:flex space-x-8">
             <Link to="/" className="text-gray-700 hover:text-green-600 transition">Trang chủ</Link>
-            <Link to="/products" className="text-gray-700 hover:text-green-600 transition">Sản phẩm</Link>
+            <Link to="/product/:id" className="text-gray-700 hover:text-green-600 transition">Sản phẩm</Link>
             <Link to="/about" className="text-gray-700 hover:text-green-600 transition">Giới thiệu</Link>
             <Link to="/contact" className="text-gray-700 hover:text-green-600 transition">Liên hệ</Link>
           </nav>
@@ -88,7 +88,7 @@ const HomePage: React.FC = () => {
             Chọn lựa từ những vườn trái cây tốt nhất, giao hàng nhanh chóng.
           </p>
           <Link
-            to="/products"
+            to="/product"
             className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-medium text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
           >
             Khám phá ngay
