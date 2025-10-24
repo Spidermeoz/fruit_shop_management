@@ -2,6 +2,7 @@
 import ProductModel from "../../infrastructure/db/sequelize/models/ProductModel";
 import { SequelizeProductRepository } from "../../infrastructure/repositories/SequelizeProductRepository";
 
+// Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
 import { CreateProduct } from "../../application/products/usecases/CreateProduct";
@@ -11,13 +12,21 @@ import { SoftDeleteProduct } from "../../application/products/usecases/SoftDelet
 import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
 import { BulkReorderProducts } from "../../application/products/usecases/BulkReorderProducts";
 
+// Controllers
 import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
+import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
 
-// Gom models vào object để repo dễ inject (mở rộng sau nếu có ProductCategory)
+// Upload DI
+import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
+import { UploadImage } from "../../application/uploads/usecases/UploadImage";
+import { makeUploadController } from "../../interfaces/http/express/controllers/UploadController";
+import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
+
+// ===== Models & Repos =====
 const models = { Product: ProductModel };
-
 const productRepo = new SequelizeProductRepository(models);
 
+// ===== Usecases =====
 export const usecases = {
   products: {
     list: new ListProducts(productRepo),
@@ -27,11 +36,20 @@ export const usecases = {
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
-    reorder: new BulkReorderProducts(productRepo)
+    reorder: new BulkReorderProducts(productRepo),
+  },
+  upload: {
+    upload: new UploadImage(new CloudinaryStorage()),
   },
 };
 
-export const controllers = {
+// ===== Controllers (khai báo cả products và upload) =====
+type Controllers = {
+  products: ProductsController;
+  upload: UploadController;
+};
+
+export const controllers: Controllers = {
   products: makeProductsController({
     list: usecases.products.list,
     detail: usecases.products.detail,
@@ -41,5 +59,8 @@ export const controllers = {
     softDelete: usecases.products.softDelete,
     bulkEdit: usecases.products.bulkEdit,
     reorder: usecases.products.reorder,
+  }),
+  upload: makeUploadController({
+    upload: usecases.upload.upload,
   }),
 };
