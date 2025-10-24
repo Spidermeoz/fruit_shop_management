@@ -358,6 +358,7 @@ const OrderHistoryPage: React.FC = () => {
                               </span>
                             </div>
                             <p className="text-gray-600">Ngày đặt: {order.date}</p>
+                            
                           </div>
                           <div className="text-right">
                             <p className="text-gray-600 mb-1">Tổng tiền:</p>
@@ -418,8 +419,9 @@ const OrderHistoryPage: React.FC = () => {
                           <button
                             onClick={() => toggleOrderDetails(order.id)}
                             className="text-green-600 hover:text-green-700 font-medium flex items-center gap-1 transition"
-                          >
-                            {isExpanded ? (
+                          ><p className="text-gray-600">
+  <Link to={`/orders/${order.id}`}>Xem chi tiết</Link></p>
+                            {/* {isExpanded ? (
                               <>
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -433,7 +435,7 @@ const OrderHistoryPage: React.FC = () => {
                                 </svg>
                                 Xem chi tiết
                               </>
-                            )}
+                            )} */}
                           </button>
                           <div className="flex gap-3">
                             {order.status === "delivered" && (
