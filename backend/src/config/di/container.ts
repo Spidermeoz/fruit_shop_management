@@ -22,9 +22,34 @@ import { UploadImage } from "../../application/uploads/usecases/UploadImage";
 import { makeUploadController } from "../../interfaces/http/express/controllers/UploadController";
 import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
 
+// ===== Category imports =====
+import ProductCategoryModel from "../../infrastructure/db/sequelize/models/ProductCategoryModel";
+import { SequelizeProductCategoryRepository } from "../../infrastructure/repositories/SequelizeProductCategoryRepository";
+
+import { ListCategories } from "../../application/categories/usecases/ListCategories";
+import { GetCategoryDetail } from "../../application/categories/usecases/GetCategoryDetail";
+import { CreateCategory } from "../../application/categories/usecases/CreateCategory";
+import { EditCategory } from "../../application/categories/usecases/EditCategory";
+import { ChangeCategoryStatus } from "../../application/categories/usecases/ChangeCategoryStatus";
+import { SoftDeleteCategory } from "../../application/categories/usecases/SoftDeleteCategory";
+import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
+import { ReorderCategoryPositions } from "../../application/categories/usecases/ReorderCategoryPositions";
+
+import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+
+// Khai báo association trước khi truyền models vào repo
+(ProductModel as any).belongsTo(ProductCategoryModel, {
+  as: "category",
+  foreignKey: "product_category_id",
+});
 // ===== Models & Repos =====
-const models = { Product: ProductModel };
+const models = { Product: ProductModel, ProductCategory: ProductCategoryModel };
 const productRepo = new SequelizeProductRepository(models);
+
+// ===== Category Models & Repo =====
+const categoryModels = { ProductCategory: ProductCategoryModel };
+const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -41,12 +66,23 @@ export const usecases = {
   upload: {
     upload: new UploadImage(new CloudinaryStorage()),
   },
+  categories: {
+    list: new ListCategories(categoryRepo),
+    detail: new GetCategoryDetail(categoryRepo),
+    create: new CreateCategory(categoryRepo),
+    edit: new EditCategory(categoryRepo),
+    changeStatus: new ChangeCategoryStatus(categoryRepo),
+    softDelete: new SoftDeleteCategory(categoryRepo),
+    bulkEdit: new BulkEditCategories(categoryRepo),
+    reorder: new ReorderCategoryPositions(categoryRepo),
+  },
 };
 
 // ===== Controllers (khai báo cả products và upload) =====
 type Controllers = {
   products: ProductsController;
   upload: UploadController;
+  categories: ProductCategoriesController;
 };
 
 export const controllers: Controllers = {
@@ -62,5 +98,15 @@ export const controllers: Controllers = {
   }),
   upload: makeUploadController({
     upload: usecases.upload.upload,
+  }),
+  categories: makeProductCategoriesController({
+    list: usecases.categories.list,
+    detail: usecases.categories.detail,
+    create: usecases.categories.create,
+    edit: usecases.categories.edit,
+    changeStatus: usecases.categories.changeStatus,
+    softDelete: usecases.categories.softDelete,
+    bulkEdit: usecases.categories.bulkEdit,
+    reorder: usecases.categories.reorder,
   }),
 };

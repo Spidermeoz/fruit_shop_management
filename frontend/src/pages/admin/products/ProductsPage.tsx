@@ -59,7 +59,7 @@ const ProductsPage: React.FC = () => {
       const res = await fetch(url);
       const json = await res.json();
 
-      if (json.success && Array.isArray(json.data)) {
+      if (Array.isArray(json.data)) {
         setProducts(json.data);
         setTotalPages(json.meta?.totalPages || 1);
       } else {
