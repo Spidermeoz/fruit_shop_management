@@ -21,7 +21,7 @@ const Header: React.FC = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <img src="https://i.imgur.com/8Jk3l7n.jpg" alt="Logo" className="h-10 w-10 rounded-full mr-3" />
-              <span className="text-2xl font-bold text-green-600">FreshFruits</span>
+              <span className="text-2xl font-bold text-green-600">Logo hoặc tên ở đây</span>
             </Link>
           </div>
           
