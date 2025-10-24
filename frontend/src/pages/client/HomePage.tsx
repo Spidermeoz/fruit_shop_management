@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import Layout from "../../components/client/layout/Layout";
 
 const HomePage: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -49,28 +50,7 @@ const HomePage: React.FC = () => {
   ];
 
   return (
-    <div className="bg-white">
-      {/* Header */}
-      <header className="fixed top-0 w-full bg-white shadow-md z-50">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <img src="https://i.imgur.com/8Jk3l7n.jpg" alt="Logo" className="h-10 w-10 rounded-full mr-3" />
-            <span className="text-2xl font-bold text-green-600">FreshFruits</span>
-          </div>
-          
-          <nav className="hidden md:flex space-x-8">
-            <Link to="/" className="text-gray-700 hover:text-green-600 transition">Trang chủ</Link>
-            <Link to="/product/:id" className="text-gray-700 hover:text-green-600 transition">Sản phẩm</Link>
-            <Link to="/about" className="text-gray-700 hover:text-green-600 transition">Giới thiệu</Link>
-            <Link to="/contact" className="text-gray-700 hover:text-green-600 transition">Liên hệ</Link>
-          </nav>
-          
-          <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300">
-            Đặt hàng ngay
-          </button>
-        </div>
-      </header>
-
+    <Layout>
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-green-300 to-yellow-200 h-[600px] flex items-center justify-center text-center overflow-hidden">
         <div className="absolute inset-0 opacity-20">
@@ -220,7 +200,7 @@ const HomePage: React.FC = () => {
                 </a>
                 <a href="#" className="hover:text-green-300 transition">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.689-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
                   </svg>
                 </a>
               </div>
@@ -230,7 +210,7 @@ const HomePage: React.FC = () => {
               <h3 className="text-xl font-semibold mb-4">Liên kết nhanh</h3>
               <ul className="space-y-2">
                 <li><Link to="/" className="hover:text-green-300 transition">Trang chủ</Link></li>
-                <li><Link to="/products" className="hover:text-green-300 transition">Sản phẩm</Link></li>
+                <li><Link to="/shop" className="hover:text-green-300 transition">Sản phẩm</Link></li>
                 <li><Link to="/about" className="hover:text-green-300 transition">Giới thiệu</Link></li>
                 <li><Link to="/contact" className="hover:text-green-300 transition">Liên hệ</Link></li>
               </ul>
@@ -259,7 +239,7 @@ const HomePage: React.FC = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
         </svg>
       </button>
-    </div>
+    </Layout>
   );
 };
 

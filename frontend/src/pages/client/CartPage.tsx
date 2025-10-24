@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import Layout from "../../components/client/layout/Layout";
 
 interface CartItem {
   id: number;
@@ -95,7 +96,7 @@ const CartPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <Layout>
       {/* Header nhỏ */}
       <section className="bg-gradient-to-r from-green-100 to-yellow-100 py-8 text-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
@@ -329,7 +330,7 @@ const CartPage: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+    </Layout>
   );
 };
 

@@ -40,6 +40,7 @@ import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
 import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
+import ProductListPage from "./components/client/product/ProductList";
 
 const App: React.FC = () => {
   return (
@@ -138,6 +139,7 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/shop" element={<ShopPage />} />
+                  <Route path="/product" element={<ProductListPage/>}/>
                   <Route
                     path="/product/:id"
                     element={<ProductClientDetailPage />}

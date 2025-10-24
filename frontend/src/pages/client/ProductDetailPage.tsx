@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import Layout from "../../components/client/layout/Layout";
 
 interface Product {
   id: number;
@@ -118,30 +119,32 @@ const ProductDetailPage: React.FC = () => {
 
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-yellow-50">
-        <div className="text-center">
-          <div className="mb-6">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mx-auto text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-            </svg>
+      <Layout>
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-green-50 to-yellow-50">
+          <div className="text-center">
+            <div className="mb-6">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 mx-auto text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              </svg>
+            </div>
+            <h2 className="text-3xl text-gray-700 mb-4">
+              Không tìm thấy sản phẩm
+            </h2>
+            <p className="text-gray-600 mb-6">Sản phẩm bạn tìm kiếm không tồn tại hoặc đã bị xóa.</p>
+            <Link
+              to="/shop"
+              className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+            >
+              Quay lại cửa hàng
+            </Link>
           </div>
-          <h2 className="text-3xl text-gray-700 mb-4">
-            Không tìm thấy sản phẩm
-          </h2>
-          <p className="text-gray-600 mb-6">Sản phẩm bạn tìm kiếm không tồn tại hoặc đã bị xóa.</p>
-          <Link
-            to="/shop"
-            className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
-          >
-            Quay lại cửa hàng
-          </Link>
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <Layout>
       {/* Header nhỏ */}
       <section className="bg-gradient-to-r from-green-100 to-yellow-100 py-8 text-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
@@ -432,7 +435,7 @@ const ProductDetailPage: React.FC = () => {
           
           <div className="text-center mt-10">
             <Link
-              to="/shop"
+              to="/product"
               className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
             >
               Xem tất cả sản phẩm
@@ -440,7 +443,7 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
       </section>
-    </div>
+    </Layout>
   );
 };
 
