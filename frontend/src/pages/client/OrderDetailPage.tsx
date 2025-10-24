@@ -585,7 +585,7 @@ const OrderDetailPage: React.FC = () => {
             </button>
           )}
           <Link
-            to="/shop"
+            to="/product"
             className="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium hover:bg-gray-300 transition text-center"
           >
             Mua lại sản phẩm

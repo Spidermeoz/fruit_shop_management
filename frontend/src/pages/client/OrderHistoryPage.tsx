@@ -332,7 +332,7 @@ const OrderHistoryPage: React.FC = () => {
                 <h2 className="text-2xl text-gray-700 mb-4">Không có đơn hàng nào</h2>
                 <p className="text-gray-600 mb-6">Bạn chưa có đơn hàng nào trong danh mục này.</p>
                 <Link
-                  to="/shop"
+                  to="/product"
                   className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
                 >
                   Mua sắm ngay
@@ -449,7 +449,7 @@ const OrderHistoryPage: React.FC = () => {
                               </button>
                             )}
                             <Link
-                              to={`/shop`}
+                              to={`/product`}
                               className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-300 transition"
                             >
                               Mua lại
