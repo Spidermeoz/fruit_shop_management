@@ -1,8 +1,17 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false); // Giả lập trạng thái đăng nhập
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setIsUserMenuOpen(false);
+    navigate("/");
+  };
 
   return (
     <header className="fixed top-0 w-full bg-white shadow-md z-50">
@@ -37,10 +46,64 @@ const Header: React.FC = () => {
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">3</span>
             </Link>
             
-            {/* CTA Button */}
-            <button className="hidden sm:block bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300">
-              Đặt hàng ngay
-            </button>
+            {/* User Section */}
+            {isLoggedIn ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition"
+                >
+                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">N</span>
+                  </div>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {/* User Dropdown Menu */}
+                {isUserMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50">
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-gray-700 hover:bg-green-50 transition"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Tài khoản của tôi
+                    </Link>
+                    <Link
+                      to="/orders"
+                      className="block px-4 py-2 text-gray-700 hover:bg-green-50 transition"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      Đơn hàng của tôi
+                    </Link>
+                    <hr className="my-2" />
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-green-50 transition"
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="hidden sm:flex items-center space-x-3">
+                <Link
+                  to="/login"
+                  className="text-green-600 hover:text-green-700 font-medium transition"
+                >
+                  Đăng nhập
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-2 rounded-full font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+                >
+                  Đăng ký
+                </Link>
+              </div>
+            )}
             
             {/* Mobile Menu Toggle */}
             <button 
@@ -96,6 +159,52 @@ const Header: React.FC = () => {
                 </svg>
                 Giỏ hàng (3)
               </Link>
+              
+              {isLoggedIn ? (
+                <>
+                  <Link 
+                    to="/profile" 
+                    className="text-gray-700 hover:text-green-600 transition font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Tài khoản của tôi
+                  </Link>
+                  <Link 
+                    to="/orders" 
+                    className="text-gray-700 hover:text-green-600 transition font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Đơn hàng của tôi
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="text-gray-700 hover:text-green-600 transition font-medium text-left"
+                  >
+                    Đăng xuất
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link 
+                    to="/login" 
+                    className="text-gray-700 hover:text-green-600 transition font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Đăng nhập
+                  </Link>
+                  <Link 
+                    to="/register" 
+                    className="text-gray-700 hover:text-green-600 transition font-medium"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    Đăng ký
+                  </Link>
+                </>
+              )}
+              
               <button className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300 w-full">
                 Đặt hàng ngay
               </button>

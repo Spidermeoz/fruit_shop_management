@@ -487,7 +487,7 @@ const OrderHistoryPage: React.FC = () => {
             {/* Nút tiếp tục mua sắm */}
             <div className="text-center mt-10">
               <Link
-                to="/shop"
+                to="/product"
                 className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
               >
                 Tiếp tục mua sắm

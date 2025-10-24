@@ -606,7 +606,7 @@ const ProductListPage: React.FC = () => {
           <h2 className="text-3xl font-bold text-white mb-4">Khuyến mãi đặc biệt</h2>
           <p className="text-white text-lg mb-6">Nhập mã "FRESH20" để được giảm 20% cho đơn hàng đầu tiên!</p>
           <Link
-            to="/shop"
+            to="/product"
             className="inline-block bg-white text-green-700 px-8 py-3 rounded-lg font-medium hover:bg-gray-100 transition"
           >
             Mua sắm ngay
