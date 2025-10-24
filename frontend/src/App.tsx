@@ -30,7 +30,7 @@ import ProductClientDetailPage from "./pages/client/ProductDetailPage";
 // import LoginPage from "./pages/client/LoginPage";
 // import RegisterPage from "./pages/client/RegisterPage";
 import Header from "./components/client/layout/Header";
-import Footer from "./components/client/layout/Footer";
+// import Footer from "./components/client/layout/Footer";
 import CartPage from "./pages/client/CartPage";
 import CheckoutPage from "./pages/client/CheckoutPage";
 import LoginPage from "./pages/client/LoginPage";
@@ -40,6 +40,7 @@ import ProfilePage from "./pages/client/ProfilePage";
 import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
 import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
+import ProductListPage from "./components/client/product/ProductList";
 
 const App: React.FC = () => {
   return (
@@ -138,6 +139,7 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/shop" element={<ShopPage />} />
+                  <Route path="/product" element={<ProductListPage/>}/>
                   <Route
                     path="/product/:id"
                     element={<ProductClientDetailPage />}
@@ -155,7 +157,7 @@ const App: React.FC = () => {
                   <Route path="/orders/:id" element={<OrderDetailPage />} />
                 </Routes>
               </main>
-              <Footer />
+              {/* <Footer /> */}
             </>
           }
         />
