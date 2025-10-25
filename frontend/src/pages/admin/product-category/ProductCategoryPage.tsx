@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import Card from "../../../components/layouts/Card";
-import { Search, Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
 import {
@@ -29,10 +29,6 @@ const ProductCategoryPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState<string>(
-    searchParams.get("keyword") || ""
-  );
-
   const currentPage = Number(searchParams.get("page")) || 1;
   const navigate = useNavigate();
 
@@ -43,8 +39,6 @@ const ProductCategoryPage: React.FC = () => {
       setError("");
 
       let url = `/api/v1/admin/product-category?page=${currentPage}&limit=10`;
-      if (searchTerm.trim())
-        url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
       const res = await fetch(url);
       const json = await res.json();
@@ -66,19 +60,7 @@ const ProductCategoryPage: React.FC = () => {
   useEffect(() => {
     fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, currentPage]);
-
-  // ✅ debounce cập nhật URL khi tìm kiếm
-  useEffect(() => {
-    const delay = setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      if (searchTerm.trim()) params.set("keyword", searchTerm.trim());
-      else params.delete("keyword");
-      params.delete("page");
-      setSearchParams(params);
-    }, 500);
-    return () => clearTimeout(delay);
-  }, [searchTerm]);
+  }, [currentPage]);
 
   // ✅ Xử lý xóa danh mục
   const handleDelete = async (id: number) => {
@@ -208,28 +190,14 @@ const ProductCategoryPage: React.FC = () => {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header - Remove search box */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Danh mục sản phẩm
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          {/* Search */}
-          <div className="relative w-full sm:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Tìm kiếm danh mục..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Add Category */}
+          {/* Add Category button only */}
           <button
             onClick={() => navigate("/admin/product-category/create")}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"

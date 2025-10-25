@@ -73,10 +73,34 @@ export const makeProductCategoriesController = (uc: {
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const data = await uc.detail.execute(id);
-        res.json({
+        const dto = await uc.detail.execute(id);
+
+        // Fetch parent category name if parentId exists
+        let parent_name = null;
+        if (dto.parentId) {
+          try {
+            const parent = await uc.detail.execute(dto.parentId);
+            parent_name = parent.title;
+          } catch (err) {
+            console.error("Error fetching parent category:", err);
+          }
+        }
+
+        return res.json({
           success: true,
-          data,
+          data: {
+            id: dto.id,
+            title: dto.title,
+            parent_id: dto.parentId ?? null,
+            parent_name, // Add parent name to response
+            description: dto.description ?? null,
+            thumbnail: dto.thumbnail ?? null,
+            status: dto.status,
+            position: dto.position ?? null,
+            slug: dto.slug ?? null,
+            created_at: dto.createdAt ?? null,
+            updated_at: dto.updatedAt ?? null,
+          },
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -96,14 +120,30 @@ export const makeProductCategoriesController = (uc: {
           position?: number | null;
           slug?: string | null;
         };
-        const result = await uc.create.execute(payload);
-        res
-          .status(201)
-          .json({
-            success: true,
-            data: result,
-            meta: { total: 0, page: 1, limit: 10 },
+
+        // If position is not provided, get the last position based on parent
+        if (payload.position === undefined || payload.position === null) {
+          const lastPositionQuery = await uc.list.execute({
+            page: 1,
+            limit: 1,
+            parentId: payload.parentId ?? null,
+            sortBy: "position",
+            order: "DESC",
           });
+
+          if (lastPositionQuery.rows.length > 0) {
+            payload.position = (lastPositionQuery.rows[0].position ?? 0) + 1;
+          } else {
+            payload.position = 1; // First item in this parent level
+          }
+        }
+
+        const result = await uc.create.execute(payload);
+        res.status(201).json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -113,10 +153,33 @@ export const makeProductCategoriesController = (uc: {
     getEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const data = await uc.detail.execute(id);
-        res.json({
+        const dto = await uc.detail.execute(id);
+
+        let parent_name = null;
+        if (dto.parentId) {
+          try {
+            const parent = await uc.detail.execute(dto.parentId);
+            parent_name = parent.title;
+          } catch (err) {
+            console.error("Error fetching parent category:", err);
+          }
+        }
+
+        return res.json({
           success: true,
-          data,
+          data: {
+            id: dto.id,
+            title: dto.title,
+            parent_id: dto.parentId ?? null,
+            parent_name,
+            description: dto.description ?? null,
+            thumbnail: dto.thumbnail ?? null,
+            status: dto.status,
+            position: dto.position ?? null,
+            slug: dto.slug ?? null,
+            created_at: dto.createdAt ?? null,
+            updated_at: dto.updatedAt ?? null,
+          },
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -128,9 +191,56 @@ export const makeProductCategoriesController = (uc: {
     edit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const patch = req.body as UpdateCategoryPatch;
+        const b = req.body as any;
+
+        // Get current category to check if parent changed
+        const currentCategory = await uc.detail.execute(id);
+
+        // Handle parentId (accept both camelCase and snake_case)
+        let parentId: number | null | undefined;
+        if (b.parentId !== undefined) {
+          parentId = b.parentId === "" ? null : Number(b.parentId);
+        } else if (b.parent_id !== undefined) {
+          parentId = b.parent_id === "" ? null : Number(b.parent_id);
+        }
+
+        // If parent changed or position not provided, get new position
+        if (
+          parentId !== undefined &&
+          (parentId !== currentCategory.parentId ||
+            b.position === undefined ||
+            b.position === null)
+        ) {
+          const lastPositionQuery = await uc.list.execute({
+            page: 1,
+            limit: 1,
+            parentId: parentId,
+            sortBy: "position",
+            order: "DESC",
+          });
+
+          b.position =
+            lastPositionQuery.rows.length > 0
+              ? (lastPositionQuery.rows[0].position ?? 0) + 1
+              : 1;
+        }
+
+        const patch: UpdateCategoryPatch = {
+          ...(b.title !== undefined ? { title: String(b.title) } : {}),
+          ...(parentId !== undefined ? { parentId } : {}),
+          ...(b.description !== undefined
+            ? { description: b.description }
+            : {}),
+          ...(b.thumbnail !== undefined ? { thumbnail: b.thumbnail } : {}),
+          ...(b.status !== undefined
+            ? { status: String(b.status) as any }
+            : {}),
+          ...(b.slug !== undefined ? { slug: b.slug || null } : {}),
+          ...(b.position !== undefined ? { position: Number(b.position) } : {}),
+        };
+
         const result = await uc.edit.execute(id, patch);
-        res.json({
+        return res.json({
           success: true,
           data: result,
           meta: { total: 0, page: 1, limit: 10 },

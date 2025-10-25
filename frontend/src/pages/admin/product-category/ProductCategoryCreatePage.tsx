@@ -11,7 +11,6 @@ interface CategoryFormData {
   title: string;
   description: string;
   slug: string;
-  position: number | string | undefined;
   status: string;
   thumbnail: string;
   created_by_id: number;
@@ -35,7 +34,6 @@ const ProductCategoryCreatePage: React.FC = () => {
     title: "",
     description: "",
     slug: "",
-    position: undefined,
     status: "active",
     thumbnail: "",
     created_by_id: 1,
@@ -123,8 +121,12 @@ const ProductCategoryCreatePage: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...formData,
+          // Chuyển đổi parent_id thành parentId cho backend
+          parentId: formData.parent_id,
           thumbnail: uploadedThumbnailUrl,
           description: updatedDescription,
+          // Xóa parent_id cũ để tránh conflict
+          parent_id: undefined,
         }),
       });
 
@@ -226,21 +228,6 @@ const ProductCategoryCreatePage: React.FC = () => {
               />
             </div>
           )}
-        </div>
-
-        {/* --- Vị trí hiển thị --- */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Vị trí hiển thị
-          </label>
-          <input
-            type="number"
-            name="position"
-            value={formData.position || ""}
-            onChange={handleInputChange}
-            placeholder="Nếu bỏ trống, hệ thống sẽ tự thêm ở cuối"
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
         </div>
 
         {/* --- Trạng thái --- */}

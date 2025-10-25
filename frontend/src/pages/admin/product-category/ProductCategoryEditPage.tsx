@@ -1,4 +1,9 @@
-import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react"
+import React, {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
@@ -7,7 +12,8 @@ import RichTextEditor from "../../../components/common/RichTextEditor";
 interface Category {
   id: number;
   title: string;
-  parent_id: number | null;
+  parent_id: number | null; // frontend dùng snake_case
+  parentId?: number | null; // thêm field này để map với backend
   description: string | null;
   thumbnail: string | null;
   status: string;
@@ -75,7 +81,9 @@ const ProductCategoryEditPage: React.FC = () => {
   };
 
   // ✅ Xử lý input
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setCategory((prev) => (prev ? { ...prev, [name]: value } : prev));
   };
@@ -93,8 +101,9 @@ const ProductCategoryEditPage: React.FC = () => {
     try {
       setSaving(true);
       let thumbnailUrl = category.thumbnail;
+      let updatedDescription = category.description;
 
-      // Nếu có chọn ảnh mới → upload
+      // Upload thumbnail nếu có
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
@@ -111,24 +120,63 @@ const ProductCategoryEditPage: React.FC = () => {
         }
       }
 
-      // Gửi yêu cầu cập nhật
+      // Upload ảnh từ description nếu có
+      if (category.description) {
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = category.description;
+        const imgs = tempDiv.getElementsByTagName("img");
+
+        for (let img of Array.from(imgs)) {
+          const src = img.getAttribute("src");
+          // Chỉ upload nếu là ảnh local
+          if (src && src.startsWith("blob:")) {
+            // Convert blob URL to File
+            const response = await fetch(src);
+            const blob = await response.blob();
+            const file = new File([blob], "image.png", { type: "image/png" });
+
+            // Upload to Cloudinary
+            const formData = new FormData();
+            formData.append("file", file);
+            const uploadRes = await fetch("/api/v1/admin/upload", {
+              method: "POST",
+              body: formData,
+            });
+            const uploadData = await uploadRes.json();
+
+            if (uploadData.success && uploadData.url) {
+              // Replace blob URL with Cloudinary URL
+              img.setAttribute("src", uploadData.url);
+            }
+          }
+        }
+        updatedDescription = tempDiv.innerHTML;
+      }
+
+      // Chuẩn bị payload cho API
+      const payload = {
+        title: category.title,
+        parentId: category.parent_id,
+        description: updatedDescription,
+        thumbnail: thumbnailUrl,
+        status: category.status,
+      };
+
+      console.log("Sending payload:", payload); // Debug payload
+
       const res = await fetch(`/api/v1/admin/product-category/edit/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            ...category,
-            thumbnail: thumbnailUrl,
-            parent_id:
-              category.parent_id === null
-                ? null
-                : Number(category.parent_id),
-          }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
       if (json.success) {
         alert("✅ Cập nhật danh mục thành công!");
-        navigate(`/admin/product-category/edit/${id}`);
+        await Promise.all([
+          fetchCategory(), // Refresh category detail
+          fetchCategories(), // Refresh categories list
+        ]);
       } else {
         alert(json.message || "Không thể cập nhật danh mục.");
       }
@@ -195,8 +243,20 @@ const ProductCategoryEditPage: React.FC = () => {
             </label>
             <select
               name="parent_id"
-              value={category.parent_id || ""}
-              onChange={handleChange}
+              value={
+                category.parent_id === null ? "" : String(category.parent_id)
+              }
+              onChange={(e) => {
+                const value = e.target.value;
+                setCategory((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        parent_id: value === "" ? null : Number(value),
+                      }
+                    : prev
+                );
+              }}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="">-- Danh mục gốc --</option>
@@ -236,21 +296,6 @@ const ProductCategoryEditPage: React.FC = () => {
                 />
               </div>
             )}
-          </div>
-
-          {/* Vị trí */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Vị trí hiển thị
-            </label>
-            <input
-              type="number"
-              name="position"
-              value={category.position || ""}
-              onChange={handleChange}
-              placeholder="Nếu bỏ trống, hệ thống tự thêm cuối"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            />
           </div>
 
           {/* Trạng thái */}
