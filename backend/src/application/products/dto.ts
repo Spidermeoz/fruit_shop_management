@@ -1,6 +1,6 @@
 // src/application/products/dto.ts
-import type { ProductStatus } from '../../domain/products/types';
-import type { Product } from '../../domain/products/Products';
+import type { ProductStatus } from "../../domain/products/types";
+import type { Product } from "../../domain/products/Products";
 
 export type ProductDTO = {
   id: number;
@@ -21,15 +21,20 @@ export type ProductDTO = {
   deletedAt: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
+  createdById?: number | null;
+  updatedById?: number | null;
   // field suy diễn cho FE (tuỳ dùng)
   effectivePrice: number | null; // price sau khi áp discount
+  category: { id: number; title: string } | null;
 };
 
 export const toDTO = (p: Product): ProductDTO => {
   const price = p.props.price ?? null;
   const discount = p.props.discountPercentage ?? 0;
   const effectivePrice =
-    price === null ? null : Math.round((price * (100 - discount)) as number) / 100;
+    price === null
+      ? null
+      : Math.round((price * (100 - discount)) as number) / 100;
 
   return {
     id: p.props.id!,
@@ -50,6 +55,9 @@ export const toDTO = (p: Product): ProductDTO => {
     deletedAt: p.props.deletedAt ?? null,
     createdAt: p.props.createdAt,
     updatedAt: p.props.updatedAt,
+    createdById: p.props.createdById ?? null,
+    updatedById: p.props.updatedById ?? null,
     effectivePrice,
+    category: p.props.category ?? null,
   };
 };

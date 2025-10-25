@@ -59,7 +59,7 @@ const ProductCreatePage: React.FC = () => {
     thumbnail: "",
     status: "active",
     featured: 0,
-    position: 0,
+    position: "", // <-- empty string so handleSubmit will send null and backend auto-assigns
     slug: "",
     average_rating: 0,
     review_count: 0,
@@ -73,7 +73,12 @@ const ProductCreatePage: React.FC = () => {
         const res = await fetch("/api/v1/admin/product-category");
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
-          setCategories(json.data);
+          // ✅ normalize để buildCategoryTree dùng parent_id như kỳ vọng
+          const normalized = json.data.map((c: any) => ({
+            ...c,
+            parent_id: c.parentId,
+          }));
+          setCategories(normalized);
         }
       } catch (err) {
         console.error("fetchCategories error:", err);
@@ -115,7 +120,10 @@ const ProductCreatePage: React.FC = () => {
           body: formDataImg,
         });
         const uploadJson = await uploadRes.json();
-        if (uploadJson.success && uploadJson.url) {
+        if (uploadJson.success && uploadJson.data?.url) {
+          uploadedThumbnailUrl = uploadJson.data.url;
+        } else if (uploadJson.url) {
+          // fallback nếu API cũ
           uploadedThumbnailUrl = uploadJson.url;
         } else {
           alert("Không thể upload ảnh minh họa!");
@@ -133,9 +141,23 @@ const ProductCreatePage: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
-          thumbnail: uploadedThumbnailUrl,
+          categoryId: formData.product_category_id
+            ? Number(formData.product_category_id)
+            : null,
+          title: formData.title,
           description: updatedDescription,
+          price: formData.price === "" ? null : Number(formData.price),
+          discountPercentage:
+            formData.discount_percentage === undefined ||
+            formData.discount_percentage === null
+              ? null
+              : Number(formData.discount_percentage),
+          stock: Number(formData.stock) || 0,
+          thumbnail: uploadedThumbnailUrl,
+          status: formData.status, // 'active' | 'inactive'
+          featured: Boolean(Number(formData.featured)), // 0/1 -> boolean
+          position: formData.position === "" ? null : Number(formData.position),
+          slug: formData.slug || null,
         }),
       });
 
@@ -196,7 +218,9 @@ const ProductCreatePage: React.FC = () => {
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             required
           >
-            <option value="" disabled>-- Chọn danh mục --</option>
+            <option value="" disabled>
+              -- Chọn danh mục --
+            </option>
             {renderCategoryOptions(buildCategoryTree(categories))}
           </select>
         </div>

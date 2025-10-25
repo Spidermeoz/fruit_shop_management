@@ -43,6 +43,11 @@ export interface ProductProps {
 
   createdAt?: Date;
   updatedAt?: Date;
+
+  createdById?: number | null;
+  updatedById?: number | null;
+
+  category?: { id: number; title: string } | null;
 }
 
 export class Product {
@@ -88,24 +93,12 @@ export class Product {
       throw new Error("Product.reviewCount must be >= 0");
     }
     const normalized: ProductProps = {
-      id: p.id,
-      categoryId: p.categoryId ?? null,
-      title: p.title.toString().trim(),
-      description: p.description ?? null,
-      price: p.price ?? null,
-      discountPercentage: p.discountPercentage ?? null,
-      stock: p.stock ?? 0,
-      thumbnail: p.thumbnail ?? null,
-      slug: p.slug ?? null,
-      status: p.status,
+      ...p, // spread trước
       featured: p.featured ?? false,
-      position: p.position ?? null,
-      averageRating: p.averageRating ?? 0,
+      stock: p.stock ?? 0,
       reviewCount: p.reviewCount ?? 0,
+      averageRating: p.averageRating ?? 0,
       deleted: p.deleted ?? false,
-      deletedAt: p.deletedAt ?? null,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
     };
     return normalized;
   }

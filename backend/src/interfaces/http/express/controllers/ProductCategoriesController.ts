@@ -56,6 +56,7 @@ export const makeProductCategoriesController = (uc: {
           order: (order as any) ?? "ASC",
         });
         res.json({
+          success: true,
           data: data.rows,
           meta: {
             total: data.count,
@@ -73,7 +74,11 @@ export const makeProductCategoriesController = (uc: {
       try {
         const id = Number(req.params.id);
         const data = await uc.detail.execute(id);
-        res.json({ data });
+        res.json({
+          success: true,
+          data,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -92,7 +97,13 @@ export const makeProductCategoriesController = (uc: {
           slug?: string | null;
         };
         const result = await uc.create.execute(payload);
-        res.status(201).json({ data: result });
+        res
+          .status(201)
+          .json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
       } catch (e) {
         next(e);
       }
@@ -103,7 +114,11 @@ export const makeProductCategoriesController = (uc: {
       try {
         const id = Number(req.params.id);
         const data = await uc.detail.execute(id);
-        res.json({ data });
+        res.json({
+          success: true,
+          data,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -115,7 +130,11 @@ export const makeProductCategoriesController = (uc: {
         const id = Number(req.params.id);
         const patch = req.body as UpdateCategoryPatch;
         const result = await uc.edit.execute(id, patch);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -127,7 +146,11 @@ export const makeProductCategoriesController = (uc: {
         const id = Number(req.params.id);
         const { status } = req.body as { status: CategoryStatus };
         const result = await uc.changeStatus.execute(id, status);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -138,7 +161,11 @@ export const makeProductCategoriesController = (uc: {
       try {
         const id = Number(req.params.id);
         const result = await uc.softDelete.execute(id);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -168,15 +195,19 @@ export const makeProductCategoriesController = (uc: {
             }));
           }
           if (!pairs.length) {
-            return res
-              .status(400)
-              .json({
-                success: false,
-                message: "Invalid positions/value payload",
-              });
+            return res.status(400).json({
+              success: false,
+              message: "Invalid positions/value payload",
+              data: null,
+              meta: { total: 0, page: 1, limit: 10 },
+            });
           }
           const result = await uc.reorder.execute(pairs);
-          return res.json({ data: result });
+          return res.json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
         // ✨ hỗ trợ action = 'status'
@@ -185,7 +216,11 @@ export const makeProductCategoriesController = (uc: {
             status: body.value,
           };
           const result = await uc.bulkEdit.execute(body.ids, patch);
-          return res.json({ data: result });
+          return res.json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
         // Mặc định: bulk patch (status/flags/parent/...)
@@ -194,7 +229,11 @@ export const makeProductCategoriesController = (uc: {
           patch: UpdateCategoryPatch;
         };
         const result = await uc.bulkEdit.execute(ids, patch);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }

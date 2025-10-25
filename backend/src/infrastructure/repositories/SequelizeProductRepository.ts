@@ -25,6 +25,9 @@ export class SequelizeProductRepository implements ProductRepository {
     return DomainProduct.create({
       id: Number(r.id),
       categoryId: r.product_category_id ?? null,
+      category: r.category
+        ? { id: Number(r.category.id), title: r.category.title }
+        : null,
       title: r.title,
       description: r.description ?? null,
       price: r.price !== null && r.price !== undefined ? Number(r.price) : null,
@@ -47,6 +50,8 @@ export class SequelizeProductRepository implements ProductRepository {
       deletedAt: r.deleted_at ?? null,
       createdAt: r.created_at ?? r.createdAt,
       updatedAt: r.updated_at ?? r.updatedAt,
+      createdById: r.created_by_id ?? null,
+      updatedById: r.updated_by_id ?? null,
     });
   };
 
@@ -128,15 +133,32 @@ export class SequelizeProductRepository implements ProductRepository {
   async findById(id: number) {
     const r = await this.models.Product.findOne({
       where: { id, deleted: 0 },
+      include: this.models.ProductCategory
+        ? [
+            {
+              model: this.models.ProductCategory,
+              as: "category",
+              attributes: ["id", "title"],
+            },
+          ]
+        : undefined,
     });
     return r ? this.mapRow(r) : null;
   }
 
   async create(input: CreateProductInput) {
-    // auto position nếu chưa gửi lên
+    // ✅ Nếu position không truyền → tính tự động
     let position = input.position ?? null;
+
     if (position == null) {
-      const maxPos: number = (await this.models.Product.max("position")) || 0;
+      const where: any = {
+        product_category_id: input.categoryId ?? null,
+        deleted: 0,
+      };
+
+      // Lấy vị trí cao nhất hiện có trong cùng category
+      const maxPos: number =
+        (await this.models.Product.max("position", { where })) || 0;
       position = maxPos + 1;
     }
 
@@ -148,42 +170,26 @@ export class SequelizeProductRepository implements ProductRepository {
       discount_percentage: input.discountPercentage ?? null,
       stock: input.stock ?? 0,
       thumbnail: input.thumbnail ?? null,
+      slug: input.slug ?? null, // có thể tự sinh bằng hook nếu null
       status: input.status ?? "active",
-      featured: input.featured ? 1 : 0,
+      featured: !!input.featured,
       position,
-      slug: input.slug ?? null, // hooks sẽ tự chuẩn hoá & unique
-      average_rating: 0.0,
-      review_count: 0,
-      created_by_id: null,
-      updated_by_id: null,
-      deleted_by_id: null,
       deleted: 0,
       deleted_at: null,
     });
 
+    // Trả về entity domain
     return this.mapRow(r);
   }
 
   async update(id: number, patch: UpdateProductPatch) {
-    const values: any = {};
-    if (patch.categoryId !== undefined)
-      values.product_category_id = patch.categoryId;
-    if (patch.title !== undefined) values.title = patch.title;
-    if (patch.description !== undefined) values.description = patch.description;
-    if (patch.price !== undefined) values.price = patch.price;
-    if (patch.discountPercentage !== undefined)
-      values.discount_percentage = patch.discountPercentage;
-    if (patch.stock !== undefined) values.stock = patch.stock;
-    if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;
-    if (patch.slug !== undefined) values.slug = patch.slug;
-    if (patch.status !== undefined) values.status = patch.status;
-    if (patch.featured !== undefined) values.featured = patch.featured ? 1 : 0;
-    if (patch.position !== undefined) values.position = patch.position;
-    if (patch.deleted !== undefined) values.deleted = patch.deleted ? 1 : 0;
-    if (patch.deleted === true) values.deleted_at = new Date();
-    if (patch.deleted === false) values.deleted_at = null;
-
-    await this.models.Product.update(values, { where: { id } });
+    const updateData: any = { ...patch };
+    // Nếu có categoryId thì map sang product_category_id
+    if (patch.categoryId !== undefined) {
+      updateData.product_category_id = patch.categoryId;
+      delete updateData.categoryId;
+    }
+    await this.models.Product.update(updateData, { where: { id } });
     const r = await this.models.Product.findByPk(id);
     if (!r) throw new Error("Product not found after update");
     return this.mapRow(r);
@@ -218,13 +224,15 @@ export class SequelizeProductRepository implements ProductRepository {
     if (patch.deleted !== undefined) values.deleted = patch.deleted ? 1 : 0;
     if (patch.deleted === true) values.deleted_at = new Date();
     if (patch.deleted === false) values.deleted_at = null;
+    if (patch.updatedById !== undefined)
+      values.updated_by_id = patch.updatedById;
 
     const [affected] = await this.models.Product.update(values, {
       where: { id: { [Op.in]: ids } },
     });
     return affected ?? 0;
   }
-  
+
   async reorderPositions(
     pairs: { id: number; position: number }[],
     updatedById?: number

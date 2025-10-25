@@ -7,25 +7,42 @@ export const makeUploadController = (uc: { upload: UploadImage }) => {
     // POST /api/v1/admin/upload
     upload: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // multer.memoryStorage() sẽ đặt file buffer tại req.file.buffer
+        // có thể là file (FormData) hoặc dataUrl (JSON/text từ FE)
         const file = req.file as Express.Multer.File | undefined;
-        if (!file || !file.buffer) {
-          return res.status(400).json({ success: false, message: "Missing file" });
+        const dataUrl: string | undefined = req.body?.dataUrl;
+
+        let buffer: Buffer;
+        let mimetype: string;
+
+        if (file?.buffer) {
+          buffer = file.buffer;
+          mimetype = file.mimetype;
+        } else if (typeof dataUrl === "string") {
+          const match = dataUrl.match(/^data:(.+);base64,(.*)$/);
+          if (!match) {
+            return res
+              .status(400)
+              .json({ success: false, message: "Invalid dataUrl" });
+          }
+          mimetype = match[1];
+          buffer = Buffer.from(match[2], "base64");
+        } else {
+          return res
+            .status(400)
+            .json({ success: false, message: "Missing file or dataUrl" });
         }
 
-        // có thể truyền folder qua body form-data (không bắt buộc)
         const folder = (req.body?.folder as string | undefined) || undefined;
-
         const result = await uc.upload.execute({
-          data: file.buffer,
-          mimetype: file.mimetype,
+          data: buffer,
+          mimetype,
           folder,
         });
 
-        return res.status(201).json({
-          success: true,
-          data: result, // { url, publicId?, width?, height?, format? }
-        });
+        // Trả cả data.url và url top-level (để FE cũ/tiện ích đọc hai kiểu đều OK)
+        return res
+          .status(201)
+          .json({ success: true, data: result, url: result.url });
       } catch (err) {
         next(err);
       }

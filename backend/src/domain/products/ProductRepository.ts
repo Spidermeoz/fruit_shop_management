@@ -14,12 +14,15 @@ export type CreateProductInput = {
   status?: ProductStatus;        // default 'active'
   featured?: boolean;
   position?: number | null;
+  createdById?: number | null;
 };
 
 export type UpdateProductPatch = Partial<Omit<CreateProductInput, 'slug'>> & {
   // cho phép chỉnh slug nếu bạn muốn, hoặc để infra kiểm soát
   slug?: string | null;
   deleted?: boolean;             // soft-delete toggle
+  updatedById?: number | null;
+  deletedById?: number | null;
 };
 
 export interface ProductRepository {

@@ -38,9 +38,12 @@ import { ReorderCategoryPositions } from "../../application/categories/usecases/
 import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
 import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
 
-// Khai báo association trước khi truyền models vào repo
-(ProductModel as any).belongsTo(ProductCategoryModel, {
+ProductModel.belongsTo(ProductCategoryModel, {
   as: "category",
+  foreignKey: "product_category_id",
+});
+ProductCategoryModel.hasMany(ProductModel, {
+  as: "products",
   foreignKey: "product_category_id",
 });
 // ===== Models & Repos =====

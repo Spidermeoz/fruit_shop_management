@@ -57,6 +57,7 @@ export const makeProductsController = (uc: {
         });
 
         res.json({
+          success: true,
           data: data.rows,
           meta: {
             total: data.count,
@@ -72,8 +73,32 @@ export const makeProductsController = (uc: {
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const data = await uc.detail.execute(id);
-        res.json({ data });
+        const dto = await uc.detail.execute(id);
+
+        return res.json({
+          success: true,
+          data: {
+            id: dto.id,
+            title: dto.title,
+            description: dto.description,
+            price: dto.price,
+            discount_percentage: dto.discountPercentage,
+            stock: dto.stock,
+            thumbnail: dto.thumbnail,
+            status: dto.status,
+            position: dto.position,
+            average_rating: dto.averageRating,
+            review_count: dto.reviewCount,
+            product_category_id: dto.categoryId,
+            category: dto.category,
+
+            // ✨ các field bạn đang cần ở FE:
+            created_by_id: dto.createdById ?? null,
+            updated_by_id: dto.updatedById ?? null,
+            created_at: dto.createdAt ?? null,
+            updated_at: dto.updatedAt ?? null,
+          },
+        });
       } catch (e) {
         next(e);
       }
@@ -95,18 +120,45 @@ export const makeProductsController = (uc: {
           position?: number | null;
         };
         const result = await uc.create.execute(payload);
-        res.status(201).json({ data: result });
+        res.status(201).json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
     },
 
     getEdit: async (req: Request, res: Response, next: NextFunction) => {
-      // nhiều FE dùng /edit/:id để lấy detail
       try {
         const id = Number(req.params.id);
-        const data = await uc.detail.execute(id);
-        res.json({ data });
+        const dto = await uc.detail.execute(id);
+
+        return res.json({
+          success: true,
+          data: {
+            id: dto.id,
+            title: dto.title,
+            description: dto.description ?? "",
+            product_category_id: dto.categoryId ?? "",
+            price: dto.price ?? "",
+            discount_percentage: dto.discountPercentage ?? 0,
+            stock: dto.stock ?? 0,
+            thumbnail: dto.thumbnail ?? "",
+            status: dto.status,
+            featured: dto.featured ? 1 : 0,
+            position: dto.position ?? "",
+            slug: dto.slug ?? "",
+            average_rating: dto.averageRating ?? 0,
+            review_count: dto.reviewCount ?? 0,
+            created_by_id: dto.createdById ?? null,
+            updated_by_id: dto.updatedById ?? null,
+            created_at: dto.createdAt ?? null,
+            updated_at: dto.updatedAt ?? null,
+          },
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -117,7 +169,11 @@ export const makeProductsController = (uc: {
         const id = Number(req.params.id);
         const patch = req.body as UpdateProductPatch;
         const result = await uc.edit.execute(id, patch);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -128,7 +184,11 @@ export const makeProductsController = (uc: {
         const id = Number(req.params.id);
         const { status } = req.body as { status: ProductStatus };
         const result = await uc.changeStatus.execute(id, status);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -138,7 +198,11 @@ export const makeProductsController = (uc: {
       try {
         const id = Number(req.params.id);
         const result = await uc.softDelete.execute(id);
-        res.json({ data: result });
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -146,11 +210,68 @@ export const makeProductsController = (uc: {
 
     bulkEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        // ✨ Hỗ trợ 2 chế độ:
-        // A) { ids: number[], patch: UpdateProductPatch }
-        // B) { action: 'position', positions: [{id, position}], updated_by_id?: number }
         const body = req.body as any;
 
+        // ===== A) action: 'status' =====
+        if (body.action === "status") {
+          const ids: number[] = Array.isArray(body.ids)
+            ? body.ids.map(Number)
+            : [];
+          const value = String(body.value || "");
+          const allowed = ["active", "inactive", "draft"]; // nếu bạn chỉ dùng active/inactive thì rút gọn mảng này
+          if (!ids.length) {
+            return res.status(400).json({
+              success: false,
+              message: "Field 'ids' must be a non-empty array",
+              data: null,
+            });
+          }
+          if (!allowed.includes(value)) {
+            return res.status(400).json({
+              success: false,
+              message: `Invalid status value (must be ${allowed.join(" | ")})`,
+              data: null,
+            });
+          }
+          const updatedById =
+            body.updated_by_id != null ? Number(body.updated_by_id) : null;
+          const result = await uc.bulkEdit.execute(ids, {
+            status: value as any,
+            updatedById,
+          });
+          return res.json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
+        }
+
+        // ===== B) action: 'delete' (soft delete hàng loạt) =====
+        if (body.action === "delete") {
+          const ids: number[] = Array.isArray(body.ids)
+            ? body.ids.map(Number)
+            : [];
+          if (!ids.length) {
+            return res.status(400).json({
+              success: false,
+              message: "Field 'ids' must be a non-empty array",
+              data: null,
+            });
+          }
+          const deletedById =
+            body.updated_by_id != null ? Number(body.updated_by_id) : null;
+          const result = await uc.bulkEdit.execute(ids, {
+            deleted: true,
+            deletedById,
+          });
+          return res.json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
+        }
+
+        // ===== C) action: 'position' (đổi vị trí từng id) =====
         if (body.action === "position") {
           let pairs: Array<{ id: number; position: number }> = [];
           if (Array.isArray(body.positions)) {
@@ -168,27 +289,42 @@ export const makeProductsController = (uc: {
               position: Number(pos),
             }));
           }
-          if (pairs.length === 0) {
-            return res
-              .status(400)
-              .json({
-                success: false,
-                message: "Invalid positions/value payload",
-              });
+          if (!pairs.length) {
+            return res.status(400).json({
+              success: false,
+              message: "Invalid positions/value payload",
+              data: null,
+              meta: { total: 0, page: 1, limit: 10 },
+            });
           }
           const updatedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : undefined;
           const result = await uc.reorder.execute(pairs, updatedById);
-          return res.json({ data: result });
+          return res.json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
-        // Mặc định: bulk patch
+        // ===== D) Mặc định: { ids, patch } =====
         const { ids, patch } = body as {
           ids: number[];
           patch: UpdateProductPatch;
         };
-        const result = await uc.bulkEdit.execute(ids, patch);
-        res.json({ data: result });
+        if (!Array.isArray(ids) || !ids.length) {
+          return res.status(400).json({
+            success: false,
+            message: "Field 'ids' must be a non-empty array",
+            data: null,
+          });
+        }
+        const result = await uc.bulkEdit.execute(ids, patch ?? {});
+        res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }

@@ -69,20 +69,24 @@ const ProductEditPage: React.FC = () => {
   };
 
   // ✅ Lấy danh sách danh mục từ backend
-    useEffect(() => {
-      const fetchCategories = async () => {
-        try {
-          const res = await fetch("/api/v1/admin/product-category");
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            setCategories(json.data);
-          }
-        } catch (err) {
-          console.error("fetchCategories error:", err);
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await fetch("/api/v1/admin/product-category");
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const normalized = json.data.map((c: any) => ({
+            ...c,
+            parent_id: c.parentId,
+          }));
+          setCategories(normalized);
         }
-      };
-      fetchCategories();
-    }, []);
+      } catch (err) {
+        console.error("fetchCategories error:", err);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     fetchProduct();
@@ -161,15 +165,25 @@ const ProductEditPage: React.FC = () => {
         product.description
       );
 
-      // 🔸 Gửi PATCH cập nhật
+      // --- Chuẩn hóa payload ---
+      const payload: any = {
+        ...product,
+        thumbnail: thumbnailUrl,
+        description: updatedDescription,
+      };
+      // Chuyển product_category_id thành categoryId cho backend
+      if (payload.product_category_id !== undefined) {
+        payload.categoryId =
+          payload.product_category_id === ""
+            ? null
+            : Number(payload.product_category_id);
+        delete payload.product_category_id;
+      }
+
       const res = await fetch(`/api/v1/admin/products/edit/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...product,
-          thumbnail: thumbnailUrl,
-          description: updatedDescription,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const json = await res.json();
@@ -228,7 +242,9 @@ const ProductEditPage: React.FC = () => {
               onChange={handleChange}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
-              <option value="" disabled>-- Chọn danh mục --</option>
+              <option value="" disabled>
+                -- Chọn danh mục --
+              </option>
               {renderCategoryOptions(buildCategoryTree(categories))}
             </select>
           </div>

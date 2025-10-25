@@ -52,16 +52,29 @@ const ProductsPage: React.FC = () => {
 
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (sortOrder) url += `&sort=${sortOrder}`;
+
+      // --- fix: tách sortOrder "field:dir" thành sortBy & order để backend nhận
+      if (sortOrder) {
+        const [field, dir] = String(sortOrder).split(":");
+        if (field) {
+          url += `&sortBy=${encodeURIComponent(field)}`;
+          if (dir) url += `&order=${encodeURIComponent(dir.toUpperCase())}`;
+        }
+      }
+
+      // giữ keyword param nếu backend chấp nhận 'keyword' (hoặc đổi sang q nếu cần)
       if (searchTerm.trim())
         url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
       const res = await fetch(url);
       const json = await res.json();
 
-      if (Array.isArray(json.data)) {
+      if (json.success && Array.isArray(json.data)) {
         setProducts(json.data);
-        setTotalPages(json.meta?.totalPages || 1);
+        // --- fix: tính totalPages từ meta.total / meta.limit (fallback 1)
+        const total = Number(json.meta?.total ?? 0);
+        const limit = Number(json.meta?.limit ?? 10);
+        setTotalPages(Math.max(1, Math.ceil(total / limit)));
       } else {
         setError(json.message || "Không thể tải sản phẩm.");
       }
