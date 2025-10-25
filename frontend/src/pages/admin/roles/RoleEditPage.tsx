@@ -1,4 +1,9 @@
-import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import React, {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
@@ -55,6 +60,45 @@ const RoleEditPage: React.FC = () => {
     setRole((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
+  // helper: upload images inside HTML (blob/data URLs) -> replace src with uploaded URL
+  const uploadImagesInHtml = async (html?: string | null) => {
+    if (!html) return html;
+    try {
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = html;
+      const imgs = Array.from(tempDiv.getElementsByTagName("img"));
+      for (const img of imgs) {
+        const src = img.getAttribute("src") || "";
+        if (!src) continue;
+        if (src.startsWith("blob:") || src.startsWith("data:")) {
+          try {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            const file = new File([blob], "image.png", {
+              type: blob.type || "image/png",
+            });
+            const fd = new FormData();
+            fd.append("file", file);
+            const up = await fetch("/api/v1/admin/upload", {
+              method: "POST",
+              body: fd,
+            });
+            const upJson = await up.json();
+            if (upJson && upJson.success && upJson.url) {
+              img.setAttribute("src", upJson.url);
+            }
+          } catch (err) {
+            console.error("Upload image in description failed:", err);
+          }
+        }
+      }
+      return tempDiv.innerHTML;
+    } catch (err) {
+      console.error("Process images error:", err);
+      return html;
+    }
+  };
+
   // 🔹 Lưu thay đổi
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -67,12 +111,16 @@ const RoleEditPage: React.FC = () => {
 
     try {
       setSaving(true);
+
+      // process images in description (upload blob/data images to cloud)
+      const processedDescription = await uploadImagesInHtml(role.description);
+
       const res = await fetch(`/api/v1/admin/roles/edit/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           title: role.title,
-          description: role.description,
+          description: processedDescription,
         }),
       });
 

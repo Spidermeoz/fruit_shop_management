@@ -2,6 +2,10 @@
 import ProductModel from "../../infrastructure/db/sequelize/models/ProductModel";
 import { SequelizeProductRepository } from "../../infrastructure/repositories/SequelizeProductRepository";
 
+// Roles
+import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
+import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
+
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
@@ -35,8 +39,22 @@ import { SoftDeleteCategory } from "../../application/categories/usecases/SoftDe
 import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
 import { ReorderCategoryPositions } from "../../application/categories/usecases/ReorderCategoryPositions";
 
+import { ListRoles } from "../../application/roles/usecases/ListRoles";
+import { GetRoleDetail } from "../../application/roles/usecases/GetRoleDetail";
+import { CreateRole } from "../../application/roles/usecases/CreateRole";
+import { UpdateRole } from "../../application/roles/usecases/UpdateRole";
+import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole";
+import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
+import { UpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+
 import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
 import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+
+import { makeRolesController } from "../../interfaces/http/express/controllers/RolesController";
+import type { RolesController } from "../../interfaces/http/express/controllers/RolesController";
+
+import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
+import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
 
 ProductModel.belongsTo(ProductCategoryModel, {
   as: "category",
@@ -53,6 +71,9 @@ const productRepo = new SequelizeProductRepository(models);
 // ===== Category Models & Repo =====
 const categoryModels = { ProductCategory: ProductCategoryModel };
 const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
+
+const roleModels = { Role: RoleModel };
+const roleRepo = new SequelizeRoleRepository(roleModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -79,6 +100,17 @@ export const usecases = {
     bulkEdit: new BulkEditCategories(categoryRepo),
     reorder: new ReorderCategoryPositions(categoryRepo),
   },
+  roles: {
+    list: new ListRoles(roleRepo),
+    detail: new GetRoleDetail(roleRepo),
+    create: new CreateRole(roleRepo),
+    update: new UpdateRole(roleRepo),
+    softDelete: new SoftDeleteRole(roleRepo),
+    getPermissions: new GetRolePermissions(roleRepo),
+    updatePermissions: new UpdateRolePermissions(roleRepo),
+    listForPermissions: new ListRolesForPermissions(roleRepo),
+    bulkUpdatePermissions: new BulkUpdateRolePermissions(roleRepo),
+  },
 };
 
 // ===== Controllers (khai báo cả products và upload) =====
@@ -86,6 +118,7 @@ type Controllers = {
   products: ProductsController;
   upload: UploadController;
   categories: ProductCategoriesController;
+  roles: RolesController;
 };
 
 export const controllers: Controllers = {
@@ -111,5 +144,16 @@ export const controllers: Controllers = {
     softDelete: usecases.categories.softDelete,
     bulkEdit: usecases.categories.bulkEdit,
     reorder: usecases.categories.reorder,
+  }),
+  roles: makeRolesController({
+    list: usecases.roles.list,
+    detail: usecases.roles.detail,
+    create: usecases.roles.create,
+    update: usecases.roles.update,
+    softDelete: usecases.roles.softDelete,
+    getPermissions: usecases.roles.getPermissions,
+    updatePermissions: usecases.roles.updatePermissions,
+    listForPermissions: usecases.roles.listForPermissions,
+    bulkUpdatePermissions: usecases.roles.bulkUpdatePermissions,
   }),
 };
