@@ -6,6 +6,7 @@ import express from 'express';
 import cors from 'cors'; // Đảm bảo đã import
 import helmet from 'helmet';
 import { rolesRoutes } from "./interfaces/http/express/routes/roles.routes";
+import { usersRoutes } from "./interfaces/http/express/routes/users.routes";
 // import { sequelize } from './config/database'; 
 
 const app = express();
@@ -55,6 +56,7 @@ app.use("/api/v1/admin/products", productsRoutes(controllers.products));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload));
 app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.categories));
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles));
+app.use("/api/v1/admin/users", usersRoutes(controllers.users));
 
 // Error middleware đơn giản
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

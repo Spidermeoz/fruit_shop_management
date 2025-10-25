@@ -6,6 +6,10 @@ import { SequelizeProductRepository } from "../../infrastructure/repositories/Se
 import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
 import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
 
+// Users
+import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
+import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
+
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
@@ -47,6 +51,15 @@ import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole"
 import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
 import { UpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
 
+// ===== Users =====
+import { ListUsers } from "../../application/users/usecases/ListUsers";
+import { GetUserDetail } from "../../application/users/usecases/GetUserDetail";
+import { CreateUser } from "../../application/users/usecases/CreateUser";
+import { EditUser } from "../../application/users/usecases/EditUser";
+import { UpdateUserStatus } from "../../application/users/usecases/UpdateUserStatus";
+import { SoftDeleteUser } from "../../application/users/usecases/SoftDeleteUser";
+import { BulkEditUsers } from "../../application/users/usecases/BulkEditUsers";
+
 import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
 import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
 
@@ -56,6 +69,9 @@ import type { RolesController } from "../../interfaces/http/express/controllers/
 import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
 import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
 
+import { makeUsersController } from "../../interfaces/http/express/controllers/UsersController";
+import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
+
 ProductModel.belongsTo(ProductCategoryModel, {
   as: "category",
   foreignKey: "product_category_id",
@@ -64,6 +80,9 @@ ProductCategoryModel.hasMany(ProductModel, {
   as: "products",
   foreignKey: "product_category_id",
 });
+// Association
+UserModel.belongsTo(RoleModel, { as: "role", foreignKey: "role_id" });
+RoleModel.hasMany(UserModel, { as: "users", foreignKey: "role_id" });
 // ===== Models & Repos =====
 const models = { Product: ProductModel, ProductCategory: ProductCategoryModel };
 const productRepo = new SequelizeProductRepository(models);
@@ -74,6 +93,9 @@ const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
 
 const roleModels = { Role: RoleModel };
 const roleRepo = new SequelizeRoleRepository(roleModels);
+
+const userModels = { User: UserModel, Role: RoleModel };
+const userRepo = new SequelizeUserRepository(userModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -111,6 +133,15 @@ export const usecases = {
     listForPermissions: new ListRolesForPermissions(roleRepo),
     bulkUpdatePermissions: new BulkUpdateRolePermissions(roleRepo),
   },
+  users: {
+    list: new ListUsers(userRepo),
+    detail: new GetUserDetail(userRepo),
+    create: new CreateUser(userRepo),
+    edit: new EditUser(userRepo),
+    updateStatus: new UpdateUserStatus(userRepo),
+    softDelete: new SoftDeleteUser(userRepo),
+    bulkEdit: new BulkEditUsers(userRepo),
+  },
 };
 
 // ===== Controllers (khai báo cả products và upload) =====
@@ -119,6 +150,7 @@ type Controllers = {
   upload: UploadController;
   categories: ProductCategoriesController;
   roles: RolesController;
+  users: UsersController;
 };
 
 export const controllers: Controllers = {
@@ -155,5 +187,14 @@ export const controllers: Controllers = {
     updatePermissions: usecases.roles.updatePermissions,
     listForPermissions: usecases.roles.listForPermissions,
     bulkUpdatePermissions: usecases.roles.bulkUpdatePermissions,
+  }),
+  users: makeUsersController({
+    list: usecases.users.list,
+    detail: usecases.users.detail,
+    create: usecases.users.create,
+    edit: usecases.users.edit,
+    updateStatus: usecases.users.updateStatus,
+    softDelete: usecases.users.softDelete,
+    bulkEdit: usecases.users.bulkEdit,
   }),
 };

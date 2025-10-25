@@ -34,7 +34,9 @@ const UsersPage: React.FC = () => {
   const currentPage = Number(searchParams.get("page")) || 1;
   const navigate = useNavigate();
 
-  const [sortOrder, setSortOrder] = useState<string>(searchParams.get("sort") || "");
+  const [sortOrder, setSortOrder] = useState<string>(
+    searchParams.get("sort") || ""
+  );
 
   // 🔹 Gọi API danh sách users
   const fetchUsers = async () => {
@@ -44,7 +46,15 @@ const UsersPage: React.FC = () => {
 
       let url = `/api/v1/admin/users?page=${currentPage}&limit=10`;
       if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (sortOrder) url += `&sort=${encodeURIComponent(sortOrder)}`;
+
+      if (sortOrder) {
+        const [field, dir] = String(sortOrder).split(":");
+        if (field) {
+          url += `&sortBy=${encodeURIComponent(field)}`;
+          if (dir) url += `&order=${encodeURIComponent(dir.toUpperCase())}`;
+        }
+      }
+
       if (searchTerm.trim())
         url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
@@ -53,7 +63,10 @@ const UsersPage: React.FC = () => {
 
       if (json.success && Array.isArray(json.data)) {
         setUsers(json.data);
-        setTotalPages(json.meta?.totalPages || 1);
+        // Calculate totalPages from total items and limit
+        const total = Number(json.meta?.total ?? 0);
+        const limit = Number(json.meta?.limit ?? 10);
+        setTotalPages(Math.max(1, Math.ceil(total / limit)));
       } else {
         setError(json.message || "Không thể tải người dùng.");
       }
@@ -136,9 +149,7 @@ const UsersPage: React.FC = () => {
 
       if (json.success) {
         setUsers((prev) =>
-          prev.map((u) =>
-            u.id === user.id ? { ...u, status: newStatus } : u
-          )
+          prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
         );
       } else {
         alert(json.message || "Cập nhật trạng thái thất bại");
