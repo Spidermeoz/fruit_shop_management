@@ -1,13 +1,18 @@
+// src/pages/admin/roles/RoleCreatePage.tsx
 import React, { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
-import RichTextEditor from "../../../components/common/RichTextEditor"; // ✅ TinyMCE editor
+import RichTextEditor from "../../../components/common/RichTextEditor";
+import { http } from "../../../services/http";
 
 interface RoleFormData {
   title: string;
   description: string;
 }
+
+type ApiOk<T> = { success: true; data: T; meta?: any };
+type ApiErr = { success: false; message?: string };
 
 const RoleCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -18,22 +23,23 @@ const RoleCreatePage: React.FC = () => {
     description: "",
   });
 
-  // 🔹 Xử lý input cơ bản
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // helper: upload images inside HTML (blob/data URLs) -> replace src with uploaded URL
+  // Upload ảnh trong HTML (blob/data URL) -> thay src bằng URL sau upload
   const uploadImagesInHtml = async (html?: string | null) => {
     if (!html) return html;
     try {
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = html;
       const imgs = Array.from(tempDiv.getElementsByTagName("img"));
+
       for (const img of imgs) {
         const src = img.getAttribute("src") || "";
         if (!src) continue;
+
         if (src.startsWith("blob:") || src.startsWith("data:")) {
           try {
             const resp = await fetch(src);
@@ -41,19 +47,23 @@ const RoleCreatePage: React.FC = () => {
             const file = new File([blob], "image.png", {
               type: blob.type || "image/png",
             });
+
             const fd = new FormData();
             fd.append("file", file);
-            const up = await fetch("/api/v1/admin/upload", {
-              method: "POST",
-              body: fd,
-            });
-            const upJson = await up.json();
-            if (upJson && upJson.success && upJson.url) {
-              img.setAttribute("src", upJson.url);
+
+            // Dùng http() với FormData (http sẽ không set Content-Type thủ công)
+            const upJson = await http<any>("POST", "/api/v1/admin/upload", fd);
+
+            const uploadedUrl =
+              (upJson && upJson.success && (upJson.data?.url || upJson.url)) ||
+              null;
+
+            if (uploadedUrl) {
+              img.setAttribute("src", uploadedUrl);
             }
           } catch (err) {
             console.error("Upload image in description failed:", err);
-            // continue with next image
+            // tiếp tục ảnh khác
           }
         }
       }
@@ -64,7 +74,6 @@ const RoleCreatePage: React.FC = () => {
     }
   };
 
-  // 🔹 Khi nhấn Lưu
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -76,7 +85,6 @@ const RoleCreatePage: React.FC = () => {
     try {
       setLoading(true);
 
-      // process images in description (upload blob/data images to cloud)
       const processedDescription = await uploadImagesInHtml(
         formData.description
       );
@@ -86,22 +94,21 @@ const RoleCreatePage: React.FC = () => {
         description: processedDescription,
       };
 
-      const res = await fetch("/api/v1/admin/roles/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const res = await http<ApiOk<any> | ApiErr>(
+        "POST",
+        "/api/v1/admin/roles/create",
+        payload
+      );
 
-      const json = await res.json();
-      if (json.success) {
+      if ("success" in res && res.success) {
         alert("🎉 Thêm vai trò thành công!");
         navigate("/admin/roles");
       } else {
-        alert(json.message || "Không thể thêm vai trò!");
+        alert((res as ApiErr).message || "Không thể thêm vai trò!");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Create role error:", err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     } finally {
       setLoading(false);
     }
@@ -124,7 +131,7 @@ const RoleCreatePage: React.FC = () => {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* --- Tên vai trò --- */}
+        {/* Tên vai trò */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Tên vai trò
@@ -140,7 +147,7 @@ const RoleCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Mô tả (dùng TinyMCE) --- */}
+        {/* Mô tả (TinyMCE) */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Mô tả vai trò
@@ -153,7 +160,7 @@ const RoleCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Nút hành động --- */}
+        {/* Nút hành động */}
         <div className="flex justify-end gap-3 mt-6">
           <button
             type="button"

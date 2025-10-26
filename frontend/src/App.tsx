@@ -41,6 +41,8 @@ import OrderHistoryPage from "./pages/client/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/OrderDetailPage";
 import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
 import ProductListPage from "./components/client/product/ProductList";
+import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
+import RequireAuth from "./auth/RequireAuth";
 
 const App: React.FC = () => {
   return (
@@ -50,84 +52,74 @@ const App: React.FC = () => {
         <Route
           path="/admin/*"
           element={
-            <div className="flex h-screen bg-gray-100 dark:bg-gray-900 font-roboto">
-              <Sidebar />
-              <div className="flex-1 flex flex-col overflow-hidden">
-                <DashboardHeader />
-                <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
-                  <Routes>
-                    <Route path="dashboard" element={<DashboardPage />} />
-                    <Route path="products" element={<ProductsPage />} />
-                    <Route
-                      path="products/:id"
-                      element={<ProductDetailPage />}
-                    />
-                    <Route
-                      path="products/edit/:id"
-                      element={<ProductEditPage />}
-                    />
-                    <Route
-                      path="products/create"
-                      element={<ProductCreatePage />}
-                    />
-                    <Route
-                      path="product-category"
-                      element={<ProductCategoryPage />}
-                    />
-                    <Route
-                      path="product-category/create"
-                      element={<ProductCategoryCreatePage />}
-                    />
-                    <Route
-                      path="product-category/detail/:id"
-                      element={<ProductCategoryDetailPage />}
-                    />
-                    <Route
-                      path="product-category/edit/:id"
-                      element={<ProductCategoryEditPage />}
-                    />
-                    <Route
-                      path="roles"
-                      element={<RolesPage />}
-                    />
-                    <Route
-                      path="roles/detail/:id"
-                      element={<RoleDetailPage />}
-                    />
-                    <Route
-                      path="roles/edit/:id"
-                      element={<RoleEditPage />}
-                    />
-                    <Route
-                      path="roles/create"
-                      element={<RoleCreatePage />}
-                    />
-                    <Route
-                      path="roles/permissions"
-                      element={<PermissionsPage />}
-                    />
-                    <Route
-                      path="users"
-                      element={<UsersPage />}
-                    />
-                    <Route
-                      path="users/create"
-                      element={<UserCreatePage />}
-                    />
-                    <Route
-                      path="users/edit/:id"
-                      element={<UserEditPage />}
-                    />
-                    <Route
-                      path="users/detail/:id"
-                      element={<UserDetailPage />}
-                    />
-                  </Routes>
-                </main>
+            <RequireAuth>
+              <div className="flex h-screen bg-gray-100 dark:bg-gray-900 font-roboto">
+                <Sidebar />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <DashboardHeader />
+                  <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
+                    <Routes>
+                      <Route path="dashboard" element={<DashboardPage />} />
+                      <Route path="products" element={<ProductsPage />} />
+                      <Route
+                        path="products/:id"
+                        element={<ProductDetailPage />}
+                      />
+                      <Route
+                        path="products/edit/:id"
+                        element={<ProductEditPage />}
+                      />
+                      <Route
+                        path="products/create"
+                        element={<ProductCreatePage />}
+                      />
+
+                      <Route
+                        path="product-category"
+                        element={<ProductCategoryPage />}
+                      />
+                      <Route
+                        path="product-category/create"
+                        element={<ProductCategoryCreatePage />}
+                      />
+                      <Route
+                        path="product-category/detail/:id"
+                        element={<ProductCategoryDetailPage />}
+                      />
+                      <Route
+                        path="product-category/edit/:id"
+                        element={<ProductCategoryEditPage />}
+                      />
+
+                      <Route path="roles" element={<RolesPage />} />
+                      <Route
+                        path="roles/detail/:id"
+                        element={<RoleDetailPage />}
+                      />
+                      <Route path="roles/edit/:id" element={<RoleEditPage />} />
+                      <Route path="roles/create" element={<RoleCreatePage />} />
+                      <Route
+                        path="roles/permissions"
+                        element={<PermissionsPage />}
+                      />
+
+                      <Route path="users" element={<UsersPage />} />
+                      <Route path="users/create" element={<UserCreatePage />} />
+                      <Route path="users/edit/:id" element={<UserEditPage />} />
+                      <Route
+                        path="users/detail/:id"
+                        element={<UserDetailPage />}
+                      />
+                    </Routes>
+                  </main>
+                </div>
               </div>
-            </div>
+            </RequireAuth>
           }
         />
+
+        {/* === Login (Public) === */}
+        <Route path="admin/auth/login" element={<LoginPageAdmin />} />
 
         {/* === Client Layout === */}
         <Route
@@ -139,7 +131,7 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   <Route path="/shop" element={<ShopPage />} />
-                  <Route path="/product" element={<ProductListPage/>}/>
+                  <Route path="/product" element={<ProductListPage />} />
                   <Route
                     path="/product/:id"
                     element={<ProductClientDetailPage />}

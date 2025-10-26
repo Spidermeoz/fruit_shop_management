@@ -1,12 +1,13 @@
+// src/pages/admin/product-category/ProductCategoryPage.tsx
 import React, { useEffect, useState } from "react";
 import Card from "../../../components/layouts/Card";
 import { Plus, Loader2 } from "lucide-react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import Pagination from "../../../components/common/Pagination";
+import { useNavigate } from "react-router-dom";
 import {
   buildCategoryTree,
   CategoryTreeTableBody,
 } from "../../../utils/categoryTree";
+import { http } from "../../../services/http";
 
 interface ProductCategory {
   id: number;
@@ -16,9 +17,18 @@ interface ProductCategory {
   thumbnail?: string;
   status: string;
   position: number;
+  parent_id?: number | null; // <- thêm để tree dùng đúng key
   created_at?: string;
   updated_at?: string;
 }
+
+type ApiList<T> = {
+  success: true;
+  data: T[];
+  meta?: { total?: number; page?: number; limit?: number; totalPages?: number };
+};
+
+type ApiOk = { success: true; data: any; meta?: any };
 
 const ProductCategoryPage: React.FC = () => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
@@ -26,32 +36,38 @@ const ProductCategoryPage: React.FC = () => {
   const [bulkAction, setBulkAction] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [totalPages, setTotalPages] = useState(1);
 
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentPage = Number(searchParams.get("page")) || 1;
   const navigate = useNavigate();
 
-  // ✅ Fetch danh mục
+  // ✅ Fetch tất cả danh mục (bỏ phân trang)
   const fetchCategories = async () => {
     try {
       setLoading(true);
       setError("");
 
-      let url = `/api/v1/admin/product-category?page=${currentPage}&limit=10`;
+      // gọi 1 lần lấy “đủ lớn” để gom hết danh mục
+      const res = await http<ApiList<any>>(
+        "GET",
+        `/api/v1/admin/product-category?limit=1000`
+      );
 
-      const res = await fetch(url);
-      const json = await res.json();
+      const raw = Array.isArray(res.data) ? res.data : [];
 
-      if (json.success && Array.isArray(json.data)) {
-        setCategories(json.data);
-        setTotalPages(json.meta?.totalPages || 1);
-      } else {
-        setError(json.message || "Không thể tải danh mục.");
-      }
-    } catch (err) {
+      // Chuẩn hoá parentId -> parent_id để khớp util buildCategoryTree
+      const data: ProductCategory[] = raw.map((c: any) => ({
+        ...c,
+        parent_id:
+          c.parent_id !== undefined
+            ? c.parent_id
+            : c.parentId !== undefined
+            ? c.parentId
+            : null,
+      }));
+
+      setCategories(data);
+    } catch (err: any) {
       console.error(err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
     }
@@ -59,28 +75,23 @@ const ProductCategoryPage: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPage]);
+  }, []);
 
-  // ✅ Xử lý xóa danh mục
+  // ✅ Xóa danh mục
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa danh mục này không?")) return;
-
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/product-category/delete/${id}`, {
-        method: "DELETE",
-      });
-      const json = await res.json();
-      if (json.success) {
-        alert("Đã xóa danh mục thành công!");
-        setCategories((prev) => prev.filter((c) => c.id !== id));
-      } else {
-        alert(json.message || "Xóa thất bại!");
-      }
-    } catch (err) {
+      await http<ApiOk>(
+        "DELETE",
+        `/api/v1/admin/product-category/delete/${id}`
+      );
+      alert("Đã xóa danh mục thành công!");
+      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setSelectedCategories((prev) => prev.filter((x) => x !== id));
+    } catch (err: any) {
       console.error(err);
-      alert("Không thể kết nối đến server!");
+      alert(err?.message || "Không thể kết nối đến server!");
     } finally {
       setLoading(false);
     }
@@ -92,29 +103,19 @@ const ProductCategoryPage: React.FC = () => {
       category.status.toLowerCase() === "active" ? "inactive" : "active";
 
     try {
-      const res = await fetch(
+      await http<ApiOk>(
+        "PATCH",
         `/api/v1/admin/product-category/${category.id}/status`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: newStatus }),
-        }
+        { status: newStatus }
       );
-
-      const json = await res.json();
-
-      if (json.success) {
-        setCategories((prev) =>
-          prev.map((c) =>
-            c.id === category.id ? { ...c, status: newStatus } : c
-          )
-        );
-      } else {
-        alert(json.message || "Cập nhật trạng thái thất bại");
-      }
-    } catch (err) {
+      setCategories((prev) =>
+        prev.map((c) =>
+          c.id === category.id ? { ...c, status: newStatus } : c
+        )
+      );
+    } catch (err: any) {
       console.error(err);
-      alert("Không thể kết nối server để cập nhật trạng thái");
+      alert(err?.message || "Cập nhật trạng thái thất bại");
     }
   };
 
@@ -137,7 +138,7 @@ const ProductCategoryPage: React.FC = () => {
       return;
 
     try {
-      let body: any = {
+      const body: any = {
         ids: selectedCategories,
         updated_by_id: 1,
       };
@@ -168,36 +169,29 @@ const ProductCategoryPage: React.FC = () => {
           return;
       }
 
-      const res = await fetch("/api/v1/admin/product-category/bulk-edit", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        alert("Cập nhật thành công!");
-        setSelectedCategories([]);
-        fetchCategories();
-      } else {
-        alert(json.message || "Không thể cập nhật!");
-      }
-    } catch (err) {
+      await http<ApiOk>(
+        "PATCH",
+        "/api/v1/admin/product-category/bulk-edit",
+        body
+      );
+      alert("Cập nhật thành công!");
+      setSelectedCategories([]);
+      fetchCategories();
+    } catch (err: any) {
       console.error(err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     }
   };
 
   return (
     <div>
-      {/* Header - Remove search box */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Danh mục sản phẩm
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-          {/* Add Category button only */}
           <button
             onClick={() => navigate("/admin/product-category/create")}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
@@ -323,18 +317,6 @@ const ProductCategoryPage: React.FC = () => {
           )}
         </div>
       </Card>
-
-      {/* Pagination */}
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={(page) => {
-          const params = new URLSearchParams(searchParams);
-          if (page === 1) params.delete("page");
-          else params.set("page", String(page));
-          setSearchParams(params);
-        }}
-      />
     </div>
   );
 };

@@ -1,7 +1,9 @@
+// src/pages/admin/product-category/ProductCategoryDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 // 🔹 Kiểu dữ liệu danh mục
 interface ProductCategory {
@@ -17,6 +19,12 @@ interface ProductCategory {
   updated_at?: string;
 }
 
+type ApiDetail<T> = {
+  success: true;
+  data: T;
+  meta?: any;
+};
+
 const ProductCategoryDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -25,21 +33,25 @@ const ProductCategoryDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // 🔹 Gọi API chi tiết danh mục
+  // 🔹 Gọi API chi tiết danh mục (dùng http)
   const fetchCategoryDetail = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/product-category/detail/${id}`);
-      const json = await res.json();
+      setError("");
 
-      if (json.success && json.data) {
-        setCategory(json.data);
+      const res = await http<ApiDetail<ProductCategory>>(
+        "GET",
+        `/api/v1/admin/product-category/detail/${id}`
+      );
+
+      if (res?.data) {
+        setCategory(res.data);
       } else {
-        setError(json.message || "Không thể tải thông tin danh mục.");
+        setError("Không thể tải thông tin danh mục.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Fetch category detail error:", err);
-      setError("Lỗi kết nối server.");
+      setError(err?.message || "Lỗi kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -47,6 +59,7 @@ const ProductCategoryDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchCategoryDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (loading) {

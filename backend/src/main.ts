@@ -56,7 +56,7 @@ app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
 app.use("/api/v1/admin/products", productsRoutes(controllers.products, auth, can));
 app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.categories, auth, can));
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
-app.use("/api/v1/admin/user", usersRoutes(controllers.users, auth, can));
+app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
 
 // Error middleware đơn giản

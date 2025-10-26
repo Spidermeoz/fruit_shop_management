@@ -1,7 +1,9 @@
+// src/pages/admin/users/UserDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
@@ -20,6 +22,8 @@ interface User {
   updated_at?: string;
 }
 
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+
 const UserDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -28,21 +32,23 @@ const UserDetailPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  // 🔹 Gọi API chi tiết user
   const fetchUserDetail = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/users/detail/${id}`);
-      const json = await res.json();
+      setError("");
 
-      if (json.success && json.data) {
-        setUser(json.data);
+      const res = await http<ApiDetail<User>>(
+        "GET",
+        `/api/v1/admin/users/detail/${id}`
+      );
+      if (res?.success && res.data) {
+        setUser(res.data);
       } else {
-        setError(json.message || "Không thể tải thông tin người dùng.");
+        setError("Không thể tải thông tin người dùng.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("fetchUserDetail error:", err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
     }
@@ -50,14 +56,16 @@ const UserDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchUserDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 🔹 Loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải...</span>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải...
+        </span>
       </div>
     );
   }
@@ -78,7 +86,6 @@ const UserDetailPage: React.FC = () => {
 
   if (!user) return null;
 
-  // 🔹 Helper: màu trạng thái
   const getStatusClass = (status: string) => {
     switch (status.toLowerCase()) {
       case "active":

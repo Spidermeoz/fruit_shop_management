@@ -14,6 +14,7 @@ export const rolesRoutes = (
   r.get("/detail/:id", auth, can("role", "view"), controller.detail);
   r.post("/create", auth, can("role", "create"), controller.create);
   r.patch("/edit/:id", auth, can("role", "edit"), controller.edit);
+  r.get("/edit/:id", auth, can("role", "edit"), controller.getEdit);
   r.delete("/delete/:id", auth, can("role", "delete"), controller.softDelete);
 
   // permissions

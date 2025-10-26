@@ -10,6 +10,7 @@ import {
   buildCategoryTree,
   renderCategoryOptions,
 } from "../../../utils/categoryTree";
+import { http } from "../../../services/http"; // chỉnh path cho đúng
 
 interface ProductCategory {
   id: number;
@@ -52,8 +53,7 @@ const ProductEditPage: React.FC = () => {
   const fetchProduct = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/products/edit/${id}`);
-      const json = await res.json();
+      const json = await http<any>("GET", `/api/v1/admin/products/edit/${id}`);
       if (json.success && json.data) {
         setProduct(json.data as Product);
         setPreviewImage(json.data.thumbnail);
@@ -62,7 +62,9 @@ const ProductEditPage: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      setError("Không thể kết nối server.");
+      setError(
+        err instanceof Error ? err.message : "Không thể kết nối server."
+      );
     } finally {
       setLoading(false);
     }
@@ -72,8 +74,7 @@ const ProductEditPage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetch("/api/v1/admin/product-category");
-        const json = await res.json();
+        const json = await http<any>("GET", "/api/v1/admin/product-category");
         if (json.success && Array.isArray(json.data)) {
           const normalized = json.data.map((c: any) => ({
             ...c,
@@ -146,11 +147,11 @@ const ProductEditPage: React.FC = () => {
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-        const resUpload = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-        const dataUpload = await resUpload.json();
+        const dataUpload = await http<any>(
+          "POST",
+          "/api/v1/admin/upload",
+          formDataImg
+        );
 
         if (dataUpload.success) {
           thumbnailUrl = dataUpload.url;
@@ -180,13 +181,12 @@ const ProductEditPage: React.FC = () => {
         delete payload.product_category_id;
       }
 
-      const res = await fetch(`/api/v1/admin/products/edit/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const json = await http<any>(
+        "PATCH",
+        `/api/v1/admin/products/edit/${id}`,
+        payload
+      );
 
-      const json = await res.json();
       if (json.success) {
         alert("✅ Cập nhật sản phẩm thành công!");
         navigate(`/admin/products/edit/${id}`);

@@ -191,30 +191,56 @@ export const makeProductCategoriesController = (uc: {
     edit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const b = req.body as any;
+        const b = (req.body ?? {}) as any;
 
-        // Get current category to check if parent changed
+        // Lấy hiện trạng để so sánh
         const currentCategory = await uc.detail.execute(id);
 
-        // Handle parentId (accept both camelCase and snake_case)
+        // ---- Parse parentId an toàn (hỗ trợ cả parentId & parent_id) ----
+        const rawParentId =
+          b.parentId !== undefined
+            ? b.parentId
+            : b.parent_id !== undefined
+            ? b.parent_id
+            : undefined;
+
         let parentId: number | null | undefined;
-        if (b.parentId !== undefined) {
-          parentId = b.parentId === "" ? null : Number(b.parentId);
-        } else if (b.parent_id !== undefined) {
-          parentId = b.parent_id === "" ? null : Number(b.parent_id);
+        if (rawParentId === undefined) {
+          // không thay đổi cha
+          parentId = undefined;
+        } else if (rawParentId === "" || rawParentId === null) {
+          // chuyển về danh mục gốc
+          parentId = null;
+        } else {
+          const n = Number(rawParentId);
+          if (!Number.isFinite(n) || n < 0) {
+            return res
+              .status(400)
+              .json({ success: false, message: "parentId không hợp lệ" });
+          }
+          parentId = n;
         }
 
-        // If parent changed or position not provided, get new position
+        // ---- Tự động gán position nếu:
+        // (1) đổi cha, hoặc (2) không truyền position (undefined | null) ----
+        const isParentChanged =
+          parentId !== undefined && parentId !== currentCategory.parentId;
+
         if (
-          parentId !== undefined &&
-          (parentId !== currentCategory.parentId ||
-            b.position === undefined ||
-            b.position === null)
+          isParentChanged ||
+          b.position === undefined ||
+          b.position === null
         ) {
+          // nhóm cha để tính position cuối cùng
+          const baseParentId =
+            parentId !== undefined
+              ? parentId
+              : currentCategory.parentId ?? null;
+
           const lastPositionQuery = await uc.list.execute({
             page: 1,
             limit: 1,
-            parentId: parentId,
+            parentId: baseParentId,
             sortBy: "position",
             order: "DESC",
           });
@@ -225,9 +251,10 @@ export const makeProductCategoriesController = (uc: {
               : 1;
         }
 
+        // ---- Build patch (chỉ set field khi có gửi lên) ----
         const patch: UpdateCategoryPatch = {
           ...(b.title !== undefined ? { title: String(b.title) } : {}),
-          ...(parentId !== undefined ? { parentId } : {}),
+          ...(parentId !== undefined ? { parentId } : {}), // cho phép set null
           ...(b.description !== undefined
             ? { description: b.description }
             : {}),
@@ -236,10 +263,13 @@ export const makeProductCategoriesController = (uc: {
             ? { status: String(b.status) as any }
             : {}),
           ...(b.slug !== undefined ? { slug: b.slug || null } : {}),
-          ...(b.position !== undefined ? { position: Number(b.position) } : {}),
+          ...(b.position !== undefined && b.position !== ""
+            ? { position: Number(b.position) }
+            : {}),
         };
 
         const result = await uc.edit.execute(id, patch);
+
         return res.json({
           success: true,
           data: result,

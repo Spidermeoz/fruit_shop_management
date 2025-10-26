@@ -10,6 +10,7 @@ import {
   buildCategoryTree,
   renderCategoryOptions,
 } from "../../../utils/categoryTree";
+import { http } from "../../../services/http";
 
 interface ProductCategory {
   id: number;
@@ -70,8 +71,7 @@ const ProductCreatePage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const res = await fetch("/api/v1/admin/product-category");
-        const json = await res.json();
+        const json = await http<any>("GET", "/api/v1/admin/product-category");
         if (json.success && Array.isArray(json.data)) {
           // ✅ normalize để buildCategoryTree dùng parent_id như kỳ vọng
           const normalized = json.data.map((c: any) => ({
@@ -115,11 +115,7 @@ const ProductCreatePage: React.FC = () => {
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-        const uploadRes = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-        const uploadJson = await uploadRes.json();
+        const uploadJson = await http<any>("POST", "/api/v1/admin/upload", formDataImg);
         if (uploadJson.success && uploadJson.data?.url) {
           uploadedThumbnailUrl = uploadJson.data.url;
         } else if (uploadJson.url) {
@@ -137,31 +133,26 @@ const ProductCreatePage: React.FC = () => {
       );
 
       // 🔹 Gửi dữ liệu sản phẩm lên server
-      const res = await fetch("/api/v1/admin/products/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          categoryId: formData.product_category_id
-            ? Number(formData.product_category_id)
-            : null,
-          title: formData.title,
-          description: updatedDescription,
-          price: formData.price === "" ? null : Number(formData.price),
-          discountPercentage:
-            formData.discount_percentage === undefined ||
-            formData.discount_percentage === null
-              ? null
-              : Number(formData.discount_percentage),
-          stock: Number(formData.stock) || 0,
-          thumbnail: uploadedThumbnailUrl,
-          status: formData.status, // 'active' | 'inactive'
-          featured: Boolean(Number(formData.featured)), // 0/1 -> boolean
-          position: formData.position === "" ? null : Number(formData.position),
-          slug: formData.slug || null,
-        }),
+      const json = await http<any>("POST", "/api/v1/admin/products/create", {
+        categoryId: formData.product_category_id
+          ? Number(formData.product_category_id)
+          : null,
+        title: formData.title,
+        description: updatedDescription,
+        price: formData.price === "" ? null : Number(formData.price),
+        discountPercentage:
+          formData.discount_percentage === undefined ||
+          formData.discount_percentage === null
+            ? null
+            : Number(formData.discount_percentage),
+        stock: Number(formData.stock) || 0,
+        thumbnail: uploadedThumbnailUrl,
+        status: formData.status, // 'active' | 'inactive'
+        featured: Boolean(Number(formData.featured)), // 0/1 -> boolean
+        position: formData.position === "" ? null : Number(formData.position),
+        slug: formData.slug || null,
       });
 
-      const json = await res.json();
       if (json.success) {
         alert("🎉 Thêm sản phẩm thành công!");
         navigate("/admin/products");

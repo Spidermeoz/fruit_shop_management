@@ -10,26 +10,89 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import Can from "../../auth/Can";
 
-// 🔹 Kiểu dữ liệu cho từng mục sidebar
+// 🔹 Update interface to include permission
 interface SidebarItem {
   name: string;
   href: string;
   icon: LucideIcon;
+  permission?: {
+    module: string;
+    action: string;
+  };
 }
 
-// 🔹 Danh sách menu sidebar
+// 🔹 Update items with permissions
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
-  { name: "Products", href: "/admin/products", icon: ShoppingBag },
-  { name: "Categories", href: "/admin/product-category", icon: FolderTree },
-  { name: "Roles", href: "/admin/roles", icon: ShieldCheck },
-  { name: "Users", href: "/admin/users", icon: Users },
+  {
+    name: "Products",
+    href: "/admin/products",
+    icon: ShoppingBag,
+    permission: { module: "product", action: "view" },
+  },
+  {
+    name: "Categories",
+    href: "/admin/product-category",
+    icon: FolderTree,
+    permission: { module: "product_category", action: "view" },
+  },
+  {
+    name: "Roles",
+    href: "/admin/roles",
+    icon: ShieldCheck,
+    permission: { module: "role", action: "view" },
+  },
+  {
+    name: "Users",
+    href: "/admin/users",
+    icon: Users,
+    permission: { module: "user", action: "view" },
+  },
 ];
 
 const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
+
+  // Extract renderMenuItem to keep code DRY
+  const renderMenuItem = (item: SidebarItem) => {
+    const Icon = item.icon;
+    const isActive =
+      location.pathname === item.href ||
+      location.pathname.startsWith(item.href + "/");
+
+    const menuItem = (
+      <Link
+        to={item.href}
+        className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+          isActive
+            ? "bg-blue-500 text-white"
+            : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+        }`}
+      >
+        <Icon className="w-6 h-6" />
+        {!isCollapsed && <span>{item.name}</span>}
+      </Link>
+    );
+
+    // If item has permission, wrap with Can component
+    if (item.permission) {
+      return (
+        <Can
+          key={item.name}
+          module={item.permission.module}
+          action={item.permission.action}
+        >
+          {menuItem}
+        </Can>
+      );
+    }
+
+    // Return unwrapped item for Dashboard
+    return <div key={item.name}>{menuItem}</div>;
+  };
 
   return (
     <div
@@ -41,7 +104,7 @@ const Sidebar: React.FC = () => {
       <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
         {!isCollapsed && (
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-            MyApp
+            My admin
           </h1>
         )}
         <button
@@ -58,29 +121,7 @@ const Sidebar: React.FC = () => {
 
       {/* Navigation */}
       <nav className="flex-1 px-4 py-6 space-y-2">
-        {sidebarItems.map((item) => {
-          const Icon = item.icon;
-
-          // ✅ Check active route
-          const isActive =
-            location.pathname === item.href ||
-            location.pathname.startsWith(item.href + "/");
-
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
-                  ? "bg-blue-500 text-white"
-                  : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
-            >
-              <Icon className="w-6 h-6" />
-              {!isCollapsed && <span>{item.name}</span>}
-            </Link>
-          );
-        })}
+        {sidebarItems.map(renderMenuItem)}
       </nav>
     </div>
   );

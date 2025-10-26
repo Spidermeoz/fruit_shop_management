@@ -1,7 +1,14 @@
-import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+// src/pages/admin/users/UserCreatePage.tsx
+import React, {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
@@ -17,6 +24,9 @@ interface UserFormData {
   avatar: string;
   status: "active" | "inactive";
 }
+
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiOk = { success: true; data?: any; url?: string; meta?: any };
 
 const UserCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,20 +46,16 @@ const UserCreatePage: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  // 🔹 Lấy danh sách roles
+  // 🔹 Lấy danh sách roles (dùng http)
   useEffect(() => {
-    const fetchRoles = async () => {
+    (async () => {
       try {
-        const res = await fetch("/api/v1/admin/roles");
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setRoles(json.data);
-        }
+        const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
+        if (res.success && Array.isArray(res.data)) setRoles(res.data);
       } catch (err) {
         console.error("fetchRoles error:", err);
       }
-    };
-    fetchRoles();
+    })();
   }, []);
 
   // 🔹 Xử lý input
@@ -57,10 +63,7 @@ const UserCreatePage: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // 🔹 Chọn file avatar → preview
@@ -85,46 +88,45 @@ const UserCreatePage: React.FC = () => {
 
       let uploadedAvatarUrl = formData.avatar;
 
-      // 🖼 Upload avatar nếu có file mới
+      // 🖼 Upload avatar (dùng http + FormData)
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-
-        const uploadRes = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-        const uploadJson = await uploadRes.json();
-
-        if (uploadJson.success && uploadJson.url) {
-          uploadedAvatarUrl = uploadJson.url;
-        } else {
+        const up = await http<ApiOk>(
+          "POST",
+          "/api/v1/admin/upload",
+          formDataImg
+        );
+        uploadedAvatarUrl = up?.data?.url || up?.url || "";
+        if (!uploadedAvatarUrl) {
           alert("Không thể upload ảnh đại diện!");
           return;
         }
       }
 
-      // 📨 Gửi dữ liệu lên server
-      const res = await fetch("/api/v1/admin/users/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          avatar: uploadedAvatarUrl,
-        }),
-      });
+      // 📨 Gửi dữ liệu lên server (giữ snake_case)
+      const payload = {
+        full_name: formData.full_name,
+        email: formData.email,
+        password: formData.password,
+        role_id: formData.role_id === "" ? null : Number(formData.role_id),
+        phone: formData.phone || null,
+        avatar: uploadedAvatarUrl || null,
+        status: formData.status,
+      };
 
-      const json = await res.json();
-
-      if (json.success) {
+      const res = await http<ApiOk>(
+        "POST",
+        "/api/v1/admin/users/create",
+        payload
+      );
+      if (res.success) {
         alert("🎉 Tạo người dùng thành công!");
         navigate("/admin/users");
-      } else {
-        alert(json.message || "Không thể tạo người dùng!");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Create user error:", err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     } finally {
       setLoading(false);
     }
@@ -280,9 +282,7 @@ const UserCreatePage: React.FC = () => {
                 checked={formData.status === "inactive"}
                 onChange={handleChange}
               />
-              <span className="text-gray-800 dark:text-gray-200">
-                Tạm dừng
-              </span>
+              <span className="text-gray-800 dark:text-gray-200">Tạm dừng</span>
             </label>
           </div>
         </div>

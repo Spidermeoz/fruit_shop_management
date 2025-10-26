@@ -1,7 +1,14 @@
-import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+// src/pages/admin/users/UserEditPage.tsx
+import React, {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
@@ -17,6 +24,10 @@ interface User {
   avatar?: string;
   status: "active" | "inactive";
 }
+
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiOk = { success: true; data?: any; url?: string; meta?: any };
 
 const UserEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -36,19 +47,18 @@ const UserEditPage: React.FC = () => {
   const fetchUser = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/users/edit/${id}`);
-      const json = await res.json();
-
-      if (json.success && json.data) {
-        const data = json.data as User;
+      const res = await http<ApiDetail<User>>(
+        "GET",
+        `/api/v1/admin/users/edit/${id}`
+      );
+      if (res.success && res.data) {
+        const data = res.data as User;
         setUser(data);
         setPreviewImage(data.avatar || "");
-      } else {
-        setError(json.message || "Không tìm thấy người dùng.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Không thể kết nối server.");
+      setError(err?.message || "Không thể kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +67,9 @@ const UserEditPage: React.FC = () => {
   // 🔹 Lấy danh sách roles
   const fetchRoles = async () => {
     try {
-      const res = await fetch("/api/v1/admin/roles");
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setRoles(json.data);
+      const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
+      if (res.success && Array.isArray(res.data)) {
+        setRoles(res.data);
       }
     } catch (err) {
       console.error("fetchRoles error:", err);
@@ -70,6 +79,7 @@ const UserEditPage: React.FC = () => {
   useEffect(() => {
     fetchUser();
     fetchRoles();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // 🔹 Xử lý input
@@ -77,9 +87,7 @@ const UserEditPage: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setUser((prev) =>
-      prev ? { ...prev, [name]: value } : prev
-    );
+    setUser((prev) => (prev ? { ...prev, [name]: value } : prev));
   };
 
   // 🔹 Chọn ảnh mới → preview
@@ -111,51 +119,46 @@ const UserEditPage: React.FC = () => {
 
       let avatarUrl = user.avatar;
 
-      // 🖼 Upload avatar mới nếu có chọn
+      // 🖼 Upload avatar mới nếu có chọn (dùng http + FormData)
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
 
-        const resUpload = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-
-        const uploadJson = await resUpload.json();
-        if (uploadJson.success && uploadJson.url) {
-          avatarUrl = uploadJson.url;
-        } else {
+        const up = await http<ApiOk>(
+          "POST",
+          "/api/v1/admin/upload",
+          formDataImg
+        );
+        const url = up?.data?.url || up?.url;
+        if (!url) {
           alert("Không thể upload ảnh đại diện!");
           return;
         }
+        avatarUrl = url;
       }
 
-      // 📨 Gửi PATCH update
+      // 📨 Gửi PATCH update (giữ nguyên snake_case theo FE đang dùng)
       const body: any = {
         ...user,
         avatar: avatarUrl,
       };
-
       if (newPassword.trim()) {
         body.password = newPassword.trim(); // ✅ chỉ gửi nếu có nhập
       }
 
-      const res = await fetch(`/api/v1/admin/users/edit/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
+      const resp = await http<ApiOk>(
+        "PATCH",
+        `/api/v1/admin/users/edit/${id}`,
+        body
+      );
 
-      const json = await res.json();
-      if (json.success) {
+      if (resp.success) {
         alert("✅ Cập nhật người dùng thành công!");
         navigate("/admin/users");
-      } else {
-        alert(json.message || "Không thể cập nhật người dùng.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Không thể kết nối server.");
+      alert(err?.message || "Không thể kết nối server.");
     } finally {
       setSaving(false);
     }

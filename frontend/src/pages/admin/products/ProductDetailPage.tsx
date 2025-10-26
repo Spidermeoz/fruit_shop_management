@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 // 🔹 Định nghĩa kiểu sản phẩm
 interface Product {
@@ -38,8 +39,7 @@ const ProductDetailPage: React.FC = () => {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`/api/v1/admin/products/detail/${id}`);
-      const json = await res.json();
+      const json = await http<any>("GET", `/api/v1/admin/products/detail/${id}`);
 
       if (json.success && json.data) {
         setProduct(json.data as Product);
@@ -48,7 +48,7 @@ const ProductDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error("fetchProductDetail error:", err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err instanceof Error ? err.message : "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
     }

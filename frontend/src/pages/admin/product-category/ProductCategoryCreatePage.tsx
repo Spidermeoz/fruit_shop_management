@@ -1,3 +1,4 @@
+// src/pages/admin/product-category/ProductCategoryCreatePage.tsx
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
@@ -5,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import { http } from "../../../services/http";
 
 interface CategoryFormData {
   parent_id: number | null;
@@ -13,13 +15,16 @@ interface CategoryFormData {
   slug: string;
   status: string;
   thumbnail: string;
-  created_by_id: number;
+  created_by_id: number; // sẽ KHÔNG gửi lên BE, BE lấy từ token
 }
 
 interface ParentCategory {
   id: number;
   title: string;
 }
+
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiOk = { success: true; data?: any; url?: string; meta?: any };
 
 const ProductCategoryCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -43,13 +48,15 @@ const ProductCategoryCreatePage: React.FC = () => {
     []
   );
 
-  // ✅ Gọi API lấy danh sách danh mục cha
+  // ✅ Gọi API lấy danh sách danh mục cha (dùng http)
   const fetchParentCategories = async () => {
     try {
-      const res = await fetch("/api/v1/admin/product-category?limit=100");
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setParentCategories(json.data);
+      const res = await http<ApiList<ParentCategory>>(
+        "GET",
+        "/api/v1/admin/product-category?limit=100"
+      );
+      if (res.success && Array.isArray(res.data)) {
+        setParentCategories(res.data);
       }
     } catch (err) {
       console.error("Fetch parent categories error:", err);
@@ -65,13 +72,12 @@ const ProductCategoryCreatePage: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value, type } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]:
         type === "number"
-          ? value === "" // nếu bỏ trống → undefined để backend auto
-            ? undefined
+          ? value === ""
+            ? (undefined as any) // để BE tự xử lý nếu rỗng
             : Number(value)
           : value,
     }));
@@ -93,53 +99,50 @@ const ProductCategoryCreatePage: React.FC = () => {
 
       let uploadedThumbnailUrl = formData.thumbnail;
 
-      // 🔹 Nếu chọn ảnh → upload thumbnail lên Cloudinary
+      // 🔹 Nếu chọn ảnh → upload thumbnail lên Cloudinary (dùng http + FormData)
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-        const uploadRes = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-        const uploadJson = await uploadRes.json();
-        if (uploadJson.success && uploadJson.url) {
-          uploadedThumbnailUrl = uploadJson.url;
-        } else {
+        const uploadRes = await http<ApiOk>(
+          "POST",
+          "/api/v1/admin/upload",
+          formDataImg
+        );
+        uploadedThumbnailUrl = uploadRes?.data?.url || uploadRes?.url || "";
+        if (!uploadedThumbnailUrl) {
           alert("Không thể upload ảnh minh họa!");
           return;
         }
       }
 
-      // 🔹 Upload ảnh trong nội dung TinyMCE
+      // 🔹 Upload ảnh trong nội dung TinyMCE (hàm util nên đã tự set Authorization)
       const updatedDescription = await uploadImagesInContent(
         formData.description
       );
 
-      // 🔹 Gửi dữ liệu danh mục mới lên server
-      const res = await fetch("/api/v1/admin/product-category/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          // Chuyển đổi parent_id thành parentId cho backend
-          parentId: formData.parent_id,
-          thumbnail: uploadedThumbnailUrl,
-          description: updatedDescription,
-          // Xóa parent_id cũ để tránh conflict
-          parent_id: undefined,
-        }),
-      });
+      // 🔹 Gửi dữ liệu danh mục mới lên server (dùng http)
+      const payload = {
+        // BE nhận camelCase
+        parentId: formData.parent_id,
+        title: formData.title,
+        description: updatedDescription,
+        slug: formData.slug || null,
+        status: formData.status,
+        thumbnail: uploadedThumbnailUrl,
+        // KHÔNG gửi created_by_id — BE lấy từ token
+      };
 
-      const json = await res.json();
-      if (json.success) {
-        alert("🎉 Thêm danh mục mới thành công!");
-        navigate("/admin/product-category");
-      } else {
-        alert(json.message || "Không thể thêm danh mục!");
-      }
-    } catch (err) {
+      await http<ApiOk>(
+        "POST",
+        "/api/v1/admin/product-category/create",
+        payload
+      );
+
+      alert("🎉 Thêm danh mục mới thành công!");
+      navigate("/admin/product-category");
+    } catch (err: any) {
       console.error("Create category error:", err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     } finally {
       setLoading(false);
     }

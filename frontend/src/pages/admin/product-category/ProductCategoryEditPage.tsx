@@ -1,3 +1,4 @@
+// src/pages/admin/product-category/ProductCategoryEditPage.tsx
 import React, {
   useEffect,
   useState,
@@ -8,18 +9,23 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
+import { http } from "../../../services/http";
 
 interface Category {
   id: number;
   title: string;
-  parent_id: number | null; // frontend dùng snake_case
-  parentId?: number | null; // thêm field này để map với backend
+  parent_id: number | null; // frontend snake_case
+  parentId?: number | null; // map với backend
   description: string | null;
   thumbnail: string | null;
   status: string;
   position: number | null;
   parent_name?: string | null;
 }
+
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiOk = { success: true; data: any; meta?: any };
 
 const ProductCategoryEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,17 +44,17 @@ const ProductCategoryEditPage: React.FC = () => {
   const fetchCategory = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/product-category/detail/${id}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setCategory(json.data);
-        if (json.data.thumbnail) setPreviewImage(json.data.thumbnail);
-      } else {
-        setError(json.message || "Không tìm thấy danh mục.");
+      const res = await http<ApiDetail<Category>>(
+        "GET",
+        `/api/v1/admin/product-category/edit/${id}`
+      );
+      if (res.success && res.data) {
+        setCategory(res.data);
+        if (res.data.thumbnail) setPreviewImage(res.data.thumbnail);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("fetchCategory error:", err);
-      setError("Lỗi khi tải dữ liệu danh mục.");
+      setError(err?.message || "Không tìm thấy danh mục.");
     } finally {
       setLoading(false);
     }
@@ -57,10 +63,12 @@ const ProductCategoryEditPage: React.FC = () => {
   // ✅ Lấy danh sách tất cả danh mục để chọn parent
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`/api/v1/admin/product-category`);
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setCategories(json.data);
+      const res = await http<ApiList<Category>>(
+        "GET",
+        `/api/v1/admin/product-category`
+      );
+      if (res.success && Array.isArray(res.data)) {
+        setCategories(res.data);
       }
     } catch (err) {
       console.error("fetchCategories error:", err);
@@ -70,6 +78,7 @@ const ProductCategoryEditPage: React.FC = () => {
   useEffect(() => {
     fetchCategory();
     fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // ✅ Khi chọn file ảnh → chỉ hiển thị preview, chưa upload
@@ -101,88 +110,71 @@ const ProductCategoryEditPage: React.FC = () => {
     try {
       setSaving(true);
       let thumbnailUrl = category.thumbnail;
-      let updatedDescription = category.description;
+      let updatedDescription = category.description ?? "";
 
-      // Upload thumbnail nếu có
+      // 🔹 Upload thumbnail (nếu có)
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
-        const res = await fetch("/api/v1/admin/upload", {
-          method: "POST",
-          body: formDataImg,
-        });
-        const data = await res.json();
-        if (data.success && data.url) {
-          thumbnailUrl = data.url;
-        } else {
+        const up = await http<ApiOk>(
+          "POST",
+          "/api/v1/admin/upload",
+          formDataImg
+        );
+        const url = up?.data?.url || (up as any)?.url;
+        if (!url) {
           alert("Không thể tải ảnh lên Cloudinary!");
           return;
         }
+        thumbnailUrl = url;
       }
 
-      // Upload ảnh từ description nếu có
+      // 🔹 Upload ảnh trong description (nếu có)
       if (category.description) {
         const tempDiv = document.createElement("div");
         tempDiv.innerHTML = category.description;
         const imgs = tempDiv.getElementsByTagName("img");
 
-        for (let img of Array.from(imgs)) {
-          const src = img.getAttribute("src");
-          // Chỉ upload nếu là ảnh local
-          if (src && src.startsWith("blob:")) {
-            // Convert blob URL to File
+        for (const img of Array.from(imgs)) {
+          const src = img.getAttribute("src") || "";
+          if (src.startsWith("blob:") || src.startsWith("data:")) {
             const response = await fetch(src);
             const blob = await response.blob();
-            const file = new File([blob], "image.png", { type: "image/png" });
-
-            // Upload to Cloudinary
-            const formData = new FormData();
-            formData.append("file", file);
-            const uploadRes = await fetch("/api/v1/admin/upload", {
-              method: "POST",
-              body: formData,
+            const file = new File([blob], "image.png", {
+              type: blob.type || "image/png",
             });
-            const uploadData = await uploadRes.json();
 
-            if (uploadData.success && uploadData.url) {
-              // Replace blob URL with Cloudinary URL
-              img.setAttribute("src", uploadData.url);
-            }
+            const form = new FormData();
+            form.append("file", file);
+
+            const up = await http<ApiOk>("POST", "/api/v1/admin/upload", form);
+            const url = up?.data?.url || (up as any)?.url;
+            if (url) img.setAttribute("src", url);
           }
         }
         updatedDescription = tempDiv.innerHTML;
       }
 
-      // Chuẩn bị payload cho API
+      // 🔹 Payload
       const payload = {
         title: category.title,
-        parentId: category.parent_id,
+        parentId: category.parent_id, // BE nhận camelCase
         description: updatedDescription,
         thumbnail: thumbnailUrl,
         status: category.status,
       };
 
-      console.log("Sending payload:", payload); // Debug payload
+      await http<ApiOk>(
+        "PATCH",
+        `/api/v1/admin/product-category/edit/${id}`,
+        payload
+      );
 
-      const res = await fetch(`/api/v1/admin/product-category/edit/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json();
-      if (json.success) {
-        alert("✅ Cập nhật danh mục thành công!");
-        await Promise.all([
-          fetchCategory(), // Refresh category detail
-          fetchCategories(), // Refresh categories list
-        ]);
-      } else {
-        alert(json.message || "Không thể cập nhật danh mục.");
-      }
-    } catch (err) {
+      alert("✅ Cập nhật danh mục thành công!");
+      await Promise.all([fetchCategory(), fetchCategories()]);
+    } catch (err: any) {
       console.error("saveCategory error:", err);
-      alert("Lỗi kết nối server.");
+      alert(err?.message || "Lỗi kết nối server.");
     } finally {
       setSaving(false);
     }

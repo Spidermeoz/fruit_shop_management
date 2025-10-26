@@ -3,6 +3,7 @@ import Card from "../../../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
+import { http } from "../../../services/http";
 
 // 🔹 Kiểu dữ liệu sản phẩm
 interface Product {
@@ -66,21 +67,20 @@ const ProductsPage: React.FC = () => {
       if (searchTerm.trim())
         url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
 
-      const res = await fetch(url);
-      const json = await res.json();
+      const json = await http<any>("GET", url);
 
-      if (json.success && Array.isArray(json.data)) {
+      if (Array.isArray(json.data)) {
         setProducts(json.data);
         // --- fix: tính totalPages từ meta.total / meta.limit (fallback 1)
         const total = Number(json.meta?.total ?? 0);
         const limit = Number(json.meta?.limit ?? 10);
         setTotalPages(Math.max(1, Math.ceil(total / limit)));
       } else {
-        setError(json.message || "Không thể tải sản phẩm.");
+        setError("Không thể tải sản phẩm.");
       }
     } catch (err) {
       console.error(err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err instanceof Error ? err.message : "Lỗi kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -123,21 +123,14 @@ const ProductsPage: React.FC = () => {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`/api/v1/admin/products/delete/${id}`, {
-        method: "DELETE",
-      });
-
-      const json = await res.json();
-
-      if (json.success) {
-        setProducts((prev) => prev.filter((p) => p.id !== id));
-        alert("Đã xóa sản phẩm thành công!");
-      } else {
-        alert(json.message || "Xóa sản phẩm thất bại!");
-      }
+      await http("DELETE", `/api/v1/admin/products/delete/${id}`);
+      setProducts((prev) => prev.filter((p) => p.id !== id));
+      alert("Đã xóa sản phẩm thành công!");
     } catch (err) {
       console.error("Delete product error:", err);
-      alert("Không thể kết nối đến server!");
+      alert(
+        err instanceof Error ? err.message : "Không thể kết nối đến server!"
+      );
     } finally {
       setLoading(false);
     }
@@ -148,26 +141,18 @@ const ProductsPage: React.FC = () => {
       product.status.toLowerCase() === "active" ? "inactive" : "active";
 
     try {
-      const res = await fetch(`/api/v1/admin/products/${product.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      await http("PATCH", `/api/v1/admin/products/${product.id}/status`, {
+        status: newStatus,
       });
 
-      const json = await res.json();
-
-      if (json.success) {
-        setProducts((prev) =>
-          prev.map((p) =>
-            p.id === product.id ? { ...p, status: newStatus } : p
-          )
-        );
-      } else {
-        alert(json.message || "Cập nhật trạng thái thất bại");
-      }
+      setProducts((prev) =>
+        prev.map((p) => (p.id === product.id ? { ...p, status: newStatus } : p))
+      );
     } catch (err) {
       console.error(err);
-      alert("Không thể kết nối server để cập nhật trạng thái");
+      alert(
+        err instanceof Error ? err.message : "Không thể cập nhật trạng thái"
+      );
     }
   };
 
@@ -361,23 +346,15 @@ const ProductsPage: React.FC = () => {
                       return;
                   }
 
-                  const res = await fetch("/api/v1/admin/products/bulk-edit", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                  });
-
-                  const json = await res.json();
-                  if (json.success) {
-                    alert("Cập nhật thành công!");
-                    setSelectedProducts([]);
-                    fetchProducts();
-                  } else {
-                    alert(json.message || "Không thể cập nhật!");
-                  }
+                  await http("PATCH", "/api/v1/admin/products/bulk-edit", body);
+                  alert("Cập nhật thành công!");
+                  setSelectedProducts([]);
+                  fetchProducts();
                 } catch (err) {
                   console.error(err);
-                  alert("Lỗi kết nối server!");
+                  alert(
+                    err instanceof Error ? err.message : "Lỗi kết nối server!"
+                  );
                 }
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"

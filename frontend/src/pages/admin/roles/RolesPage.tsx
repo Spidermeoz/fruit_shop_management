@@ -1,13 +1,18 @@
+// src/pages/admin/roles/RolesPage.tsx
 import React, { useEffect, useState } from "react";
 import { Plus, Edit, Trash2, Eye, Loader2, ShieldCheck } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { useNavigate } from "react-router-dom";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
   title: string;
   permissions?: object | null;
 }
+
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiOk = { success: true; data?: any; message?: string; meta?: any };
 
 const RolesPage: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
@@ -16,23 +21,19 @@ const RolesPage: React.FC = () => {
 
   const navigate = useNavigate();
 
-  // 🔹 Fetch danh sách roles
   const fetchRoles = async () => {
     try {
       setLoading(true);
       setError("");
-
-      const res = await fetch("/api/v1/admin/roles");
-      const json = await res.json();
-
-      if (json.success && Array.isArray(json.data)) {
-        setRoles(json.data);
+      const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
+      if (res.success && Array.isArray(res.data)) {
+        setRoles(res.data);
       } else {
-        setError(json.message || "Không thể tải danh sách vai trò.");
+        setError("Không thể tải danh sách vai trò.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
     }
@@ -51,19 +52,17 @@ const RolesPage: React.FC = () => {
     if (!window.confirm("Bạn có chắc muốn xóa vai trò này không?")) return;
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/roles/delete/${id}`, {
-        method: "DELETE",
-      });
-      const json = await res.json();
-      if (json.success) {
+      const res = await http<ApiOk>(
+        "DELETE",
+        `/api/v1/admin/roles/delete/${id}`
+      );
+      if (res.success) {
         setRoles((prev) => prev.filter((r) => r.id !== id));
         alert("Đã xóa vai trò thành công!");
-      } else {
-        alert(json.message || "Không thể xóa vai trò.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Không thể xóa vai trò.");
     } finally {
       setLoading(false);
     }
@@ -78,7 +77,7 @@ const RolesPage: React.FC = () => {
         </h1>
 
         <div className="flex flex-wrap gap-3">
-          {/* 🔹 Nút phân quyền */}
+          {/* Phân quyền */}
           <button
             onClick={handlePermissions}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 font-medium rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
@@ -87,7 +86,7 @@ const RolesPage: React.FC = () => {
             Permissions
           </button>
 
-          {/* 🔹 Nút thêm vai trò */}
+          {/* Thêm vai trò */}
           <button
             onClick={handleAddRole}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
@@ -109,7 +108,9 @@ const RolesPage: React.FC = () => {
         ) : error ? (
           <p className="text-center text-red-500 py-6">{error}</p>
         ) : roles.length === 0 ? (
-          <p className="text-center text-gray-500 py-6">Không có vai trò nào.</p>
+          <p className="text-center text-gray-500 py-6">
+            Không có vai trò nào.
+          </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">

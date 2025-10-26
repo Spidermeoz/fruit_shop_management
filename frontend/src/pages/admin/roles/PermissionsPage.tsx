@@ -1,12 +1,14 @@
+// src/pages/admin/roles/PermissionsPage.tsx
 import React, { useEffect, useState } from "react";
 import { Shield, Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { useNavigate } from "react-router-dom";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
   title: string;
-  permissions: Record<string, string[]>; // ví dụ: { product: ["read", "update"] }
+  permissions: Record<string, string[]>;
 }
 
 interface Action {
@@ -20,6 +22,9 @@ interface PermissionGroup {
   actions: Action[];
 }
 
+type ApiOk<T> = { success: true; data: T; [k: string]: any };
+type ApiErr = { success: false; message?: string };
+
 const normalizeKey = (key: string) => key.replace(/s$/, "").toLowerCase();
 
 const PermissionsPage: React.FC = () => {
@@ -31,45 +36,43 @@ const PermissionsPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
-  // 🔹 Fetch dữ liệu phân quyền
+  // 🔹 Fetch dữ liệu phân quyền (dùng http)
   const fetchPermissions = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/v1/admin/roles/permissions");
-      const json = await res.json();
+      const res = await http<ApiOk<any> | ApiErr>(
+        "GET",
+        "/api/v1/admin/roles/permissions"
+      );
 
-      if (json.success) {
-        const groups = json.data || [];
-
-        // 💡 SỬA: Chuẩn hóa các khóa trong object permissions của Role
-        const parsedRoles = (json.roles || []).map((r: any) => {
-          const rawPermissions =
+      if ("success" in res && res.success) {
+        const groups: PermissionGroup[] = res.data || [];
+        const parsedRoles: Role[] = (res.roles || []).map((r: any) => {
+          const raw =
             typeof r.permissions === "string"
-              ? JSON.parse(r.permissions || "{}")
+              ? (() => {
+                  try {
+                    return JSON.parse(r.permissions || "{}");
+                  } catch {
+                    return {};
+                  }
+                })()
               : r.permissions || {};
-
-          // Chuẩn hóa key permissions: "products" -> "product", "users" -> "user"
-          const normalizedPermissions: Record<string, string[]> = {};
-          for (const key in rawPermissions) {
-            if (Object.prototype.hasOwnProperty.call(rawPermissions, key)) {
-              normalizedPermissions[normalizeKey(key)] = rawPermissions[key];
-            }
+          const normalized: Record<string, string[]> = {};
+          for (const k of Object.keys(raw)) {
+            normalized[normalizeKey(k)] = raw[k];
           }
-
-          return {
-            ...r,
-            permissions: normalizedPermissions, // Gán permissions đã chuẩn hóa
-          };
+          return { id: r.id, title: r.title, permissions: normalized };
         });
 
         setPermissionGroups(groups);
         setRoles(parsedRoles);
       } else {
-        alert(json.message || "Không thể tải dữ liệu phân quyền!");
+        alert((res as ApiErr).message || "Không thể tải dữ liệu phân quyền!");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("fetchPermissions error:", err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     } finally {
       setLoading(false);
     }
@@ -79,16 +82,6 @@ const PermissionsPage: React.FC = () => {
     fetchPermissions();
   }, []);
 
-  // ✅ Kiểm tra checkbox có được tick không
-  const isChecked = (role: Role, moduleKey: string, actionKey: string) => {
-    const normalizedKey = normalizeKey(moduleKey);
-    const perms = role.permissions?.[normalizedKey] || [];
-    return (
-      perms.includes(actionKey) || perms.includes(mapLegacyAction(actionKey))
-    );
-  };
-
-  // 🔹 Một số hệ thống backend có thể trả “read” thay vì “view”
   const mapLegacyAction = (action: string) => {
     if (action === "view") return "read";
     if (action === "read") return "view";
@@ -97,7 +90,14 @@ const PermissionsPage: React.FC = () => {
     return action;
   };
 
-  // ✅ Toggle quyền
+  const isChecked = (role: Role, moduleKey: string, actionKey: string) => {
+    const normalizedKey = normalizeKey(moduleKey);
+    const perms = role.permissions?.[normalizedKey] || [];
+    return (
+      perms.includes(actionKey) || perms.includes(mapLegacyAction(actionKey))
+    );
+  };
+
   const handleToggle = (
     roleId: number,
     moduleKey: string,
@@ -106,50 +106,42 @@ const PermissionsPage: React.FC = () => {
     setRoles((prev) =>
       prev.map((role) => {
         if (role.id !== roleId) return role;
-
         const normalizedKey = normalizeKey(moduleKey);
         const current = role.permissions?.[normalizedKey] || [];
-        const mappedAction = mapLegacyAction(actionKey);
+        const mapped = mapLegacyAction(actionKey);
 
-        let newActions: string[];
-        if (current.includes(actionKey) || current.includes(mappedAction)) {
-          // Bỏ quyền
-          newActions = current.filter(
-            (a) => a !== actionKey && a !== mappedAction
-          );
+        let next: string[];
+        if (current.includes(actionKey) || current.includes(mapped)) {
+          next = current.filter((a) => a !== actionKey && a !== mapped);
         } else {
-          // Thêm quyền
-          newActions = [...current, actionKey];
+          next = [...current, actionKey];
         }
 
         return {
           ...role,
-          permissions: { ...role.permissions, [normalizedKey]: newActions },
+          permissions: { ...role.permissions, [normalizedKey]: next },
         };
       })
     );
   };
 
-  // ✅ Gửi cập nhật lên backend
+  // ✅ Gửi cập nhật (dùng http)
   const handleSave = async () => {
     try {
       setSaving(true);
-
-      const res = await fetch("/api/v1/admin/roles/permissions", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ roles }),
-      });
-
-      const json = await res.json();
-      if (json.success) {
+      const res = await http<ApiOk<any> | ApiErr>(
+        "PATCH",
+        "/api/v1/admin/roles/permissions",
+        { roles }
+      );
+      if ("success" in res && res.success) {
         alert("✅ Cập nhật phân quyền thành công!");
       } else {
-        alert(json.message || "Không thể lưu thay đổi!");
+        alert((res as ApiErr).message || "Không thể lưu thay đổi!");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Lỗi kết nối server!");
+      alert(err?.message || "Lỗi kết nối server!");
     } finally {
       setSaving(false);
     }
@@ -176,7 +168,6 @@ const PermissionsPage: React.FC = () => {
         </h1>
 
         <div className="flex flex-wrap gap-3">
-          {/* 🔙 Quay lại */}
           <button
             onClick={() => navigate("/admin/roles")}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 rounded-md transition"
@@ -184,7 +175,6 @@ const PermissionsPage: React.FC = () => {
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
 
-          {/* 💾 Cập nhật */}
           <button
             onClick={handleSave}
             disabled={saving}
@@ -226,7 +216,6 @@ const PermissionsPage: React.FC = () => {
             <tbody>
               {permissionGroups.map((group) => (
                 <React.Fragment key={group.key}>
-                  {/* Nhóm module */}
                   <tr className="bg-gray-50 dark:bg-gray-800">
                     <td
                       colSpan={roles.length + 1}
@@ -236,7 +225,6 @@ const PermissionsPage: React.FC = () => {
                     </td>
                   </tr>
 
-                  {/* Các hành động */}
                   {group.actions.map((action) => (
                     <tr key={action.action_key}>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-gray-800 dark:text-gray-200">

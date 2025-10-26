@@ -1,16 +1,21 @@
+// src/pages/admin/roles/RoleDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit, Shield } from "lucide-react";
 import Card from "../../../components/layouts/Card";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
   title: string;
   description?: string | null;
-  permissions?: any; // có thể là object hoặc string
+  permissions?: any; // object | string
   created_at?: string;
   updated_at?: string;
 }
+
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+type ApiErr = { success: false; message?: string };
 
 const RoleDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,34 +25,32 @@ const RoleDetailPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  // 🔹 Gọi API chi tiết role
   const fetchRoleDetail = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const res = await fetch(`/api/v1/admin/roles/detail/${id}`);
-      const json = await res.json();
+      const res = await http<ApiDetail<Role> | ApiErr>(
+        "GET",
+        `/api/v1/admin/roles/detail/${id}`
+      );
 
-      if (json.success && json.data) {
-        const data = json.data;
-
-        // ✅ Parse JSON nếu permissions là string
+      if ("success" in res && res.success && res.data) {
+        const data: Role = { ...res.data };
         if (data.permissions && typeof data.permissions === "string") {
           try {
             data.permissions = JSON.parse(data.permissions);
-          } catch (err) {
-            console.warn("Không thể parse permissions JSON:", err);
+          } catch {
+            // giữ nguyên nếu parse lỗi
           }
         }
-
         setRole(data);
       } else {
-        setError(json.message || "Không thể tải thông tin vai trò.");
+        setError((res as ApiErr).message || "Không thể tải thông tin vai trò.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("fetchRoleDetail error:", err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
     }
@@ -55,19 +58,20 @@ const RoleDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchRoleDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 🔹 Loading
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">Đang tải...</span>
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải...
+        </span>
       </div>
     );
   }
 
-  // 🔹 Lỗi
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-[70vh] text-center">
@@ -83,6 +87,11 @@ const RoleDetailPage: React.FC = () => {
   }
 
   if (!role) return null;
+
+  const permissionsObj =
+    role.permissions && typeof role.permissions === "object"
+      ? (role.permissions as Record<string, string[]>)
+      : {};
 
   return (
     <div className="p-4">
@@ -125,7 +134,6 @@ const RoleDetailPage: React.FC = () => {
               </p>
             </div>
 
-            {/* ✅ Mô tả (hiển thị HTML từ TinyMCE) */}
             <div className="mt-4">
               <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-2">
                 Mô tả
@@ -143,16 +151,16 @@ const RoleDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* ✅ Quyền (Permissions) */}
+          {/* Quyền */}
           <div>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white flex items-center gap-2">
               <Shield className="w-5 h-5 text-blue-600 dark:text-blue-400" />
               Quyền (Permissions)
             </h2>
 
-            {role.permissions && Object.keys(role.permissions).length > 0 ? (
+            {permissionsObj && Object.keys(permissionsObj).length > 0 ? (
               <div className="mt-4 space-y-4">
-                {Object.entries(role.permissions).map(([module, actions]: any) => (
+                {Object.entries(permissionsObj).map(([module, actions]) => (
                   <div
                     key={module}
                     className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800"

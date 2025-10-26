@@ -1,3 +1,4 @@
+// src/pages/admin/roles/RoleEditPage.tsx
 import React, {
   useEffect,
   useState,
@@ -7,7 +8,8 @@ import React, {
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
-import RichTextEditor from "../../../components/common/RichTextEditor"; // ✅ dùng TinyMCE
+import RichTextEditor from "../../../components/common/RichTextEditor";
+import { http } from "../../../services/http";
 
 interface Role {
   id: number;
@@ -16,6 +18,15 @@ interface Role {
   created_at?: string;
   updated_at?: string;
 }
+
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+type ApiOk = {
+  success: true;
+  data?: any;
+  url?: string;
+  message?: string;
+  meta?: any;
+};
 
 const RoleEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -30,16 +41,19 @@ const RoleEditPage: React.FC = () => {
   const fetchRole = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`/api/v1/admin/roles/edit/${id}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setRole(json.data);
+      setError("");
+      const res = await http<ApiDetail<Role>>(
+        "GET",
+        `/api/v1/admin/roles/edit/${id}`
+      );
+      if (res?.success && res.data) {
+        setRole(res.data);
       } else {
-        setError(json.message || "Không tìm thấy vai trò.");
+        setError("Không tìm thấy vai trò.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Không thể kết nối server.");
+      setError(err?.message || "Không thể kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -47,6 +61,7 @@ const RoleEditPage: React.FC = () => {
 
   useEffect(() => {
     fetchRole();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // 🔹 Xử lý input
@@ -60,7 +75,7 @@ const RoleEditPage: React.FC = () => {
     setRole((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
-  // helper: upload images inside HTML (blob/data URLs) -> replace src with uploaded URL
+  // 🔹 Upload ảnh trong HTML (blob/data) → URL cloud
   const uploadImagesInHtml = async (html?: string | null) => {
     if (!html) return html;
     try {
@@ -79,14 +94,11 @@ const RoleEditPage: React.FC = () => {
             });
             const fd = new FormData();
             fd.append("file", file);
-            const up = await fetch("/api/v1/admin/upload", {
-              method: "POST",
-              body: fd,
-            });
-            const upJson = await up.json();
-            if (upJson && upJson.success && upJson.url) {
-              img.setAttribute("src", upJson.url);
-            }
+
+            // dùng http() để tự đính kèm Authorization, KHÔNG set Content-Type
+            const up = await http<ApiOk>("POST", "/api/v1/admin/upload", fd);
+            const url = up?.data?.url || up?.url;
+            if (url) img.setAttribute("src", url);
           } catch (err) {
             console.error("Upload image in description failed:", err);
           }
@@ -112,34 +124,27 @@ const RoleEditPage: React.FC = () => {
     try {
       setSaving(true);
 
-      // process images in description (upload blob/data images to cloud)
       const processedDescription = await uploadImagesInHtml(role.description);
 
-      const res = await fetch(`/api/v1/admin/roles/edit/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: role.title,
-          description: processedDescription,
-        }),
+      const res = await http<ApiOk>("PATCH", `/api/v1/admin/roles/edit/${id}`, {
+        title: role.title,
+        description: processedDescription,
       });
 
-      const json = await res.json();
-      if (json.success) {
+      if (res?.success) {
         alert("✅ Cập nhật vai trò thành công!");
         navigate(`/admin/roles/edit/${id}`);
       } else {
-        alert(json.message || "Cập nhật thất bại.");
+        alert(res?.message || "Cập nhật thất bại.");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Không thể kết nối server.");
+      alert(err?.message || "Không thể kết nối server.");
     } finally {
       setSaving(false);
     }
   };
 
-  // 🔹 Loading state
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">

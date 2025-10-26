@@ -3,6 +3,7 @@ import Card from "../../../components/layouts/Card";
 import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
+import { http } from "../../../services/http";
 
 interface User {
   id: number;
@@ -55,24 +56,23 @@ const UsersPage: React.FC = () => {
         }
       }
 
-      if (searchTerm.trim())
+      if (searchTerm.trim()) {
         url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
+      }
 
-      const res = await fetch(url);
-      const json = await res.json();
+      const json = await http<any>("GET", url);
 
-      if (json.success && Array.isArray(json.data)) {
+      if (Array.isArray(json.data)) {
         setUsers(json.data);
-        // Calculate totalPages from total items and limit
         const total = Number(json.meta?.total ?? 0);
         const limit = Number(json.meta?.limit ?? 10);
         setTotalPages(Math.max(1, Math.ceil(total / limit)));
       } else {
-        setError(json.message || "Không thể tải người dùng.");
+        setError("Không thể tải danh sách người dùng.");
       }
     } catch (err) {
       console.error(err);
-      setError("Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err instanceof Error ? err.message : "Lỗi kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -108,66 +108,46 @@ const UsersPage: React.FC = () => {
   const handleViewUser = (id: number) => navigate(`/admin/users/detail/${id}`);
 
   const handleDeleteUser = async (id: number) => {
-    if (!window.confirm("Bạn có chắc muốn xóa người dùng này không?")) return;
+    if (!window.confirm("Bạn có chắc muốn xóa người dùng này?")) return;
 
     try {
       setLoading(true);
-      setError("");
-
-      const res = await fetch(`/api/v1/admin/users/delete/${id}`, {
-        method: "DELETE",
-      });
-      const json = await res.json();
-
-      if (json.success) {
-        setUsers((prev) => prev.filter((u) => u.id !== id));
-        alert("Đã xóa người dùng thành công!");
-      } else {
-        alert(json.message || "Xóa người dùng thất bại!");
-      }
+      await http("DELETE", `/api/v1/admin/users/delete/${id}`);
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      alert("Đã xóa người dùng thành công!");
     } catch (err) {
       console.error("Delete user error:", err);
-      alert("Không thể kết nối đến server!");
+      alert(err instanceof Error ? err.message : "Không thể xóa người dùng!");
     } finally {
       setLoading(false);
     }
   };
 
   const handleToggleStatus = async (user: User) => {
-    // giống ProductsPage: toggle active <-> inactive
     const newStatus =
       user.status.toLowerCase() === "active" ? "inactive" : "active";
 
     try {
-      const res = await fetch(`/api/v1/admin/users/${user.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+      await http("PATCH", `/api/v1/admin/users/${user.id}/status`, {
+        status: newStatus,
       });
 
-      const json = await res.json();
-
-      if (json.success) {
-        setUsers((prev) =>
-          prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
-        );
-      } else {
-        alert(json.message || "Cập nhật trạng thái thất bại");
-      }
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+      );
     } catch (err) {
       console.error(err);
-      alert("Không thể kết nối server để cập nhật trạng thái");
+      alert(
+        err instanceof Error ? err.message : "Không thể cập nhật trạng thái"
+      );
     }
   };
 
-  const handleFilterChange = (filter: string) => {
-    const params = new URLSearchParams(searchParams);
-    if (filter === "all") params.delete("status");
-    else params.set("status", filter);
-    params.delete("page");
-    setSearchParams(params);
-  };
+  function handleFilterChange(_arg0: string): void {
+    throw new Error("Function not implemented.");
+  }
 
+  // ...rest of existing code (useEffect, JSX, etc)...
   return (
     <div>
       {/* Header */}
@@ -308,50 +288,26 @@ const UsersPage: React.FC = () => {
                   return;
 
                 try {
-                  const body: {
-                    ids: number[];
-                    updated_by_id: number;
-                    action?: string;
-                    value?: any;
-                  } = {
+                  const body = {
                     ids: selectedUsers,
-                    updated_by_id: 1,
+                    action: bulkAction === "delete" ? "delete" : "status",
+                    value:
+                      bulkAction === "delete"
+                        ? undefined
+                        : bulkAction === "activate"
+                        ? "active"
+                        : "inactive",
                   };
 
-                  switch (bulkAction) {
-                    case "activate":
-                      body.action = "status";
-                      body.value = "active";
-                      break;
-                    case "deactivate":
-                      body.action = "status";
-                      body.value = "inactive";
-                      break;
-                    case "delete":
-                      body.action = "delete";
-                      break;
-                    default:
-                      alert("Hành động không hợp lệ!");
-                      return;
-                  }
-
-                  const res = await fetch("/api/v1/admin/users/bulk-edit", {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(body),
-                  });
-
-                  const json = await res.json();
-                  if (json.success) {
-                    alert("Cập nhật thành công!");
-                    setSelectedUsers([]);
-                    fetchUsers();
-                  } else {
-                    alert(json.message || "Không thể cập nhật!");
-                  }
+                  await http("PATCH", "/api/v1/admin/users/bulk-edit", body);
+                  alert("Cập nhật thành công!");
+                  setSelectedUsers([]);
+                  fetchUsers();
                 } catch (err) {
                   console.error(err);
-                  alert("Lỗi kết nối server!");
+                  alert(
+                    err instanceof Error ? err.message : "Lỗi kết nối server!"
+                  );
                 }
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
