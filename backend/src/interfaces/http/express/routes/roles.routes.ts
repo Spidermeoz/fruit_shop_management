@@ -1,21 +1,26 @@
-// src/interfaces/http/express/routes/roles.routes.ts
 import { Router } from "express";
 import type { RolesController } from "../controllers/RolesController";
 
-export const rolesRoutes = (controller: RolesController) => {
+type CanFn = (moduleKey: string, actionKey: string) => any;
+
+export const rolesRoutes = (
+  controller: RolesController,
+  auth: any,
+  can: CanFn
+) => {
   const r = Router();
 
-  // CRUD
-  r.get("/", controller.list);
-  r.get("/detail/:id", controller.detail);
-  r.post("/create", controller.create);
-  r.get("/edit/:id", controller.getEdit);
-  r.patch("/edit/:id", controller.edit);
-  r.delete("/delete/:id", controller.softDelete);
+  r.get("/", auth, can("role", "view"), controller.list);
+  r.get("/detail/:id", auth, can("role", "view"), controller.detail);
+  r.post("/create", auth, can("role", "create"), controller.create);
+  r.patch("/edit/:id", auth, can("role", "edit"), controller.edit);
+  r.delete("/delete/:id", auth, can("role", "delete"), controller.softDelete);
 
-  // Permissions
-  r.get("/permissions", controller.permissionsMatrix);
-  r.patch("/permissions", controller.permissionsPatchMatrix);
+  // permissions
+  r.get("/permissions", auth, can("role", "permissions"), controller.permissionsMatrix);
+  r.get("/:id/permissions", auth, can("role", "permissions"), controller.getPermissions);
+  r.patch("/:id/permissions", auth, can("role", "permissions"), controller.updatePermissions);
+  r.patch("/permissions", auth, can("role", "permissions"), controller.permissionsPatchMatrix);
 
   return r;
 };

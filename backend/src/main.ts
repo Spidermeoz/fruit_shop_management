@@ -1,17 +1,19 @@
-import { controllers } from "./config/di/container";
+// src/main.ts
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import { controllers, authServices, userRepo, rolesRepo } from "./config/di/container";
+import { makeAuthMiddleware } from "./interfaces/http/express/middlewares/auth";
+import { makeCan } from "./interfaces/http/express/middlewares/permissions";
+
+import { authRoutes } from "./interfaces/http/express/routes/auth.routes";
 import { productsRoutes } from "./interfaces/http/express/routes/products.routes";
-import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 import { productCategoriesRoutes } from "./interfaces/http/express/routes/productCategories.routes";
-import express from 'express';
-import cors from 'cors'; // Đảm bảo đã import
-import helmet from 'helmet';
 import { rolesRoutes } from "./interfaces/http/express/routes/roles.routes";
 import { usersRoutes } from "./interfaces/http/express/routes/users.routes";
-// import { sequelize } from './config/database'; 
+import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 
 const app = express();
-
-// --- BẮT ĐẦU PHẦN BỔ SUNG BỊ THIẾU ---
 
 // Xác định URL frontend của bạn (ví dụ: 3001 cho React, 5173 cho Vite...)
 const allowedOrigins = [
@@ -20,7 +22,6 @@ const allowedOrigins = [
   'http://localhost:3000', // Có thể cho phép chính nó
 ];
 
-// Định nghĩa biến `corsOptions` mà TS đang báo thiếu
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
     // Cho phép request không có origin (như Postman) hoặc origin nằm trong danh sách
@@ -35,14 +36,12 @@ const corsOptions: cors.CorsOptions = {
   credentials: true, 
 };
 
-// --- KẾT THÚC PHẦN BỔ SUNG ---
+const auth = makeAuthMiddleware(authServices.token, userRepo, { enforceActive: true });
+const can = makeCan(rolesRepo);
 
 
 // 1. Sử dụng cấu hình CORS (Giờ 'corsOptions' đã được định nghĩa)
 app.use(cors(corsOptions));
-
-// 2. Dòng này đã bị xóa chính xác (không gây lỗi)
-// app.options('*', cors(corsOptions)); 
 
 // 3. Các middleware khác
 app.use(express.json());
@@ -51,12 +50,14 @@ app.use(helmet());
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
+app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
+
 // 4. Mount routes
-app.use("/api/v1/admin/products", productsRoutes(controllers.products));
-app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload));
-app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.categories));
-app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles));
-app.use("/api/v1/admin/users", usersRoutes(controllers.users));
+app.use("/api/v1/admin/products", productsRoutes(controllers.products, auth, can));
+app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.categories, auth, can));
+app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
+app.use("/api/v1/admin/user", usersRoutes(controllers.users, auth, can));
+app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
 
 // Error middleware đơn giản
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

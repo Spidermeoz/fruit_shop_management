@@ -48,7 +48,9 @@ export class SequelizeUserRepository implements UserRepository {
       createdAt: r.created_at ?? r.createdAt,
       updatedAt: r.updated_at ?? r.updatedAt,
       // embed role (include: {as:"role"})
-      role: r.role ? { id: Number(r.role.id), title: String(r.role.title) } : null,
+      role: r.role
+        ? { id: Number(r.role.id), title: String(r.role.title) }
+        : null,
     });
 
   async list(filter: ListUsersFilter) {
@@ -132,7 +134,8 @@ export class SequelizeUserRepository implements UserRepository {
     const values: any = {};
     if (patch.roleId !== undefined) values.role_id = patch.roleId;
     if (patch.fullName !== undefined) values.full_name = patch.fullName ?? null;
-    if (patch.email !== undefined) values.email = patch.email.trim().toLowerCase();
+    if (patch.email !== undefined)
+      values.email = patch.email.trim().toLowerCase();
     if (patch.passwordHash !== undefined) {
       if (patch.passwordHash) values.password = patch.passwordHash; // chỉ khi có hash mới
     }
@@ -184,7 +187,11 @@ export class SequelizeUserRepository implements UserRepository {
   }
 
   // Bulk: 'status' | 'role' | 'delete' | 'restore'
-  async bulkEdit(ids: number[], action: "status" | "role" | "delete" | "restore", value?: any) {
+  async bulkEdit(
+    ids: number[],
+    action: "status" | "role" | "delete" | "restore",
+    value?: any
+  ) {
     if (!Array.isArray(ids) || !ids.length) return { affected: 0 };
 
     const where = { id: { [Op.in]: ids } };
@@ -227,5 +234,48 @@ export class SequelizeUserRepository implements UserRepository {
         return { affected: affected ?? 0 };
       }
     }
+  }
+
+  async updateApiToken(
+    userId: number,
+    tokenHash: string | null
+  ): Promise<void> {
+    await this.models.User.update(
+      { api_token: tokenHash ?? null },
+      { where: { id: userId } }
+    );
+  }
+
+  async findAuthByEmail(email: string) {
+    const where: any = { email: email.trim().toLowerCase(), deleted: 0 };
+    const include = this.models.Role
+      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
+      : [];
+
+    // cần lấy cột password để so khớp
+    const r = await this.models.User.findOne({
+      where,
+      include,
+      // attributes: không loại bỏ password
+    });
+
+    if (!r) return null;
+
+    const user = this.mapRow(r);
+    const passwordHash: string = String(r.password);
+    return { user, passwordHash };
+  }
+
+  async findByApiTokenHash(hash: string) {
+    const include = this.models.Role
+      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
+      : [];
+
+    const r = await this.models.User.findOne({
+      where: { api_token: hash, deleted: 0 },
+      include,
+    });
+
+    return r ? this.mapRow(r) : null;
   }
 }

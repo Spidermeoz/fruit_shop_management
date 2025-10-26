@@ -30,6 +30,11 @@ import { UploadImage } from "../../application/uploads/usecases/UploadImage";
 import { makeUploadController } from "../../interfaces/http/express/controllers/UploadController";
 import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
 
+// ===== Auth services =====
+import { JwtTokenService } from "../../infrastructure/auth/JwtTokenService";
+import { CryptoRefreshTokenService } from "../../infrastructure/auth/CryptoRefreshTokenService";
+import { BcryptPasswordService } from "../../infrastructure/auth/BcryptPasswordService";
+
 // ===== Category imports =====
 import ProductCategoryModel from "../../infrastructure/db/sequelize/models/ProductCategoryModel";
 import { SequelizeProductCategoryRepository } from "../../infrastructure/repositories/SequelizeProductCategoryRepository";
@@ -43,6 +48,7 @@ import { SoftDeleteCategory } from "../../application/categories/usecases/SoftDe
 import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
 import { ReorderCategoryPositions } from "../../application/categories/usecases/ReorderCategoryPositions";
 
+// ===== Roles usecases =====
 import { ListRoles } from "../../application/roles/usecases/ListRoles";
 import { GetRoleDetail } from "../../application/roles/usecases/GetRoleDetail";
 import { CreateRole } from "../../application/roles/usecases/CreateRole";
@@ -50,8 +56,16 @@ import { UpdateRole } from "../../application/roles/usecases/UpdateRole";
 import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole";
 import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
 import { UpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
+import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
 
-// ===== Users =====
+import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+
+import { makeRolesController } from "../../interfaces/http/express/controllers/RolesController";
+import type { RolesController } from "../../interfaces/http/express/controllers/RolesController";
+
+// ===== Users usecases =====
 import { ListUsers } from "../../application/users/usecases/ListUsers";
 import { GetUserDetail } from "../../application/users/usecases/GetUserDetail";
 import { CreateUser } from "../../application/users/usecases/CreateUser";
@@ -60,18 +74,26 @@ import { UpdateUserStatus } from "../../application/users/usecases/UpdateUserSta
 import { SoftDeleteUser } from "../../application/users/usecases/SoftDeleteUser";
 import { BulkEditUsers } from "../../application/users/usecases/BulkEditUsers";
 
-import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
-import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
-
-import { makeRolesController } from "../../interfaces/http/express/controllers/RolesController";
-import type { RolesController } from "../../interfaces/http/express/controllers/RolesController";
-
-import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
-import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+// ===== Auth usecases =====
+import { Login } from "../../application/auth/usecases/Login";
+import { Logout } from "../../application/auth/usecases/Logout";
+import { RefreshToken } from "../../application/auth/usecases/RefreshToken";
+import { GetMe } from "../../application/auth/usecases/GetMe";
 
 import { makeUsersController } from "../../interfaces/http/express/controllers/UsersController";
 import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
 
+import { makeAuthController } from "../../interfaces/http/express/controllers/AuthController";
+import type { AuthController } from "../../interfaces/http/express/controllers/AuthController";
+
+// ===== Export Auth services (cho main.ts / middlewares) =====
+export const authServices = {
+  token: new JwtTokenService(),
+  refresh: new CryptoRefreshTokenService(),
+  password: new BcryptPasswordService(),
+} as const;
+
+// ===== Associations =====
 ProductModel.belongsTo(ProductCategoryModel, {
   as: "category",
   foreignKey: "product_category_id",
@@ -80,22 +102,28 @@ ProductCategoryModel.hasMany(ProductModel, {
   as: "products",
   foreignKey: "product_category_id",
 });
-// Association
+
 UserModel.belongsTo(RoleModel, { as: "role", foreignKey: "role_id" });
 RoleModel.hasMany(UserModel, { as: "users", foreignKey: "role_id" });
-// ===== Models & Repos =====
-const models = { Product: ProductModel, ProductCategory: ProductCategoryModel };
-const productRepo = new SequelizeProductRepository(models);
 
-// ===== Category Models & Repo =====
+// ===== Models & Repos =====
+const productModels = {
+  Product: ProductModel,
+  ProductCategory: ProductCategoryModel,
+};
+const productRepo = new SequelizeProductRepository(productModels);
+
+// Category
 const categoryModels = { ProductCategory: ProductCategoryModel };
 const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
 
+// Roles (export để dùng ở main.ts/middlewares)
 const roleModels = { Role: RoleModel };
-const roleRepo = new SequelizeRoleRepository(roleModels);
+export const rolesRepo = new SequelizeRoleRepository(roleModels);
 
+// Users (export để dùng ở main.ts/middlewares)
 const userModels = { User: UserModel, Role: RoleModel };
-const userRepo = new SequelizeUserRepository(userModels);
+export const userRepo = new SequelizeUserRepository(userModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -123,15 +151,15 @@ export const usecases = {
     reorder: new ReorderCategoryPositions(categoryRepo),
   },
   roles: {
-    list: new ListRoles(roleRepo),
-    detail: new GetRoleDetail(roleRepo),
-    create: new CreateRole(roleRepo),
-    update: new UpdateRole(roleRepo),
-    softDelete: new SoftDeleteRole(roleRepo),
-    getPermissions: new GetRolePermissions(roleRepo),
-    updatePermissions: new UpdateRolePermissions(roleRepo),
-    listForPermissions: new ListRolesForPermissions(roleRepo),
-    bulkUpdatePermissions: new BulkUpdateRolePermissions(roleRepo),
+    list: new ListRoles(rolesRepo),
+    detail: new GetRoleDetail(rolesRepo),
+    create: new CreateRole(rolesRepo),
+    update: new UpdateRole(rolesRepo),
+    softDelete: new SoftDeleteRole(rolesRepo),
+    getPermissions: new GetRolePermissions(rolesRepo),
+    updatePermissions: new UpdateRolePermissions(rolesRepo),
+    listForPermissions: new ListRolesForPermissions(rolesRepo),
+    bulkUpdatePermissions: new BulkUpdateRolePermissions(rolesRepo),
   },
   users: {
     list: new ListUsers(userRepo),
@@ -142,15 +170,34 @@ export const usecases = {
     softDelete: new SoftDeleteUser(userRepo),
     bulkEdit: new BulkEditUsers(userRepo),
   },
+  auth: {
+    login: new Login(
+      userRepo,
+      rolesRepo,
+      authServices.token,
+      authServices.refresh,
+      authServices.password
+    ),
+    logout: new Logout(userRepo),
+    refresh: new RefreshToken(
+      userRepo,
+      authServices.token,
+      authServices.refresh
+    ),
+    me: new GetMe(userRepo, rolesRepo),
+  },
+  // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
+  authServices,
 };
 
-// ===== Controllers (khai báo cả products và upload) =====
+// ===== Controllers =====
 type Controllers = {
   products: ProductsController;
   upload: UploadController;
   categories: ProductCategoriesController;
   roles: RolesController;
   users: UsersController;
+  auth: AuthController; 
 };
 
 export const controllers: Controllers = {
@@ -196,5 +243,11 @@ export const controllers: Controllers = {
     updateStatus: usecases.users.updateStatus,
     softDelete: usecases.users.softDelete,
     bulkEdit: usecases.users.bulkEdit,
+  }),
+  auth: makeAuthController({
+    login: usecases.auth.login,
+    logout: usecases.auth.logout,
+    refresh: usecases.auth.refresh,
+    me: usecases.auth.me,
   }),
 };

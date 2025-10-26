@@ -58,4 +58,15 @@ export interface UserRepository {
     action: "status" | "role" | "delete" | "restore",
     value?: any
   ): Promise<{ affected: number }>;
+
+  // đặt/clear hash của refresh token (lưu ở cột api_token)
+  updateApiToken(userId: number, tokenHash: string | null): Promise<void>;
+
+  // Truy vấn cho đăng nhập: trả cả hash mật khẩu
+  findAuthByEmail(
+    email: string
+  ): Promise<{ user: User; passwordHash: string } | null>;
+
+  // Tìm user theo refresh token (hash lưu ở users.api_token)
+  findByApiTokenHash(hash: string): Promise<User | null>;
 }

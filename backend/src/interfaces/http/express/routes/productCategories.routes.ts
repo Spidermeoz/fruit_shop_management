@@ -1,18 +1,25 @@
-// src/interfaces/http/express/routes/productCategories.routes.ts
 import { Router } from "express";
 import type { ProductCategoriesController } from "../controllers/ProductCategoriesController";
 
-export const productCategoriesRoutes = (controller: ProductCategoriesController) => {
+type CanFn = (moduleKey: string, actionKey: string) => any;
+
+export const productCategoriesRoutes = (
+  controller: ProductCategoriesController,
+  auth: any,
+  can: CanFn
+) => {
   const r = Router();
 
-  r.get("/", controller.list);
-  r.get("/detail/:id", controller.detail);
-  r.post("/create", controller.create);
-  r.get("/edit/:id", controller.getEdit);
-  r.patch("/edit/:id", controller.edit);
-  r.patch("/:id/status", controller.changeStatus);
-  r.delete("/delete/:id", controller.softDelete);
-  r.patch("/bulk-edit", controller.bulkEdit);
+  r.get("/", auth, can("product_category", "view"), controller.list);
+  r.get("/detail/:id", auth, can("product_category", "view"), controller.detail);
+
+  r.post("/create", auth, can("product_category", "create"), controller.create);
+  r.get("/edit/:id", auth, can("product_category", "edit"), controller.getEdit);
+  r.patch("/edit/:id", auth, can("product_category", "edit"), controller.edit);
+  r.patch("/:id/status", auth, can("product_category", "edit"), controller.changeStatus);
+  r.delete("/delete/:id", auth, can("product_category", "delete"), controller.softDelete);
+
+  r.patch("/bulk-edit", auth, can("product_category", "edit"), controller.bulkEdit);
 
   return r;
 };

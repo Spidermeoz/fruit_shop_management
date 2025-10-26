@@ -8,7 +8,10 @@
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "types": ["express", "node"],
+    "typeRoots": ["./src/types", "./node_modules/@types"]
   },
-  "include": ["src"]
+  "include": ["src/**/*", "src/types/*.d.ts"],
+  "exclude": ["node_modules"]
 }
