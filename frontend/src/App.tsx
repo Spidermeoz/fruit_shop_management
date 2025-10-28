@@ -43,6 +43,8 @@ import ProductCategoryEditPage from "./pages/admin/product-category/ProductCateg
 import ProductListPage from "./components/client/product/ProductList";
 import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
+import AboutPage from "./pages/client/AboutPage";
+import ContactPage from "./pages/client/ContactPage";
 
 const App: React.FC = () => {
   return (
@@ -147,6 +149,8 @@ const App: React.FC = () => {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/orders" element={<OrderHistoryPage />} />
                   <Route path="/orders/:id" element={<OrderDetailPage />} />
+                  <Route path="/about" element={<AboutPage/>} />
+                  <Route path="/contact" element={<ContactPage/>} />
                 </Routes>
               </main>
               {/* <Footer /> */}
