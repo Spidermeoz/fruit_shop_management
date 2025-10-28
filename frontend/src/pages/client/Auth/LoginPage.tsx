@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import Layout from "../../components/client/layout/Layout";
+import Layout from "../../../components/client/layout/Layout";
 
 interface LoginFormData {
   email: string;
