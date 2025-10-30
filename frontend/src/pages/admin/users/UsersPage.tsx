@@ -143,9 +143,18 @@ const UsersPage: React.FC = () => {
     }
   };
 
-  function handleFilterChange(_arg0: string): void {
-    throw new Error("Function not implemented.");
-  }
+  const handleFilterChange = (status: "all" | "active" | "inactive") => {
+    // reset trang & ghi status vào URL để useEffect -> fetchUsers()
+    const params = new URLSearchParams(searchParams);
+    if (status === "all") params.delete("status");
+    else params.set("status", status);
+
+    params.delete("page"); // về trang 1 khi đổi filter
+    setSearchParams(params);
+
+    // Xoá lựa chọn bulk đang có (nếu muốn)
+    setSelectedUsers([]);
+  };
 
   // ...rest of existing code (useEffect, JSX, etc)...
   return (

@@ -19,8 +19,6 @@ interface Product {
   position?: number;
   average_rating?: number;
   review_count?: number;
-  created_by_id?: number | string;
-  updated_by_id?: number | string;
   created_at?: string;
   updated_at?: string;
 }
@@ -186,14 +184,6 @@ const ProductDetailPage: React.FC = () => {
 
         {/* Thông tin hệ thống */}
         <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-2">
-          <p>
-            <span className="font-medium">Người tạo:</span>{" "}
-            {product.created_by_id ?? "—"}
-          </p>
-          <p>
-            <span className="font-medium">Người cập nhật:</span>{" "}
-            {product.updated_by_id ?? "—"}
-          </p>
           <p>
             <span className="font-medium">Ngày tạo:</span>{" "}
             {product.created_at
