@@ -4,8 +4,19 @@ import { Link, useNavigate } from "react-router-dom";
 const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isProductMenuOpen, setIsProductMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Giả lập trạng thái đăng nhập
   const navigate = useNavigate();
+
+  // Danh mục sản phẩm
+  const categories = [
+    { name: "Trái cây nhập khẩu", link: "/product?category=imported" },
+    { name: "Trái cây nội địa", link: "/product?category=domestic" },
+    { name: "Rau củ tươi", link: "/product?category=vegetables" },
+    { name: "Nông sản khô", link: "/product?category=dried" },
+    { name: "Giảm giá", link: "/product?category=sale" },
+    { name: "Sản phẩm mới", link: "/product?category=new" }
+  ];
 
   const handleLogout = () => {
     setIsLoggedIn(false);
@@ -21,14 +32,43 @@ const Header: React.FC = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center">
               <img src="https://i.imgur.com/8Jk3l7n.jpg" alt="Logo" className="h-10 w-10 rounded-full mr-3" />
-              <span className="text-2xl font-bold text-green-600">Logo hoặc tên ở đây</span>
+              <span className="text-2xl font-bold text-green-600">FreshFruits</span>
             </Link>
           </div>
           
           {/* Desktop Menu */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link to="/" className="text-gray-700 hover:text-green-600 transition font-medium">Trang chủ</Link>
-            <Link to="/product" className="text-gray-700 hover:text-green-600 transition font-medium">Sản phẩm</Link>
+            
+            {/* Products Menu with Dropdown */}
+            <div 
+              className="relative"
+              onMouseEnter={() => setIsProductMenuOpen(true)}
+              onMouseLeave={() => setIsProductMenuOpen(false)}
+            >
+              <Link to={'/product'} className="text-gray-700 hover:text-green-600 transition font-medium flex items-center">
+                Sản phẩm
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </Link>
+              
+              {/* Dropdown Menu */}
+              {isProductMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 w-56 bg-white rounded-lg shadow-lg py-2 z-50">
+                  {categories.map((category, index) => (
+                    <Link
+                      key={index}
+                      to={category.link}
+                      className="block px-4 py-2 text-gray-700 hover:bg-green-50 hover:text-green-600 transition"
+                    >
+                      {category.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            
             <Link to="/about" className="text-gray-700 hover:text-green-600 transition font-medium">Giới thiệu</Link>
             <Link to="/contact" className="text-gray-700 hover:text-green-600 transition font-medium">Liên hệ</Link>
           </nav>
@@ -128,13 +168,38 @@ const Header: React.FC = () => {
               >
                 Trang chủ
               </Link>
-              <Link 
-                to="/product" 
-                className="text-gray-700 hover:text-green-600 transition font-medium"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                Sản phẩm
-              </Link>
+              
+              {/* Mobile Products Menu */}
+              <div>
+                <button
+                  onClick={() => setIsProductMenuOpen(!isProductMenuOpen)}
+                  className="text-gray-700 hover:text-green-600 transition font-medium flex items-center justify-between w-full"
+                >
+                  <span>Sản phẩm</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                
+                {isProductMenuOpen && (
+                  <div className="mt-2 ml-4 space-y-2">
+                    {categories.map((category, index) => (
+                      <Link
+                        key={index}
+                        to={category.link}
+                        className="block py-1 text-gray-600 hover:text-green-600 transition"
+                        onClick={() => {
+                          setIsProductMenuOpen(false);
+                          setIsMobileMenuOpen(false);
+                        }}
+                      >
+                        {category.name}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
               <Link 
                 to="/about" 
                 className="text-gray-700 hover:text-green-600 transition font-medium"

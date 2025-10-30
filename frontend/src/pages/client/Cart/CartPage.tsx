@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import Layout from "../../components/client/layout/Layout";
+import Layout from "../../../components/client/layout/Layout";
 
 interface CartItem {
   id: number;
@@ -125,7 +125,7 @@ const CartPage: React.FC = () => {
             <h2 className="text-2xl text-gray-700 mb-4">Giỏ hàng của bạn đang trống</h2>
             <p className="text-gray-600 mb-6">Hãy thêm một vài sản phẩm tươi ngon vào giỏ hàng nhé!</p>
             <Link
-              to="/shop"
+              to="/product"
               className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
             >
               Mua sắm ngay
@@ -200,7 +200,7 @@ const CartPage: React.FC = () => {
                 
                 <div className="p-4 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                   <Link
-                    to="/shop"
+                    to="/product"
                     className="flex items-center text-green-700 hover:text-green-800 transition"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">

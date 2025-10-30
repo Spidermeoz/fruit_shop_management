@@ -24,25 +24,23 @@ import UserEditPage from "./pages/admin/users/UserEditPage";
 import UserDetailPage from "./pages/admin/users/UserDetailPage";
 
 // 🌿 Import layout & pages cho Client
-import HomePage from "./pages/client/HomePage";
-import ShopPage from "./pages/client/ShopPage";
-import ProductClientDetailPage from "./pages/client/ProductDetailPage";
-// import LoginPage from "./pages/client/LoginPage";
-// import RegisterPage from "./pages/client/RegisterPage";
+import HomePage from "./pages/client/Home/HomePage";
+import ProductClientDetailPage from "./pages/client/Product/ProductDetailPage";
 import Header from "./components/client/layout/Header";
-// import Footer from "./components/client/layout/Footer";
-import CartPage from "./pages/client/CartPage";
-import CheckoutPage from "./pages/client/CheckoutPage";
-import LoginPage from "./pages/client/LoginPage";
-import RegisterPage from "./pages/client/RegisterPage";
-import ForgotPasswordPage from "./pages/client/ForgotPasswordPage";
-import ProfilePage from "./pages/client/ProfilePage";
-import OrderHistoryPage from "./pages/client/OrderHistoryPage";
-import OrderDetailPage from "./pages/client/OrderDetailPage";
+import CartPage from "./pages/client/Cart/CartPage";
+import CheckoutPage from "./pages/client/Checkout/CheckoutPage";
+import LoginPage from "./pages/client/Auth/LoginPage";
+import RegisterPage from "./pages/client/Auth/RegisterPage";
+import ForgotPasswordPage from "./pages/client/Auth/ForgotPasswordPage";
+import ProfilePage from "./pages/client/Profile/ProfilePage";
+import OrderHistoryPage from "./pages/client/Order/OrderHistoryPage";
+import OrderDetailPage from "./pages/client/Order/OrderDetailPage";
 import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
 import ProductListPage from "./components/client/product/ProductList";
 import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
+import AboutPage from "./pages/client/Other/AboutPage";
+import ContactPage from "./pages/client/Other/ContactPage";
 
 const App: React.FC = () => {
   return (
@@ -130,7 +128,7 @@ const App: React.FC = () => {
               <main className="min-h-screen bg-white text-gray-800">
                 <Routes>
                   <Route path="/" element={<HomePage />} />
-                  <Route path="/shop" element={<ShopPage />} />
+                  {/* <Route path="/shop" element={<ShopPage />} /> */}
                   <Route path="/product" element={<ProductListPage />} />
                   <Route
                     path="/product/:id"
@@ -147,6 +145,8 @@ const App: React.FC = () => {
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/orders" element={<OrderHistoryPage />} />
                   <Route path="/orders/:id" element={<OrderDetailPage />} />
+                  <Route path="/about" element={<AboutPage/>} />
+                  <Route path="/contact" element={<ContactPage/>} />
                 </Routes>
               </main>
               {/* <Footer /> */}
