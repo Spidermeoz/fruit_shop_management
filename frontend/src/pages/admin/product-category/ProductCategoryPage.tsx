@@ -285,19 +285,19 @@ const ProductCategoryPage: React.FC = () => {
                     />
                   </th>
                   <th className="w-[80px] px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Ảnh
+                    
                   </th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Tên danh mục
+                    TITLE
                   </th>
                   <th className="w-[120px] text-center px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Vị trí
+                    POSITION
                   </th>
                   <th className="w-[130px] text-center px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Trạng thái
+                    STATUS
                   </th>
                   <th className="w-[150px] text-right px-4 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    Hành động
+                    ACTION
                   </th>
                 </tr>
               </thead>
