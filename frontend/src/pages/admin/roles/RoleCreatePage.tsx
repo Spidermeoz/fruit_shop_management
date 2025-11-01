@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { http } from "../../../services/http";
+import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
 interface RoleFormData {
   title: string;
@@ -12,11 +13,14 @@ interface RoleFormData {
 }
 
 type ApiOk<T> = { success: true; data: T; meta?: any };
-type ApiErr = { success: false; message?: string };
+type ApiErr = { success: false; message?: string; errors?: any };
 
 const RoleCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof RoleFormData | "general", string>>
+  >({});
 
   const [formData, setFormData] = useState<RoleFormData>({
     title: "",
@@ -26,66 +30,39 @@ const RoleCreatePage: React.FC = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
-  // Upload ảnh trong HTML (blob/data URL) -> thay src bằng URL sau upload
-  const uploadImagesInHtml = async (html?: string | null) => {
-    if (!html) return html;
-    try {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = html;
-      const imgs = Array.from(tempDiv.getElementsByTagName("img"));
-
-      for (const img of imgs) {
-        const src = img.getAttribute("src") || "";
-        if (!src) continue;
-
-        if (src.startsWith("blob:") || src.startsWith("data:")) {
-          try {
-            const resp = await fetch(src);
-            const blob = await resp.blob();
-            const file = new File([blob], "image.png", {
-              type: blob.type || "image/png",
-            });
-
-            const fd = new FormData();
-            fd.append("file", file);
-
-            // Dùng http() với FormData (http sẽ không set Content-Type thủ công)
-            const upJson = await http<any>("POST", "/api/v1/admin/upload", fd);
-
-            const uploadedUrl =
-              (upJson && upJson.success && (upJson.data?.url || upJson.url)) ||
-              null;
-
-            if (uploadedUrl) {
-              img.setAttribute("src", uploadedUrl);
-            }
-          } catch (err) {
-            console.error("Upload image in description failed:", err);
-            // tiếp tục ảnh khác
-          }
-        }
-      }
-      return tempDiv.innerHTML;
-    } catch (err) {
-      console.error("Process images error:", err);
-      return html;
+  const handleDescriptionChange = (content: string) => {
+    setFormData((prev) => ({ ...prev, description: content }));
+    if (errors.description) {
+      setErrors((prev) => ({ ...prev, description: undefined }));
     }
+  };
+
+  const validateForm = () => {
+    const newErrors: Partial<Record<keyof RoleFormData, string>> = {};
+    if (!formData.title.trim()) {
+      newErrors.title = "Vui lòng nhập tên vai trò.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!formData.title.trim()) {
-      alert("Vui lòng nhập tên vai trò.");
+    if (!validateForm()) {
       return;
     }
 
     try {
       setLoading(true);
+      setErrors({});
 
-      const processedDescription = await uploadImagesInHtml(
+      const processedDescription = await uploadImagesInContent(
         formData.description
       );
 
@@ -100,15 +77,21 @@ const RoleCreatePage: React.FC = () => {
         payload
       );
 
-      if ("success" in res && res.success) {
+      if (res.success) {
         alert("🎉 Thêm vai trò thành công!");
         navigate("/admin/roles");
       } else {
-        alert((res as ApiErr).message || "Không thể thêm vai trò!");
+        if (res.errors) {
+          setErrors(res.errors);
+        } else {
+          setErrors({ general: res.message || "Không thể thêm vai trò!" });
+        }
       }
     } catch (err: any) {
       console.error("Create role error:", err);
-      alert(err?.message || "Lỗi kết nối server!");
+      const message =
+        err?.data?.message || err?.message || "Lỗi kết nối server!";
+      setErrors({ general: message });
     } finally {
       setLoading(false);
     }
@@ -142,9 +125,9 @@ const RoleCreatePage: React.FC = () => {
             value={formData.title}
             onChange={handleChange}
             placeholder="Nhập tên vai trò..."
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            required
+            className={`w-full border ${errors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
         </div>
 
         {/* Mô tả (TinyMCE) */}
@@ -154,11 +137,15 @@ const RoleCreatePage: React.FC = () => {
           </label>
           <RichTextEditor
             value={formData.description}
-            onChange={(content) =>
-              setFormData((prev) => ({ ...prev, description: content }))
-            }
+            onChange={handleDescriptionChange}
           />
+          {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
         </div>
+
+        {/* General Error */}
+        {errors.general && (
+          <p className="text-sm text-red-600 text-center">{errors.general}</p>
+        )}
 
         {/* Nút hành động */}
         <div className="flex justify-end gap-3 mt-6">

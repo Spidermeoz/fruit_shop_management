@@ -29,6 +29,9 @@ type ApiOk = { success: true; data?: any; url?: string; meta?: any };
 const ProductCategoryCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CategoryFormData, string>>
+  >({});
 
   // ✅ Preview thumbnail & file
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -71,16 +74,14 @@ const ProductCategoryCreatePage: React.FC = () => {
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
-    const { name, value, type } = e.target;
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]:
-        type === "number"
-          ? value === ""
-            ? (undefined as any) // để BE tự xử lý nếu rỗng
-            : Number(value)
-          : value,
+      [name]: value,
     }));
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // ✅ Khi chọn ảnh → chỉ hiển thị preview local
@@ -89,17 +90,35 @@ const ProductCategoryCreatePage: React.FC = () => {
     if (!file) return;
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+    if (errors.thumbnail) {
+      setErrors((prev) => ({ ...prev, thumbnail: undefined }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Partial<Record<keyof CategoryFormData, string>> = {};
+    if (!formData.title.trim()) {
+      newErrors.title = "Vui lòng nhập tên danh mục.";
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // ✅ Submit form
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       setLoading(true);
+      setErrors({}); // Clear old errors
 
       let uploadedThumbnailUrl = formData.thumbnail;
 
-      // 🔹 Nếu chọn ảnh → upload thumbnail lên Cloudinary (dùng http + FormData)
+      // 🔹 Nếu chọn ảnh → upload thumbnail
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
@@ -108,41 +127,53 @@ const ProductCategoryCreatePage: React.FC = () => {
           "/api/v1/admin/upload",
           formDataImg
         );
-        uploadedThumbnailUrl = uploadRes?.data?.url || uploadRes?.url || "";
+        uploadedThumbnailUrl =
+          uploadRes?.data?.url || uploadRes?.url || "";
         if (!uploadedThumbnailUrl) {
-          alert("Không thể upload ảnh minh họa!");
+          setErrors({
+            thumbnail: "Không thể upload ảnh minh họa. Vui lòng thử lại.",
+          });
+          setLoading(false);
           return;
         }
       }
 
-      // 🔹 Upload ảnh trong nội dung TinyMCE (hàm util nên đã tự set Authorization)
+      // 🔹 Upload ảnh trong nội dung TinyMCE
       const updatedDescription = await uploadImagesInContent(
         formData.description
       );
 
-      // 🔹 Gửi dữ liệu danh mục mới lên server (dùng http)
+      // 🔹 Gửi dữ liệu danh mục mới lên server
       const payload = {
-        // BE nhận camelCase
         parentId: formData.parent_id,
         title: formData.title,
         description: updatedDescription,
         slug: formData.slug || null,
         status: formData.status,
         thumbnail: uploadedThumbnailUrl,
-        // KHÔNG gửi created_by_id — BE lấy từ token
       };
 
-      await http<ApiOk>(
+      const createRes = await http<ApiOk & { errors?: any }>(
         "POST",
         "/api/v1/admin/product-category/create",
         payload
       );
 
-      alert("🎉 Thêm danh mục mới thành công!");
-      navigate("/admin/product-category");
+      if (createRes.success) {
+        alert("🎉 Thêm danh mục mới thành công!");
+        navigate("/admin/product-category");
+      } else {
+        if (createRes.errors) {
+          setErrors(createRes.errors);
+        } else {
+          alert((createRes as any).message || "Thêm mới danh mục thất bại.");
+        }
+      }
     } catch (err: any) {
       console.error("Create category error:", err);
-      alert(err?.message || "Lỗi kết nối server!");
+      const errorMessage =
+        err?.data?.message || err?.message || "Lỗi kết nối server!";
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -171,13 +202,16 @@ const ProductCategoryCreatePage: React.FC = () => {
           <select
             name="parent_id"
             value={formData.parent_id ?? ""}
-            onChange={(e) =>
+            onChange={(e) => {
               setFormData((prev) => ({
                 ...prev,
                 parent_id: e.target.value ? Number(e.target.value) : null,
-              }))
-            }
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              }));
+              if (errors.parent_id) {
+                setErrors((prev) => ({ ...prev, parent_id: undefined }));
+              }
+            }}
+            className={`w-full border ${errors.parent_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           >
             <option value="">-- Không có (danh mục gốc) --</option>
             {parentCategories.map((cat) => (
@@ -186,6 +220,7 @@ const ProductCategoryCreatePage: React.FC = () => {
               </option>
             ))}
           </select>
+          {errors.parent_id && <p className="text-sm text-red-600 mt-1">{errors.parent_id}</p>}
         </div>
 
         {/* --- Tên danh mục --- */}
@@ -198,9 +233,9 @@ const ProductCategoryCreatePage: React.FC = () => {
             name="title"
             value={formData.title}
             onChange={handleInputChange}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            required
+            className={`w-full border ${errors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
         </div>
 
         {/* --- Mô tả --- */}
@@ -222,6 +257,7 @@ const ProductCategoryCreatePage: React.FC = () => {
             Ảnh minh họa
           </label>
           <input type="file" accept="image/*" onChange={handleImageSelect} />
+          {errors.thumbnail && <p className="text-sm text-red-600 mt-1">{errors.thumbnail}</p>}
           {previewImage && (
             <div className="mt-3">
               <img

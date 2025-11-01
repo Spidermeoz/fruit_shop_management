@@ -26,13 +26,13 @@ interface Product {
   title: string;
   description: string;
   product_category_id: number | string;
-  price: number;
-  discount_percentage: number;
-  stock: number;
+  price: number | string;
+  discount_percentage: number | string;
+  stock: number | string;
   thumbnail: string;
   status: "active" | "inactive";
   featured: number;
-  position: number;
+  position: number | string;
 }
 
 const ProductEditPage: React.FC = () => {
@@ -43,7 +43,10 @@ const ProductEditPage: React.FC = () => {
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof Product, string>>
+  >({});
 
   // ✅ file ảnh mới (chưa upload)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -53,16 +56,16 @@ const ProductEditPage: React.FC = () => {
   const fetchProduct = async () => {
     try {
       setLoading(true);
-      const json = await http<any>("GET", `/api/v1/admin/products/edit/${id}`);
+      const json = await http<any>(`GET`, `/api/v1/admin/products/edit/${id}`);
       if (json.success && json.data) {
         setProduct(json.data as Product);
         setPreviewImage(json.data.thumbnail);
       } else {
-        setError(json.message || "Không tìm thấy sản phẩm.");
+        setFetchError(json.message || "Không tìm thấy sản phẩm.");
       }
     } catch (err) {
       console.error(err);
-      setError(
+      setFetchError(
         err instanceof Error ? err.message : "Không thể kết nối server."
       );
     } finally {
@@ -105,9 +108,7 @@ const ProductEditPage: React.FC = () => {
         ? {
             ...prev,
             [name]:
-              type === "number"
-                ? Number(value)
-                : type === "checkbox"
+              type === "checkbox"
                 ? checked
                   ? 1
                   : 0
@@ -115,6 +116,10 @@ const ProductEditPage: React.FC = () => {
           }
         : prev
     );
+
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // 🔹 Mô tả
@@ -128,19 +133,45 @@ const ProductEditPage: React.FC = () => {
     if (!file) return;
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+    if (formErrors.thumbnail) {
+      setFormErrors((prev) => ({ ...prev, thumbnail: undefined }));
+    }
+  };
+
+  const validateForm = () => {
+    if (!product) return false;
+
+    const newErrors: Partial<Record<keyof Product, string>> = {};
+
+    if (!product.title.trim()) {
+      newErrors.title = "Vui lòng nhập tên sản phẩm.";
+    }
+    if (!product.product_category_id) {
+      newErrors.product_category_id = "Vui lòng chọn danh mục.";
+    }
+    if (!product.price || Number(product.price) <= 0) {
+      newErrors.price = "Vui lòng nhập giá sản phẩm hợp lệ (lớn hơn 0).";
+    }
+    if (product.stock === '' || product.stock === null || Number(product.stock) < 0) {
+      newErrors.stock = "Vui lòng nhập số lượng tồn kho (không được âm).";
+    }
+
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // ✅ Lưu sản phẩm (upload thumbnail và ảnh trong mô tả)
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!product) return;
-    if (!product.title.trim()) {
-      alert("Vui lòng nhập tên sản phẩm.");
+    
+    if (!validateForm()) {
       return;
     }
 
     try {
       setSaving(true);
+      setFormErrors({});
       let thumbnailUrl = product.thumbnail;
 
       // 🔸 Upload ảnh thumbnail nếu có chọn mới
@@ -153,10 +184,13 @@ const ProductEditPage: React.FC = () => {
           formDataImg
         );
 
-        if (dataUpload.success) {
+        if (dataUpload.success && dataUpload.data?.url) {
+          thumbnailUrl = dataUpload.data.url;
+        } else if (dataUpload.url) { // fallback
           thumbnailUrl = dataUpload.url;
         } else {
-          alert("❌ Lỗi tải ảnh thumbnail lên Cloudinary");
+          setFormErrors({ thumbnail: "Lỗi tải ảnh thumbnail lên máy chủ." });
+          setSaving(false);
           return;
         }
       }
@@ -171,6 +205,11 @@ const ProductEditPage: React.FC = () => {
         ...product,
         thumbnail: thumbnailUrl,
         description: updatedDescription,
+        price: Number(product.price),
+        stock: Number(product.stock),
+        discountPercentage: Number(product.discount_percentage),
+        position: product.position === '' ? null : Number(product.position),
+        featured: Boolean(product.featured),
       };
       // Chuyển product_category_id thành categoryId cho backend
       if (payload.product_category_id !== undefined) {
@@ -189,9 +228,14 @@ const ProductEditPage: React.FC = () => {
 
       if (json.success) {
         alert("✅ Cập nhật sản phẩm thành công!");
-        navigate(`/admin/products/edit/${id}`);
+        // navigate(`/admin/products/edit/${id}`);
+        fetchProduct(); // Re-fetch to get latest data
       } else {
-        alert(json.message || "Cập nhật thất bại.");
+        if (json.errors) {
+          setFormErrors(json.errors);
+        } else {
+          alert(json.message || "Cập nhật thất bại.");
+        }
       }
     } catch (err) {
       console.error(err);
@@ -212,7 +256,7 @@ const ProductEditPage: React.FC = () => {
     );
   }
 
-  if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
+  if (fetchError) return <p className="text-center text-red-500 py-10">{fetchError}</p>;
   if (!product) return null;
 
   return (
@@ -240,13 +284,14 @@ const ProductEditPage: React.FC = () => {
               name="product_category_id"
               value={product.product_category_id || ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${formErrors.product_category_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             >
               <option value="" disabled>
                 -- Chọn danh mục --
               </option>
               {renderCategoryOptions(buildCategoryTree(categories))}
             </select>
+            {formErrors.product_category_id && <p className="text-sm text-red-600 mt-1">{formErrors.product_category_id}</p>}
           </div>
 
           {/* Tên sản phẩm */}
@@ -259,9 +304,9 @@ const ProductEditPage: React.FC = () => {
               name="title"
               value={product.title || ""}
               onChange={handleChange}
-              required
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${formErrors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {formErrors.title && <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>}
           </div>
 
           {/* Mô tả */}
@@ -281,8 +326,9 @@ const ProductEditPage: React.FC = () => {
                 name="price"
                 value={product.price || ""}
                 onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className={`w-full border ${formErrors.price ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
               />
+              {formErrors.price && <p className="text-sm text-red-600 mt-1">{formErrors.price}</p>}
             </div>
 
             <div>
@@ -308,10 +354,11 @@ const ProductEditPage: React.FC = () => {
               <input
                 type="number"
                 name="stock"
-                value={product.stock || 0}
+                value={product.stock || ''}
                 onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className={`w-full border ${formErrors.stock ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
               />
+              {formErrors.stock && <p className="text-sm text-red-600 mt-1">{formErrors.stock}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -334,6 +381,7 @@ const ProductEditPage: React.FC = () => {
               Ảnh sản phẩm
             </label>
             <input type="file" accept="image/*" onChange={handleImageSelect} />
+            {formErrors.thumbnail && <p className="text-sm text-red-600 mt-1">{formErrors.thumbnail}</p>}
             {previewImage && (
               <div className="mt-3 relative w-fit">
                 <img
@@ -345,9 +393,9 @@ const ProductEditPage: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setSelectedFile(null);
-                    setPreviewImage("");
+                    setPreviewImage(product.thumbnail); // Revert to original
                   }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                  className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
                 >
                   ×
                 </button>

@@ -27,7 +27,13 @@ interface User {
 
 type ApiDetail<T> = { success: true; data: T; meta?: any };
 type ApiList<T> = { success: true; data: T[]; meta?: any };
-type ApiOk = { success: true; data?: any; url?: string; meta?: any };
+type ApiOk = {
+  success: true;
+  data?: any;
+  url?: string;
+  meta?: any;
+  errors?: any;
+};
 
 const UserEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +47,12 @@ const UserEditPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof User, string>> & {
+      password?: string;
+      confirmPassword?: string;
+    }
+  >({});
 
   // 🔹 Lấy dữ liệu user
   const fetchUser = async () => {
@@ -58,7 +69,7 @@ const UserEditPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Không thể kết nối server.");
+      setErrors({ email: err?.message || "Không thể kết nối server." });
     } finally {
       setLoading(false);
     }
@@ -88,6 +99,9 @@ const UserEditPage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setUser((prev) => (prev ? { ...prev, [name]: value } : prev));
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // 🔹 Chọn ảnh mới → preview
@@ -98,21 +112,43 @@ const UserEditPage: React.FC = () => {
     setPreviewImage(URL.createObjectURL(file));
   };
 
+  // 🔹 Validate form
+  const validateForm = () => {
+    const newErrors: typeof errors = {};
+
+    if (!user?.full_name?.trim()) {
+      newErrors.full_name = "Vui lòng nhập họ và tên.";
+    }
+
+    if (!user?.email?.trim()) {
+      newErrors.email = "Vui lòng nhập email.";
+    } else if (!/\S+@\S+\.\S+/.test(user.email)) {
+      newErrors.email = "Địa chỉ email không hợp lệ.";
+    }
+
+    if (!user?.role_id) {
+      newErrors.role_id = "Vui lòng chọn vai trò.";
+    }
+
+    if (newPassword || confirmPassword) {
+      if (newPassword.length < 6) {
+        newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
+      }
+      if (newPassword !== confirmPassword) {
+        newErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   // 🔹 Lưu thay đổi
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (newPassword || confirmPassword) {
-      if (newPassword !== confirmPassword) {
-        alert("Mật khẩu xác nhận không khớp!");
-        return;
-      }
-      if (newPassword.length < 6) {
-        alert("Mật khẩu phải có ít nhất 6 ký tự!");
-        return;
-      }
-    }
+    if (!validateForm()) return;
 
     try {
       setSaving(true);
@@ -131,19 +167,19 @@ const UserEditPage: React.FC = () => {
         );
         const url = up?.data?.url || up?.url;
         if (!url) {
-          alert("Không thể upload ảnh đại diện!");
+          setErrors({ avatar: "Không thể upload ảnh đại diện." });
+          setSaving(false);
           return;
         }
         avatarUrl = url;
       }
 
-      // 📨 Gửi PATCH update (giữ nguyên snake_case theo FE đang dùng)
       const body: any = {
         ...user,
         avatar: avatarUrl,
       };
       if (newPassword.trim()) {
-        body.password = newPassword.trim(); // ✅ chỉ gửi nếu có nhập
+        body.password = newPassword.trim();
       }
 
       const resp = await http<ApiOk>(
@@ -155,6 +191,10 @@ const UserEditPage: React.FC = () => {
       if (resp.success) {
         alert("✅ Cập nhật người dùng thành công!");
         navigate("/admin/users");
+      } else if (resp.errors) {
+        setErrors(resp.errors);
+      } else {
+        alert((resp as any).message || "Cập nhật thất bại.");
       }
     } catch (err: any) {
       console.error(err);
@@ -175,7 +215,6 @@ const UserEditPage: React.FC = () => {
     );
   }
 
-  if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
   if (!user) return null;
 
   return (
@@ -197,30 +236,39 @@ const UserEditPage: React.FC = () => {
           {/* Họ và tên */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Họ và tên
+              Họ và tên <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="full_name"
               value={user.full_name || ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${
+                errors.full_name ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {errors.full_name && (
+              <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>
+            )}
           </div>
 
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Email
+              Email <span className="text-red-500">*</span>
             </label>
             <input
               type="email"
               name="email"
               value={user.email || ""}
               onChange={handleChange}
-              required
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${
+                errors.email ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {errors.email && (
+              <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+            )}
           </div>
 
           {/* Mật khẩu mới */}
@@ -233,8 +281,13 @@ const UserEditPage: React.FC = () => {
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               placeholder="Nhập mật khẩu mới..."
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${
+                errors.password ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {errors.password && (
+              <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+            )}
           </div>
 
           {/* Xác nhận mật khẩu */}
@@ -247,8 +300,15 @@ const UserEditPage: React.FC = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Nhập lại mật khẩu mới..."
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${
+                errors.confirmPassword ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {errors.confirmPassword && (
+              <p className="text-sm text-red-600 mt-1">
+                {errors.confirmPassword}
+              </p>
+            )}
           </div>
 
           {/* Số điện thoại */}
@@ -268,13 +328,15 @@ const UserEditPage: React.FC = () => {
           {/* Vai trò */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Vai trò
+              Vai trò <span className="text-red-500">*</span>
             </label>
             <select
               name="role_id"
               value={user.role_id || ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${
+                errors.role_id ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             >
               <option value="">-- Chọn vai trò --</option>
               {roles.map((role) => (
@@ -283,6 +345,9 @@ const UserEditPage: React.FC = () => {
                 </option>
               ))}
             </select>
+            {errors.role_id && (
+              <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>
+            )}
           </div>
 
           {/* Ảnh đại diện */}
@@ -291,6 +356,9 @@ const UserEditPage: React.FC = () => {
               Ảnh đại diện
             </label>
             <input type="file" accept="image/*" onChange={handleImageSelect} />
+            {errors.avatar && (
+              <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
+            )}
             {previewImage && (
               <div className="mt-3 relative w-fit">
                 <img

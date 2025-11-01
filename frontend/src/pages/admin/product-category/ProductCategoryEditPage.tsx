@@ -10,6 +10,7 @@ import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { http } from "../../../services/http";
+import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
 interface Category {
   id: number;
@@ -33,7 +34,10 @@ const ProductCategoryEditPage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof Category, string>>
+  >({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
 
@@ -54,7 +58,7 @@ const ProductCategoryEditPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("fetchCategory error:", err);
-      setError(err?.message || "Không tìm thấy danh mục.");
+      setFetchError(err?.message || "Không tìm thấy danh mục.");
     } finally {
       setLoading(false);
     }
@@ -87,6 +91,9 @@ const ProductCategoryEditPage: React.FC = () => {
     if (!file) return;
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+    if (formErrors.thumbnail) {
+      setFormErrors((prev) => ({ ...prev, thumbnail: undefined }));
+    }
   };
 
   // ✅ Xử lý input
@@ -95,6 +102,9 @@ const ProductCategoryEditPage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setCategory((prev) => (prev ? { ...prev, [name]: value } : prev));
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // ✅ Xử lý RichTextEditor
@@ -102,15 +112,29 @@ const ProductCategoryEditPage: React.FC = () => {
     setCategory((prev) => (prev ? { ...prev, description: content } : prev));
   };
 
+  const validateForm = () => {
+    if (!category) return false;
+    const newErrors: Partial<Record<keyof Category, string>> = {};
+    if (!category.title.trim()) {
+      newErrors.title = "Vui lòng nhập tên danh mục.";
+    }
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   // ✅ Gửi API cập nhật
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!category) return;
 
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       setSaving(true);
+      setFormErrors({});
       let thumbnailUrl = category.thumbnail;
-      let updatedDescription = category.description ?? "";
 
       // 🔹 Upload thumbnail (nếu có)
       if (selectedFile) {
@@ -123,37 +147,19 @@ const ProductCategoryEditPage: React.FC = () => {
         );
         const url = up?.data?.url || (up as any)?.url;
         if (!url) {
-          alert("Không thể tải ảnh lên Cloudinary!");
+          setFormErrors({
+            thumbnail: "Không thể tải ảnh lên. Vui lòng thử lại.",
+          });
+          setSaving(false);
           return;
         }
         thumbnailUrl = url;
       }
 
       // 🔹 Upload ảnh trong description (nếu có)
-      if (category.description) {
-        const tempDiv = document.createElement("div");
-        tempDiv.innerHTML = category.description;
-        const imgs = tempDiv.getElementsByTagName("img");
-
-        for (const img of Array.from(imgs)) {
-          const src = img.getAttribute("src") || "";
-          if (src.startsWith("blob:") || src.startsWith("data:")) {
-            const response = await fetch(src);
-            const blob = await response.blob();
-            const file = new File([blob], "image.png", {
-              type: blob.type || "image/png",
-            });
-
-            const form = new FormData();
-            form.append("file", file);
-
-            const up = await http<ApiOk>("POST", "/api/v1/admin/upload", form);
-            const url = up?.data?.url || (up as any)?.url;
-            if (url) img.setAttribute("src", url);
-          }
-        }
-        updatedDescription = tempDiv.innerHTML;
-      }
+      const updatedDescription = await uploadImagesInContent(
+        category.description || ""
+      );
 
       // 🔹 Payload
       const payload = {
@@ -164,17 +170,25 @@ const ProductCategoryEditPage: React.FC = () => {
         status: category.status,
       };
 
-      await http<ApiOk>(
+      const res = await http<ApiOk & { errors?: any }>(
         "PATCH",
         `/api/v1/admin/product-category/edit/${id}`,
         payload
       );
 
-      alert("✅ Cập nhật danh mục thành công!");
-      await Promise.all([fetchCategory(), fetchCategories()]);
+      if (res.success) {
+        alert("✅ Cập nhật danh mục thành công!");
+        await Promise.all([fetchCategory(), fetchCategories()]);
+      } else {
+        if (res.errors) {
+          setFormErrors(res.errors);
+        } else {
+          alert((res as any).message || "Cập nhật danh mục thất bại.");
+        }
+      }
     } catch (err: any) {
       console.error("saveCategory error:", err);
-      alert(err?.message || "Lỗi kết nối server.");
+      alert(err?.data?.message || err?.message || "Lỗi kết nối server.");
     } finally {
       setSaving(false);
     }
@@ -191,8 +205,8 @@ const ProductCategoryEditPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return <p className="text-center text-red-500 py-10">{error}</p>;
+  if (fetchError) {
+    return <p className="text-center text-red-500 py-10">{fetchError}</p>;
   }
 
   if (!category) return null;
@@ -223,9 +237,9 @@ const ProductCategoryEditPage: React.FC = () => {
               name="title"
               value={category.title}
               onChange={handleChange}
-              required
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${formErrors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {formErrors.title && <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>}
           </div>
 
           {/* Danh mục cha */}
@@ -248,8 +262,11 @@ const ProductCategoryEditPage: React.FC = () => {
                       }
                     : prev
                 );
+                if (formErrors.parent_id) {
+                    setFormErrors(prev => ({ ...prev, parent_id: undefined }));
+                }
               }}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${formErrors.parent_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             >
               <option value="">-- Danh mục gốc --</option>
               {categories
@@ -260,6 +277,7 @@ const ProductCategoryEditPage: React.FC = () => {
                   </option>
                 ))}
             </select>
+            {formErrors.parent_id && <p className="text-sm text-red-600 mt-1">{formErrors.parent_id}</p>}
           </div>
 
           {/* Mô tả */}
@@ -279,6 +297,7 @@ const ProductCategoryEditPage: React.FC = () => {
               Ảnh minh họa
             </label>
             <input type="file" accept="image/*" onChange={handleImageSelect} />
+            {formErrors.thumbnail && <p className="text-sm text-red-600 mt-1">{formErrors.thumbnail}</p>}
             {previewImage && (
               <div className="mt-3">
                 <img

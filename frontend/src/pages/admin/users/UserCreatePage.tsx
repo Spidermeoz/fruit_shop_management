@@ -26,7 +26,7 @@ interface UserFormData {
 }
 
 type ApiList<T> = { success: true; data: T[]; meta?: any };
-type ApiOk = { success: true; data?: any; url?: string; meta?: any };
+type ApiOk = { success: true; data?: any; url?: string; meta?: any; errors?: any };
 
 const UserCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +45,7 @@ const UserCreatePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof UserFormData, string>>>({});
 
   // 🔹 Lấy danh sách roles (dùng http)
   useEffect(() => {
@@ -64,6 +65,9 @@ const UserCreatePage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // 🔹 Chọn file avatar → preview
@@ -72,19 +76,45 @@ const UserCreatePage: React.FC = () => {
     if (!file) return;
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+    if (errors.avatar) {
+      setErrors((prev) => ({ ...prev, avatar: undefined }));
+    }
+  };
+
+  const validateForm = () => {
+    const newErrors: Partial<Record<keyof UserFormData, string>> = {};
+    if (!formData.full_name.trim()) {
+      newErrors.full_name = "Vui lòng nhập họ và tên.";
+    }
+    if (!formData.email.trim()) {
+      newErrors.email = "Vui lòng nhập email.";
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = "Địa chỉ email không hợp lệ.";
+    }
+    if (!formData.password) {
+      newErrors.password = "Vui lòng nhập mật khẩu.";
+    } else if (formData.password.length < 6) {
+      newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
+    }
+    if (!formData.role_id) {
+      newErrors.role_id = "Vui lòng chọn vai trò.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // 🔹 Submit form
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!formData.email.trim() || !formData.password.trim()) {
-      alert("Email và mật khẩu là bắt buộc!");
+    if (!validateForm()) {
       return;
     }
 
     try {
       setLoading(true);
+      setErrors({});
 
       let uploadedAvatarUrl = formData.avatar;
 
@@ -99,7 +129,8 @@ const UserCreatePage: React.FC = () => {
         );
         uploadedAvatarUrl = up?.data?.url || up?.url || "";
         if (!uploadedAvatarUrl) {
-          alert("Không thể upload ảnh đại diện!");
+          setErrors({ avatar: "Không thể upload ảnh đại diện. Vui lòng thử lại." });
+          setLoading(false);
           return;
         }
       }
@@ -123,10 +154,20 @@ const UserCreatePage: React.FC = () => {
       if (res.success) {
         alert("🎉 Tạo người dùng thành công!");
         navigate("/admin/users");
+      } else {
+        if (res.errors) {
+          setErrors(res.errors);
+        } else {
+          alert((res as any).message || "Tạo người dùng thất bại.");
+        }
       }
     } catch (err: any) {
       console.error("Create user error:", err);
-      alert(err?.message || "Lỗi kết nối server!");
+      if (err?.data?.errors) {
+        setErrors(err.data.errors);
+      } else {
+        alert(err?.data?.message || err?.message || "Lỗi kết nối server!");
+      }
     } finally {
       setLoading(false);
     }
@@ -150,7 +191,7 @@ const UserCreatePage: React.FC = () => {
         {/* Họ và tên */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Họ và tên
+            Họ và tên <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -158,8 +199,9 @@ const UserCreatePage: React.FC = () => {
             value={formData.full_name}
             onChange={handleChange}
             placeholder="Nhập họ và tên..."
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={`w-full border ${errors.full_name ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.full_name && <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>}
         </div>
 
         {/* Email */}
@@ -172,10 +214,10 @@ const UserCreatePage: React.FC = () => {
             name="email"
             value={formData.email}
             onChange={handleChange}
-            required
             placeholder="Nhập địa chỉ email..."
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={`w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
         </div>
 
         {/* Mật khẩu */}
@@ -188,10 +230,10 @@ const UserCreatePage: React.FC = () => {
             name="password"
             value={formData.password}
             onChange={handleChange}
-            required
             placeholder="Nhập mật khẩu..."
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={`w-full border ${errors.password ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
         </div>
 
         {/* Số điện thoại */}
@@ -205,20 +247,21 @@ const UserCreatePage: React.FC = () => {
             value={formData.phone}
             onChange={handleChange}
             placeholder="Nhập số điện thoại..."
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={`w-full border ${errors.phone ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
+          {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
         </div>
 
         {/* Vai trò */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Vai trò
+            Vai trò <span className="text-red-500">*</span>
           </label>
           <select
             name="role_id"
             value={formData.role_id}
             onChange={handleChange}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className={`w-full border ${errors.role_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           >
             <option value="">-- Chọn vai trò --</option>
             {roles.map((role) => (
@@ -227,6 +270,7 @@ const UserCreatePage: React.FC = () => {
               </option>
             ))}
           </select>
+          {errors.role_id && <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>}
         </div>
 
         {/* Ảnh đại diện */}
@@ -235,6 +279,7 @@ const UserCreatePage: React.FC = () => {
             Ảnh đại diện
           </label>
           <input type="file" accept="image/*" onChange={handleImageSelect} />
+          {errors.avatar && <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>}
           {previewImage && (
             <div className="mt-3 relative w-fit">
               <img

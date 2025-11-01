@@ -10,6 +10,7 @@ import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { http } from "../../../services/http";
+import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
 interface Role {
   id: number;
@@ -26,6 +27,7 @@ type ApiOk = {
   url?: string;
   message?: string;
   meta?: any;
+  errors?: any; // For validation errors
 };
 
 const RoleEditPage: React.FC = () => {
@@ -35,13 +37,16 @@ const RoleEditPage: React.FC = () => {
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [fetchError, setFetchError] = useState("");
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof Role, string>>
+  >({});
 
   // 🔹 Lấy thông tin vai trò
   const fetchRole = async () => {
     try {
       setLoading(true);
-      setError("");
+      setFetchError("");
       const res = await http<ApiDetail<Role>>(
         "GET",
         `/api/v1/admin/roles/edit/${id}`
@@ -49,11 +54,11 @@ const RoleEditPage: React.FC = () => {
       if (res?.success && res.data) {
         setRole(res.data);
       } else {
-        setError("Không tìm thấy vai trò.");
+        setFetchError("Không tìm thấy vai trò.");
       }
     } catch (err: any) {
       console.error(err);
-      setError(err?.message || "Không thể kết nối server.");
+      setFetchError(err?.message || "Không thể kết nối server.");
     } finally {
       setLoading(false);
     }
@@ -68,47 +73,27 @@ const RoleEditPage: React.FC = () => {
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setRole((prev) => (prev ? { ...prev, [name]: value } : prev));
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
   };
 
   // 🔹 Xử lý mô tả TinyMCE
   const handleDescriptionChange = (content: string) => {
     setRole((prev) => (prev ? { ...prev, description: content } : prev));
+    if (formErrors.description) {
+      setFormErrors((prev) => ({ ...prev, description: undefined }));
+    }
   };
 
-  // 🔹 Upload ảnh trong HTML (blob/data) → URL cloud
-  const uploadImagesInHtml = async (html?: string | null) => {
-    if (!html) return html;
-    try {
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = html;
-      const imgs = Array.from(tempDiv.getElementsByTagName("img"));
-      for (const img of imgs) {
-        const src = img.getAttribute("src") || "";
-        if (!src) continue;
-        if (src.startsWith("blob:") || src.startsWith("data:")) {
-          try {
-            const resp = await fetch(src);
-            const blob = await resp.blob();
-            const file = new File([blob], "image.png", {
-              type: blob.type || "image/png",
-            });
-            const fd = new FormData();
-            fd.append("file", file);
-
-            // dùng http() để tự đính kèm Authorization, KHÔNG set Content-Type
-            const up = await http<ApiOk>("POST", "/api/v1/admin/upload", fd);
-            const url = up?.data?.url || up?.url;
-            if (url) img.setAttribute("src", url);
-          } catch (err) {
-            console.error("Upload image in description failed:", err);
-          }
-        }
-      }
-      return tempDiv.innerHTML;
-    } catch (err) {
-      console.error("Process images error:", err);
-      return html;
+  const validateForm = () => {
+    if (!role) return false;
+    const newErrors: Partial<Record<keyof Role, string>> = {};
+    if (!role.title.trim()) {
+      newErrors.title = "Vui lòng nhập tên vai trò.";
     }
+    setFormErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   // 🔹 Lưu thay đổi
@@ -116,15 +101,15 @@ const RoleEditPage: React.FC = () => {
     e.preventDefault();
     if (!role) return;
 
-    if (!role.title.trim()) {
-      alert("Vui lòng nhập tên vai trò.");
+    if (!validateForm()) {
       return;
     }
 
     try {
       setSaving(true);
+      setFormErrors({});
 
-      const processedDescription = await uploadImagesInHtml(role.description);
+      const processedDescription = await uploadImagesInContent(role.description || "");
 
       const res = await http<ApiOk>("PATCH", `/api/v1/admin/roles/edit/${id}`, {
         title: role.title,
@@ -133,13 +118,23 @@ const RoleEditPage: React.FC = () => {
 
       if (res?.success) {
         alert("✅ Cập nhật vai trò thành công!");
-        navigate(`/admin/roles/edit/${id}`);
+        fetchRole(); // Re-fetch data
       } else {
-        alert(res?.message || "Cập nhật thất bại.");
+        if (res.errors) {
+          setFormErrors(res.errors);
+        } else {
+          alert(res?.message || "Cập nhật thất bại.");
+        }
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Không thể kết nối server.");
+      const message =
+        err?.data?.message || err?.message || "Không thể kết nối server.";
+      if (err?.data?.errors) {
+        setFormErrors(err.data.errors);
+      } else {
+        alert(message);
+      }
     } finally {
       setSaving(false);
     }
@@ -156,7 +151,7 @@ const RoleEditPage: React.FC = () => {
     );
   }
 
-  if (error) return <p className="text-center text-red-500 py-10">{error}</p>;
+  if (fetchError) return <p className="text-center text-red-500 py-10">{fetchError}</p>;
   if (!role) return null;
 
   return (
@@ -187,9 +182,9 @@ const RoleEditPage: React.FC = () => {
               name="title"
               value={role.title || ""}
               onChange={handleChange}
-              required
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className={`w-full border ${formErrors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
+            {formErrors.title && <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>}
           </div>
 
           {/* --- Mô tả (TinyMCE) --- */}
@@ -201,6 +196,7 @@ const RoleEditPage: React.FC = () => {
               value={role.description || ""}
               onChange={handleDescriptionChange}
             />
+            {formErrors.description && <p className="text-sm text-red-600 mt-1">{formErrors.description}</p>}
           </div>
 
           {/* --- Nút hành động --- */}
