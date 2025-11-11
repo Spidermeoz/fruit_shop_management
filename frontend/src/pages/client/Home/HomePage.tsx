@@ -218,9 +218,11 @@ const HomePage: React.FC = () => {
             
             <div>
               <h3 className="text-xl font-semibold mb-4">Liên hệ</h3>
-              <p className="mb-2">Địa chỉ: 123 Đường Trái Cây, Quận 1, TP.HCM</p>
-              <p className="mb-2">Email: info@freshfruits.vn</p>
-              <p className="mb-2">Điện thoại: (028) 1234 5678</p>
+              <p className="mb-2"> 📍 Địa chỉ: Đại học Thăng Long 
+      
+            </p>
+              <p className="mb-2">✉️ Email: test@thanglong.edu.vn</p>
+              <p className="mb-2">📞 Điện thoại: 0123 456 789  </p>
             </div>
           </div>
           

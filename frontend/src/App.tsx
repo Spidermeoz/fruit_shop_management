@@ -41,6 +41,7 @@ import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
 import AboutPage from "./pages/client/Other/AboutPage";
 import ContactPage from "./pages/client/Other/ContactPage";
+import ReviewPage from "./pages/client/Other/ReviewPage";
 
 const App: React.FC = () => {
   return (
@@ -147,6 +148,7 @@ const App: React.FC = () => {
                   <Route path="/orders/:id" element={<OrderDetailPage />} />
                   <Route path="/about" element={<AboutPage/>} />
                   <Route path="/contact" element={<ContactPage/>} />
+                  <Route path="/review:id" element={<ReviewPage/>}/>
                 </Routes>
               </main>
               {/* <Footer /> */}
