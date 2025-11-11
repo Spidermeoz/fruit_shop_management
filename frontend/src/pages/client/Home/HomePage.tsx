@@ -5,17 +5,77 @@ import Layout from "../../../components/client/layout/Layout";
 const HomePage: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   useEffect(() => {
     setIsVisible(true);
     
     // Auto-rotate testimonials
-    const interval = setInterval(() => {
+    const testimonialInterval = setInterval(() => {
       setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
     }, 5000);
     
-    return () => clearInterval(interval);
+    // Auto-rotate slides
+    const slideInterval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 4000);
+    
+    return () => {
+      clearInterval(testimonialInterval);
+      clearInterval(slideInterval);
+    };
   }, []);
+
+  // Dữ liệu slide banner
+  const slides = [
+    {
+      id: 1,
+      image: "https://i.imgur.com/5Y2n5xR.jpg",
+      title: "Trái Cây Tươi Ngon Mùa Hè",
+      subtitle: "Giảm giá đến 30% cho các loại trái cây mùa hè",
+      buttonText: "Khám phá ngay",
+      buttonLink: "/product?category=summer"
+    },
+    {
+      id: 2,
+      image: "https://i.imgur.com/7Yl5m3k.jpg",
+      title: "Nông Sản Hữu Cơ",
+      subtitle: "100% hữu cơ, không thuốc trừ sâu, an toàn cho sức khỏe",
+      buttonText: "Xem sản phẩm",
+      buttonLink: "/product?category=organic"
+    },
+    {
+      id: 3,
+      image: "https://i.imgur.com/9Zl4p8q.jpg",
+      title: "Giao Hàng Nhanh Chóng",
+      subtitle: "Đặt hàng hôm nay, nhận hàng trong ngày",
+      buttonText: "Đặt hàng ngay",
+      buttonLink: "/product"
+    },
+    {
+      id: 4,
+      image: "https://i.imgur.com/3Kd8p5m.jpg",
+      title: "Combo Trái Cây Dinh Dưỡng",
+      subtitle: "Các combo được lựa chọn kỹ lưỡng để bổ sung vitamin cần thiết",
+      buttonText: "Xem combo",
+      buttonLink: "/product?category=combos"
+    }
+  ];
+
+  // Chuyển đến slide tiếp theo
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % slides.length);
+  };
+
+  // Chuyển đến slide trước đó
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+  };
+
+  // Chuyển đến slide cụ thể
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
 
   const testimonials = [
     {
@@ -51,34 +111,88 @@ const HomePage: React.FC = () => {
 
   return (
     <Layout>
-      {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-green-300 to-yellow-200 h-[600px] flex items-center justify-center text-center overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-10 left-10 w-20 h-20 bg-yellow-300 rounded-full animate-pulse"></div>
-          <div className="absolute top-40 right-20 w-16 h-16 bg-green-400 rounded-full animate-pulse"></div>
-          <div className="absolute bottom-20 left-1/4 w-24 h-24 bg-orange-300 rounded-full animate-pulse"></div>
-          <div className="absolute bottom-40 right-1/3 w-14 h-14 bg-yellow-400 rounded-full animate-pulse"></div>
+      {/* Hero Section với Slider */}
+      <section className="relative h-[600px] overflow-hidden">
+        {/* Slider Container */}
+        <div className="relative h-full">
+          {/* Slides */}
+          {slides.map((slide, index) => (
+            <div
+              key={slide.id}
+              className={`absolute inset-0 transition-opacity duration-1000 ${
+                index === currentSlide ? 'opacity-100' : 'opacity-0'
+              }`}
+            >
+              <img
+                src={slide.image}
+                alt={slide.title}
+                className="w-full h-full object-cover"
+              />
+              {/* Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent"></div>
+              
+              {/* Content */}
+              <div className="absolute inset-0 flex items-center">
+                <div className="container mx-auto px-6">
+                  <div className="max-w-2xl">
+                    <h1 
+                      className={`text-4xl md:text-5xl font-bold text-white mb-4 transition-all duration-1000 transform ${
+                        index === currentSlide ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                      }`}
+                    >
+                      {slide.title}
+                    </h1>
+                    <p 
+                      className={`text-xl text-white mb-6 transition-all duration-1000 transform delay-100 ${
+                        index === currentSlide ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                      }`}
+                    >
+                      {slide.subtitle}
+                    </p>
+                    <Link
+                      to={slide.buttonLink}
+                      className={`inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-3 rounded-full font-medium text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 ${
+                        index === currentSlide ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+                      } delay-200`}
+                    >
+                      {slide.buttonText}
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
-        
-        <div className={`relative z-10 px-6 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          <h1 className="text-5xl md:text-6xl font-bold text-green-800 mb-6">
-            Hoa Quả Tươi Ngon - Giao Tận Nhà
-          </h1>
-          <p className="text-xl text-gray-700 mb-8 max-w-2xl mx-auto">
-            Chọn lựa từ những vườn trái cây tốt nhất, giao hàng nhanh chóng.
-          </p>
-          <Link
-            to="/product"
-            className="inline-block bg-gradient-to-r from-orange-500 to-red-500 text-white px-8 py-4 rounded-full font-medium text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-          >
-            Khám phá ngay
-          </Link>
-        </div>
-        
-        <div className="absolute bottom-0 left-0 right-0">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 120" fill="white">
-            <path d="M0,64L48,69.3C96,75,192,85,288,80C384,75,480,53,576,48C672,43,768,53,864,58.7C960,64,1056,64,1152,58.7C1248,53,1344,43,1392,37.3L1440,32L1440,120L1392,120C1344,120,1248,120,1152,120C1056,120,960,120,864,120C768,120,672,120,576,120C480,120,384,120,288,120C192,120,96,120,48,120L0,120Z"></path>
+
+        {/* Slider Controls */}
+        <button
+          onClick={prevSlide}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors duration-300"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
+        </button>
+        <button
+          onClick={nextSlide}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition-colors duration-300"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
+        {/* Slider Indicators */}
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-2">
+          {slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-3 h-3 rounded-full transition-colors duration-300 ${
+                index === currentSlide ? 'bg-white' : 'bg-white/50'
+              }`}
+            />
+          ))}
         </div>
       </section>
 
@@ -193,25 +307,16 @@ const HomePage: React.FC = () => {
               <h3 className="text-2xl font-bold mb-4">FreshFruits</h3>
               <p className="mb-4">Cung cấp trái cây tươi ngon, chất lượng cao đến tận nhà bạn.</p>
               <div className="flex space-x-4">
-                <a href="https://github.com/Spidermeoz/fruit_shop_management" className="hover:text-green-300 transition">
-                  <svg
-                  className="w-6 h-6" 
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  {" "}
-                  <path
-                    fillRule="evenodd"
-                    d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.83 9.504.475.083.677-.217.677-.484 0-.233-.007-.867-.011-1.702-2.782.607-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.088.39-1.979 1.029-2.679-.103-.253-.446-1.266.098-2.64c0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 5.042c.847.009 1.682.115 2.477.332 1.91-1.296 2.747-1.026 2.747-1.026.546 1.373.202 2.387.099 2.64.64.7 1.028 1.591 1.028 2.679 0 3.829-2.336 4.673-4.565 4.92.359.307.678.915.678 1.846 0 1.338-.012 2.419-.012 2.747 0 .268.201.576.682.483C19.136 20.217 22 16.46 22 12.017 22 6.484 17.522 2 12 2z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                </a>
-                {/* <a href="#" className="hover:text-green-300 transition">
+                <a href="#" className="hover:text-green-300 transition">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.689-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
+                    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
                   </svg>
-                </a> */}
+                </a>
+                <a href="#" className="hover:text-green-300 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.689-.07-4.849 0-3.259.014-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zM5.838 12a6.162 6.162 0 1112.324 0 6.162 6.162 0 01-12.324 0zM12 16a4 4 0 110-8 4 4 0 010 8zm4.965-10.405a1.44 1.44 0 112.881.001 1.44 1.44 0 01-2.881-.001z"/>
+                  </svg>
+                </a>
               </div>
             </div>
             
@@ -219,7 +324,7 @@ const HomePage: React.FC = () => {
               <h3 className="text-xl font-semibold mb-4">Liên kết nhanh</h3>
               <ul className="space-y-2">
                 <li><Link to="/" className="hover:text-green-300 transition">Trang chủ</Link></li>
-                <li><Link to="/shop" className="hover:text-green-300 transition">Sản phẩm</Link></li>
+                <li><Link to="/product" className="hover:text-green-300 transition">Sản phẩm</Link></li>
                 <li><Link to="/about" className="hover:text-green-300 transition">Giới thiệu</Link></li>
                 <li><Link to="/contact" className="hover:text-green-300 transition">Liên hệ</Link></li>
               </ul>
@@ -227,11 +332,9 @@ const HomePage: React.FC = () => {
             
             <div>
               <h3 className="text-xl font-semibold mb-4">Liên hệ</h3>
-              <p className="mb-2"> 📍 Địa chỉ: Đại học Thăng Long 
-      
-            </p>
-              <p className="mb-2">✉️ Email: test@thanglong.edu.vn</p>
-              <p className="mb-2">📞 Điện thoại: 0123 456 789  </p>
+              <p className="mb-2">Địa chỉ: 123 Đường Trái Cây, Quận 1, TP.HCM</p>
+              <p className="mb-2">Email: info@freshfruits.vn</p>
+              <p className="mb-2">Điện thoại: (028) 1234 5678</p>
             </div>
           </div>
           
