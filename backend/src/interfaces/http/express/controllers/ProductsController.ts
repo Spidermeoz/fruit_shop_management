@@ -86,6 +86,7 @@ export const makeProductsController = (uc: {
             stock: dto.stock,
             thumbnail: dto.thumbnail,
             status: dto.status,
+            featured: dto.featured,
             position: dto.position,
             average_rating: dto.averageRating,
             review_count: dto.reviewCount,

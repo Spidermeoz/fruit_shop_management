@@ -416,6 +416,39 @@ const ProductCreatePage: React.FC = () => {
           </div>
         </div>
 
+        {/* --- Sản phẩm nổi bật --- */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Sản phẩm nổi bật
+          </label>
+          <div className="flex gap-6">
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="featured"
+                value={1}
+                checked={Number(formData.featured) === 1}
+                onChange={handleInputChange}
+                className="text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-gray-800 dark:text-gray-200">Nổi bật</span>
+            </label>
+            <label className="flex items-center space-x-2">
+              <input
+                type="radio"
+                name="featured"
+                value={0}
+                checked={Number(formData.featured) === 0}
+                onChange={handleInputChange}
+                className="text-red-600 focus:ring-red-500"
+              />
+              <span className="text-gray-800 dark:text-gray-200">
+                Không nổi bật
+              </span>
+            </label>
+          </div>
+        </div>
+
         {/* --- Nút hành động --- */}
         <div className="flex justify-end gap-3 mt-6">
           <button

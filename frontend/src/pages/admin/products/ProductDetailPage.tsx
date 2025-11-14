@@ -16,6 +16,7 @@ interface Product {
   discount_percentage?: number;
   stock: number;
   status: "active" | "inactive" | string;
+  featured?: boolean;
   position?: number;
   average_rating?: number;
   review_count?: number;
@@ -146,6 +147,18 @@ const ProductDetailPage: React.FC = () => {
               </p>
               <p>
                 <span className="font-medium">Tồn kho:</span> {product.stock}
+              </p>
+              <p>
+                <span className="font-medium">Nổi bật:</span>{" "}
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                    product.featured
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+                  }`}
+                >
+                  {product.featured ? "Có" : "Không"}
+                </span>
               </p>
               <p>
                 <span className="font-medium">Trạng thái:</span>{" "}

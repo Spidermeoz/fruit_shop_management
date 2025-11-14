@@ -209,7 +209,7 @@ const ProductEditPage: React.FC = () => {
         stock: Number(product.stock),
         discountPercentage: Number(product.discount_percentage),
         position: product.position === '' ? null : Number(product.position),
-        featured: Boolean(product.featured),
+        featured: Boolean(Number(product.featured)),
       };
       // Chuyển product_category_id thành categoryId cho backend
       if (payload.product_category_id !== undefined) {
@@ -403,41 +403,76 @@ const ProductEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Nổi bật & Trạng thái */}
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="featured"
-                checked={product.featured === 1}
-                onChange={handleChange}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                Sản phẩm nổi bật
-              </span>
-            </label>
+          {/* Trạng thái & Nổi bật */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Trạng thái */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Trạng thái
+              </label>
+              <div className="flex gap-6">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="active"
+                    checked={product.status === "active"}
+                    onChange={handleChange}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">
+                    Hoạt động
+                  </span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="inactive"
+                    checked={product.status === "inactive"}
+                    onChange={handleChange}
+                    className="text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">
+                    Dừng hoạt động
+                  </span>
+                </label>
+              </div>
+            </div>
 
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="status"
-                  value="active"
-                  checked={product.status === "active"}
-                  onChange={handleChange}
-                />
-                <span>Hoạt động</span>
+            {/* Sản phẩm nổi bật */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Sản phẩm nổi bật
               </label>
-              <label className="flex items-center gap-1">
-                <input
-                  type="radio"
-                  name="status"
-                  value="inactive"
-                  checked={product.status === "inactive"}
-                  onChange={handleChange}
-                />
-                <span>Dừng hoạt động</span>
-              </label>
+              <div className="flex gap-6">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="featured"
+                    value={1}
+                    checked={Number(product.featured) === 1}
+                    onChange={handleChange}
+                    className="text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">
+                    Nổi bật
+                  </span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="radio"
+                    name="featured"
+                    value={0}
+                    checked={Number(product.featured) === 0}
+                    onChange={handleChange}
+                    className="text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-gray-800 dark:text-gray-200">
+                    Không nổi bật
+                  </span>
+                </label>
+              </div>
             </div>
           </div>
 
