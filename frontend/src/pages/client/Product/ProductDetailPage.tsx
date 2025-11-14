@@ -132,7 +132,7 @@ const ProductDetailPage: React.FC = () => {
             </h2>
             <p className="text-gray-600 mb-6">Sản phẩm bạn tìm kiếm không tồn tại hoặc đã bị xóa.</p>
             <Link
-              to="/shop"
+              to="/product"
               className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
             >
               Quay lại cửa hàng
@@ -158,7 +158,7 @@ const ProductDetailPage: React.FC = () => {
           <div className="flex items-center justify-center text-gray-600">
             <Link to="/" className="hover:text-green-600 transition">Trang chủ</Link>
             <span className="mx-2">/</span>
-            <Link to="/shop" className="hover:text-green-600 transition">Sản phẩm</Link>
+            <Link to="/product" className="hover:text-green-600 transition">Sản phẩm</Link>
             <span className="mx-2">/</span>
             <span className="text-green-700">{product.name}</span>
           </div>
@@ -197,7 +197,7 @@ const ProductDetailPage: React.FC = () => {
                   </svg>
                 ))}
               </div>
-              <span className="text-gray-600">(128 đánh giá)</span>
+              <span className="text-gray-600"><Link to={'/review'}>(128 đánh giá)</Link></span>
             </div>
             
             <div className="flex items-center mb-6">
