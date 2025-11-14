@@ -2,7 +2,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
-import { controllers, authServices, userRepo, rolesRepo } from "./config/di/container";
+import { controllers, authServices, userRepo, rolesRepo, clientControllers } from "./config/di/container";
 import { makeAuthMiddleware } from "./interfaces/http/express/middlewares/auth";
 import { makeCan } from "./interfaces/http/express/middlewares/permissions";
 
@@ -12,7 +12,7 @@ import { productCategoriesRoutes } from "./interfaces/http/express/routes/produc
 import { rolesRoutes } from "./interfaces/http/express/routes/roles.routes";
 import { usersRoutes } from "./interfaces/http/express/routes/users.routes";
 import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
-
+import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
 const app = express();
 
 // Xác định URL frontend của bạn (ví dụ: 3001 cho React, 5173 cho Vite...)
@@ -58,6 +58,9 @@ app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.ca
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
 app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
+
+// 5. Mount routes (client)
+app.use("/api/v1/client/products", clientProductsRoutes(clientControllers.products));
 
 // Error middleware đơn giản
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

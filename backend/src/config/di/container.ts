@@ -86,6 +86,10 @@ import type { UsersController } from "../../interfaces/http/express/controllers/
 import { makeAuthController } from "../../interfaces/http/express/controllers/AuthController";
 import type { AuthController } from "../../interfaces/http/express/controllers/AuthController";
 
+import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
+import type { ClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
+
+
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
   token: new JwtTokenService(),
@@ -251,3 +255,12 @@ export const controllers: Controllers = {
     me: usecases.auth.me,
   }),
 };
+
+export const clientControllers = {
+  products: makeClientProductsController({
+    list: usecases.products.list,
+    detail: usecases.products.detail,
+  }),
+} as const;
+
+export type ClientControllers = typeof clientControllers;
