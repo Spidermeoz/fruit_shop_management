@@ -357,7 +357,7 @@ const ProductListPage: React.FC = () => {
                               )}
                             </div>
                             <Link
-                              to={`/product/${product.id}`}
+                              to={`/products/${product.id}`}
                               className="flex-1 bg-green-600 text-white py-2 rounded-lg text-center font-medium hover:bg-green-700 transition block"
                             >
                               Xem chi tiết

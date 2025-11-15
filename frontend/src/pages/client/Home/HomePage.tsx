@@ -59,27 +59,27 @@ const HomePage: React.FC = () => {
   const slides = [
     {
       id: 1,
-      image: "https://i.imgur.com/5Y2n5xR.jpg",
+      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422389/samples/food/fish-vegetables.jpg",
       title: "Trái Cây Tươi Ngon Mùa Hè",
       subtitle: "Giảm giá đến 30% cho các loại trái cây mùa hè",
       buttonText: "Khám phá ngay",
-      buttonLink: "/product?category=summer",
+      buttonLink: "/products",
     },
     {
       id: 2,
-      image: "https://i.imgur.com/7Yl5m3k.jpg",
+      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422389/samples/food/dessert.jpg",
       title: "Nông Sản Hữu Cơ",
       subtitle: "100% hữu cơ, an toàn cho sức khỏe",
       buttonText: "Xem sản phẩm",
-      buttonLink: "/product?category=organic",
+      buttonLink: "/products",
     },
     {
       id: 3,
-      image: "https://i.imgur.com/9Zl4p8q.jpg",
+      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422397/samples/cup-on-a-table.jpg",
       title: "Giao Hàng Nhanh Chóng",
       subtitle: "Đặt hàng hôm nay, nhận hàng trong ngày",
       buttonText: "Đặt hàng ngay",
-      buttonLink: "/product",
+      buttonLink: "/products",
     },
   ];
 
@@ -245,7 +245,7 @@ const HomePage: React.FC = () => {
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center">
           <div className="md:w-1/2 mb-8 md:mb-0">
             <img
-              src="https://i.imgur.com/5Y2n5xR.jpg"
+              src="https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422391/samples/imagecon-group.jpg"
               alt="Vườn trái cây"
               className="rounded-lg shadow-lg"
             />
