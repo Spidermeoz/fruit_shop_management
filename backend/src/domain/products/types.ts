@@ -9,7 +9,7 @@ export type Sort = { sortBy?: 'id'|'title'|'price'|'stock'|'position'|'createdAt
 
 export type ProductListFilter = Pagination & Sort & {
   q?: string;                  // tìm theo title/slug
-  categoryId?: number | null;  // lọc theo danh mục
+  categoryId?: number | number[] | null;  // lọc theo danh mục
   status?: ProductStatus | 'all';
   featured?: boolean;
   minPrice?: number;

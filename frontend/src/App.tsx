@@ -130,9 +130,9 @@ const App: React.FC = () => {
                 <Routes>
                   <Route path="/" element={<HomePage />} />
                   {/* <Route path="/shop" element={<ShopPage />} /> */}
-                  <Route path="/product" element={<ProductListPage />} />
+                  <Route path="/products" element={<ProductListPage />} />
                   <Route
-                    path="/product/:id"
+                    path="/products/:id"
                     element={<ProductClientDetailPage />}
                   />
                   <Route path="/cart" element={<CartPage />} />

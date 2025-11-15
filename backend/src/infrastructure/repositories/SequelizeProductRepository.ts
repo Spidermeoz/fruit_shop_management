@@ -72,7 +72,11 @@ export class SequelizeProductRepository implements ProductRepository {
     const where: WhereOptions = { deleted: 0 };
 
     if (categoryId !== null) {
-      (where as any).product_category_id = categoryId;
+      if (Array.isArray(categoryId)) {
+        (where as any).product_category_id = { [Op.in]: categoryId };
+      } else {
+        (where as any).product_category_id = categoryId;
+      }
     }
     if (status !== "all") {
       (where as any).status = status;

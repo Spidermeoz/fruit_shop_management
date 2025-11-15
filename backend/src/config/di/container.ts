@@ -89,6 +89,9 @@ import type { AuthController } from "../../interfaces/http/express/controllers/A
 import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
 import type { ClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
 
+import { makeClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
+// import type { ClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
+
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -261,6 +264,8 @@ export const clientControllers = {
     list: usecases.products.list,
     detail: usecases.products.detail,
   }),
+  categories: makeClientCategoriesController({
+    list: usecases.categories.list, // ✅ reuse usecase ListCategories
+  }),
 } as const;
 
-export type ClientControllers = typeof clientControllers;

@@ -3,6 +3,7 @@ import type { ProductStatus } from "../../domain/products/types";
 import type { Product } from "../../domain/products/Products";
 
 export type ProductDTO = {
+  product_category_id: number | null;
   id: number;
   categoryId: number | null;
   title: string;
@@ -37,6 +38,7 @@ export const toDTO = (p: Product): ProductDTO => {
       : Math.round((price * (100 - discount)) as number) / 100;
 
   return {
+    product_category_id: p.props.categoryId ?? null,
     id: p.props.id!,
     categoryId: p.props.categoryId ?? null,
     title: p.props.title,
