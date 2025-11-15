@@ -1,12 +1,11 @@
-import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
 
 type Step = "request" | "verify" | "reset" | "success";
 
 const ForgotPasswordPage: React.FC = () => {
-  const navigate = useNavigate();
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -14,6 +13,16 @@ const ForgotPasswordPage: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [timer, setTimer] = useState(0); // ⏱️ thời gian đếm ngược resend OTP
+
+  // ⏱️ Giảm thời gian mỗi giây khi đang đếm ngược
+  useEffect(() => {
+    let countdown: NodeJS.Timeout;
+    if (timer > 0) {
+      countdown = setTimeout(() => setTimer(timer - 1), 1000);
+    }
+    return () => clearTimeout(countdown);
+  }, [timer]);
 
   // ===================== STEP 1: REQUEST OTP =====================
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -30,10 +39,11 @@ const ForgotPasswordPage: React.FC = () => {
       });
       if (res.success) {
         setStep("verify");
+        setTimer(30); // ⏱️ bắt đầu đếm 30s khi gửi thành công
       } else {
         setError(res.message || "Không thể gửi OTP.");
       }
-    } catch (err: any) {
+    } catch {
       setError("Lỗi khi gửi yêu cầu, vui lòng thử lại sau.");
     } finally {
       setIsLoading(false);
@@ -58,8 +68,28 @@ const ForgotPasswordPage: React.FC = () => {
       } else {
         setError(res.message || "Mã OTP không hợp lệ hoặc đã hết hạn.");
       }
-    } catch (err: any) {
+    } catch {
       setError("Lỗi khi xác thực OTP.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🔁 Gửi lại OTP
+  const handleResendOtp = async () => {
+    setError("");
+    setIsLoading(true);
+    try {
+      const res = await http("POST", "/api/v1/client/forgot-password/request", {
+        email,
+      });
+      if (res.success) {
+        setTimer(60); // Reset lại đếm ngược
+      } else {
+        setError(res.message || "Không thể gửi lại OTP.");
+      }
+    } catch {
+      setError("Lỗi khi gửi lại OTP.");
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +119,7 @@ const ForgotPasswordPage: React.FC = () => {
       } else {
         setError(res.message || "Không thể đặt lại mật khẩu.");
       }
-    } catch (err: any) {
+    } catch {
       setError("Lỗi khi đặt lại mật khẩu.");
     } finally {
       setIsLoading(false);
@@ -150,39 +180,13 @@ const ForgotPasswordPage: React.FC = () => {
                 disabled={isLoading}
                 className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {isLoading ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Đang gửi...
-                  </>
-                ) : (
-                  "Gửi mã OTP"
-                )}
+                {isLoading ? "Đang gửi..." : "Gửi mã OTP"}
               </button>
             </form>
           </>
         );
 
-      // STEP 2: NHẬP OTP
+      // STEP 2: XÁC THỰC OTP
       case "verify":
         return (
           <>
@@ -190,7 +194,7 @@ const ForgotPasswordPage: React.FC = () => {
               Nhập mã OTP
             </h2>
             <p className="text-gray-600 text-center mb-6">
-              Mã OTP đã được gửi đến email{" "}
+              Mã OTP đã được gửi đến{" "}
               <span className="font-medium">{email}</span>
             </p>
 
@@ -221,17 +225,24 @@ const ForgotPasswordPage: React.FC = () => {
             </form>
 
             <div className="text-center mt-6">
-              <button
-                onClick={() => setStep("request")}
-                className="text-sm text-green-600 hover:text-green-700 transition"
-              >
-                Gửi lại OTP
-              </button>
+              {timer > 0 ? (
+                <p className="text-gray-500 text-sm">
+                  Gửi lại OTP sau <span className="font-medium">{timer}s</span>
+                </p>
+              ) : (
+                <button
+                  onClick={handleResendOtp}
+                  disabled={isLoading}
+                  className="text-sm text-green-600 hover:text-green-700 font-medium transition"
+                >
+                  Gửi lại mã OTP
+                </button>
+              )}
             </div>
           </>
         );
 
-      // STEP 3: NHẬP MẬT KHẨU MỚI
+      // STEP 3: ĐẶT LẠI MẬT KHẨU
       case "reset":
         return (
           <>
@@ -312,9 +323,6 @@ const ForgotPasswordPage: React.FC = () => {
             </Link>
           </div>
         );
-
-      default:
-        return null;
     }
   };
 
@@ -330,13 +338,6 @@ const ForgotPasswordPage: React.FC = () => {
             Quên mật khẩu
           </h1>
           <p className="text-gray-700">Khôi phục mật khẩu tài khoản của bạn</p>
-          <div className="flex items-center justify-center text-gray-600 mt-2">
-            <Link to="/" className="hover:text-green-600 transition">
-              Trang chủ
-            </Link>
-            <span className="mx-2">/</span>
-            <span className="text-green-700">Quên mật khẩu</span>
-          </div>
         </div>
       </section>
 
