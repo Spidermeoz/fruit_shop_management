@@ -15,6 +15,7 @@ import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
 import clientCategoriesRoutes from "./interfaces/http/express/routes/client/clientCategories.routes";
 import clientAuthRoutes from "./interfaces/http/express/routes/client/clientAuth.routes";
+import { clientForgotPasswordRoutes } from "./interfaces/http/express/routes/client/clientForgotPassword.routes";
 
 const app = express();
 
@@ -66,6 +67,15 @@ app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
 app.use("/api/v1/client/products", clientProductsRoutes(clientControllers.products));
 app.use("/api/v1/client/categories", clientCategoriesRoutes);
 app.use("/api/v1/client/auth", clientAuthRoutes(clientControllers.auth, auth));
+
+app.use(
+  "/api/v1/client/forgot-password",
+  clientForgotPasswordRoutes(
+    clientControllers.forgotPassword,
+    clientControllers.verifyOtp,
+    clientControllers.resetPassword
+  )
+);
 
 // Error middleware đơn giản
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

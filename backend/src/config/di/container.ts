@@ -23,6 +23,12 @@ import { BulkReorderProducts } from "../../application/products/usecases/BulkReo
 // Controllers
 import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
 import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
+import { RequestPasswordReset } from "../../application/auth/usecases/RequestPasswordReset";
+import { ClientForgotPasswordController } from "../../interfaces/http/express/controllers/client/ClientForgotPasswordController";
+import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
+import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
+import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
+import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
 
 // Upload DI
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -95,8 +101,6 @@ import { makeClientCategoriesController } from "../../interfaces/http/express/co
 import { RegisterClient } from "../../application/auth/usecases/RegisterClient";
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 // import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
-
-
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -197,6 +201,9 @@ export const usecases = {
       authServices.refresh
     ),
     me: new GetMe(userRepo, rolesRepo),
+    requestPasswordReset: new RequestPasswordReset(),
+    verifyResetOtp: new VerifyResetOtp(),
+    resetPassword: new ResetPassword(authServices.password),
   },
   // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
   authServices,
@@ -209,7 +216,7 @@ type Controllers = {
   categories: ProductCategoriesController;
   roles: RolesController;
   users: UsersController;
-  auth: AuthController; 
+  auth: AuthController;
 };
 
 export const controllers: Controllers = {
@@ -273,11 +280,24 @@ export const clientControllers = {
     list: usecases.categories.list, // ✅ reuse usecase ListCategories
   }),
   auth: makeClientAuthController({
-    register: new RegisterClient(userRepo, authServices.password, authServices.token, authServices.refresh),
+    register: new RegisterClient(
+      userRepo,
+      authServices.password,
+      authServices.token,
+      authServices.refresh
+    ),
     login: usecases.auth.login,
     logout: usecases.auth.logout,
     me: usecases.auth.me,
     refresh: usecases.auth.refresh,
   }),
+  forgotPassword: new ClientForgotPasswordController({
+    requestPasswordReset: usecases.auth.requestPasswordReset,
+  }),
+  verifyOtp: new ClientVerifyOtpController({
+    verifyOtp: usecases.auth.verifyResetOtp,
+  }),
+  resetPassword: new ClientResetPasswordController({
+    resetPassword: usecases.auth.resetPassword,
+  }),
 } as const;
-

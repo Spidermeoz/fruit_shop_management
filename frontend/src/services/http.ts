@@ -21,6 +21,13 @@ export const tokenStore = {
   },
 };
 
+export const forgotPasswordApi = {
+  request: (email: string) => http("POST", "/api/v1/client/forgot-password/request", { email }),
+  verify: (email: string, otp: string) => http("POST", "/api/v1/client/forgot-password/verify", { email, otp }),
+  reset: (email: string, otp: string, password: string) =>
+    http("POST", "/api/v1/client/forgot-password/reset", { email, otp, password }),
+};
+
 async function coreFetch(url: string, init: RequestInit = {}) {
   const headers = new Headers(init.headers || {});
   if (!headers.has("Content-Type") && !(init.body instanceof FormData)) {
