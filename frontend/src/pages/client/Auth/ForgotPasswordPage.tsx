@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
@@ -8,19 +8,18 @@ type Step = "request" | "verify" | "reset" | "success";
 const ForgotPasswordPage: React.FC = () => {
   const [step, setStep] = useState<Step>("request");
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState<string[]>(Array(6).fill("")); // 6 ô OTP
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [timer, setTimer] = useState(0); // ⏱️ thời gian đếm ngược resend OTP
+  const [timer, setTimer] = useState(0);
+  const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  // ⏱️ Giảm thời gian mỗi giây khi đang đếm ngược
+  // ⏱️ Countdown timer
   useEffect(() => {
     let countdown: NodeJS.Timeout;
-    if (timer > 0) {
-      countdown = setTimeout(() => setTimer(timer - 1), 1000);
-    }
+    if (timer > 0) countdown = setTimeout(() => setTimer(timer - 1), 1000);
     return () => clearTimeout(countdown);
   }, [timer]);
 
@@ -39,10 +38,9 @@ const ForgotPasswordPage: React.FC = () => {
       });
       if (res.success) {
         setStep("verify");
-        setTimer(30); // ⏱️ bắt đầu đếm 30s khi gửi thành công
-      } else {
-        setError(res.message || "Không thể gửi OTP.");
-      }
+        setTimer(60);
+        setOtp(Array(6).fill(""));
+      } else setError(res.message || "Không thể gửi OTP.");
     } catch {
       setError("Lỗi khi gửi yêu cầu, vui lòng thử lại sau.");
     } finally {
@@ -51,23 +49,37 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   // ===================== STEP 2: VERIFY OTP =====================
+  const otpValue = otp.join("");
+
+  const handleOtpChange = (value: string, index: number) => {
+    if (!/^[0-9]?$/.test(value)) return; // chỉ cho nhập số
+    const newOtp = [...otp];
+    newOtp[index] = value;
+    setOtp(newOtp);
+
+    if (value && index < 5) otpRefs.current[index + 1]?.focus(); // tự chuyển ô
+  };
+
+  const handleOtpKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+    if (e.key === "Backspace" && !otp[index] && index > 0) {
+      otpRefs.current[index - 1]?.focus();
+    }
+  };
+
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!otp) return setError("Vui lòng nhập mã OTP.");
+    if (otpValue.length < 6) return setError("Vui lòng nhập đủ 6 số OTP.");
 
     setIsLoading(true);
     try {
       const res = await http("POST", "/api/v1/client/forgot-password/verify", {
         email,
-        otp,
+        otp: otpValue,
       });
-      if (res.success) {
-        setStep("reset");
-      } else {
-        setError(res.message || "Mã OTP không hợp lệ hoặc đã hết hạn.");
-      }
+      if (res.success) setStep("reset");
+      else setError(res.message || "Mã OTP không hợp lệ hoặc đã hết hạn.");
     } catch {
       setError("Lỗi khi xác thực OTP.");
     } finally {
@@ -83,11 +95,8 @@ const ForgotPasswordPage: React.FC = () => {
       const res = await http("POST", "/api/v1/client/forgot-password/request", {
         email,
       });
-      if (res.success) {
-        setTimer(60); // Reset lại đếm ngược
-      } else {
-        setError(res.message || "Không thể gửi lại OTP.");
-      }
+      if (res.success) setTimer(60);
+      else setError(res.message || "Không thể gửi lại OTP.");
     } catch {
       setError("Lỗi khi gửi lại OTP.");
     } finally {
@@ -111,14 +120,11 @@ const ForgotPasswordPage: React.FC = () => {
     try {
       const res = await http("POST", "/api/v1/client/forgot-password/reset", {
         email,
-        otp,
+        otp: otpValue,
         newPassword,
       });
-      if (res.success) {
-        setStep("success");
-      } else {
-        setError(res.message || "Không thể đặt lại mật khẩu.");
-      }
+      if (res.success) setStep("success");
+      else setError(res.message || "Không thể đặt lại mật khẩu.");
     } catch {
       setError("Lỗi khi đặt lại mật khẩu.");
     } finally {
@@ -127,6 +133,24 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   // ===================== UI =====================
+  const renderOtpInputs = () => (
+    <div className="flex justify-center space-x-3 mb-4">
+      {otp.map((digit, idx) => (
+        <input
+          key={idx}
+          ref={(el) => (otpRefs.current[idx] = el)}
+          type="text"
+          inputMode="numeric"
+          maxLength={1}
+          value={digit}
+          onChange={(e) => handleOtpChange(e.target.value, idx)}
+          onKeyDown={(e) => handleOtpKeyDown(e, idx)}
+          className="w-12 h-12 text-center text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+        />
+      ))}
+    </div>
+  );
+
   const renderContent = () => {
     switch (step) {
       // STEP 1: GỬI OTP
@@ -186,7 +210,7 @@ const ForgotPasswordPage: React.FC = () => {
           </>
         );
 
-      // STEP 2: XÁC THỰC OTP
+      // STEP 2: NHẬP OTP (với 6 ô input + đếm ngược)
       case "verify":
         return (
           <>
@@ -194,26 +218,12 @@ const ForgotPasswordPage: React.FC = () => {
               Nhập mã OTP
             </h2>
             <p className="text-gray-600 text-center mb-6">
-              Mã OTP đã được gửi đến{" "}
-              <span className="font-medium">{email}</span>
+              Mã OTP đã được gửi đến <span className="font-medium">{email}</span>
             </p>
 
             <form onSubmit={handleVerifyOtp} className="space-y-6">
-              <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
-                  Mã OTP
-                </label>
-                <input
-                  type="text"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                    error ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Nhập mã OTP 6 chữ số"
-                />
-                {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
-              </div>
+              {renderOtpInputs()}
+              {error && <p className="text-center text-sm text-red-500">{error}</p>}
 
               <button
                 type="submit"
@@ -329,10 +339,6 @@ const ForgotPasswordPage: React.FC = () => {
   return (
     <Layout>
       <section className="bg-gradient-to-r from-green-100 to-yellow-100 py-8 text-center relative overflow-hidden">
-        <div className="absolute inset-0 opacity-20">
-          <div className="absolute top-4 left-10 w-16 h-16 bg-yellow-300 rounded-full animate-pulse"></div>
-          <div className="absolute bottom-4 right-10 w-12 h-12 bg-green-400 rounded-full animate-pulse"></div>
-        </div>
         <div className="relative z-10">
           <h1 className="text-4xl font-bold text-green-800 mb-2">
             Quên mật khẩu
