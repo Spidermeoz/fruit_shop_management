@@ -92,6 +92,11 @@ import type { ClientProductsController } from "../../interfaces/http/express/con
 import { makeClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
 // import type { ClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
 
+import { RegisterClient } from "../../application/auth/usecases/RegisterClient";
+import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
+// import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
+
+
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -266,6 +271,13 @@ export const clientControllers = {
   }),
   categories: makeClientCategoriesController({
     list: usecases.categories.list, // ✅ reuse usecase ListCategories
+  }),
+  auth: makeClientAuthController({
+    register: new RegisterClient(userRepo, authServices.password, authServices.token, authServices.refresh),
+    login: usecases.auth.login,
+    logout: usecases.auth.logout,
+    me: usecases.auth.me,
+    refresh: usecases.auth.refresh,
   }),
 } as const;
 

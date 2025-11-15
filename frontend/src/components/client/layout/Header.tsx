@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 import { buildClientCategoryTree } from "../../../utils/categoryTreeForClient";
+import { useAuth } from "../../../context/AuthContext";
 
 interface Category {
   id: number;
@@ -16,11 +17,13 @@ const Header: React.FC = () => {
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // ✅ Lấy danh mục thật
+  // ✅ Lấy từ AuthContext
+  const { user, isAuthenticated, logout } = useAuth();
+
+  // ✅ Lấy danh mục sản phẩm từ backend
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -48,10 +51,15 @@ const Header: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setIsUserMenuOpen(false);
-    navigate("/");
+  // ✅ Xử lý logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setIsUserMenuOpen(false);
+      navigate("/");
+    } catch (err) {
+      console.error("Lỗi khi đăng xuất:", err);
+    }
   };
 
   // 🧩 Toggle submenu
@@ -71,7 +79,7 @@ const Header: React.FC = () => {
           <li key={child.id} className="py-1">
             <div className="flex justify-between items-center">
               <Link
-                to={`/products?category=${(child.slug || child.id)}`}
+                to={`/products?category=${child.slug || child.id}`}
                 className="block text-gray-700 hover:text-green-600 transition"
               >
                 {child.title}
@@ -102,7 +110,9 @@ const Header: React.FC = () => {
               )}
             </div>
 
-            {hasChildren && isExpanded && renderSubMenu(child.children!, depth + 1)}
+            {hasChildren &&
+              isExpanded &&
+              renderSubMenu(child.children!, depth + 1)}
           </li>
         );
       })}
@@ -124,7 +134,7 @@ const Header: React.FC = () => {
           <div key={cat.id} className="px-4 py-2 hover:bg-green-50 rounded-md">
             <div className="flex justify-between items-center">
               <Link
-                to={`/products?category=${(cat.slug || cat.id)}`}
+                to={`/products?category=${cat.slug || cat.id}`}
                 className="text-gray-800 font-medium hover:text-green-700 transition"
               >
                 {cat.title}
@@ -155,7 +165,6 @@ const Header: React.FC = () => {
               )}
             </div>
 
-            {/* Submenu */}
             {hasChildren && isExpanded && renderSubMenu(cat.children!)}
           </div>
         );
@@ -179,7 +188,7 @@ const Header: React.FC = () => {
             </span>
           </Link>
 
-          {/* =================== Desktop Menu =================== */}
+          {/* Menu chính */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link
               to="/"
@@ -188,7 +197,6 @@ const Header: React.FC = () => {
               Trang chủ
             </Link>
 
-            {/* Danh mục sản phẩm (click mở menu) */}
             <div className="relative">
               <button
                 onClick={() => setIsProductMenuOpen((prev) => !prev)}
@@ -212,8 +220,9 @@ const Header: React.FC = () => {
                   />
                 </svg>
               </button>
-
-              {isProductMenuOpen && categories.length > 0 && renderCategoryMenu(categories)}
+              {isProductMenuOpen &&
+                categories.length > 0 &&
+                renderCategoryMenu(categories)}
             </div>
 
             <Link
@@ -230,9 +239,9 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
-          {/* =================== Action Buttons =================== */}
+          {/* Hành động */}
           <div className="flex items-center space-x-4">
-            {/* Cart */}
+            {/* Giỏ hàng */}
             <Link
               to="/cart"
               className="relative p-2 text-gray-700 hover:text-green-600 transition"
@@ -256,16 +265,29 @@ const Header: React.FC = () => {
               </span>
             </Link>
 
-            {/* User */}
-            {isLoggedIn ? (
+            {/* Người dùng */}
+            {isAuthenticated && user ? (
               <div className="relative">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition"
                 >
-                  <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-medium">N</span>
+                  <div className="w-8 h-8 rounded-full overflow-hidden bg-green-600 flex items-center justify-center">
+                    {user.avatar ? (
+                      <img
+                        src={user.avatar}
+                        alt={user.fullName || "User Avatar"}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-white text-sm font-medium">
+                        {user.fullName
+                          ? user.fullName.charAt(0).toUpperCase()
+                          : "U"}
+                      </span>
+                    )}
                   </div>
+
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     className="h-4 w-4 text-gray-600"
