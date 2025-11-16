@@ -228,7 +228,7 @@ const HomePage: React.FC = () => {
                       : "Liên hệ"}
                   </p>
                   <Link
-                    to={`/product/${p.id}`}
+                    to={`/products/${p.id}`}
                     className="w-full block text-center bg-green-600 text-white py-2 rounded-lg font-medium opacity-0 group-hover:opacity-100 transition"
                   >
                     Xem chi tiết

@@ -138,7 +138,9 @@ const ForgotPasswordPage: React.FC = () => {
       {otp.map((digit, idx) => (
         <input
           key={idx}
-          ref={(el) => (otpRefs.current[idx] = el)}
+          ref={(el) => {
+            otpRefs.current[idx] = el;
+          }}
           type="text"
           inputMode="numeric"
           maxLength={1}

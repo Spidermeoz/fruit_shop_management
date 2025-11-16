@@ -10,6 +10,11 @@ import { SequelizeRoleRepository } from "../../infrastructure/repositories/Seque
 import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
 
+// Cart models & repo
+import CartModel from "../../infrastructure/db/sequelize/models/CartModel";
+import CartItemModel from "../../infrastructure/db/sequelize/models/CartItemModel";
+import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
+
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
@@ -20,6 +25,12 @@ import { SoftDeleteProduct } from "../../application/products/usecases/SoftDelet
 import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
 import { BulkReorderProducts } from "../../application/products/usecases/BulkReorderProducts";
 
+// Cart usecases
+import { AddToCart } from "../../application/carts/usecases/AddToCart";
+import { ListCartItems } from "../../application/carts/usecases/ListCartItems";
+import { UpdateCartItem } from "../../application/carts/usecases/UpdateCartItem";
+import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart";
+
 // Controllers
 import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
 import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
@@ -29,6 +40,10 @@ import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
 import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
 import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
 import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
+
+// Client Cart controller
+import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
+import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
 
 // Upload DI
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -122,6 +137,29 @@ ProductCategoryModel.hasMany(ProductModel, {
 UserModel.belongsTo(RoleModel, { as: "role", foreignKey: "role_id" });
 RoleModel.hasMany(UserModel, { as: "users", foreignKey: "role_id" });
 
+CartModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+UserModel.hasOne(CartModel, {
+  as: "cart",
+  foreignKey: "user_id",
+});
+
+CartModel.hasMany(CartItemModel, {
+  as: "items",
+  foreignKey: "cart_id",
+});
+CartItemModel.belongsTo(CartModel, {
+  as: "cart",
+  foreignKey: "cart_id",
+});
+
+CartItemModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
@@ -140,6 +178,13 @@ export const rolesRepo = new SequelizeRoleRepository(roleModels);
 // Users (export để dùng ở main.ts/middlewares)
 const userModels = { User: UserModel, Role: RoleModel };
 export const userRepo = new SequelizeUserRepository(userModels);
+
+const cartModels = {
+  Cart: CartModel,
+  CartItem: CartItemModel,
+  Product: ProductModel,
+};
+const cartRepo = new SequelizeCartRepository(cartModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -207,6 +252,12 @@ export const usecases = {
   },
   // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
   authServices,
+  carts: {
+    addToCart: new AddToCart(cartRepo),
+    listItems: new ListCartItems(cartRepo),
+    updateItem: new UpdateCartItem(cartRepo),
+    removeItem: new RemoveFromCart(cartRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -299,5 +350,11 @@ export const clientControllers = {
   }),
   resetPassword: new ClientResetPasswordController({
     resetPassword: usecases.auth.resetPassword,
+  }),
+  cart: makeClientCartController({
+    addToCart: usecases.carts.addToCart,
+    listItems: usecases.carts.listItems,
+    updateItem: usecases.carts.updateItem,
+    removeItem: usecases.carts.removeItem,
   }),
 } as const;

@@ -16,6 +16,7 @@ import { clientProductsRoutes } from "./interfaces/http/express/routes/client/cl
 import clientCategoriesRoutes from "./interfaces/http/express/routes/client/clientCategories.routes";
 import clientAuthRoutes from "./interfaces/http/express/routes/client/clientAuth.routes";
 import { clientForgotPasswordRoutes } from "./interfaces/http/express/routes/client/clientForgotPassword.routes";
+import { clientCartRoutes } from "./interfaces/http/express/routes/client/clientCart.routes";
 
 const app = express();
 
@@ -75,6 +76,10 @@ app.use(
     clientControllers.verifyOtp,
     clientControllers.resetPassword
   )
+);
+app.use(
+  "/api/v1/client/cart",
+  clientCartRoutes(clientControllers.cart, auth)
 );
 
 // Error middleware đơn giản

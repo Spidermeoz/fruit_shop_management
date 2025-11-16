@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 import { buildClientCategoryTree } from "../../../utils/categoryTreeForClient";
 import { useAuth } from "../../../context/AuthContext";
+import { useCart } from "../../../context/CartContext";
 
 interface Category {
   id: number;
@@ -22,6 +23,7 @@ const Header: React.FC = () => {
 
   // ✅ Lấy từ AuthContext
   const { user, isAuthenticated, logout } = useAuth();
+  const { totalItems } = useCart();
 
   // ✅ Lấy danh mục sản phẩm từ backend
   useEffect(() => {
@@ -242,8 +244,14 @@ const Header: React.FC = () => {
           {/* Hành động */}
           <div className="flex items-center space-x-4">
             {/* Giỏ hàng */}
-            <Link
-              to="/cart"
+            <button
+              onClick={() => {
+                if (!isAuthenticated) {
+                  navigate("/login");
+                  return;
+                }
+                navigate("/cart");
+              }}
               className="relative p-2 text-gray-700 hover:text-green-600 transition"
             >
               <svg
@@ -260,11 +268,14 @@ const Header: React.FC = () => {
                   d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
                 />
               </svg>
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                3
-              </span>
-            </Link>
 
+              {/* 🛒 Hiển thị badge nếu có item */}
+              {totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {totalItems}
+                </span>
+              )}
+            </button>
             {/* Người dùng */}
             {isAuthenticated && user ? (
               <div className="relative">

@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
 import Footer from "../../../components/client/layout/Footer";
+import { useCart } from "../../../context/CartContext";
+import { useAuth } from "../../../context/AuthContext";
 
 interface Product {
   id: number;
@@ -45,7 +47,9 @@ const ProductDetailPage: React.FC = () => {
               `/api/v1/client/products?categoryId=${res.data.category.id}&limit=4`
             );
             if (related?.success && Array.isArray(related.data)) {
-              const filtered = related.data.filter((p: { id: any; }) => p.id !== res.data.id);
+              const filtered = related.data.filter(
+                (p: { id: any }) => p.id !== res.data.id
+              );
               setRelatedProducts(filtered);
             }
           }
@@ -63,10 +67,22 @@ const ProductDetailPage: React.FC = () => {
     fetchProductDetail();
   }, [id]);
 
-  const handleAddToCart = () => {
-    if (product) {
-      alert(`Đã thêm ${quantity} sản phẩm "${product.title}" vào giỏ hàng!`);
+  const { addToCart } = useCart();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  const handleAddToCart = async () => {
+    if (!product) return;
+
+    if (!isAuthenticated) {
+      navigate("/login");
+      return;
     }
+
+    await addToCart(product.id, quantity);
+
+    // Hiển thị thông báo đơn giản (tuỳ bạn nâng cấp sau)
+    alert(`Đã thêm ${quantity} × ${product.title} vào giỏ hàng`);
   };
 
   const increaseQuantity = () => setQuantity((q) => q + 1);
@@ -119,7 +135,7 @@ const ProductDetailPage: React.FC = () => {
               Trang chủ
             </Link>
             <span className="mx-2">/</span>
-            <Link to="/product" className="hover:text-green-600 transition">
+            <Link to="/products" className="hover:text-green-600 transition">
               Sản phẩm
             </Link>
             <span className="mx-2">/</span>
