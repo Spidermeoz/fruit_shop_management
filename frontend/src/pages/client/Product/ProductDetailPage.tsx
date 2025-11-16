@@ -79,10 +79,16 @@ const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    await addToCart(product.id, quantity);
+    try {
+      await addToCart(product.id, quantity);
 
-    // Hiển thị thông báo đơn giản (tuỳ bạn nâng cấp sau)
-    alert(`Đã thêm ${quantity} × ${product.title} vào giỏ hàng`);
+      // Hiển thị thông báo đơn giản (tuỳ bạn nâng cấp sau)
+      alert(`Đã thêm ${quantity} × ${product.title} vào giỏ hàng`);
+      navigate("/cart");
+    } catch (err) {
+      console.error(err);
+      alert("Có lỗi xảy ra khi thêm vào giỏ hàng, vui lòng thử lại!");
+    }
   };
 
   const increaseQuantity = () => setQuantity((q) => q + 1);
