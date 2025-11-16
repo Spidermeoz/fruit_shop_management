@@ -112,7 +112,7 @@ const AboutPage: React.FC = () => {
                 Với hơn 8 năm kinh nghiệm trong ngành, chúng tôi đã xây dựng được mạng lưới các nông trại đối tác uy tín trên khắp cả nước và một số quốc gia trong khu vực. Mỗi sản phẩm đều được tuyển chọn kỹ lưỡng, đảm bảo chất lượng và độ tươi ngon.
               </p>
               <Link
-                to="/shop"
+                to="/products"
                 className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
               >
                 Khám phá sản phẩm
