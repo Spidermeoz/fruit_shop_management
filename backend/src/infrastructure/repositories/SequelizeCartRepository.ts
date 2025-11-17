@@ -18,9 +18,7 @@ export class SequelizeCartRepository implements CartRepository {
           id: Number(p.id),
           title: String(p.title),
           price:
-            p.price !== null && p.price !== undefined
-              ? Number(p.price)
-              : null,
+            p.price !== null && p.price !== undefined ? Number(p.price) : null,
           thumbnail: p.thumbnail ?? null,
           slug: p.slug ?? null,
         }
@@ -53,17 +51,12 @@ export class SequelizeCartRepository implements CartRepository {
     productId: number,
     quantity: number
   ): Promise<CartItemDTO> {
-    if (quantity <= 0) {
-      throw new Error("Quantity must be greater than 0");
-    }
+    if (quantity <= 0) throw new Error("Quantity must be greater than 0");
 
     const cart = await this.getOrCreateCart(userId);
 
     const [item, created] = await this.models.CartItem.findOrCreate({
-      where: {
-        cart_id: cart.id,
-        product_id: productId,
-      },
+      where: { cart_id: cart.id, product_id: productId },
       defaults: {
         cart_id: cart.id,
         product_id: productId,
@@ -111,29 +104,22 @@ export class SequelizeCartRepository implements CartRepository {
   }
 
   // =====================================================
-  // UPDATE ITEM QUANTITY
+  // UPDATE ITEM
   // =====================================================
   async updateItem(
     userId: number,
     productId: number,
     quantity: number
   ): Promise<CartItemDTO> {
-    if (quantity <= 0) {
-      throw new Error("Quantity must be greater than 0");
-    }
+    if (quantity <= 0) throw new Error("Quantity must be greater than 0");
 
     const cart = await this.getOrCreateCart(userId);
 
     const item = await this.models.CartItem.findOne({
-      where: {
-        cart_id: cart.id,
-        product_id: productId,
-      },
+      where: { cart_id: cart.id, product_id: productId },
     });
 
-    if (!item) {
-      throw new Error("Cart item not found");
-    }
+    if (!item) throw new Error("Cart item not found");
 
     item.quantity = quantity;
     await item.save();
@@ -158,10 +144,7 @@ export class SequelizeCartRepository implements CartRepository {
     const cart = await this.getOrCreateCart(userId);
 
     await this.models.CartItem.destroy({
-      where: {
-        cart_id: cart.id,
-        product_id: productId,
-      },
+      where: { cart_id: cart.id, product_id: productId },
     });
   }
 
@@ -172,6 +155,8 @@ export class SequelizeCartRepository implements CartRepository {
     userId: number,
     productIds: number[]
   ): Promise<CartItemDTO[]> {
+    if (!productIds.length) return []; // ⚠ bảo vệ SQL IN ()
+
     const cart = await this.getOrCreateCart(userId);
 
     const rows = await this.models.CartItem.findAll({
@@ -193,12 +178,14 @@ export class SequelizeCartRepository implements CartRepository {
   }
 
   // =====================================================
-  // CLEAR ONLY SELECTED ITEMS AFTER CHECKOUT
+  // CLEAR SELECTED ITEMS AFTER CHECKOUT
   // =====================================================
   async clearSelectedItems(
     userId: number,
     productIds: number[]
   ): Promise<void> {
+    if (!productIds.length) return; // ⚠ tránh SQL lỗi
+
     const cart = await this.getOrCreateCart(userId);
 
     await this.models.CartItem.destroy({

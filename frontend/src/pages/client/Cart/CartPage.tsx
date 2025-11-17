@@ -1,34 +1,40 @@
-import React, { useEffect } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { useCart } from "../../../context/CartContext";
 
 const CartPage: React.FC = () => {
-  const {
-    items,
-    fetchCart,
-    updateItem,
-    removeItem,
-    clearCart,
-  } = useCart();
+  const { items, fetchCart, updateItem, removeItem, clearCart } = useCart();
+  const navigate = useNavigate();
 
-  const [promoCode, setPromoCode] = React.useState("");
-  const [discount, setDiscount] = React.useState(0);
-  const [isApplyingPromo, setIsApplyingPromo] = React.useState(false);
+  // Danh sách sản phẩm được chọn
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
 
-  // Load data từ backend ngay khi vào trang
   useEffect(() => {
     fetchCart();
   }, []);
 
-  // Tổng tiền hàng
-  const subtotal = items.reduce(
+  // Toggle chọn sản phẩm
+  const toggleSelect = (productId: number) => {
+    setSelectedItems((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  // NEW: Tính subtotal theo selected items
+  const selectedProducts = items.filter((item) =>
+    selectedItems.includes(item.productId)
+  );
+
+  const subtotal = selectedProducts.reduce(
     (acc, item) => acc + (item.product?.price || 0) * item.quantity,
     0
   );
 
-  const shippingFee = 20000;
-  const total = subtotal + shippingFee - discount;
+  const shippingFee = selectedItems.length > 0 ? 20000 : 0;
+  const total = subtotal + shippingFee;
 
   // Tăng/giảm số lượng
   const handleUpdateQty = (productId: number, delta: number) => {
@@ -41,24 +47,16 @@ const CartPage: React.FC = () => {
   // Xóa sản phẩm
   const handleRemove = (productId: number) => {
     removeItem(productId);
+    setSelectedItems((prev) => prev.filter((id) => id !== productId));
   };
 
-  // Áp dụng mã giảm giá (FE demo)
-  const applyPromoCode = () => {
-    setIsApplyingPromo(true);
-    setTimeout(() => {
-      if (promoCode === "FRESH10") {
-        setDiscount(subtotal * 0.1);
-        alert("Áp dụng mã FRESH10 thành công! (-10%)");
-      } else if (promoCode === "FRESH20") {
-        setDiscount(subtotal * 0.2);
-        alert("Áp dụng mã FRESH20 thành công! (-20%)");
-      } else {
-        alert("Mã giảm giá không hợp lệ!");
-        setDiscount(0);
-      }
-      setIsApplyingPromo(false);
-    }, 600);
+  // Điều hướng checkout
+  const handleCheckout = () => {
+    if (selectedItems.length === 0) {
+      alert("Vui lòng chọn ít nhất một sản phẩm trước khi thanh toán.");
+      return;
+    }
+    navigate("/checkout", { state: { selectedItems } });
   };
 
   return (
@@ -127,6 +125,14 @@ const CartPage: React.FC = () => {
                         index !== items.length - 1 ? "border-b" : ""
                       } hover:bg-green-50 transition rounded-lg`}
                     >
+                      {/* Checkbox chọn */}
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.includes(item.productId)}
+                        onChange={() => toggleSelect(item.productId)}
+                        className="w-5 h-5 accent-green-600"
+                      />
+
                       <img
                         src={item.product?.thumbnail || ""}
                         alt={item.product?.title}
@@ -142,13 +148,11 @@ const CartPage: React.FC = () => {
                         </p>
                       </div>
 
-                      {/* NÚT TĂNG GIẢM */}
+                      {/* Nút tăng giảm */}
                       <div className="flex items-center gap-2">
                         <div className="inline-flex items-center border border-gray-300 rounded-lg">
                           <button
-                            onClick={() =>
-                              handleUpdateQty(item.productId, -1)
-                            }
+                            onClick={() => handleUpdateQty(item.productId, -1)}
                             className="px-3 py-2 text-green-700 hover:bg-green-100 transition"
                           >
                             -
@@ -157,9 +161,7 @@ const CartPage: React.FC = () => {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() =>
-                              handleUpdateQty(item.productId, 1)
-                            }
+                            onClick={() => handleUpdateQty(item.productId, 1)}
                             className="px-3 py-2 text-green-700 hover:bg-green-100 transition"
                           >
                             +
@@ -167,7 +169,7 @@ const CartPage: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* GIÁ & XOÁ */}
+                      {/* Giá & Xóa */}
                       <div className="text-right">
                         <p className="font-semibold text-green-700 text-lg">
                           {(
@@ -187,7 +189,7 @@ const CartPage: React.FC = () => {
                   ))}
                 </div>
 
-                {/* CLEAR ALL */}
+                {/* Clear all */}
                 <div className="p-4 bg-gray-50 flex flex-col sm:flex-row justify-between items-center gap-4">
                   <Link
                     to="/products"
@@ -206,68 +208,54 @@ const CartPage: React.FC = () => {
               </div>
             </div>
 
-            {/* TỔNG THANH TOÁN */}
+            {/* TỔNG THANH TOÁN (cập nhật theo selected items) */}
             <div>
               <div className="bg-gradient-to-br from-green-50 to-yellow-50 rounded-2xl p-6 shadow-md sticky top-6">
                 <h3 className="text-xl font-semibold text-green-800 mb-4">
                   Thông tin đơn hàng
                 </h3>
 
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-gray-700">
-                    <span>Tạm tính:</span>
-                    <span>{subtotal.toLocaleString()} đ</span>
-                  </div>
-
-                  <div className="flex justify-between text-gray-700">
-                    <span>Phí giao hàng:</span>
-                    <span>{shippingFee.toLocaleString()} đ</span>
-                  </div>
-
-                  {discount > 0 && (
-                    <div className="flex justify-between text-green-600">
-                      <span>Giảm giá:</span>
-                      <span>-{discount.toLocaleString()} đ</span>
+                {selectedItems.length === 0 ? (
+                  <p className="text-gray-600 mb-4 text-sm">
+                    Vui lòng chọn sản phẩm để xem tổng tiền.
+                  </p>
+                ) : (
+                  <div className="space-y-3 mb-6">
+                    <div className="flex justify-between text-gray-700">
+                      <span>Tạm tính:</span>
+                      <span>{subtotal.toLocaleString()} đ</span>
                     </div>
-                  )}
 
-                  <div className="border-t pt-3">
-                    <div className="flex justify-between text-green-800 font-bold text-lg">
-                      <span>Tổng cộng:</span>
-                      <span>{total.toLocaleString()} đ</span>
+                    <div className="flex justify-between text-gray-700">
+                      <span>Phí giao hàng:</span>
+                      <span>{shippingFee.toLocaleString()} đ</span>
+                    </div>
+
+                    <div className="border-t pt-3">
+                      <div className="flex justify-between text-green-800 font-bold text-lg">
+                        <span>Tổng cộng:</span>
+                        <span>{total.toLocaleString()} đ</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* MÃ GIẢM GIÁ */}
-                <div className="mb-6">
-                  <label className="block text-gray-700 text-sm font-medium mb-2">
-                    Mã giảm giá
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value)}
-                      placeholder="Nhập mã giảm giá"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                    <button
-                      onClick={applyPromoCode}
-                      disabled={isApplyingPromo}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg"
-                    >
-                      {isApplyingPromo ? "..." : "Áp dụng"}
-                    </button>
-                  </div>
-                </div>
-
-                <Link
-                  to="/checkout"
-                  className="block w-full bg-gradient-to-r from-green-600 to-green-700 text-white text-center py-3 rounded-lg font-medium hover:shadow-lg"
+                {/* Nút checkout */}
+                <button
+                  onClick={handleCheckout}
+                  className={`block w-full text-center py-3 rounded-lg font-medium transition-all duration-200
+                    ${
+                      selectedItems.length === 0
+                        ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                        : "bg-gradient-to-r from-green-600 to-green-700 text-white hover:shadow-lg"
+                    }`}
                 >
-                  Thanh toán ngay →
-                </Link>
+                  Thanh toán ngay{" "}
+                  {selectedItems.length > 0
+                    ? `(${selectedItems.length} sản phẩm)`
+                    : ""}
+                  →
+                </button>
               </div>
             </div>
           </div>

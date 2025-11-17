@@ -266,4 +266,48 @@ export class SequelizeProductRepository implements ProductRepository {
     const affected = result?.affectedRows ?? result ?? ids.length;
     return Number(affected);
   }
+
+  async decreaseStock(productId: number, quantity: number, transaction?: any) {
+    const product = await this.models.Product.findOne({
+      where: { id: productId, deleted: 0 },
+      transaction,
+      lock: transaction ? transaction.LOCK.UPDATE : undefined, // tránh race-condition
+    });
+
+    if (!product) {
+      throw new Error(`Sản phẩm không tồn tại (ID ${productId})`);
+    }
+
+    const currentStock = Number(product.stock ?? 0);
+
+    if (currentStock < quantity) {
+      throw new Error(
+        `Không đủ tồn kho cho sản phẩm "${product.title}". Còn lại: ${currentStock}`
+      );
+    }
+
+    // trừ tồn kho
+    product.stock = currentStock - quantity;
+
+    await product.save({ transaction });
+
+    return product;
+  }
+
+  async increaseStock(productId: number, quantity: number, transaction?: any) {
+    const product = await this.models.Product.findOne({
+      where: { id: productId, deleted: 0 },
+      transaction,
+      lock: transaction ? transaction.LOCK.UPDATE : undefined,
+    });
+
+    if (!product) {
+      // không throw vì sản phẩm có thể đã bị xóa
+      return;
+    }
+
+    product.stock = Number(product.stock ?? 0) + quantity;
+
+    await product.save({ transaction });
+  }
 }

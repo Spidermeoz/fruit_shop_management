@@ -1,4 +1,5 @@
 import { Op } from "sequelize";
+import crypto from "crypto";
 import { Order } from "../../domain/orders/Order";
 import type {
   OrderRepository,
@@ -8,9 +9,9 @@ import type {
 export class SequelizeOrderRepository implements OrderRepository {
   constructor(private models: any) {}
 
-  // ============================
-  // MAP ROW → DOMAIN
-  // ============================
+  // ========================================
+  // MAP ROW → DOMAIN ORDER ENTITY
+  // ========================================
   private mapRow(row: any): Order {
     return Order.create({
       id: Number(row.id),
@@ -53,39 +54,32 @@ export class SequelizeOrderRepository implements OrderRepository {
     });
   }
 
-  // ============================
-  // CREATE ORDER (transaction)
-  // ============================
-  async create(data: {
-    userId: number;
-    items: { productId: number; quantity: number; price: number; title: string }[];
-    address: any;
-    shippingFee: number;
-    discountAmount: number;
-    totalPrice: number;
-    userInfo: any;
-  }) {
-    const sequelize = this.models.Order.sequelize;
+  // ========================================
+  // CREATE ORDER (SUPPORT EXTERNAL TRANSACTION)
+  // ========================================
+  async create(data: any, transaction?: any) {
+    const t = transaction ?? (await this.models.Order.sequelize.transaction());
 
-    return await sequelize.transaction(async (t: any) => {
-      // Tạo order
+    try {
+      // Create main order
       const order = await this.models.Order.create(
         {
           user_id: data.userId,
-          code: null,            // trigger tự sinh
+          code: `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           status: "pending",
           payment_status: "unpaid",
           shipping_fee: data.shippingFee,
           discount_amount: data.discountAmount,
           total_price: data.totalPrice,
-          tracking_token: null,  // trigger tự sinh
+          final_price: data.totalPrice,
+          tracking_token: crypto.randomUUID(),
           inventory_applied: 0,
           user_info: data.userInfo,
         },
         { transaction: t }
       );
 
-      // Tạo items
+      // Create items
       for (const item of data.items) {
         await this.models.OrderItem.create(
           {
@@ -99,23 +93,26 @@ export class SequelizeOrderRepository implements OrderRepository {
         );
       }
 
-      // Tạo address
-      await this.models.OrderAddress.create(
-        {
-          order_id: order.id,
-          full_name: data.address.fullName,
-          phone: data.address.phone,
-          address_line1: data.address.addressLine1,
-          address_line2: data.address.addressLine2 ?? null,
-          ward: data.address.ward ?? null,
-          district: data.address.district ?? null,
-          province: data.address.province ?? null,
-          postal_code: data.address.postalCode ?? null,
-          notes: data.address.notes ?? null,
-        },
-        { transaction: t }
-      );
+      // Create address
+      if (data.address) {
+        await this.models.OrderAddress.create(
+          {
+            order_id: order.id,
+            full_name: data.address.fullName,
+            phone: data.address.phone,
+            address_line1: data.address.addressLine1,
+            address_line2: data.address.addressLine2 ?? "",
+            ward: data.address.ward ?? "",
+            district: data.address.district ?? "",
+            province: data.address.province ?? "",
+            postal_code: data.address.postalCode ?? "",
+            notes: data.address.notes ?? "",
+          },
+          { transaction: t }
+        );
+      }
 
+      // Reload full order with relations
       const full = await this.models.Order.findByPk(order.id, {
         include: [
           { model: this.models.OrderItem, as: "items" },
@@ -124,13 +121,18 @@ export class SequelizeOrderRepository implements OrderRepository {
         transaction: t,
       });
 
+      if (!transaction) await t.commit();
+
       return this.mapRow(full);
-    });
+    } catch (err) {
+      if (!transaction) await t.rollback();
+      throw err;
+    }
   }
 
-  // ============================
-  // FIND ORDER BY ID
-  // ============================
+  // ========================================
+  // FIND BY ID
+  // ========================================
   async findById(id: number) {
     const row = await this.models.Order.findOne({
       where: { id, deleted: 0 },
@@ -145,9 +147,9 @@ export class SequelizeOrderRepository implements OrderRepository {
     return row ? this.mapRow(row) : null;
   }
 
-  // ============================
-  // FIND ORDERS BY USER
-  // ============================
+  // ========================================
+  // FIND USER ORDERS
+  // ========================================
   async findByUser(userId: number, filter: OrderListFilter) {
     const { page = 1, limit = 10 } = filter;
 
@@ -167,22 +169,17 @@ export class SequelizeOrderRepository implements OrderRepository {
     return { rows: rows.map((r: any) => this.mapRow(r)), count };
   }
 
-  // ============================
-  // LIST ORDERS (ADMIN)
-  // ============================
+  // ========================================
+  // ADMIN LIST
+  // ========================================
   async list(filter: OrderListFilter) {
-    const {
-      page = 1,
-      limit = 10,
-      status,
-      userId,
-      q,
-    } = filter;
+    const { page = 1, limit = 10, status, userId, q } = filter;
 
     const where: any = { deleted: 0 };
 
     if (status) where.status = status;
     if (userId) where.user_id = userId;
+
     if (q)
       where[Op.or] = [
         { code: { [Op.like]: `%${q}%` } },
@@ -206,19 +203,16 @@ export class SequelizeOrderRepository implements OrderRepository {
     return { rows: rows.map((r: any) => this.mapRow(r)), count };
   }
 
-  // ============================
+  // ========================================
   // UPDATE STATUS
-  // ============================
+  // ========================================
   async updateStatus(id: number, status: string) {
-    await this.models.Order.update(
-      { status },
-      { where: { id } }
-    );
+    await this.models.Order.update({ status }, { where: { id } });
   }
 
-  // ============================
-  // ADD DELIVERY HISTORY
-  // ============================
+  // ========================================
+  // DELIVERY HISTORY
+  // ========================================
   async addDeliveryHistory(
     orderId: number,
     status: string,
@@ -233,9 +227,9 @@ export class SequelizeOrderRepository implements OrderRepository {
     });
   }
 
-  // ============================
+  // ========================================
   // ADD PAYMENT
-  // ============================
+  // ========================================
   async addPayment(data: {
     orderId: number;
     provider: string;
@@ -254,5 +248,12 @@ export class SequelizeOrderRepository implements OrderRepository {
       transaction_id: data.transactionId ?? null,
       raw_payload: data.rawPayload ?? null,
     });
+  }
+
+  // ========================================
+  // START TRANSACTION
+  // ========================================
+  async startTransaction() {
+    return await this.models.Order.sequelize.transaction();
   }
 }

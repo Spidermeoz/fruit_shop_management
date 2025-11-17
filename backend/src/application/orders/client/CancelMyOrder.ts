@@ -1,19 +1,50 @@
-// src/application/orders/usecases/client/CancelMyOrder.ts
+// src/application/orders/client/CancelMyOrder.ts
+
 export class CancelMyOrder {
-  constructor(private orderRepo: any) {}
+  constructor(private orderRepo: any, private productRepo: any) {}
 
   async execute(userId: number, orderId: number) {
+    // lấy order
     const order = await this.orderRepo.findById(orderId);
+    if (!order) {
+      throw new Error("Đơn hàng không tồn tại");
+    }
 
-    if (!order) throw new Error("Không tìm thấy đơn hàng");
-    if (order.props.userId !== userId)
-      throw new Error("Không có quyền huỷ đơn");
+    if (order.userId !== userId) {
+      throw new Error("Bạn không có quyền hủy đơn hàng này");
+    }
 
-    if (!["pending"].includes(order.props.status))
-      throw new Error("Đơn hàng không thể huỷ");
+    if (order.status !== "pending" && order.status !== "processing") {
+      throw new Error("Đơn hàng không thể hủy ở trạng thái hiện tại");
+    }
 
-    await this.orderRepo.updateStatus(orderId, "cancelled");
+    // mở transaction
+    const t = await this.orderRepo.startTransaction();
 
-    return true;
+    try {
+      // cập nhật trạng thái đơn hàng
+      await this.orderRepo.updateStatus(orderId, "cancelled", t);
+
+      // ghi vào delivery history
+      await this.orderRepo.addDeliveryHistory(
+        orderId,
+        "cancelled",
+        null,
+        "Khách hàng đã hủy đơn",
+        t
+      );
+
+      // 🔥🔥🔥 TĂNG LẠI TỒN KHO
+      for (const item of order.items) {
+        await this.productRepo.increaseStock(item.productId, item.quantity, t);
+      }
+
+      await t.commit();
+
+      return { success: true };
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
   }
 }

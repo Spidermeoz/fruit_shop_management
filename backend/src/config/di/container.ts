@@ -346,10 +346,10 @@ export const usecases = {
     removeItem: new RemoveFromCart(cartRepo),
   },
   orders: {
-    createFromCart: new CreateOrderFromCart(orderRepo, cartRepo),
+    createFromCart: new CreateOrderFromCart(orderRepo, cartRepo, productRepo),
     myOrders: new GetMyOrders(orderRepo),
     myOrderDetail: new GetMyOrderDetail(orderRepo),
-    cancelMyOrder: new CancelMyOrder(orderRepo),
+    cancelMyOrder: new CancelMyOrder(orderRepo, productRepo),
 
     list: new ListOrders(orderRepo),
     detail: new GetOrderDetailAdmin(orderRepo),
