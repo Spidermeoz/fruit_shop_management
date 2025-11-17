@@ -45,6 +45,9 @@ export class SequelizeCartRepository implements CartRepository {
     return cart;
   }
 
+  // =====================================================
+  // ADD ITEM
+  // =====================================================
   async addItem(
     userId: number,
     productId: number,
@@ -86,6 +89,9 @@ export class SequelizeCartRepository implements CartRepository {
     return this.mapRow(withProduct ?? item);
   }
 
+  // =====================================================
+  // LIST ALL ITEMS
+  // =====================================================
   async listItems(userId: number): Promise<CartItemDTO[]> {
     const cart = await this.getOrCreateCart(userId);
 
@@ -104,6 +110,9 @@ export class SequelizeCartRepository implements CartRepository {
     return rows.map((r: any) => this.mapRow(r));
   }
 
+  // =====================================================
+  // UPDATE ITEM QUANTITY
+  // =====================================================
   async updateItem(
     userId: number,
     productId: number,
@@ -142,6 +151,9 @@ export class SequelizeCartRepository implements CartRepository {
     return this.mapRow(withProduct ?? item);
   }
 
+  // =====================================================
+  // REMOVE ITEM
+  // =====================================================
   async removeItem(userId: number, productId: number): Promise<void> {
     const cart = await this.getOrCreateCart(userId);
 
@@ -149,6 +161,50 @@ export class SequelizeCartRepository implements CartRepository {
       where: {
         cart_id: cart.id,
         product_id: productId,
+      },
+    });
+  }
+
+  // =====================================================
+  // LIST SELECTED ITEMS FOR CHECKOUT
+  // =====================================================
+  async listSelectedItems(
+    userId: number,
+    productIds: number[]
+  ): Promise<CartItemDTO[]> {
+    const cart = await this.getOrCreateCart(userId);
+
+    const rows = await this.models.CartItem.findAll({
+      where: {
+        cart_id: cart.id,
+        product_id: productIds,
+      },
+      include: [
+        {
+          model: this.models.Product,
+          as: "product",
+          attributes: ["id", "title", "price", "thumbnail", "slug"],
+        },
+      ],
+      order: [["created_at", "ASC"]],
+    });
+
+    return rows.map((r: any) => this.mapRow(r));
+  }
+
+  // =====================================================
+  // CLEAR ONLY SELECTED ITEMS AFTER CHECKOUT
+  // =====================================================
+  async clearSelectedItems(
+    userId: number,
+    productIds: number[]
+  ): Promise<void> {
+    const cart = await this.getOrCreateCart(userId);
+
+    await this.models.CartItem.destroy({
+      where: {
+        cart_id: cart.id,
+        product_id: productIds,
       },
     });
   }

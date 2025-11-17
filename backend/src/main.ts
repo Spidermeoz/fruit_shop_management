@@ -17,6 +17,8 @@ import clientCategoriesRoutes from "./interfaces/http/express/routes/client/clie
 import clientAuthRoutes from "./interfaces/http/express/routes/client/clientAuth.routes";
 import { clientForgotPasswordRoutes } from "./interfaces/http/express/routes/client/clientForgotPassword.routes";
 import { clientCartRoutes } from "./interfaces/http/express/routes/client/clientCart.routes";
+import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
+import { clientOrdersRoutes } from "./interfaces/http/express/routes/client/clientOrders.routes";
 
 const app = express();
 
@@ -63,6 +65,10 @@ app.use("/api/v1/admin/product-category", productCategoriesRoutes(controllers.ca
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
 app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
+app.use(
+  "/api/v1/admin/orders",
+  ordersRoutes(controllers.orders, auth, can)
+);
 
 // 5. Mount routes (client)
 app.use("/api/v1/client/products", clientProductsRoutes(clientControllers.products));
@@ -80,6 +86,10 @@ app.use(
 app.use(
   "/api/v1/client/cart",
   clientCartRoutes(clientControllers.cart, auth)
+);
+app.use(
+  "/api/v1/client/orders",
+  clientOrdersRoutes(clientControllers.orders, auth)
 );
 
 // Error middleware đơn giản

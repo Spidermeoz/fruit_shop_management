@@ -15,6 +15,15 @@ import CartModel from "../../infrastructure/db/sequelize/models/CartModel";
 import CartItemModel from "../../infrastructure/db/sequelize/models/CartItemModel";
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
 
+// Orders
+import OrderModel from "../../infrastructure/db/sequelize/models/OrderModel";
+import OrderItemModel from "../../infrastructure/db/sequelize/models/OrderItemModel";
+import OrderAddressModel from "../../infrastructure/db/sequelize/models/OrderAddressModel";
+import PaymentModel from "../../infrastructure/db/sequelize/models/PaymentModel";
+import DeliveryStatusHistoryModel from "../../infrastructure/db/sequelize/models/DeliveryStatusHistoryModel";
+
+import { SequelizeOrderRepository } from "../../infrastructure/repositories/SequelizeOrderRepository";
+
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
@@ -44,6 +53,7 @@ import { ClientResetPasswordController } from "../../interfaces/http/express/con
 // Client Cart controller
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
 import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
+import { makeClientOrdersController } from "../../interfaces/http/express/controllers/client/ClientOrdersController";
 
 // Upload DI
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -115,6 +125,16 @@ import { makeClientCategoriesController } from "../../interfaces/http/express/co
 
 import { RegisterClient } from "../../application/auth/usecases/RegisterClient";
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
+import { CreateOrderFromCart } from "../../application/orders/client/CreateOrderFromCart";
+import { GetMyOrders } from "../../application/orders/client/GetMyOrders";
+import { AddDeliveryHistory } from "../../application/orders/admin/AddDeliveryHistory";
+import { AddPayment } from "../../application/orders/admin/AddPayment";
+import { GetOrderDetailAdmin } from "../../application/orders/admin/GetOrderDetailAdmin";
+import { ListOrders } from "../../application/orders/admin/ListOrders";
+import { UpdateOrderStatus } from "../../application/orders/admin/UpdateOrderStatus";
+import { CancelMyOrder } from "../../application/orders/client/CancelMyOrder";
+import { GetMyOrderDetail } from "../../application/orders/client/GetMyOrderDetail";
+import { makeOrdersController, OrdersController } from "../../interfaces/http/express/controllers/OrdersController";
 // import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
@@ -160,6 +180,62 @@ CartItemModel.belongsTo(ProductModel, {
   foreignKey: "product_id",
 });
 
+// Order → User
+OrderModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+UserModel.hasMany(OrderModel, {
+  as: "orders",
+  foreignKey: "user_id",
+});
+
+// Order → Items
+OrderModel.hasMany(OrderItemModel, {
+  as: "items",
+  foreignKey: "order_id",
+});
+OrderItemModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+
+// OrderItem → Product (nullable)
+OrderItemModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+
+// Order → Address (1-1)
+OrderModel.hasOne(OrderAddressModel, {
+  as: "address",
+  foreignKey: "order_id",
+});
+OrderAddressModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+
+// Order → Payments
+OrderModel.hasMany(PaymentModel, {
+  as: "payments",
+  foreignKey: "order_id",
+});
+PaymentModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+
+// Order → Delivery History
+OrderModel.hasMany(DeliveryStatusHistoryModel, {
+  as: "deliveryHistory",
+  foreignKey: "order_id",
+});
+DeliveryStatusHistoryModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
@@ -185,6 +261,17 @@ const cartModels = {
   Product: ProductModel,
 };
 const cartRepo = new SequelizeCartRepository(cartModels);
+
+const orderModels = {
+  Order: OrderModel,
+  OrderItem: OrderItemModel,
+  OrderAddress: OrderAddressModel,
+  Payment: PaymentModel,
+  DeliveryStatusHistory: DeliveryStatusHistoryModel,
+  Product: ProductModel, // để check lại product info trong repo
+};
+
+const orderRepo = new SequelizeOrderRepository(orderModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -258,6 +345,18 @@ export const usecases = {
     updateItem: new UpdateCartItem(cartRepo),
     removeItem: new RemoveFromCart(cartRepo),
   },
+  orders: {
+    createFromCart: new CreateOrderFromCart(orderRepo, cartRepo),
+    myOrders: new GetMyOrders(orderRepo),
+    myOrderDetail: new GetMyOrderDetail(orderRepo),
+    cancelMyOrder: new CancelMyOrder(orderRepo),
+
+    list: new ListOrders(orderRepo),
+    detail: new GetOrderDetailAdmin(orderRepo),
+    updateStatus: new UpdateOrderStatus(orderRepo),
+    addDeliveryStatus: new AddDeliveryHistory(orderRepo),
+    addPayment: new AddPayment(orderRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -268,6 +367,7 @@ type Controllers = {
   roles: RolesController;
   users: UsersController;
   auth: AuthController;
+  orders: OrdersController;
 };
 
 export const controllers: Controllers = {
@@ -320,6 +420,13 @@ export const controllers: Controllers = {
     refresh: usecases.auth.refresh,
     me: usecases.auth.me,
   }),
+  orders: makeOrdersController({
+    list: usecases.orders.list,
+    detail: usecases.orders.detail,
+    updateStatus: usecases.orders.updateStatus,
+    addDeliveryStatus: usecases.orders.addDeliveryStatus,
+    addPayment: usecases.orders.addPayment,
+  }),
 };
 
 export const clientControllers = {
@@ -356,5 +463,11 @@ export const clientControllers = {
     listItems: usecases.carts.listItems,
     updateItem: usecases.carts.updateItem,
     removeItem: usecases.carts.removeItem,
+  }),
+  orders: makeClientOrdersController({
+    createFromCart: usecases.orders.createFromCart,
+    myOrders: usecases.orders.myOrders,
+    myOrderDetail: usecases.orders.myOrderDetail,
+    cancelMyOrder: usecases.orders.cancelMyOrder,
   }),
 } as const;
