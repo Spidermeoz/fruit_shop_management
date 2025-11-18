@@ -155,14 +155,19 @@ export class SequelizeProductRepository implements ProductRepository {
     let position = input.position ?? null;
 
     if (position == null) {
+      const normalizedCategoryId =
+        input.categoryId && Number(input.categoryId) > 0
+          ? Number(input.categoryId)
+          : null;
+
       const where: any = {
-        product_category_id: input.categoryId ?? null,
+        product_category_id: normalizedCategoryId,
         deleted: 0,
       };
 
       // Lấy vị trí cao nhất hiện có trong cùng category
-      const maxPos: number =
-        (await this.models.Product.max("position", { where })) || 0;
+      let maxPos = await this.models.Product.max("position", { where });
+      maxPos = Number(maxPos) || 0;
       position = maxPos + 1;
     }
 
@@ -228,8 +233,6 @@ export class SequelizeProductRepository implements ProductRepository {
     if (patch.deleted !== undefined) values.deleted = patch.deleted ? 1 : 0;
     if (patch.deleted === true) values.deleted_at = new Date();
     if (patch.deleted === false) values.deleted_at = null;
-    if (patch.updatedById !== undefined)
-      values.updated_by_id = patch.updatedById;
 
     const [affected] = await this.models.Product.update(values, {
       where: { id: { [Op.in]: ids } },
@@ -246,8 +249,7 @@ export class SequelizeProductRepository implements ProductRepository {
     const whenClauses = pairs
       .map((p) => `WHEN ${Number(p.id)} THEN ${Number(p.position)}`)
       .join(" ");
-    const setUpdated =
-      typeof updatedById === "number" ? ", updated_by_id = :updatedById" : "";
+    const setUpdated = "";
     const sql = `
     UPDATE products
     SET position = CASE id ${whenClauses} END
