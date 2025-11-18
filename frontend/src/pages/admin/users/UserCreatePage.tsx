@@ -26,7 +26,13 @@ interface UserFormData {
 }
 
 type ApiList<T> = { success: true; data: T[]; meta?: any };
-type ApiOk = { success: true; data?: any; url?: string; meta?: any; errors?: any };
+type ApiOk = {
+  success: true;
+  data?: any;
+  url?: string;
+  meta?: any;
+  errors?: any;
+};
 
 const UserCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -45,7 +51,11 @@ const UserCreatePage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [errors, setErrors] = useState<Partial<Record<keyof UserFormData, string>>>({});
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof UserFormData, string>>
+  >({});
+  const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
+  const [imageUrl, setImageUrl] = useState<string>("");
 
   // 🔹 Lấy danh sách roles (dùng http)
   useEffect(() => {
@@ -118,8 +128,8 @@ const UserCreatePage: React.FC = () => {
 
       let uploadedAvatarUrl = formData.avatar;
 
-      // 🖼 Upload avatar (dùng http + FormData)
-      if (selectedFile) {
+      // 🖼 Upload avatar (dùng http + FormData) nếu chọn phương thức upload
+      if (imageMethod === "upload" && selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
         const up = await http<ApiOk>(
@@ -129,10 +139,16 @@ const UserCreatePage: React.FC = () => {
         );
         uploadedAvatarUrl = up?.data?.url || up?.url || "";
         if (!uploadedAvatarUrl) {
-          setErrors({ avatar: "Không thể upload ảnh đại diện. Vui lòng thử lại." });
+          setErrors({
+            avatar: "Không thể upload ảnh đại diện. Vui lòng thử lại.",
+          });
           setLoading(false);
           return;
         }
+      }
+      // 🖼 Sử dụng URL trực tiếp nếu chọn phương thức URL
+      else if (imageMethod === "url" && imageUrl) {
+        uploadedAvatarUrl = imageUrl;
       }
 
       // 📨 Gửi dữ liệu lên server (giữ snake_case)
@@ -199,9 +215,13 @@ const UserCreatePage: React.FC = () => {
             value={formData.full_name}
             onChange={handleChange}
             placeholder="Nhập họ và tên..."
-            className={`w-full border ${errors.full_name ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.full_name ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
-          {errors.full_name && <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>}
+          {errors.full_name && (
+            <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>
+          )}
         </div>
 
         {/* Email */}
@@ -215,9 +235,13 @@ const UserCreatePage: React.FC = () => {
             value={formData.email}
             onChange={handleChange}
             placeholder="Nhập địa chỉ email..."
-            className={`w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.email ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
-          {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email}</p>}
+          {errors.email && (
+            <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+          )}
         </div>
 
         {/* Mật khẩu */}
@@ -231,9 +255,13 @@ const UserCreatePage: React.FC = () => {
             value={formData.password}
             onChange={handleChange}
             placeholder="Nhập mật khẩu..."
-            className={`w-full border ${errors.password ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.password ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
-          {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password}</p>}
+          {errors.password && (
+            <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+          )}
         </div>
 
         {/* Số điện thoại */}
@@ -247,9 +275,13 @@ const UserCreatePage: React.FC = () => {
             value={formData.phone}
             onChange={handleChange}
             placeholder="Nhập số điện thoại..."
-            className={`w-full border ${errors.phone ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.phone ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
-          {errors.phone && <p className="text-sm text-red-600 mt-1">{errors.phone}</p>}
+          {errors.phone && (
+            <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
+          )}
         </div>
 
         {/* Vai trò */}
@@ -261,7 +293,9 @@ const UserCreatePage: React.FC = () => {
             name="role_id"
             value={formData.role_id}
             onChange={handleChange}
-            className={`w-full border ${errors.role_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.role_id ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           >
             <option value="">-- Chọn vai trò --</option>
             {roles.map((role) => (
@@ -270,7 +304,9 @@ const UserCreatePage: React.FC = () => {
               </option>
             ))}
           </select>
-          {errors.role_id && <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>}
+          {errors.role_id && (
+            <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>
+          )}
         </div>
 
         {/* Ảnh đại diện */}
@@ -278,8 +314,64 @@ const UserCreatePage: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Ảnh đại diện
           </label>
-          <input type="file" accept="image/*" onChange={handleImageSelect} />
-          {errors.avatar && <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>}
+
+          {/* Tab chọn phương thức */}
+          <div className="flex mb-3">
+            <button
+              type="button"
+              className={`px-4 py-2 mr-2 rounded ${
+                imageMethod === "upload"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("upload")}
+            >
+              Upload ảnh
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${
+                imageMethod === "url"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("url")}
+            >
+              Nhập URL
+            </button>
+          </div>
+
+          {/* Nội dung theo phương thức */}
+          {imageMethod === "upload" ? (
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+              />
+            </div>
+          ) : (
+            <div>
+              <input
+                type="url"
+                placeholder="Nhập URL ảnh đại diện"
+                value={imageUrl}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  setPreviewImage(e.target.value);
+                  setFormData((prev) => ({ ...prev, avatar: e.target.value }));
+                }}
+                className={`w-full border ${
+                  errors.avatar ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              />
+            </div>
+          )}
+
+          {errors.avatar && (
+            <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
+          )}
+
           {previewImage && (
             <div className="mt-3 relative w-fit">
               <img
@@ -291,6 +383,7 @@ const UserCreatePage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setSelectedFile(null);
+                  setImageUrl("");
                   setPreviewImage("");
                 }}
                 className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"

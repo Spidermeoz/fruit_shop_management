@@ -36,6 +36,8 @@ const ProductCategoryCreatePage: React.FC = () => {
   // ✅ Preview thumbnail & file
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
+  const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
+  const [imageUrl, setImageUrl] = useState<string>("");
 
   const [formData, setFormData] = useState<CategoryFormData>({
     parent_id: null,
@@ -118,8 +120,8 @@ const ProductCategoryCreatePage: React.FC = () => {
 
       let uploadedThumbnailUrl = formData.thumbnail;
 
-      // 🔹 Nếu chọn ảnh → upload thumbnail
-      if (selectedFile) {
+      // 🔹 Nếu chọn phương thức upload và có file ảnh → upload thumbnail
+      if (imageMethod === "upload" && selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
         const uploadRes = await http<ApiOk>(
@@ -127,8 +129,7 @@ const ProductCategoryCreatePage: React.FC = () => {
           "/api/v1/admin/upload",
           formDataImg
         );
-        uploadedThumbnailUrl =
-          uploadRes?.data?.url || uploadRes?.url || "";
+        uploadedThumbnailUrl = uploadRes?.data?.url || uploadRes?.url || "";
         if (!uploadedThumbnailUrl) {
           setErrors({
             thumbnail: "Không thể upload ảnh minh họa. Vui lòng thử lại.",
@@ -136,6 +137,10 @@ const ProductCategoryCreatePage: React.FC = () => {
           setLoading(false);
           return;
         }
+      }
+      // 🔹 Nếu chọn phương thức URL, sử dụng trực tiếp URL đã nhập
+      else if (imageMethod === "url" && imageUrl) {
+        uploadedThumbnailUrl = imageUrl;
       }
 
       // 🔹 Upload ảnh trong nội dung TinyMCE
@@ -211,7 +216,9 @@ const ProductCategoryCreatePage: React.FC = () => {
                 setErrors((prev) => ({ ...prev, parent_id: undefined }));
               }
             }}
-            className={`w-full border ${errors.parent_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.parent_id ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           >
             <option value="">-- Không có (danh mục gốc) --</option>
             {parentCategories.map((cat) => (
@@ -220,7 +227,9 @@ const ProductCategoryCreatePage: React.FC = () => {
               </option>
             ))}
           </select>
-          {errors.parent_id && <p className="text-sm text-red-600 mt-1">{errors.parent_id}</p>}
+          {errors.parent_id && (
+            <p className="text-sm text-red-600 mt-1">{errors.parent_id}</p>
+          )}
         </div>
 
         {/* --- Tên danh mục --- */}
@@ -233,9 +242,13 @@ const ProductCategoryCreatePage: React.FC = () => {
             name="title"
             value={formData.title}
             onChange={handleInputChange}
-            className={`w-full border ${errors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            className={`w-full border ${
+              errors.title ? "border-red-500" : "border-gray-300"
+            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           />
-          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
+          {errors.title && (
+            <p className="text-sm text-red-600 mt-1">{errors.title}</p>
+          )}
         </div>
 
         {/* --- Mô tả --- */}
@@ -256,8 +269,67 @@ const ProductCategoryCreatePage: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Ảnh minh họa
           </label>
-          <input type="file" accept="image/*" onChange={handleImageSelect} />
-          {errors.thumbnail && <p className="text-sm text-red-600 mt-1">{errors.thumbnail}</p>}
+
+          {/* Tab chọn phương thức */}
+          <div className="flex mb-3">
+            <button
+              type="button"
+              className={`px-4 py-2 mr-2 rounded ${
+                imageMethod === "upload"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("upload")}
+            >
+              Upload ảnh
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${
+                imageMethod === "url"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("url")}
+            >
+              Nhập URL
+            </button>
+          </div>
+
+          {/* Nội dung theo phương thức */}
+          {imageMethod === "upload" ? (
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+              />
+            </div>
+          ) : (
+            <div>
+              <input
+                type="url"
+                placeholder="Nhập URL ảnh"
+                value={imageUrl}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  setPreviewImage(e.target.value);
+                  setFormData((prev) => ({
+                    ...prev,
+                    thumbnail: e.target.value,
+                  }));
+                }}
+                className={`w-full border ${
+                  errors.thumbnail ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              />
+            </div>
+          )}
+
+          {errors.thumbnail && (
+            <p className="text-sm text-red-600 mt-1">{errors.thumbnail}</p>
+          )}
+
           {previewImage && (
             <div className="mt-3">
               <img

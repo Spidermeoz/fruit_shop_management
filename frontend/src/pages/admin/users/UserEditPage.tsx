@@ -53,6 +53,10 @@ const UserEditPage: React.FC = () => {
       confirmPassword?: string;
     }
   >({});
+  const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
+    "keep"
+  );
+  const [imageUrl, setImageUrl] = useState<string>("");
 
   // 🔹 Lấy dữ liệu user
   const fetchUser = async () => {
@@ -156,7 +160,7 @@ const UserEditPage: React.FC = () => {
       let avatarUrl = user.avatar;
 
       // 🖼 Upload avatar mới nếu có chọn (dùng http + FormData)
-      if (selectedFile) {
+      if (imageMethod === "upload" && selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
 
@@ -172,6 +176,14 @@ const UserEditPage: React.FC = () => {
           return;
         }
         avatarUrl = url;
+      }
+      // 🖼 Sử dụng URL trực tiếp nếu chọn phương thức URL
+      else if (imageMethod === "url" && imageUrl) {
+        avatarUrl = imageUrl;
+      }
+      // 🖼 Giữ nguyên URL hiện tại nếu chọn phương thức keep
+      else if (imageMethod === "keep") {
+        avatarUrl = user.avatar;
       }
 
       const body: any = {
@@ -355,10 +367,84 @@ const UserEditPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Ảnh đại diện
             </label>
-            <input type="file" accept="image/*" onChange={handleImageSelect} />
+
+            {/* Tab chọn phương thức */}
+            <div className="flex mb-3">
+              <button
+                type="button"
+                className={`px-4 py-2 mr-2 rounded ${
+                  imageMethod === "upload"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => setImageMethod("upload")}
+              >
+                Upload ảnh mới
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded ${
+                  imageMethod === "url"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => setImageMethod("url")}
+              >
+                Nhập URL
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded ${
+                  imageMethod === "keep"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => {
+                  setImageMethod("keep");
+                  setPreviewImage(user.avatar || "");
+                }}
+              >
+                Giữ ảnh hiện tại
+              </button>
+            </div>
+
+            {/* Nội dung theo phương thức */}
+            {imageMethod === "upload" ? (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                />
+              </div>
+            ) : imageMethod === "url" ? (
+              <div>
+                <input
+                  type="url"
+                  placeholder="Nhập URL ảnh đại diện"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setPreviewImage(e.target.value);
+                    setUser((prev) =>
+                      prev ? { ...prev, avatar: e.target.value } : prev
+                    );
+                  }}
+                  className={`w-full border ${
+                    errors.avatar ? "border-red-500" : "border-gray-300"
+                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                />
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Sẽ giữ nguyên ảnh hiện tại
+              </div>
+            )}
+
             {errors.avatar && (
               <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
             )}
+
             {previewImage && (
               <div className="mt-3 relative w-fit">
                 <img
@@ -366,16 +452,20 @@ const UserEditPage: React.FC = () => {
                   alt="preview"
                   className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setPreviewImage(user.avatar || "");
-                  }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
-                >
-                  ×
-                </button>
+                {imageMethod !== "keep" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setImageUrl("");
+                      setImageMethod("keep");
+                      setPreviewImage(user.avatar || "");
+                    }}
+                    className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             )}
           </div>

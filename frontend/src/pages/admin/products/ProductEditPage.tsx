@@ -51,7 +51,10 @@ const ProductEditPage: React.FC = () => {
   // ✅ file ảnh mới (chưa upload)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
-
+  const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
+    "keep"
+  );
+  const [imageUrl, setImageUrl] = useState<string>("");
   // 🔹 Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
     try {
@@ -107,12 +110,7 @@ const ProductEditPage: React.FC = () => {
       prev
         ? {
             ...prev,
-            [name]:
-              type === "checkbox"
-                ? checked
-                  ? 1
-                  : 0
-                : value,
+            [name]: type === "checkbox" ? (checked ? 1 : 0) : value,
           }
         : prev
     );
@@ -152,7 +150,11 @@ const ProductEditPage: React.FC = () => {
     if (!product.price || Number(product.price) <= 0) {
       newErrors.price = "Vui lòng nhập giá sản phẩm hợp lệ (lớn hơn 0).";
     }
-    if (product.stock === '' || product.stock === null || Number(product.stock) < 0) {
+    if (
+      product.stock === "" ||
+      product.stock === null ||
+      Number(product.stock) < 0
+    ) {
       newErrors.stock = "Vui lòng nhập số lượng tồn kho (không được âm).";
     }
 
@@ -164,7 +166,7 @@ const ProductEditPage: React.FC = () => {
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!product) return;
-    
+
     if (!validateForm()) {
       return;
     }
@@ -186,7 +188,8 @@ const ProductEditPage: React.FC = () => {
 
         if (dataUpload.success && dataUpload.data?.url) {
           thumbnailUrl = dataUpload.data.url;
-        } else if (dataUpload.url) { // fallback
+        } else if (dataUpload.url) {
+          // fallback
           thumbnailUrl = dataUpload.url;
         } else {
           setFormErrors({ thumbnail: "Lỗi tải ảnh thumbnail lên máy chủ." });
@@ -208,7 +211,7 @@ const ProductEditPage: React.FC = () => {
         price: Number(product.price),
         stock: Number(product.stock),
         discountPercentage: Number(product.discount_percentage),
-        position: product.position === '' ? null : Number(product.position),
+        position: product.position === "" ? null : Number(product.position),
         featured: Boolean(Number(product.featured)),
       };
       // Chuyển product_category_id thành categoryId cho backend
@@ -256,7 +259,8 @@ const ProductEditPage: React.FC = () => {
     );
   }
 
-  if (fetchError) return <p className="text-center text-red-500 py-10">{fetchError}</p>;
+  if (fetchError)
+    return <p className="text-center text-red-500 py-10">{fetchError}</p>;
   if (!product) return null;
 
   return (
@@ -284,14 +288,22 @@ const ProductEditPage: React.FC = () => {
               name="product_category_id"
               value={product.product_category_id || ""}
               onChange={handleChange}
-              className={`w-full border ${formErrors.product_category_id ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              className={`w-full border ${
+                formErrors.product_category_id
+                  ? "border-red-500"
+                  : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             >
               <option value="" disabled>
                 -- Chọn danh mục --
               </option>
               {renderCategoryOptions(buildCategoryTree(categories))}
             </select>
-            {formErrors.product_category_id && <p className="text-sm text-red-600 mt-1">{formErrors.product_category_id}</p>}
+            {formErrors.product_category_id && (
+              <p className="text-sm text-red-600 mt-1">
+                {formErrors.product_category_id}
+              </p>
+            )}
           </div>
 
           {/* Tên sản phẩm */}
@@ -304,9 +316,13 @@ const ProductEditPage: React.FC = () => {
               name="title"
               value={product.title || ""}
               onChange={handleChange}
-              className={`w-full border ${formErrors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              className={`w-full border ${
+                formErrors.title ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
             />
-            {formErrors.title && <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>}
+            {formErrors.title && (
+              <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>
+            )}
           </div>
 
           {/* Mô tả */}
@@ -326,9 +342,13 @@ const ProductEditPage: React.FC = () => {
                 name="price"
                 value={product.price || ""}
                 onChange={handleChange}
-                className={`w-full border ${formErrors.price ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                className={`w-full border ${
+                  formErrors.price ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
               />
-              {formErrors.price && <p className="text-sm text-red-600 mt-1">{formErrors.price}</p>}
+              {formErrors.price && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.price}</p>
+              )}
             </div>
 
             <div>
@@ -354,11 +374,15 @@ const ProductEditPage: React.FC = () => {
               <input
                 type="number"
                 name="stock"
-                value={product.stock || ''}
+                value={product.stock || ""}
                 onChange={handleChange}
-                className={`w-full border ${formErrors.stock ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                className={`w-full border ${
+                  formErrors.stock ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
               />
-              {formErrors.stock && <p className="text-sm text-red-600 mt-1">{formErrors.stock}</p>}
+              {formErrors.stock && (
+                <p className="text-sm text-red-600 mt-1">{formErrors.stock}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -380,8 +404,86 @@ const ProductEditPage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
               Ảnh sản phẩm
             </label>
-            <input type="file" accept="image/*" onChange={handleImageSelect} />
-            {formErrors.thumbnail && <p className="text-sm text-red-600 mt-1">{formErrors.thumbnail}</p>}
+
+            {/* Tab chọn phương thức */}
+            <div className="flex mb-3">
+              <button
+                type="button"
+                className={`px-4 py-2 mr-2 rounded ${
+                  imageMethod === "upload"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => setImageMethod("upload")}
+              >
+                Upload ảnh mới
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded ${
+                  imageMethod === "url"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => setImageMethod("url")}
+              >
+                Nhập URL
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded ${
+                  imageMethod === "keep"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700"
+                }`}
+                onClick={() => {
+                  setImageMethod("keep");
+                  setPreviewImage(product.thumbnail);
+                }}
+              >
+                Giữ ảnh hiện tại
+              </button>
+            </div>
+
+            {/* Nội dung theo phương thức */}
+            {imageMethod === "upload" ? (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                />
+              </div>
+            ) : imageMethod === "url" ? (
+              <div>
+                <input
+                  type="url"
+                  placeholder="Nhập URL ảnh"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setPreviewImage(e.target.value);
+                    setProduct((prev) =>
+                      prev ? { ...prev, thumbnail: e.target.value } : prev
+                    );
+                  }}
+                  className={`w-full border ${
+                    formErrors.thumbnail ? "border-red-500" : "border-gray-300"
+                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                />
+              </div>
+            ) : (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Sẽ giữ nguyên ảnh hiện tại
+              </div>
+            )}
+
+            {formErrors.thumbnail && (
+              <p className="text-sm text-red-600 mt-1">
+                {formErrors.thumbnail}
+              </p>
+            )}
+
             {previewImage && (
               <div className="mt-3 relative w-fit">
                 <img
@@ -389,16 +491,20 @@ const ProductEditPage: React.FC = () => {
                   alt="preview"
                   className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
                 />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedFile(null);
-                    setPreviewImage(product.thumbnail); // Revert to original
-                  }}
-                  className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
-                >
-                  ×
-                </button>
+                {imageMethod !== "keep" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setImageUrl("");
+                      setImageMethod("keep");
+                      setPreviewImage(product.thumbnail);
+                    }}
+                    className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
             )}
           </div>

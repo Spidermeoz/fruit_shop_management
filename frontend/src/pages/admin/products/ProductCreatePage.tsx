@@ -53,6 +53,9 @@ const ProductCreatePage: React.FC = () => {
   // ✅ preview ảnh local
   const [previewImage, setPreviewImage] = useState<string>("");
 
+  const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
+  const [imageUrl, setImageUrl] = useState<string>("");
+
   const [formData, setFormData] = useState<ProductFormData>({
     product_category_id: "", // Start with empty
     title: "",
@@ -249,7 +252,6 @@ const ProductCreatePage: React.FC = () => {
             <p className="text-sm text-red-600 mt-1">{errors.title}</p>
           )}
         </div>
-
         {/* --- Danh mục --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -260,9 +262,7 @@ const ProductCreatePage: React.FC = () => {
             value={formData.product_category_id}
             onChange={handleInputChange}
             className={`w-full border ${
-              errors.product_category_id
-                ? "border-red-500"
-                : "border-gray-300"
+              errors.product_category_id ? "border-red-500" : "border-gray-300"
             } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
           >
             <option value="" disabled>
@@ -276,7 +276,6 @@ const ProductCreatePage: React.FC = () => {
             </p>
           )}
         </div>
-
         {/* --- Mô tả sản phẩm --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -289,7 +288,6 @@ const ProductCreatePage: React.FC = () => {
             }
           />
         </div>
-
         {/* --- Giá & Giảm giá --- */}
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -326,7 +324,6 @@ const ProductCreatePage: React.FC = () => {
             />
           </div>
         </div>
-
         {/* --- Số lượng tồn --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -346,15 +343,72 @@ const ProductCreatePage: React.FC = () => {
           )}
         </div>
 
-        {/* --- Ảnh minh họa --- */}
+        {/* Ảnh minh họa */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
             Ảnh minh họa
           </label>
-          <input type="file" accept="image/*" onChange={handleImageSelect} />
+
+          {/* Tab chọn phương thức */}
+          <div className="flex mb-3">
+            <button
+              type="button"
+              className={`px-4 py-2 mr-2 rounded ${
+                imageMethod === "upload"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("upload")}
+            >
+              Upload ảnh
+            </button>
+            <button
+              type="button"
+              className={`px-4 py-2 rounded ${
+                imageMethod === "url"
+                  ? "bg-blue-600 text-white"
+                  : "bg-gray-200 text-gray-700"
+              }`}
+              onClick={() => setImageMethod("url")}
+            >
+              Nhập URL
+            </button>
+          </div>
+
+          {/* Nội dung theo phương thức */}
+          {imageMethod === "upload" ? (
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+              />
+            </div>
+          ) : (
+            <div>
+              <input
+                type="url"
+                placeholder="Nhập URL ảnh"
+                value={imageUrl}
+                onChange={(e) => {
+                  setImageUrl(e.target.value);
+                  setPreviewImage(e.target.value);
+                  setFormData((prev) => ({
+                    ...prev,
+                    thumbnail: e.target.value,
+                  }));
+                }}
+                className={`w-full border ${
+                  errors.thumbnail ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              />
+            </div>
+          )}
+
           {errors.thumbnail && (
             <p className="text-sm text-red-600 mt-1">{errors.thumbnail}</p>
           )}
+
           {previewImage && (
             <div className="mt-3">
               <img
@@ -365,7 +419,6 @@ const ProductCreatePage: React.FC = () => {
             </div>
           )}
         </div>
-
         {/* --- Vị trí hiển thị --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -380,7 +433,6 @@ const ProductCreatePage: React.FC = () => {
             className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
-
         {/* --- Trạng thái sản phẩm --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -415,7 +467,6 @@ const ProductCreatePage: React.FC = () => {
             </label>
           </div>
         </div>
-
         {/* --- Sản phẩm nổi bật --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -448,7 +499,6 @@ const ProductCreatePage: React.FC = () => {
             </label>
           </div>
         </div>
-
         {/* --- Nút hành động --- */}
         <div className="flex justify-end gap-3 mt-6">
           <button
