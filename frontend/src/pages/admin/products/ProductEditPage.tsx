@@ -80,7 +80,7 @@ const ProductEditPage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const json = await http<any>("GET", "/api/v1/admin/product-category");
+        const json = await http<any>("GET", "/api/v1/admin/product-category?limit=100");
         if (json.success && Array.isArray(json.data)) {
           const normalized = json.data.map((c: any) => ({
             ...c,

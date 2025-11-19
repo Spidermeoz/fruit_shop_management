@@ -22,7 +22,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             status: h.status,
             location: h.location,
             note: h.note,
-            createdAt: h.created_at,
+            createdAt: h.created_at ?? h.createdAt, // FIX casing
           }))
         : [],
       code: row.code,
@@ -169,6 +169,7 @@ export class SequelizeOrderRepository implements OrderRepository {
       include: [
         { model: this.models.OrderItem, as: "items" },
         { model: this.models.OrderAddress, as: "address" },
+        { model: this.models.DeliveryStatusHistory, as: "deliveryHistory" },
       ],
       order: [["created_at", "DESC"]],
       limit,
