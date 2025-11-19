@@ -36,6 +36,7 @@ const ProductListPage: React.FC = () => {
   const productsPerPage = 12;
 
   const categorySlug = searchParams.get("category");
+  const activeCategory = categories.find((cat) => cat.slug === categorySlug);
 
   // ✅ Lấy danh mục từ API
   useEffect(() => {
@@ -43,7 +44,9 @@ const ProductListPage: React.FC = () => {
       try {
         const res = await http("GET", "/api/v1/client/categories");
         if (res?.success && Array.isArray(res.data)) {
-          setCategories(res.data.filter((c: { status: string; }) => c.status === "active"));
+          setCategories(
+            res.data.filter((c: { status: string }) => c.status === "active")
+          );
         }
       } catch (err) {
         console.error("Lỗi tải danh mục:", err);
@@ -67,7 +70,8 @@ const ProductListPage: React.FC = () => {
         if (categorySlug) params.set("category", categorySlug);
         if (searchTerm) params.set("q", searchTerm); // Backend dùng 'q'
         if (priceRange[0] > 0) params.set("minPrice", priceRange[0].toString());
-        if (priceRange[1] < 1000000) params.set("maxPrice", priceRange[1].toString());
+        if (priceRange[1] < 1000000)
+          params.set("maxPrice", priceRange[1].toString());
 
         // Map sortBy của frontend với tham số của backend
         if (sortBy === "price-asc") {
@@ -138,9 +142,7 @@ const ProductListPage: React.FC = () => {
         </div>
         <div className="relative z-10">
           <h1 className="text-4xl font-bold text-green-800 mb-2">
-            {categorySlug
-              ? categorySlug.replace(/_/g, " ")
-              : "Cửa hàng trái cây"}
+            {activeCategory ? activeCategory.title : "Cửa hàng trái cây"}
           </h1>
           <p className="text-gray-700">
             Khám phá những loại trái cây tươi ngon nhất từ khắp nơi trên thế
@@ -295,7 +297,13 @@ const ProductListPage: React.FC = () => {
                   <p className="text-gray-600">
                     {total > 0 ? (
                       <>
-                        Hiển thị <span className="font-semibold">{(currentPage - 1) * productsPerPage + 1} - {Math.min(currentPage * productsPerPage, total)}</span> / <span className="font-semibold">{total}</span> sản phẩm
+                        Hiển thị{" "}
+                        <span className="font-semibold">
+                          {(currentPage - 1) * productsPerPage + 1} -{" "}
+                          {Math.min(currentPage * productsPerPage, total)}
+                        </span>{" "}
+                        / <span className="font-semibold">{total}</span> sản
+                        phẩm
                       </>
                     ) : (
                       "Không có sản phẩm nào"
@@ -320,11 +328,12 @@ const ProductListPage: React.FC = () => {
                               alt={product.title}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                             />
-                            {product.discountPercentage && product.discountPercentage > 0 && (
-                              <div className="absolute top-4 left-4 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
-                                -{product.discountPercentage}%
-                              </div>
-                            )}
+                            {product.discountPercentage &&
+                              product.discountPercentage > 0 && (
+                                <div className="absolute top-4 left-4 bg-red-500 text-white px-2 py-1 rounded text-sm font-medium">
+                                  -{product.discountPercentage}%
+                                </div>
+                              )}
                             {product.stock <= 0 && (
                               <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                                 <span className="text-white font-semibold text-lg">
@@ -341,7 +350,8 @@ const ProductListPage: React.FC = () => {
                               {product.title}
                             </h3>
                             <div className="flex items-center justify-between mb-3">
-                              {product.discountPercentage && product.discountPercentage > 0 ? (
+                              {product.discountPercentage &&
+                              product.discountPercentage > 0 ? (
                                 <>
                                   <span className="text-lg font-bold text-green-700">
                                     {product.effectivePrice.toLocaleString()} đ
@@ -372,7 +382,9 @@ const ProductListPage: React.FC = () => {
                       <div className="flex justify-center mt-10">
                         <nav className="flex items-center space-x-2">
                           <button
-                            onClick={() => currentPage > 1 && setCurrentPage(currentPage - 1)}
+                            onClick={() =>
+                              currentPage > 1 && setCurrentPage(currentPage - 1)
+                            }
                             disabled={currentPage === 1}
                             className={`px-3 py-2 rounded-lg ${
                               currentPage === 1
@@ -396,7 +408,10 @@ const ProductListPage: React.FC = () => {
                             </button>
                           ))}
                           <button
-                            onClick={() => currentPage < totalPages && setCurrentPage(currentPage + 1)}
+                            onClick={() =>
+                              currentPage < totalPages &&
+                              setCurrentPage(currentPage + 1)
+                            }
                             disabled={currentPage === totalPages}
                             className={`px-3 py-2 rounded-lg ${
                               currentPage === totalPages
@@ -425,7 +440,10 @@ const ProductListPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-gray-100 border-t py-8 mt-16 text-center text-gray-600 text-sm">
-        <p>© {new Date().getFullYear()} FreshFruits. Tất cả các quyền được bảo lưu.</p>
+        <p>
+          © {new Date().getFullYear()} FreshFruits. Tất cả các quyền được bảo
+          lưu.
+        </p>
         <p className="mt-1">
           Thiết kế & phát triển bởi{" "}
           <span className="text-green-600 font-medium">FruitShop Team</span>
