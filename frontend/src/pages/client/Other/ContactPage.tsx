@@ -55,7 +55,7 @@ const ContactPage: React.FC = () => {
   const contactInfo = [
     {
       title: "Địa chỉ",
-      content: "123 Đường Trái Cây, Phường 1, Quận 1, TP. Hồ Chí Minh",
+      content: "Đại học Thăng Long, Nghiêm Xuân Yêm, Hà Nội",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -65,7 +65,7 @@ const ContactPage: React.FC = () => {
     },
     {
       title: "Email",
-      content: "info@freshfruits.vn",
+      content: "Test@gmail.com",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -74,7 +74,7 @@ const ContactPage: React.FC = () => {
     },
     {
       title: "Điện thoại",
-      content: "(028) 1234 5678",
+      content: "01234 567 890",
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
@@ -291,16 +291,24 @@ const ContactPage: React.FC = () => {
             <div>
               <h3 className="text-lg font-medium text-gray-800 mb-4">Theo dõi chúng tôi</h3>
               <div className="flex space-x-4">
-                {socialLinks.map((social, index) => (
+                
                   <a
-                    key={index}
-                    href={social.url}
-                    className="text-gray-600 hover:text-green-600 transition"
-                    aria-label={social.name}
+                  href="https://github.com/Spidermeoz/fruit_shop_management"
+                  className="hover:text-green-300 transition"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    {social.icon}
-                  </a>
-                ))}
+                    <path
+                      fillRule="evenodd"
+                      clipRule="evenodd"
+                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.83 9.504.475.083.677-.217.677-.484 0-.233-.007-.867-.011-1.702-2.782.607-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.088.39-1.979 1.029-2.679-.103-.253-.446-1.266.098-2.64 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 5.042c.847.009 1.682.115 2.477.332 1.91-1.296 2.747-1.026 2.747-1.026.546 1.373.202 2.387.099 2.64.64.7 1.028 1.591 1.028 2.679 0 3.829-2.336 4.673-4.565 4.92.359.307.678.915.678 1.846 0 1.338-.012 2.419-.012 2.747 0 .268.201.576.682.483C19.136 20.217 22 16.46 22 12.017 22 6.484 17.522 2 12 2z"
+                    />
+                  </svg>
+                </a>
+                
               </div>
             </div>
           </div>
