@@ -25,6 +25,8 @@ import UsersPage from "./pages/admin/users/UsersPage";
 import UserCreatePage from "./pages/admin/users/UserCreatePage";
 import UserEditPage from "./pages/admin/users/UserEditPage";
 import UserDetailPage from "./pages/admin/users/UserDetailPage";
+import OrdersPage from "./pages/admin/orders/OrdersPage";
+import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -126,6 +128,9 @@ const App: React.FC = () => {
                             path="users/detail/:id"
                             element={<UserDetailPage />}
                           />
+
+                          <Route path="orders" element={<OrdersPage />} />
+                          <Route path="orders/detail/:id" element={<OrdersDetailPageAdmin />} />
                         </Routes>
                       </main>
                     </div>

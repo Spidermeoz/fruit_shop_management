@@ -81,30 +81,42 @@ const OrderDetailPage: React.FC = () => {
           bg: "bg-yellow-100",
           color: "text-yellow-700",
         };
+
       case "processing":
         return {
           text: "Đang xử lý",
           bg: "bg-blue-100",
           color: "text-blue-700",
         };
+
       case "shipping":
         return {
           text: "Đang giao hàng",
           bg: "bg-purple-100",
           color: "text-purple-700",
         };
+
       case "delivered":
         return {
           text: "Đã giao hàng",
           bg: "bg-green-100",
           color: "text-green-700",
         };
+
+      case "completed":
+        return {
+          text: "Hoàn tất",
+          bg: "bg-green-200",
+          color: "text-green-800",
+        };
+
       case "cancelled":
         return {
           text: "Đã hủy",
           bg: "bg-red-100",
           color: "text-red-700",
         };
+
       default:
         return {
           text: "Không xác định",
@@ -223,9 +235,8 @@ const OrderDetailPage: React.FC = () => {
                           <strong>SĐT:</strong> {order.address.phone}
                         </p>
                         <p>
-                          <strong>Địa chỉ:</strong>{" "}
-                          {order.address.addressLine1},{" "}
-                          {order.address.ward}, {order.address.district},{" "}
+                          <strong>Địa chỉ:</strong> {order.address.addressLine1}
+                          , {order.address.ward}, {order.address.district},{" "}
                           {order.address.province}
                         </p>
                       </div>
@@ -280,9 +291,7 @@ const OrderDetailPage: React.FC = () => {
                       <h4 className="font-medium text-gray-800">
                         {item.productTitle}
                       </h4>
-                      <p className="text-sm text-gray-600">
-                        x{item.quantity}
-                      </p>
+                      <p className="text-sm text-gray-600">x{item.quantity}</p>
                     </div>
 
                     <p className="font-medium text-green-700">

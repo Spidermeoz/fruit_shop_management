@@ -345,6 +345,16 @@ export const makeRolesController = (uc: {
               { key: "delete", label: "Xóa" },
             ],
           },
+          {
+            group: "Đơn hàng",
+            key: "order",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "update_status", label: "Cập nhật trạng thái" },
+              { key: "add_history", label: "Thêm lịch sử giao hàng" },
+              { key: "add_payment", label: "Thêm thanh toán" },
+            ],
+          },
         ];
 
         const data = modules.map((mod) => {

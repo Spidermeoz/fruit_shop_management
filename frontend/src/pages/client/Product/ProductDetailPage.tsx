@@ -200,14 +200,14 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
 
-            <p
+            {/* <p
               className="text-gray-700 mb-8 leading-relaxed"
               dangerouslySetInnerHTML={{
                 __html:
                   product.description ||
                   "Sản phẩm đang cập nhật mô tả chi tiết.",
               }}
-            />
+            /> */}
 
             <div className="flex items-center gap-4 mb-8">
               <div className="flex items-center border border-gray-300 rounded-lg">

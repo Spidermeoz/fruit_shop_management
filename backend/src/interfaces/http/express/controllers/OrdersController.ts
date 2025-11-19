@@ -89,14 +89,25 @@ export const makeOrdersController = (uc: {
     // POST /admin/orders/:id/payment
     addPayment: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        await uc.addPayment.execute({
-          orderId: Number(req.params.id),
-          ...req.body,
-        });
+        const orderId = Number(req.params.id);
+        const { amount } = req.body;
 
-        res.json({
+        if (!amount) {
+          return res.status(400).json({
+            success: false,
+            message: "Vui lòng nhập số tiền thanh toán",
+          });
+        }
+
+        const result = await uc.addPayment.execute({ orderId, amount });
+
+        // Lấy lại order mới nhất
+        const order = await uc.detail.execute(orderId);
+
+        return res.json({
           success: true,
-          data: true,
+          message: "Xác nhận thanh toán thành công",
+          data: order,
         });
       } catch (e) {
         next(e);

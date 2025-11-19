@@ -1,16 +1,32 @@
-// src/application/orders/usecases/admin/AddPayment.ts
-export class AddPayment {
-  constructor(private orderRepo: any) {}
+// src/application/orders/admin/AddPayment.ts
+import type { OrderRepository } from "../../../domain/orders/OrderRepository";
 
-  async execute(data: any) {
-    await this.orderRepo.addPayment({
-      orderId: data.orderId,
-      provider: data.provider,
-      method: data.method,
-      amount: data.amount,
-      status: data.status,
-      transactionId: data.transactionId ?? null,
-      rawPayload: data.rawPayload ?? null,
+export class AddPayment {
+  constructor(private repo: OrderRepository) {}
+
+  async execute(input: { orderId: number; amount: number }) {
+    const order = await this.repo.findById(input.orderId);
+    if (!order) throw new Error("Order not found");
+
+    // Chỉ cho admin xác nhận thanh toán COD đủ số tiền
+    if (input.amount < order.finalPrice) {
+      throw new Error("Số tiền thanh toán chưa đủ tổng đơn hàng");
+    }
+
+    // Ghi payment tối giản
+    await this.repo.addPayment({
+      orderId: input.orderId,
+      provider: "cod",
+      method: "cod",
+      amount: input.amount,
+      status: "paid",
+      transactionId: null,
+      rawPayload: null,
     });
+
+    // Cập nhật trạng thái thanh toán
+    await this.repo.updatePaymentStatus(input.orderId, "paid");
+
+    return { success: true };
   }
 }

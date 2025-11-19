@@ -10,12 +10,18 @@ export const ordersRoutes = (
 ) => {
   const r = Router();
 
-  r.get("/", auth, can("orders", "view"), controller.list);
-  r.get("/detail/:id", auth, can("orders", "view"), controller.detail);
+  // LIST + DETAIL
+  r.get("/", auth, can("order", "view"), controller.list);
+  r.get("/detail/:id", auth, can("order", "view"), controller.detail);
 
-  r.patch("/:id/status", auth, can("orders", "edit"), controller.updateStatus);
-  r.post("/:id/delivery", auth, can("orders", "edit"), controller.addDelivery);
-  r.post("/:id/payment", auth, can("orders", "edit"), controller.addPayment);
+  // UPDATE STATUS
+  r.patch("/:id/status", auth, can("order", "update_status"), controller.updateStatus);
+
+  // ADD DELIVERY HISTORY
+  r.post("/:id/delivery", auth, can("order", "add_history"), controller.addDelivery);
+
+  // ADD PAYMENT
+  r.post("/:id/payment", auth, can("order", "add_payment"), controller.addPayment);
 
   return r;
 };

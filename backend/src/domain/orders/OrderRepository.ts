@@ -10,6 +10,7 @@ export interface OrderListFilter {
 }
 
 export interface OrderRepository {
+  updatePaymentStatus(orderId: number, arg1: string): unknown;
   create(data: {
     userId: number;
     items: { productId: number; quantity: number; price: number; title: string }[];

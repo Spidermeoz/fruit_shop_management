@@ -8,6 +8,7 @@ import {
   FolderTree,
   ShieldCheck,
   Users,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 import Can from "../../auth/Can";
@@ -37,6 +38,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/product-category",
     icon: FolderTree,
     permission: { module: "product_category", action: "view" },
+  },
+  {
+    name: "Orders",
+    href: "/admin/orders",
+    icon: Receipt,
+    permission: { module: "order", action: "view" },
   },
   {
     name: "Roles",

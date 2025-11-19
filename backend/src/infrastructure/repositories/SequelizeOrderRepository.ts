@@ -230,6 +230,14 @@ export class SequelizeOrderRepository implements OrderRepository {
   // ========================================
   // ADD PAYMENT
   // ========================================
+  async updatePaymentStatus(orderId: number, status: string) {
+    await this.models.Order.update(
+      { payment_status: status },
+      { where: { id: orderId } }
+    );
+  }
+
+  // sửa hàm addPayment (không đổi field)
   async addPayment(data: {
     orderId: number;
     provider: string;
