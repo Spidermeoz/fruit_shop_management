@@ -134,7 +134,11 @@ import { ListOrders } from "../../application/orders/admin/ListOrders";
 import { UpdateOrderStatus } from "../../application/orders/admin/UpdateOrderStatus";
 import { CancelMyOrder } from "../../application/orders/client/CancelMyOrder";
 import { GetMyOrderDetail } from "../../application/orders/client/GetMyOrderDetail";
-import { makeOrdersController, OrdersController } from "../../interfaces/http/express/controllers/OrdersController";
+import {
+  makeOrdersController,
+  OrdersController,
+} from "../../interfaces/http/express/controllers/OrdersController";
+import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
 // import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
@@ -356,6 +360,7 @@ export const usecases = {
     updateStatus: new UpdateOrderStatus(orderRepo),
     addDeliveryStatus: new AddDeliveryHistory(orderRepo),
     addPayment: new AddPayment(orderRepo),
+    listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
   },
 };
 
@@ -469,5 +474,6 @@ export const clientControllers = {
     myOrders: usecases.orders.myOrders,
     myOrderDetail: usecases.orders.myOrderDetail,
     cancelMyOrder: usecases.orders.cancelMyOrder,
+    listMyOrderAddresses: usecases.orders.listMyOrderAddresses,
   }),
 } as const;

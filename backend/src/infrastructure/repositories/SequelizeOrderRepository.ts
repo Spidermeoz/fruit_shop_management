@@ -213,6 +213,49 @@ export class SequelizeOrderRepository implements OrderRepository {
     return { rows: rows.map((r: any) => this.mapRow(r)), count };
   }
 
+  async findDistinctAddressesByUser(userId: number) {
+    const rows = await this.models.OrderAddress.findAll({
+      raw: true,
+      include: [
+        {
+          model: this.models.Order,
+          as: "order",
+          where: { user_id: userId, deleted: 0 },
+        },
+      ],
+    });
+
+    // Unique theo combo các field địa chỉ
+    const unique = new Map<string, any>();
+
+    for (const r of rows) {
+      const key = [
+        r.full_name,
+        r.phone,
+        r.address_line1,
+        r.ward,
+        r.district,
+        r.province,
+      ].join("|");
+
+      if (!unique.has(key)) {
+        unique.set(key, {
+          fullName: r.full_name,
+          phone: r.phone,
+          addressLine1: r.address_line1,
+          addressLine2: r.address_line2,
+          ward: r.ward,
+          district: r.district,
+          province: r.province,
+          postalCode: r.postal_code,
+          notes: r.notes,
+        });
+      }
+    }
+
+    return Array.from(unique.values());
+  }
+
   // ========================================
   // UPDATE STATUS
   // ========================================

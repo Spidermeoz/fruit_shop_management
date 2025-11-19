@@ -3,6 +3,29 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { useCart } from "../../../context/CartContext";
 import { http } from "../../../services/http";
+import {
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  CreditCard,
+  ShoppingCart,
+  Check,
+  AlertCircle,
+  Package,
+  ArrowRight,
+  ArrowLeft,
+  Home,
+  Info,
+  Truck,
+  FileText,
+  Wallet,
+  Building,
+  Smartphone,
+  RefreshCw,
+  Save,
+  Edit,
+} from "lucide-react";
 
 interface OrderInfo {
   name: string;
@@ -42,11 +65,44 @@ const CheckoutPage: React.FC = () => {
     saveInfo: false,
   });
 
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [loadingAddresses, setLoadingAddresses] = useState(true);
+
   // Nếu không có selected items → quay về giỏ hàng
   useEffect(() => {
     fetchCart();
     if (!selectedItems.length) navigate("/cart");
   }, []);
+
+  useEffect(() => {
+    const fetchAddresses = async () => {
+      try {
+        const res = await http("GET", "/api/v1/client/orders/addresses");
+        if (res?.success) {
+          setSavedAddresses(res.data);
+        }
+      } catch (err) {
+        console.error("Load addresses failed", err);
+      } finally {
+        setLoadingAddresses(false);
+      }
+    };
+
+    fetchAddresses();
+  }, []);
+
+  const applySavedAddress = (addr: any) => {
+    setOrderInfo((prev) => ({
+      ...prev,
+      name: addr.fullName,
+      phone: addr.phone,
+      address: addr.addressLine1,
+      ward: addr.ward,
+      district: addr.district,
+      city: addr.province,
+      note: addr.notes || "",
+    }));
+  };
 
   // Lọc item được chọn từ giỏ hàng thực
   const checkoutItems = cartItems.filter((i) =>
@@ -161,6 +217,20 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  // Icons cho các bước
+  const stepIcons = [
+    <MapPin className="w-5 h-5" />,
+    <CreditCard className="w-5 h-5" />,
+    <Check className="w-5 h-5" />,
+  ];
+
+  // Icons cho các phương thức thanh toán
+  const paymentIcons = {
+    cod: <Truck className="w-5 h-5" />,
+    bank: <Building className="w-5 h-5" />,
+    momo: <Smartphone className="w-5 h-5" />,
+  };
+
   return (
     <Layout>
       {/* Header */}
@@ -170,14 +240,25 @@ const CheckoutPage: React.FC = () => {
           <div className="absolute bottom-4 right-10 w-12 h-12 bg-green-400 rounded-full animate-pulse"></div>
         </div>
         <div className="relative z-10">
-          <h1 className="text-4xl font-bold text-green-800 mb-2">Thanh toán</h1>
+          <h1 className="text-4xl font-bold text-green-800 mb-2 flex items-center justify-center gap-2">
+            <ShoppingCart className="w-10 h-10" />
+            Thanh toán
+          </h1>
           <p className="text-gray-700">Điền thông tin để hoàn tất đơn hàng</p>
           <div className="flex items-center justify-center text-gray-600 mt-2">
-            <Link to="/" className="hover:text-green-600 transition">
+            <Link
+              to="/"
+              className="hover:text-green-600 transition flex items-center gap-1"
+            >
+              <Home className="w-4 h-4" />
               Trang chủ
             </Link>
             <span className="mx-2">/</span>
-            <Link to="/cart" className="hover:text-green-600 transition">
+            <Link
+              to="/cart"
+              className="hover:text-green-600 transition flex items-center gap-1"
+            >
+              <ShoppingCart className="w-4 h-4" />
               Giỏ hàng
             </Link>
             <span className="mx-2">/</span>
@@ -193,13 +274,13 @@ const CheckoutPage: React.FC = () => {
             <React.Fragment key={step}>
               <div className="flex items-center">
                 <div
-                  className={`flex items-center justify-center w-10 h-10 rounded-full ${
+                  className={`flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 ${
                     currentStep >= step
-                      ? "bg-green-600 text-white"
+                      ? "bg-green-600 text-white shadow-lg"
                       : "bg-gray-300 text-gray-600"
                   }`}
                 >
-                  {step}
+                  {stepIcons[step - 1]}
                 </div>
                 <span
                   className={`ml-2 font-medium ${
@@ -213,7 +294,7 @@ const CheckoutPage: React.FC = () => {
               </div>
               {step !== 3 && (
                 <div
-                  className={`w-16 h-1 mx-4 ${
+                  className={`w-16 h-1 mx-4 transition-all duration-300 ${
                     currentStep > step ? "bg-green-600" : "bg-gray-300"
                   }`}
                 ></div>
@@ -234,14 +315,57 @@ const CheckoutPage: React.FC = () => {
             {/* STEP 1 */}
             {currentStep === 1 && (
               <div className="p-6">
-                <h2 className="text-xl font-semibold text-green-800 mb-6">
+                <h2 className="text-xl font-semibold text-green-800 mb-6 flex items-center gap-2">
+                  <MapPin className="w-5 h-5" />
                   Thông tin người nhận
                 </h2>
+
+                {/* LIST SAVED ADDRESSES */}
+                {!loadingAddresses && savedAddresses.length > 0 && (
+                  <div className="mb-6 bg-green-50 p-4 rounded-xl border border-green-200">
+                    <h3 className="text-green-700 font-medium mb-3 flex items-center gap-2">
+                      <Save className="w-4 h-4" />
+                      Địa chỉ đã từng sử dụng
+                    </h3>
+
+                    <div className="space-y-3">
+                      {savedAddresses.map((addr, index) => (
+                        <div
+                          key={index}
+                          className="p-3 bg-white rounded-lg border hover:border-green-500 cursor-pointer transition flex items-start gap-3"
+                          onClick={() => applySavedAddress(addr)}
+                        >
+                          <div className="mt-1">
+                            <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800">
+                              {addr.fullName} — {addr.phone}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              {addr.addressLine1}, {addr.ward}, {addr.district},{" "}
+                              {addr.province}
+                            </p>
+                            {addr.notes && (
+                              <p className="text-gray-500 text-xs mt-1">
+                                Ghi chú: {addr.notes}
+                              </p>
+                            )}
+                          </div>
+                          <button className="text-green-600 hover:text-green-800">
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Name + Phone */}
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm text-gray-700 mb-2">
+                    <label className="block text-sm text-gray-700 mb-2 flex items-center gap-1">
+                      <User className="w-4 h-4" />
                       Họ và tên *
                     </label>
                     <input
@@ -249,17 +373,22 @@ const CheckoutPage: React.FC = () => {
                       name="name"
                       value={orderInfo.name}
                       onChange={handleChange}
-                      className={`w-full border rounded-lg p-3 ${
+                      className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                         errors.name ? "border-red-500" : ""
                       }`}
+                      placeholder="Nhập họ và tên của bạn"
                     />
                     {errors.name && (
-                      <p className="text-red-500 text-sm mt-1">{errors.name}</p>
+                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.name}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block text-sm text-gray-700 mb-2">
+                    <label className="block text-sm text-gray-700 mb-2 flex items-center gap-1">
+                      <Phone className="w-4 h-4" />
                       Số điện thoại *
                     </label>
                     <input
@@ -267,12 +396,14 @@ const CheckoutPage: React.FC = () => {
                       name="phone"
                       value={orderInfo.phone}
                       onChange={handleChange}
-                      className={`w-full border rounded-lg p-3 ${
+                      className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                         errors.phone ? "border-red-500" : ""
                       }`}
+                      placeholder="0xxxxxxxxx"
                     />
                     {errors.phone && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
                         {errors.phone}
                       </p>
                     )}
@@ -281,7 +412,8 @@ const CheckoutPage: React.FC = () => {
 
                 {/* Email */}
                 <div className="mb-4">
-                  <label className="block text-sm text-gray-700 mb-2">
+                  <label className="block text-sm text-gray-700 mb-2 flex items-center gap-1">
+                    <Mail className="w-4 h-4" />
                     Email *
                   </label>
                   <input
@@ -289,77 +421,92 @@ const CheckoutPage: React.FC = () => {
                     name="email"
                     value={orderInfo.email}
                     onChange={handleChange}
-                    className={`w-full border rounded-lg p-3 ${
+                    className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                       errors.email ? "border-red-500" : ""
                     }`}
+                    placeholder="email@example.com"
                   />
                   {errors.email && (
-                    <p className="text-red-500 text-sm mt-1">{errors.email}</p>
+                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
+                      {errors.email}
+                    </p>
                   )}
                 </div>
 
                 {/* City / District / Ward */}
                 <div className="grid md:grid-cols-3 gap-4 mb-4">
                   <div>
-                    <label className="block mb-2 text-sm text-gray-700">
+                    <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
                       Thành phố *
                     </label>
                     <input
                       name="city"
                       value={orderInfo.city}
                       onChange={handleChange}
-                      className={`w-full border p-3 rounded-lg ${
+                      className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                         errors.city ? "border-red-500" : ""
                       }`}
                       placeholder="VD: Hồ Chí Minh"
                     />
                     {errors.city && (
-                      <p className="text-red-500 text-sm mt-1">{errors.city}</p>
+                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.city}
+                      </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block mb-2 text-sm text-gray-700">
+                    <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
                       Quận / Huyện *
                     </label>
                     <input
                       name="district"
                       value={orderInfo.district}
                       onChange={handleChange}
-                      className={`w-full border p-3 rounded-lg ${
+                      className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                         errors.district ? "border-red-500" : ""
                       }`}
                       placeholder="VD: Quận 1"
                     />
                     {errors.district && (
-                      <p className="text-red-500 text-sm mt-1">
+                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
                         {errors.district}
                       </p>
                     )}
                   </div>
 
                   <div>
-                    <label className="block mb-2 text-sm text-gray-700">
+                    <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
+                      <MapPin className="w-4 h-4" />
                       Phường / Xã *
                     </label>
                     <input
                       name="ward"
                       value={orderInfo.ward}
                       onChange={handleChange}
-                      className={`w-full border p-3 rounded-lg ${
+                      className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                         errors.ward ? "border-red-500" : ""
                       }`}
                       placeholder="VD: Phường 5"
                     />
                     {errors.ward && (
-                      <p className="text-red-500 text-sm mt-1">{errors.ward}</p>
+                      <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4" />
+                        {errors.ward}
+                      </p>
                     )}
                   </div>
                 </div>
 
                 {/* Address */}
                 <div className="mb-6">
-                  <label className="block text-sm text-gray-700 mb-2">
+                  <label className="block text-sm text-gray-700 mb-2 flex items-center gap-1">
+                    <MapPin className="w-4 h-4" />
                     Địa chỉ cụ thể *
                   </label>
                   <input
@@ -367,12 +514,14 @@ const CheckoutPage: React.FC = () => {
                     name="address"
                     value={orderInfo.address}
                     onChange={handleChange}
-                    className={`w-full border rounded-lg p-3 ${
+                    className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
                       errors.address ? "border-red-500" : ""
                     }`}
+                    placeholder="Số nhà, tên đường..."
                   />
                   {errors.address && (
-                    <p className="text-red-500 text-sm mt-1">
+                    <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" />
                       {errors.address}
                     </p>
                   )}
@@ -380,7 +529,8 @@ const CheckoutPage: React.FC = () => {
 
                 {/* Note */}
                 <div className="mb-6">
-                  <label className="block text-sm text-gray-700 mb-2">
+                  <label className="block text-sm text-gray-700 mb-2 flex items-center gap-1">
+                    <FileText className="w-4 h-4" />
                     Ghi chú (tuỳ chọn)
                   </label>
                   <textarea
@@ -388,7 +538,8 @@ const CheckoutPage: React.FC = () => {
                     rows={3}
                     value={orderInfo.note}
                     onChange={handleChange}
-                    className="w-full border rounded-lg p-3"
+                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-green-500 focus:border-transparent transition"
+                    placeholder="Ghi chú cho đơn hàng..."
                   ></textarea>
                 </div>
 
@@ -397,9 +548,10 @@ const CheckoutPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={validateAndNext}
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                   >
                     Tiếp tục
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -408,12 +560,13 @@ const CheckoutPage: React.FC = () => {
             {/* STEP 2 */}
             {currentStep === 2 && (
               <div className="p-6">
-                <h2 className="text-xl font-semibold text-green-800 mb-6">
+                <h2 className="text-xl font-semibold text-green-800 mb-6 flex items-center gap-2">
+                  <CreditCard className="w-5 h-5" />
                   Phương thức thanh toán
                 </h2>
 
                 <div className="space-y-4 mb-6">
-                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-green-50 transition">
+                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-green-50 transition border-green-500 bg-green-50">
                     <input
                       type="radio"
                       name="payment"
@@ -422,48 +575,102 @@ const CheckoutPage: React.FC = () => {
                       onChange={handleChange}
                       className="mr-3"
                     />
-                    <span>Thanh toán khi nhận hàng (COD)</span>
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                        {paymentIcons.cod}
+                      </div>
+                      <div>
+                        <span className="font-medium">
+                          Thanh toán khi nhận hàng (COD)
+                        </span>
+                        <p className="text-sm text-gray-500">
+                          Thanh toán bằng tiền mặt khi nhận hàng
+                        </p>
+                      </div>
+                    </div>
                   </label>
 
-                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-green-50 transition">
+                  <div className="flex items-center p-4 border rounded-lg">
                     <input
                       type="radio"
                       name="payment"
                       value="bank"
-                      checked={orderInfo.payment === "bank"}
-                      onChange={handleChange}
+                      checked={false}
+                      onChange={() => {}}
                       className="mr-3"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        alert(
+                          "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD."
+                        );
+                      }}
                     />
-                    <span>Chuyển khoản ngân hàng</span>
-                  </label>
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+                        {paymentIcons.bank}
+                      </div>
+                      <div>
+                        <span className="font-medium">
+                          Chuyển khoản ngân hàng
+                        </span>
+                        <p className="text-sm text-gray-500">
+                          Chuyển khoản qua ngân hàng
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                      Sắp cập nhật
+                    </span>
+                  </div>
 
-                  <label className="flex items-center p-4 border rounded-lg cursor-pointer hover:bg-green-50 transition">
+                  <div className="flex items-center p-4 border rounded-lg">
                     <input
                       type="radio"
                       name="payment"
                       value="momo"
-                      checked={orderInfo.payment === "momo"}
-                      onChange={handleChange}
+                      checked={false}
+                      onChange={() => {}}
                       className="mr-3"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        alert(
+                          "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD."
+                        );
+                      }}
                     />
-                    <span>Ví MoMo</span>
-                  </label>
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className="w-10 h-10 bg-pink-100 rounded-full flex items-center justify-center text-pink-600">
+                        {paymentIcons.momo}
+                      </div>
+                      <div>
+                        <span className="font-medium">Ví MoMo</span>
+                        <p className="text-sm text-gray-500">
+                          Thanh toán qua ví điện tử MoMo
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                      Sắp cập nhật
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex justify-between">
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="border px-6 py-3 rounded-lg"
+                    className="border px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition"
                   >
+                    <ArrowLeft className="w-4 h-4" />
                     Quay lại
                   </button>
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                   >
                     Tiếp tục
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -472,52 +679,93 @@ const CheckoutPage: React.FC = () => {
             {/* STEP 3 */}
             {currentStep === 3 && (
               <div className="p-6">
-                <h2 className="text-xl font-semibold text-green-800 mb-6">
+                <h2 className="text-xl font-semibold text-green-800 mb-6 flex items-center gap-2">
+                  <Check className="w-5 h-5" />
                   Xác nhận đơn hàng
                 </h2>
 
                 {/* Shipping info */}
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <h3 className="font-medium text-gray-800 mb-2">
+                  <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                    <User className="w-4 h-4" />
                     Thông tin người nhận
                   </h3>
-                  <p>Họ tên: {orderInfo.name}</p>
-                  <p>SĐT: {orderInfo.phone}</p>
-                  <p>Email: {orderInfo.email}</p>
-                  <p>
-                    Địa chỉ: {orderInfo.address}, {orderInfo.ward},{" "}
-                    {orderInfo.district}, {orderInfo.city}
-                  </p>
-                  {orderInfo.note && <p>Ghi chú: {orderInfo.note}</p>}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-sm text-gray-500">Họ tên</p>
+                      <p className="font-medium">{orderInfo.name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">SĐT</p>
+                      <p className="font-medium">{orderInfo.phone}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Email</p>
+                      <p className="font-medium">{orderInfo.email}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Địa chỉ</p>
+                      <p className="font-medium">
+                        {orderInfo.address}, {orderInfo.ward},{" "}
+                        {orderInfo.district}, {orderInfo.city}
+                      </p>
+                    </div>
+                  </div>
+                  {orderInfo.note && (
+                    <div className="mt-3">
+                      <p className="text-sm text-gray-500">Ghi chú</p>
+                      <p className="font-medium">{orderInfo.note}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Payment */}
                 <div className="bg-gray-50 p-4 rounded-lg mb-6">
-                  <h3 className="font-medium text-gray-800 mb-2">
+                  <h3 className="font-medium text-gray-800 mb-3 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4" />
                     Phương thức thanh toán
                   </h3>
-                  <p>
-                    {orderInfo.payment === "cod" && "Thanh toán khi nhận hàng"}
-                    {orderInfo.payment === "bank" && "Chuyển khoản ngân hàng"}
-                    {orderInfo.payment === "momo" && "Ví MoMo"}
-                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-green-600">
+                      {paymentIcons.cod}
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        Thanh toán khi nhận hàng (COD)
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Thanh toán bằng tiền mặt khi nhận hàng
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex justify-between">
                   <button
                     type="button"
                     onClick={prevStep}
-                    className="border px-6 py-3 rounded-lg"
+                    className="border px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-gray-50 transition"
                   >
+                    <ArrowLeft className="w-4 h-4" />
                     Quay lại
                   </button>
 
                   <button
                     type="submit"
                     disabled={isProcessing}
-                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 transition flex items-center gap-2"
                   >
-                    {isProcessing ? "Đang xử lý..." : "Xác nhận đặt hàng"}
+                    {isProcessing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Xác nhận đặt hàng
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -528,19 +776,25 @@ const CheckoutPage: React.FC = () => {
         {/* RIGHT SIDE — ORDER SUMMARY */}
         <div>
           <div className="bg-gradient-to-br from-green-50 to-yellow-50 rounded-2xl p-6 shadow-md sticky top-6">
-            <h3 className="text-xl font-semibold text-green-800 mb-4">
+            <h3 className="text-xl font-semibold text-green-800 mb-4 flex items-center gap-2">
+              <Package className="w-5 h-5" />
               Đơn hàng của bạn
             </h3>
 
             <div className="space-y-4 mb-6">
               {checkoutItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-3">
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 p-3 bg-white rounded-lg"
+                >
                   <img
                     src={item.product?.thumbnail || ""}
                     className="w-16 h-16 rounded-lg object-cover"
                   />
                   <div className="flex-1">
-                    <h4 className="font-medium">{item.product?.title}</h4>
+                    <h4 className="font-medium text-gray-800">
+                      {item.product?.title}
+                    </h4>
                     <p className="text-sm text-gray-500">x{item.quantity}</p>
                   </div>
 
@@ -568,6 +822,16 @@ const CheckoutPage: React.FC = () => {
               <div className="flex justify-between font-bold text-lg text-green-700 pt-2 border-t">
                 <span>Tổng cộng:</span>
                 <span>{total.toLocaleString()} đ</span>
+              </div>
+            </div>
+
+            <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-2">
+                <Info className="w-4 h-4 text-blue-600 mt-0.5" />
+                <p className="text-sm text-blue-700">
+                  Bằng cách đặt hàng, bạn đồng ý với điều khoản sử dụng của
+                  chúng tôi.
+                </p>
               </div>
             </div>
           </div>

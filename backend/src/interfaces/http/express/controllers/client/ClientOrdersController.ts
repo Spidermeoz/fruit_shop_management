@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 
 export const makeClientOrdersController = (uc: {
+  listMyOrderAddresses: any;
   createFromCart: any;
   myOrders: any;
   myOrderDetail: any;
@@ -75,6 +76,21 @@ export const makeClientOrdersController = (uc: {
         res.json({
           success: true,
           data: true,
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    addresses: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user!.id;
+
+        const list = await uc.listMyOrderAddresses.execute(userId);
+
+        res.json({
+          success: true,
+          data: list,
         });
       } catch (e) {
         next(e);
