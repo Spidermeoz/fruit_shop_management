@@ -42,7 +42,7 @@ const Header: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // ✅ Đóng menu khi click ra ngoài
+  // ✅ Đóng menu khi click ra ngoài (Vẫn giữ để đảm bảo an toàn, dù logic hover chính đã xử lý việc đóng)
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -89,7 +89,10 @@ const Header: React.FC = () => {
               </Link>
               {hasChildren && (
                 <button
-                  onClick={() => toggleExpand(child.id)}
+                  onClick={(e) => {
+                    e.preventDefault(); // Ngăn chặn link click nếu click vào nút mở rộng
+                    toggleExpand(child.id);
+                  }}
                   className="p-1 text-gray-500 hover:text-green-600 transition"
                   title={isExpanded ? "Thu gọn" : "Mở rộng"}
                 >
@@ -126,9 +129,10 @@ const Header: React.FC = () => {
   const renderCategoryMenu = (cats: Category[]) => (
     <div
       ref={menuRef}
-      className="absolute top-full left-0 mt-2 bg-white rounded-lg shadow-lg py-3 border border-gray-100 z-50 w-72 overflow-y-auto max-h-[70vh]"
+      className="absolute top-full left-0 mt-0 bg-white rounded-lg shadow-lg py-3 border border-gray-100 z-50 w-72 overflow-y-auto max-h-[70vh]"
       style={{ animation: "fadeIn 0.15s ease-in-out" }}
     >
+      {/* mt-0 để menu dính liền với nút hover, tránh bị mất focus khi di chuột xuống */}
       {cats.map((cat) => {
         const isExpanded = expandedIds.includes(cat.id);
         const hasChildren = cat.children && cat.children.length > 0;
@@ -144,7 +148,10 @@ const Header: React.FC = () => {
               </Link>
               {hasChildren && (
                 <button
-                  onClick={() => toggleExpand(cat.id)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    toggleExpand(cat.id);
+                  }}
                   className="p-1 text-gray-500 hover:text-green-600 transition"
                   title={isExpanded ? "Thu gọn" : "Mở rộng"}
                 >
@@ -200,10 +207,16 @@ const Header: React.FC = () => {
               Trang chủ
             </Link>
 
-            <div className="relative">
-              <button
-                onClick={() => setIsProductMenuOpen((prev) => !prev)}
+            {/* 👇 KHU VỰC ĐÃ SỬA ĐỔI: HOVER VÀ LINK SẢN PHẨM 👇 */}
+            <div 
+              className="relative py-2" // Thêm py-2 để mở rộng vùng hover, tránh mất menu khi di chuyển chuột nhanh
+              onMouseEnter={() => setIsProductMenuOpen(true)}
+              onMouseLeave={() => setIsProductMenuOpen(false)}
+            >
+              <Link
+                to="/products"
                 className="text-gray-700 hover:text-green-600 transition font-medium flex items-center"
+                onClick={() => setIsProductMenuOpen(false)} // Đóng menu khi click vào link chính
               >
                 Sản phẩm
                 <svg
@@ -222,11 +235,13 @@ const Header: React.FC = () => {
                     d="M19 9l-7 7-7-7"
                   />
                 </svg>
-              </button>
+              </Link>
+              
               {isProductMenuOpen &&
                 categories.length > 0 &&
                 renderCategoryMenu(categories)}
             </div>
+            {/* 👆 KẾT THÚC KHU VỰC SỬA ĐỔI 👆 */}
 
             <Link
               to="/about"
