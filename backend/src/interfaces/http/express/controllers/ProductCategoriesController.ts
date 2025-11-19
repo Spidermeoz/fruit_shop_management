@@ -61,7 +61,7 @@ export const makeProductCategoriesController = (uc: {
           meta: {
             total: data.count,
             page: Number(page ?? 1),
-            limit: Number(limit ?? 20),
+            limit: Number(limit ?? 30),
           },
         });
       } catch (e) {

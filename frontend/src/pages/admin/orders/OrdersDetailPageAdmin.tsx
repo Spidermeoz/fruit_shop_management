@@ -157,7 +157,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
 
   return (
     <div className="p-4">
-
       {/* ==================================== */}
       {/* 🔹 Header */}
       {/* ==================================== */}
@@ -170,6 +169,12 @@ const OrdersDetailPageAdmin: React.FC = () => {
 
         <div className="flex gap-3">
           {/* 🔥 NEW: Nút in hóa đơn */}
+          <button
+            onClick={() => navigate(`/admin/orders/${order.id}/timeline`)}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Xem tiến trình giao hàng
+          </button>
           <button
             onClick={() => setShowInvoice(true)}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700"
@@ -282,9 +287,7 @@ const OrdersDetailPageAdmin: React.FC = () => {
               {order.items.map((item, idx) => (
                 <tr key={idx} className="border-b">
                   <td className="py-2">{item.productTitle}</td>
-                  <td className="py-2">
-                    {item.price.toLocaleString()} đ
-                  </td>
+                  <td className="py-2">{item.price.toLocaleString()} đ</td>
                   <td className="py-2">{item.quantity}</td>
                   <td className="py-2 font-medium">
                     {(item.price * item.quantity).toLocaleString()} đ
@@ -316,8 +319,8 @@ const OrdersDetailPageAdmin: React.FC = () => {
 
             {order.discountAmount > 0 && (
               <p className="text-green-700">
-                <span className="font-medium">Giảm giá: </span>
-                -{order.discountAmount.toLocaleString()} đ
+                <span className="font-medium">Giảm giá: </span>-
+                {order.discountAmount.toLocaleString()} đ
               </p>
             )}
 
@@ -334,7 +337,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
       {showInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-lg p-6 relative">
-
             <h2 className="text-lg font-semibold mb-4">Xem trước hóa đơn</h2>
 
             {/* HÓA ĐƠN PREVIEW */}
@@ -343,8 +345,13 @@ const OrdersDetailPageAdmin: React.FC = () => {
                 HÓA ĐƠN GIAO HÀNG-FRESH FRUITS
               </h2>
 
-              <p><strong>Mã đơn:</strong> {order.code}</p>
-              <p><strong>Ngày:</strong> {new Date(order.createdAt).toLocaleString()}</p>
+              <p>
+                <strong>Mã đơn:</strong> {order.code}
+              </p>
+              <p>
+                <strong>Ngày:</strong>{" "}
+                {new Date(order.createdAt).toLocaleString()}
+              </p>
 
               <hr className="my-2" />
 
@@ -352,9 +359,8 @@ const OrdersDetailPageAdmin: React.FC = () => {
               <p>{order.address.fullName}</p>
               <p>{order.address.phone}</p>
               <p>
-                {order.address.addressLine1},{" "}
-                {order.address.ward}, {order.address.district},{" "}
-                {order.address.province}
+                {order.address.addressLine1}, {order.address.ward},{" "}
+                {order.address.district}, {order.address.province}
               </p>
 
               <hr className="my-2" />
@@ -384,12 +390,18 @@ const OrdersDetailPageAdmin: React.FC = () => {
 
               <hr className="my-2" />
 
-              <p><strong>Tạm tính:</strong> {order.totalPrice.toLocaleString()} đ</p>
-              <p><strong>Phí ship:</strong> {order.shippingFee.toLocaleString()} đ</p>
+              <p>
+                <strong>Tạm tính:</strong> {order.totalPrice.toLocaleString()} đ
+              </p>
+              <p>
+                <strong>Phí ship:</strong> {order.shippingFee.toLocaleString()}{" "}
+                đ
+              </p>
 
               {order.discountAmount > 0 && (
                 <p className="text-green-700">
-                  <strong>Giảm giá:</strong> -{order.discountAmount.toLocaleString()} đ
+                  <strong>Giảm giá:</strong> -
+                  {order.discountAmount.toLocaleString()} đ
                 </p>
               )}
 
@@ -418,7 +430,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

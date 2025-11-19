@@ -4,5 +4,11 @@ export class UpdateOrderStatus {
 
   async execute(orderId: number, status: string) {
     await this.orderRepo.updateStatus(orderId, status);
+    await this.orderRepo.addDeliveryHistory(
+      orderId,
+      status,
+      null,
+      `State changed to ${status}`
+    );
   }
 }

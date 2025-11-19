@@ -27,6 +27,7 @@ import UserEditPage from "./pages/admin/users/UserEditPage";
 import UserDetailPage from "./pages/admin/users/UserDetailPage";
 import OrdersPage from "./pages/admin/orders/OrdersPage";
 import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
+import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -131,6 +132,7 @@ const App: React.FC = () => {
 
                           <Route path="orders" element={<OrdersPage />} />
                           <Route path="orders/detail/:id" element={<OrdersDetailPageAdmin />} />
+                          <Route path="orders/:id/timeline" element={<OrderDeliveryTimelinePage />} />
                         </Routes>
                       </main>
                     </div>

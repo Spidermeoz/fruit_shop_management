@@ -77,7 +77,7 @@ const ProductCreatePage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const json = await http<any>("GET", "/api/v1/admin/product-category");
+        const json = await http<any>("GET", "/api/v1/admin/product-category?limit=100");
         if (json.success && Array.isArray(json.data)) {
           // ✅ normalize để buildCategoryTree dùng parent_id như kỳ vọng
           const normalized = json.data.map((c: any) => ({

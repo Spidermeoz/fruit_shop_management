@@ -33,6 +33,14 @@ export interface OrderItemProps {
   quantity: number;
 }
 
+export interface DeliveryHistoryProps {
+  id: number;
+  status: string;
+  location?: string;
+  note?: string;
+  createdAt: Date;
+}
+
 export interface OrderProps {
   id?: number;
   userId: number;
@@ -48,5 +56,6 @@ export interface OrderProps {
   userInfo?: any | null;
   address?: OrderAddressProps | null;
   items: OrderItemProps[];
+  deliveryHistory?: DeliveryHistoryProps[];
   createdAt?: Date;
 }

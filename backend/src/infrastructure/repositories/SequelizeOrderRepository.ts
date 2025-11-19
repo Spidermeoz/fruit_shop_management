@@ -16,6 +16,15 @@ export class SequelizeOrderRepository implements OrderRepository {
     return Order.create({
       id: Number(row.id),
       userId: Number(row.user_id),
+      deliveryHistory: row.deliveryHistory
+        ? row.deliveryHistory.map((h: any) => ({
+            id: h.id,
+            status: h.status,
+            location: h.location,
+            note: h.note,
+            createdAt: h.created_at,
+          }))
+        : [],
       code: row.code,
       status: row.status,
       paymentStatus: row.payment_status,
@@ -208,6 +217,13 @@ export class SequelizeOrderRepository implements OrderRepository {
   // ========================================
   async updateStatus(id: number, status: string) {
     await this.models.Order.update({ status }, { where: { id } });
+
+    // ghi lịch sử giao hàng
+    await this.models.DeliveryStatusHistory.create({
+      order_id: id,
+      status,
+      note: `Status changed to ${status}`,
+    });
   }
 
   // ========================================
