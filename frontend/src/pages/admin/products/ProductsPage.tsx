@@ -66,26 +66,8 @@ const ProductsPage: React.FC = () => {
 
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
 
-      // Xử lý filter chờ phản hồi
-      if (statusFilter === "pending_reviews") {
-        // Lấy danh sách ID sản phẩm có đánh giá đang chờ
-        const pendingRes = await http(
-          "GET",
-          "/api/v1/admin/reviews/pending-summary"
-        );
-        if (pendingRes.success && pendingRes.data.length > 0) {
-          const productIds = pendingRes.data
-            .map((item: any) => item.productId)
-            .join(",");
-          url += `&ids=${productIds}`;
-        } else {
-          // Nếu không có sản phẩm nào có đánh giá chờ, trả về mảng rỗng
-          setProducts([]);
-          setTotalPages(1);
-          setLoading(false);
-          return;
-        }
-      } else if (statusFilter !== "all") {
+      // Xử lý các trạng thái khác (không còn pending_reviews)
+      if (statusFilter !== "all") {
         url += `&status=${statusFilter}`;
       }
 
@@ -141,12 +123,7 @@ const ProductsPage: React.FC = () => {
 
   // 🔹 Lọc hiển thị theo keyword
   const filteredProducts = products.filter((product) => {
-    // Lọc sản phẩm có review chờ phản hồi
-    if (statusFilter === "pending_reviews") {
-      return pendingMap[product.id] > 0;
-    }
-
-    // Các filter khác giữ nguyên
+    // Chỉ còn lại filter theo keyword
     return (
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -250,7 +227,7 @@ const ProductsPage: React.FC = () => {
       </div>
 
       {/* ✅ BỘ LỌC ĐÃ ĐƯỢC CHUYỂN VỀ BÊN TRÁI */}
-      {/* ✅ Bộ lọc trạng thái */}
+      {/* ✅ Bộ lọc trạng thái - ĐÃ BỎ NÚT CHỜ PHẢN HỒI */}
       <div className="flex gap-3 mb-4">
         <button
           onClick={() => handleFilterChange("all")}
@@ -283,17 +260,6 @@ const ProductsPage: React.FC = () => {
           }`}
         >
           Dừng hoạt động
-        </button>
-
-        <button
-          onClick={() => handleFilterChange("pending_reviews")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            statusFilter === "pending_reviews"
-              ? "bg-orange-600 text-white border-orange-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          Chờ phản hồi
         </button>
       </div>
 
@@ -432,11 +398,7 @@ const ProductsPage: React.FC = () => {
           ) : error ? (
             <p className="text-center text-red-500 py-6">{error}</p>
           ) : filteredProducts.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">
-              {statusFilter === "pending_reviews"
-                ? "Không có sản phẩm nào cần phản hồi đánh giá."
-                : "No products found."}
-            </p>
+            <p className="text-center text-gray-500 py-6">No products found.</p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
