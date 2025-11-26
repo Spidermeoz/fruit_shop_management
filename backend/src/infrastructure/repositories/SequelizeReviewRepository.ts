@@ -29,17 +29,27 @@ export class SequelizeReviewRepository {
   }
 
   async reply(input: any) {
+    const parentReview = await this.models.ProductReview.findByPk(
+      input.parentId
+    );
+
+    if (!parentReview) {
+      throw new Error("Review not found");
+    }
+
     return await this.models.ProductReview.create({
       parent_id: input.parentId,
       user_id: input.userId,
       content: input.content,
       status: "approved",
+      product_id: parentReview.product_id,
+      order_id: parentReview.order_id,
     });
   }
 
   async listByProduct(productId: number) {
-    return await this.models.ProductReview.findAll({
-      where: { product_id: productId, parent_id: null }, // chỉ lấy review gốc
+    const rows = await this.models.ProductReview.findAll({
+      where: { product_id: productId },
       include: [
         {
           model: this.models.User,
@@ -49,6 +59,7 @@ export class SequelizeReviewRepository {
         {
           model: this.models.ProductReview,
           as: "replies",
+          required: false,
           include: [
             {
               model: this.models.User,
@@ -59,14 +70,13 @@ export class SequelizeReviewRepository {
         },
       ],
       order: [
-        ["created_at", "DESC"],
-        [
-          { model: this.models.ProductReview, as: "replies" },
-          "created_at",
-          "ASC",
-        ],
+        ["id", "DESC"], // Cha mới nhất trước
+        [{ model: this.models.ProductReview, as: "replies" }, "id", "ASC"],
       ],
     });
+
+    // Lọc chỉ review cha
+    return rows.filter((r: { parent_id: null; }) => r.parent_id === null);
   }
 
   async listByUser(userId: number) {

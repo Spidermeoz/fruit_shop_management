@@ -49,6 +49,68 @@ interface Review {
   }[];
 }
 
+// ===== ADMIN REPLY FORM COMPONENT =====
+interface AdminReplyFormProps {
+  reviewId: number;
+  onSuccess: () => void;
+}
+
+const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
+  reviewId,
+  onSuccess,
+}) => {
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleReply = async () => {
+    if (!content.trim()) return alert("Vui lòng nhập nội dung phản hồi.");
+
+    try {
+      setLoading(true);
+      const res = await http(
+        "POST",
+        `/api/v1/admin/reviews/${reviewId}/reply`,
+        {
+          content,
+        }
+      );
+
+      if (res.success) {
+        setContent("");
+        onSuccess(); // ⭐ reload list
+      } else {
+        alert(res.message || "Không thể gửi phản hồi.");
+      }
+    } catch (err) {
+      alert("Lỗi khi gửi phản hồi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 ml-10 border-l-4 border-gray-300 pl-4">
+      <p className="font-medium text-gray-700 mb-2">Phản hồi đánh giá:</p>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={3}
+        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-800 dark:text-white"
+        placeholder="Nhập nội dung phản hồi..."
+      />
+
+      <button
+        onClick={handleReply}
+        disabled={loading}
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      >
+        {loading ? "Đang gửi..." : "Gửi phản hồi"}
+      </button>
+    </div>
+  );
+};
+
+// ===== PRODUCT DETAIL PAGE COMPONENT =====
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -300,17 +362,14 @@ const ProductDetailPage: React.FC = () => {
                     </p>
 
                     {/* EXISTING ADMIN REPLY */}
-                    {replied && (
+                    {rv.replies && rv.replies.length > 0 && (
                       <div className="mt-3 ml-10 border-l-4 border-blue-600 pl-4">
                         <p className="text-blue-700 font-semibold">
                           Phản hồi của shop:
                         </p>
-                        <p>{rv.replies![0].content}</p>
+                        <p>{rv.replies[0].content}</p>
                         <p className="text-gray-500 text-xs">
-                          {new Date(
-                            rv.replies![0].created_at ||
-                              rv.replies![0].createdAt!
-                          ).toLocaleString()}
+                          {new Date(rv.replies[0].created_at!).toLocaleString()}
                         </p>
                       </div>
                     )}
@@ -321,7 +380,7 @@ const ProductDetailPage: React.FC = () => {
                     {!replied && (
                       <AdminReplyForm
                         reviewId={rv.id}
-                        onSuccess={fetchReviews}
+                        onSuccess={() => fetchReviews()} // ⭐ load lại review đúng cách
                       />
                     )}
                   </div>
@@ -331,68 +390,6 @@ const ProductDetailPage: React.FC = () => {
           )}
         </div>
       </Card>
-    </div>
-  );
-};
-
-interface AdminReplyFormProps {
-  reviewId: number;
-  onSuccess: () => void;
-}
-
-const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
-  reviewId,
-  onSuccess,
-}) => {
-  const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleReply = async () => {
-    if (!content.trim()) return alert("Vui lòng nhập nội dung phản hồi.");
-
-    try {
-      setLoading(true);
-      const res = await http(
-        "POST",
-        `/api/v1/admin/reviews/${reviewId}/reply`,
-        {
-          content,
-        }
-      );
-
-      if (res.success) {
-        alert("Đã gửi phản hồi thành công!");
-        setContent("");
-        onSuccess(); // reload reviews
-      } else {
-        alert(res.message || "Không thể gửi phản hồi.");
-      }
-    } catch (err) {
-      console.error(err);
-      alert("Lỗi khi gửi phản hồi.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="mt-3 ml-10 border-l-4 border-gray-300 pl-4">
-      <p className="font-medium text-gray-700 mb-2">Phản hồi đánh giá:</p>
-      <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        rows={3}
-        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-800 dark:text-white"
-        placeholder="Nhập nội dung phản hồi..."
-      />
-
-      <button
-        onClick={handleReply}
-        disabled={loading}
-        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-      >
-        {loading ? "Đang gửi..." : "Gửi phản hồi"}
-      </button>
     </div>
   );
 };
