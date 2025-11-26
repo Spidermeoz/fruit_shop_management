@@ -45,6 +45,19 @@ const ProductsPage: React.FC = () => {
 
   const [sortOrder, setSortOrder] = useState<string>("");
 
+  const [pendingMap, setPendingMap] = useState<Record<number, number>>({});
+
+  const fetchPendingReviews = async () => {
+    const res = await http("GET", "/api/v1/admin/reviews/pending-summary");
+    if (res.success) {
+      const map: Record<number, number> = {};
+      res.data.forEach((row: any) => {
+        map[row.productId] = row.pending;
+      });
+      setPendingMap(map);
+    }
+  };
+
   // 🔹 Gọi API danh sách sản phẩm
   const fetchProducts = async () => {
     try {
@@ -52,7 +65,29 @@ const ProductsPage: React.FC = () => {
       setError("");
 
       let url = `/api/v1/admin/products?page=${currentPage}&limit=10`;
-      if (statusFilter !== "all") url += `&status=${statusFilter}`;
+
+      // Xử lý filter chờ phản hồi
+      if (statusFilter === "pending_reviews") {
+        // Lấy danh sách ID sản phẩm có đánh giá đang chờ
+        const pendingRes = await http(
+          "GET",
+          "/api/v1/admin/reviews/pending-summary"
+        );
+        if (pendingRes.success && pendingRes.data.length > 0) {
+          const productIds = pendingRes.data
+            .map((item: any) => item.productId)
+            .join(",");
+          url += `&ids=${productIds}`;
+        } else {
+          // Nếu không có sản phẩm nào có đánh giá chờ, trả về mảng rỗng
+          setProducts([]);
+          setTotalPages(1);
+          setLoading(false);
+          return;
+        }
+      } else if (statusFilter !== "all") {
+        url += `&status=${statusFilter}`;
+      }
 
       // --- fix: tách sortOrder "field:dir" thành sortBy & order để backend nhận
       if (sortOrder) {
@@ -88,6 +123,7 @@ const ProductsPage: React.FC = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchPendingReviews();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, currentPage, sortOrder, searchTerm]);
 
@@ -104,12 +140,19 @@ const ProductsPage: React.FC = () => {
   }, [searchTerm]);
 
   // 🔹 Lọc hiển thị theo keyword
-  const filteredProducts = products.filter(
-    (product) =>
+  const filteredProducts = products.filter((product) => {
+    // Lọc sản phẩm có review chờ phản hồi
+    if (statusFilter === "pending_reviews") {
+      return pendingMap[product.id] > 0;
+    }
+
+    // Các filter khác giữ nguyên
+    return (
       product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+    );
+  });
 
   const handleAddProduct = () => navigate("/admin/products/create");
 
@@ -185,16 +228,15 @@ const ProductsPage: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm("")}
+                className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
           </div>
-
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm("")}
-              className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-            >
-              ✕
-            </button>
-          )}
 
           {/* Add Product */}
           <button
@@ -207,6 +249,7 @@ const ProductsPage: React.FC = () => {
         </div>
       </div>
 
+      {/* ✅ BỘ LỌC ĐÃ ĐƯỢC CHUYỂN VỀ BÊN TRÁI */}
       {/* ✅ Bộ lọc trạng thái */}
       <div className="flex gap-3 mb-4">
         <button
@@ -241,10 +284,21 @@ const ProductsPage: React.FC = () => {
         >
           Dừng hoạt động
         </button>
+
+        <button
+          onClick={() => handleFilterChange("pending_reviews")}
+          className={`px-4 py-2 rounded-md text-sm font-medium border ${
+            statusFilter === "pending_reviews"
+              ? "bg-orange-600 text-white border-orange-600"
+              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          Chờ phản hồi
+        </button>
       </div>
 
       {/* Thanh sắp xếp */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 mb-4">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Sắp xếp:
         </label>
@@ -378,7 +432,11 @@ const ProductsPage: React.FC = () => {
           ) : error ? (
             <p className="text-center text-red-500 py-6">{error}</p>
           ) : filteredProducts.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">No products found.</p>
+            <p className="text-center text-gray-500 py-6">
+              {statusFilter === "pending_reviews"
+                ? "Không có sản phẩm nào cần phản hồi đánh giá."
+                : "No products found."}
+            </p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
@@ -456,14 +514,21 @@ const ProductsPage: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <img
-                          className="h-10 w-10 rounded-full object-cover"
-                          src={
-                            product.thumbnail ||
-                            "https://via.placeholder.com/50"
-                          }
-                          alt={product.title}
-                        />
+                        <div className="relative">
+                          <img
+                            className="h-10 w-10 rounded-full object-cover"
+                            src={
+                              product.thumbnail ||
+                              "https://via.placeholder.com/50"
+                            }
+                            alt={product.title}
+                          />
+                          {pendingMap[product.id] > 0 && (
+                            <span className="absolute -top-1 -right-1 px-2 py-1 bg-red-600 text-white text-xs rounded-full">
+                              {pendingMap[product.id]}
+                            </span>
+                          )}
+                        </div>
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {product.title}
@@ -471,6 +536,11 @@ const ProductsPage: React.FC = () => {
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             #{product.id}
                           </div>
+                          {pendingMap[product.id] > 0 && (
+                            <div className="text-xs text-red-600 dark:text-red-400">
+                              {pendingMap[product.id]} đánh giá chờ phản hồi
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>

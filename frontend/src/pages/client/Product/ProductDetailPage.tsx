@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react"; // ✅ Thêm useMemo
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
@@ -6,6 +6,9 @@ import Footer from "../../../components/client/layout/Footer";
 import { useCart } from "../../../context/CartContext";
 import { useAuth } from "../../../context/AuthContext";
 
+// ==========================
+// TYPES
+// ==========================
 interface Product {
   id: number;
   title: string;
@@ -23,16 +26,47 @@ interface Product {
   effectivePrice?: number;
 }
 
+interface Review {
+  id: number;
+  rating: number;
+  content: string;
+  created_at: string;
+  user?: {
+    id: number;
+    full_name?: string;
+    name?: string;
+    avatar?: string;
+  };
+  replies?: {
+    id: number;
+    content: string;
+    created_at: string;
+    user?: {
+      id: number;
+      full_name?: string;
+      name?: string;
+      avatar?: string;
+    };
+  }[];
+}
+
+// ==========================
+// PAGE START
+// ==========================
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("description");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // ✅ Fetch sản phẩm thật
+  // ✅ Thêm state cho bộ lọc đánh giá
+  const [ratingFilter, setRatingFilter] = useState<number | "all">("all");
+
+  // Fetch sản phẩm thật
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
@@ -40,7 +74,7 @@ const ProductDetailPage: React.FC = () => {
         const res = await http("GET", `/api/v1/client/products/${id}`);
         if (res?.success && res.data) {
           setProduct(res.data);
-          // ✅ Sau khi có sản phẩm -> load sản phẩm liên quan cùng danh mục
+          // Sau khi có sản phẩm -> load sản phẩm liên quan cùng danh mục
           if (res.data.category?.id) {
             const related = await http(
               "GET",
@@ -53,6 +87,8 @@ const ProductDetailPage: React.FC = () => {
               setRelatedProducts(filtered);
             }
           }
+          // Fetch reviews
+          fetchReviews(res.data.id);
         } else {
           setError("Không tìm thấy sản phẩm.");
         }
@@ -66,6 +102,35 @@ const ProductDetailPage: React.FC = () => {
 
     fetchProductDetail();
   }, [id]);
+
+  // Fetch reviews
+  const fetchReviews = async (productId: number) => {
+    try {
+      const res = await http(
+        "GET",
+        `/api/v1/client/reviews/product/${productId}`
+      );
+      if (res?.success && Array.isArray(res.data)) {
+        setReviews(res.data);
+      } else {
+        setReviews([]);
+      }
+    } catch (err) {
+      console.error("Lỗi tải đánh giá:", err);
+      setReviews([]);
+    }
+  };
+
+  // ✅ Tính toán số lượng đánh giá cho mỗi mức sao
+  const ratingCounts = useMemo(() => {
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviews.forEach((review) => {
+      if (review.rating >= 1 && review.rating <= 5) {
+        counts[review.rating as keyof typeof counts]++;
+      }
+    });
+    return counts;
+  }, [reviews]);
 
   const { addToCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -81,8 +146,6 @@ const ProductDetailPage: React.FC = () => {
 
     try {
       await addToCart(product.id, quantity);
-
-      // Hiển thị thông báo đơn giản (tuỳ bạn nâng cấp sau)
       alert(`Đã thêm ${quantity} × ${product.title} vào giỏ hàng`);
       navigate("/cart");
     } catch (err) {
@@ -200,15 +263,6 @@ const ProductDetailPage: React.FC = () => {
               )}
             </div>
 
-            {/* <p
-              className="text-gray-700 mb-8 leading-relaxed"
-              dangerouslySetInnerHTML={{
-                __html:
-                  product.description ||
-                  "Sản phẩm đang cập nhật mô tả chi tiết.",
-              }}
-            /> */}
-
             <div className="flex items-center gap-4 mb-8">
               <div className="flex items-center border border-gray-300 rounded-lg">
                 <button
@@ -237,7 +291,6 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             <div className="text-gray-600 space-y-2">
-              {/* ✅ THAY ĐỔI: Hiển thị số lượng tồn kho */}
               <p>
                 Tình trạng:{" "}
                 <span
@@ -280,7 +333,7 @@ const ProductDetailPage: React.FC = () => {
                   : "border-transparent text-gray-500 hover:text-green-600"
               }`}
             >
-              Đánh giá
+              Đánh giá ({reviews.length})
             </button>
           </nav>
 
@@ -297,7 +350,103 @@ const ProductDetailPage: React.FC = () => {
             )}
 
             {activeTab === "reviews" && (
-              <p className="text-gray-700">Chưa có đánh giá nào.</p>
+              <div className="space-y-6">
+                {/* ✅ BỘ LỌC ĐÁNH GIÁ */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <button
+                    onClick={() => setRatingFilter("all")}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                      ratingFilter === "all"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                  >
+                    Tất cả ({reviews.length})
+                  </button>
+                  {[5, 4, 3, 2, 1].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setRatingFilter(star)}
+                      className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-1 ${
+                        ratingFilter === star
+                          ? "bg-green-600 text-white"
+                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                      }`}
+                    >
+                      {star} ★ ({ratingCounts[star as keyof typeof ratingCounts]})
+                    </button>
+                  ))}
+                </div>
+
+                {/* DANH SÁCH ĐÁNH GIÁ ĐÃ LỌC */}
+                {reviews
+                  .filter(
+                    (review) =>
+                      ratingFilter === "all" || review.rating === ratingFilter
+                  )
+                  .map((review) => (
+                    <div key={review.id} className="border-b pb-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <img
+                          src={
+                            review.user?.avatar ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                              review.user?.full_name ||
+                                review.user?.name ||
+                                "User"
+                            )}`
+                          }
+                          className="w-10 h-10 rounded-full"
+                          alt="Avatar"
+                        />
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            {review.user?.full_name ||
+                              review.user?.name ||
+                              "Người dùng"}
+                          </p>
+                          <p className="text-gray-500 text-sm">
+                            {new Date(review.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-yellow-500">
+                        {Array.from({ length: review.rating }).map((_, i) => (
+                          <span key={i}>★</span>
+                        ))}
+                        {Array.from({ length: 5 - review.rating }).map((_, i) => (
+                          <span key={i} className="text-gray-300">
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-2 text-gray-800">{review.content}</p>
+                      {review.replies && review.replies.length > 0 && (
+                        <div className="ml-10 mt-3 border-l-4 border-green-500 pl-4">
+                          <p className="text-green-700 font-medium">
+                            Phản hồi từ shop:
+                          </p>
+                          <p className="text-gray-700">{review.replies[0].content}</p>
+                          <p className="text-gray-500 text-xs">
+                            {new Date(
+                              review.replies[0].created_at
+                            ).toLocaleString()}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {/* ✅ Thông báo khi không có đánh giá nào sau khi lọc */}
+                {reviews.filter(
+                  (review) =>
+                    ratingFilter === "all" || review.rating === ratingFilter
+                ).length === 0 && (
+                  <p className="text-gray-600">
+                    Không có đánh giá nào cho mức sao đã chọn.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

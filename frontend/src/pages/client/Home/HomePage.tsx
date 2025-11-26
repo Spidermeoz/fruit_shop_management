@@ -59,7 +59,8 @@ const HomePage: React.FC = () => {
   const slides = [
     {
       id: 1,
-      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422389/samples/food/fish-vegetables.jpg",
+      image:
+        "https://watermark.lovepik.com/photo/20211210/large/lovepik-the-clerk-in-the-fruit-shop-showed-the-orange-in-picture_501795067.jpg",
       title: "Trái Cây Tươi Ngon Mùa Hè",
       subtitle: "Giảm giá đến 30% cho các loại trái cây mùa hè",
       buttonText: "Khám phá ngay",
@@ -67,7 +68,8 @@ const HomePage: React.FC = () => {
     },
     {
       id: 2,
-      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422389/samples/food/dessert.jpg",
+      image:
+        "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422389/samples/food/dessert.jpg",
       title: "Nông Sản Hữu Cơ",
       subtitle: "100% hữu cơ, an toàn cho sức khỏe",
       buttonText: "Xem sản phẩm",
@@ -75,7 +77,8 @@ const HomePage: React.FC = () => {
     },
     {
       id: 3,
-      image: "https://res.cloudinary.com/dgqzcdtbx/image/upload/v1752422397/samples/cup-on-a-table.jpg",
+      image:
+        "https://jetstarcargo.vn/wp-content/uploads/2020/07/van-chuyen-trai-cay-sai-gon-gi-ha-noi-trong-ngay.jpeg",
       title: "Giao Hàng Nhanh Chóng",
       subtitle: "Đặt hàng hôm nay, nhận hàng trong ngày",
       buttonText: "Đặt hàng ngay",
@@ -363,7 +366,10 @@ const HomePage: React.FC = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/product" className="hover:text-green-300 transition">
+                  <Link
+                    to="/product"
+                    className="hover:text-green-300 transition"
+                  >
                     Sản phẩm
                   </Link>
                 </li>
@@ -373,7 +379,10 @@ const HomePage: React.FC = () => {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/contact" className="hover:text-green-300 transition">
+                  <Link
+                    to="/contact"
+                    className="hover:text-green-300 transition"
+                  >
                     Liên hệ
                   </Link>
                 </li>

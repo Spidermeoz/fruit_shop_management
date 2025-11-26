@@ -24,6 +24,17 @@ import DeliveryStatusHistoryModel from "../../infrastructure/db/sequelize/models
 
 import { SequelizeOrderRepository } from "../../infrastructure/repositories/SequelizeOrderRepository";
 
+import ProductReviewModel from "../../infrastructure/db/sequelize/models/ProductReviewModel";
+import { SequelizeReviewRepository } from "../../infrastructure/repositories/SequelizeReviewRepository";
+
+import { CreateReview } from "../../application/reviews/usecases/CreateReview";
+import { ReplyReview } from "../../application/reviews/usecases/ReplyReview";
+import { ListReviewsByProduct } from "../../application/reviews/usecases/ListReviewsByProduct";
+import { ListMyReviews } from "../../application/reviews/usecases/ListMyReviews";
+
+import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
+import { AdminReviewsController, makeAdminReviewsController } from "../../interfaces/http/express/controllers/AdminReviewsController";
+
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
@@ -39,6 +50,8 @@ import { AddToCart } from "../../application/carts/usecases/AddToCart";
 import { ListCartItems } from "../../application/carts/usecases/ListCartItems";
 import { UpdateCartItem } from "../../application/carts/usecases/UpdateCartItem";
 import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart";
+
+import { GetPendingReviewSummary } from "../../application/reviews/usecases/GetPendingReviewSummary";
 
 // Controllers
 import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
@@ -139,6 +152,7 @@ import {
   OrdersController,
 } from "../../interfaces/http/express/controllers/OrdersController";
 import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
+import { CheckReviewed } from "../../application/reviews/usecases/CheckReviewed";
 // import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
@@ -240,6 +254,32 @@ DeliveryStatusHistoryModel.belongsTo(OrderModel, {
   foreignKey: "order_id",
 });
 
+// ===== Reviews =====
+ProductReviewModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+
+ProductReviewModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+
+ProductReviewModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+
+ProductReviewModel.belongsTo(ProductReviewModel, {
+  as: "parent",
+  foreignKey: "parent_id",
+});
+
+ProductReviewModel.hasMany(ProductReviewModel, {
+  as: "replies",
+  foreignKey: "parent_id",
+});
+
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
@@ -276,6 +316,15 @@ const orderModels = {
 };
 
 const orderRepo = new SequelizeOrderRepository(orderModels);
+
+const reviewModels = {
+  ProductReview: ProductReviewModel,
+  Product: ProductModel,
+  Order: OrderModel,
+  User: UserModel,
+  OrderItem: OrderItemModel,
+};
+const reviewRepo = new SequelizeReviewRepository(reviewModels);
 
 // ===== Usecases =====
 export const usecases = {
@@ -362,6 +411,14 @@ export const usecases = {
     addPayment: new AddPayment(orderRepo),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
   },
+  reviews: {
+    create: new CreateReview(reviewRepo),
+    reply: new ReplyReview(reviewRepo),
+    listByProduct: new ListReviewsByProduct(reviewRepo),
+    listMine: new ListMyReviews(reviewRepo),
+    checkReviewed: new CheckReviewed(reviewRepo),
+    getPendingReviewSummary: new GetPendingReviewSummary(reviewRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -373,6 +430,7 @@ type Controllers = {
   users: UsersController;
   auth: AuthController;
   orders: OrdersController;
+  reviews: AdminReviewsController
 };
 
 export const controllers: Controllers = {
@@ -432,6 +490,11 @@ export const controllers: Controllers = {
     addDeliveryStatus: usecases.orders.addDeliveryStatus,
     addPayment: usecases.orders.addPayment,
   }),
+  reviews: makeAdminReviewsController({
+    replyReview: usecases.reviews.reply,
+    listByProduct: usecases.reviews.listByProduct,
+    getPendingReviewSummary: usecases.reviews.getPendingReviewSummary,
+  }),
 };
 
 export const clientControllers = {
@@ -475,5 +538,11 @@ export const clientControllers = {
     myOrderDetail: usecases.orders.myOrderDetail,
     cancelMyOrder: usecases.orders.cancelMyOrder,
     listMyOrderAddresses: usecases.orders.listMyOrderAddresses,
+  }),
+  reviews: makeClientReviewsController({
+    createReview: usecases.reviews.create,
+    listByProduct: usecases.reviews.listByProduct,
+    listMyReviews: usecases.reviews.listMine,
+    checkReviewed: usecases.reviews.checkReviewed,
   }),
 } as const;

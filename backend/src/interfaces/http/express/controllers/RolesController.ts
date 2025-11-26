@@ -355,6 +355,14 @@ export const makeRolesController = (uc: {
               { key: "add_payment", label: "Thêm thanh toán" },
             ],
           },
+          {
+            group: "Đánh giá sản phẩm",
+            key: "review",
+            actions: [
+              { key: "view", label: "Xem đánh giá" },
+              { key: "reply", label: "Trả lời đánh giá" },
+            ],
+          },
         ];
 
         const data = modules.map((mod) => {

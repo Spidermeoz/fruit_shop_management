@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2, Edit } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { http } from "../../../services/http";
 
-// 🔹 Định nghĩa kiểu sản phẩm
+// ===== PRODUCT TYPE =====
 interface Product {
   category: any;
   id: number;
@@ -24,21 +24,49 @@ interface Product {
   updated_at?: string;
 }
 
+// ===== REVIEW TYPE =====
+interface Review {
+  id: number;
+  rating: number;
+  content: string;
+  createdAt?: string;
+  created_at?: string;
+  user?: {
+    id: number;
+    name: string;
+    avatar?: string;
+  };
+  replies?: {
+    id: number;
+    content: string;
+    createdAt?: string;
+    created_at?: string;
+    user?: {
+      id: number;
+      name: string;
+      avatar?: string;
+    };
+  }[];
+}
+
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingProduct, setLoadingProduct] = useState<boolean>(true);
+  const [loadingReviews, setLoadingReviews] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
 
-  // 🔹 API chi tiết sản phẩm
+  // ===== FETCH PRODUCT =====
   const fetchProductDetail = async () => {
     try {
-      setLoading(true);
-      setError("");
-
-      const json = await http<any>("GET", `/api/v1/admin/products/detail/${id}`);
+      setLoadingProduct(true);
+      const json = await http<any>(
+        "GET",
+        `/api/v1/admin/products/detail/${id}`
+      );
 
       if (json.success && json.data) {
         setProduct(json.data as Product);
@@ -47,18 +75,41 @@ const ProductDetailPage: React.FC = () => {
       }
     } catch (err) {
       console.error("fetchProductDetail error:", err);
-      setError(err instanceof Error ? err.message : "Lỗi kết nối server hoặc API không phản hồi.");
+      setError(err instanceof Error ? err.message : "Lỗi kết nối server.");
     } finally {
-      setLoading(false);
+      setLoadingProduct(false);
+    }
+  };
+
+  // ===== FETCH REVIEW =====
+  const fetchReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const json = await http<any>(
+        "GET",
+        `/api/v1/admin/reviews/product/${id}`
+      );
+
+      if (json.success && Array.isArray(json.data)) {
+        setReviews(json.data);
+      } else {
+        setReviews([]);
+      }
+    } catch (err) {
+      console.error("fetchReviews error:", err);
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
     }
   };
 
   useEffect(() => {
     fetchProductDetail();
+    fetchReviews();
   }, [id]);
 
-  // 🔹 Hiển thị loading
-  if (loading) {
+  // ===== LOADING =====
+  if (loadingProduct) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
         <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
@@ -69,11 +120,13 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  // 🔹 Hiển thị lỗi
-  if (error) {
+  // ===== ERROR =====
+  if (error || !product) {
     return (
       <div className="flex flex-col justify-center items-center h-[70vh] text-center">
-        <p className="text-red-500 font-medium">{error}</p>
+        <p className="text-red-500 font-medium">
+          {error || "Sản phẩm không tồn tại."}
+        </p>
         <button
           onClick={() => navigate(-1)}
           className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
@@ -84,11 +137,9 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  if (!product) return null;
-
   return (
     <div className="p-4">
-      {/* Header */}
+      {/* HEADER */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Chi tiết sản phẩm
@@ -109,10 +160,10 @@ const ProductDetailPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Nội dung chính */}
       <Card>
+        {/* GRID PRODUCT INFO */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Ảnh */}
+          {/* IMAGE */}
           <div className="flex justify-center md:justify-start">
             <img
               src={product.thumbnail || "https://via.placeholder.com/300"}
@@ -121,7 +172,7 @@ const ProductDetailPage: React.FC = () => {
             />
           </div>
 
-          {/* Thông tin chính */}
+          {/* INFO */}
           <div className="space-y-3 text-gray-800 dark:text-gray-200">
             <h2 className="text-2xl font-semibold">{product.title}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -135,42 +186,26 @@ const ProductDetailPage: React.FC = () => {
               </p>
               <p>
                 <span className="font-medium">Giá:</span>{" "}
-                {Number(product.price).toLocaleString()}₫
+                {product.price.toLocaleString()}₫
               </p>
               <p>
-                <span className="font-medium">Vị trí hiển thị:</span>{" "}
+                <span className="font-medium">Vị trí:</span>{" "}
                 {product.position ?? "—"}
               </p>
               <p>
                 <span className="font-medium">Giảm giá:</span>{" "}
-                {product.discount_percentage ?? "0"}%
+                {product.discount_percentage ?? 0}%
               </p>
               <p>
                 <span className="font-medium">Tồn kho:</span> {product.stock}
               </p>
               <p>
                 <span className="font-medium">Nổi bật:</span>{" "}
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    product.featured
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
-                  }`}
-                >
-                  {product.featured ? "Có" : "Không"}
-                </span>
+                {product.featured ? "Có" : "Không"}
               </p>
               <p>
                 <span className="font-medium">Trạng thái:</span>{" "}
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    product.status === "active"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                      : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                  }`}
-                >
-                  {product.status}
-                </span>
+                {product.status}
               </p>
               <p>
                 <span className="font-medium">Đánh giá TB:</span>{" "}
@@ -184,19 +219,17 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Mô tả */}
+        {/* DESCRIPTION */}
         <div className="mt-8">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">
-            Mô tả sản phẩm
-          </h2>
+          <h2 className="text-lg font-semibold mb-2">Mô tả sản phẩm</h2>
           <div
             className="prose dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
         </div>
 
-        {/* Thông tin hệ thống */}
-        <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-2">
+        {/* SYSTEM INFO */}
+        <div className="mt-6 border-t pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-2">
           <p>
             <span className="font-medium">Ngày tạo:</span>{" "}
             {product.created_at
@@ -204,13 +237,162 @@ const ProductDetailPage: React.FC = () => {
               : "—"}
           </p>
           <p>
-            <span className="font-medium">Cập nhật gần nhất:</span>{" "}
+            <span className="font-medium">Cập nhật:</span>{" "}
             {product.updated_at
               ? new Date(product.updated_at).toLocaleString()
               : "—"}
           </p>
         </div>
+
+        {/* ====== REVIEWS SECTION ====== */}
+        <div className="mt-10">
+          <h2 className="text-xl font-semibold mb-4">Đánh giá sản phẩm</h2>
+
+          {loadingReviews ? (
+            <p className="text-gray-500">Đang tải đánh giá...</p>
+          ) : reviews.length === 0 ? (
+            <p className="text-gray-500">Chưa có đánh giá nào.</p>
+          ) : (
+            <div className="space-y-6">
+              {reviews.map((rv) => {
+                const replied = rv.replies && rv.replies.length > 0;
+
+                return (
+                  <div key={rv.id} className="border-b pb-4">
+                    {/* USER INFO */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <img
+                        src={
+                          rv.user?.avatar ||
+                          "https://ui-avatars.com/api/?name=U"
+                        }
+                        className="w-10 h-10 rounded-full"
+                      />
+                      <div>
+                        <p className="font-semibold text-gray-800 dark:text-gray-100">
+                          {rv.user?.name || "Người dùng"}
+                        </p>
+                        <p className="text-gray-500 text-sm">
+                          {new Date(
+                            rv.created_at || rv.createdAt!
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* RATING */}
+                    <div className="flex text-yellow-500 mb-2">
+                      {Array.from({ length: rv.rating || 0 }).map((_, i) => (
+                        <span key={i}>★</span>
+                      ))}
+                      {Array.from({ length: 5 - (rv.rating || 0) }).map(
+                        (_, i) => (
+                          <span key={i} className="text-gray-300">
+                            ★
+                          </span>
+                        )
+                      )}
+                    </div>
+
+                    {/* CONTENT */}
+                    <p className="text-gray-800 dark:text-gray-200">
+                      {rv.content}
+                    </p>
+
+                    {/* EXISTING ADMIN REPLY */}
+                    {replied && (
+                      <div className="mt-3 ml-10 border-l-4 border-blue-600 pl-4">
+                        <p className="text-blue-700 font-semibold">
+                          Phản hồi của shop:
+                        </p>
+                        <p>{rv.replies![0].content}</p>
+                        <p className="text-gray-500 text-xs">
+                          {new Date(
+                            rv.replies![0].created_at ||
+                              rv.replies![0].createdAt!
+                          ).toLocaleString()}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* ===========================
+                        FORM REPLY (CHỈ HIỆN NẾU CHƯA REPLY)
+                    ============================ */}
+                    {!replied && (
+                      <AdminReplyForm
+                        reviewId={rv.id}
+                        onSuccess={fetchReviews}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </Card>
+    </div>
+  );
+};
+
+interface AdminReplyFormProps {
+  reviewId: number;
+  onSuccess: () => void;
+}
+
+const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
+  reviewId,
+  onSuccess,
+}) => {
+  const [content, setContent] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleReply = async () => {
+    if (!content.trim()) return alert("Vui lòng nhập nội dung phản hồi.");
+
+    try {
+      setLoading(true);
+      const res = await http(
+        "POST",
+        `/api/v1/admin/reviews/${reviewId}/reply`,
+        {
+          content,
+        }
+      );
+
+      if (res.success) {
+        alert("Đã gửi phản hồi thành công!");
+        setContent("");
+        onSuccess(); // reload reviews
+      } else {
+        alert(res.message || "Không thể gửi phản hồi.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi khi gửi phản hồi.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 ml-10 border-l-4 border-gray-300 pl-4">
+      <p className="font-medium text-gray-700 mb-2">Phản hồi đánh giá:</p>
+      <textarea
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        rows={3}
+        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-800 dark:text-white"
+        placeholder="Nhập nội dung phản hồi..."
+      />
+
+      <button
+        onClick={handleReply}
+        disabled={loading}
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+      >
+        {loading ? "Đang gửi..." : "Gửi phản hồi"}
+      </button>
     </div>
   );
 };

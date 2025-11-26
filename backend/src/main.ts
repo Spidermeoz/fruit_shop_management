@@ -19,6 +19,8 @@ import { clientForgotPasswordRoutes } from "./interfaces/http/express/routes/cli
 import { clientCartRoutes } from "./interfaces/http/express/routes/client/clientCart.routes";
 import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
 import { clientOrdersRoutes } from "./interfaces/http/express/routes/client/clientOrders.routes";
+import { clientReviewsRoutes } from "./interfaces/http/express/routes/client/clientReviews.routes";
+import { adminReviewsRoutes } from "./interfaces/http/express/routes/adminReviews.routes";
 
 const app = express();
 
@@ -69,6 +71,10 @@ app.use(
   "/api/v1/admin/orders",
   ordersRoutes(controllers.orders, auth, can)
 );
+app.use(
+  "/api/v1/admin/reviews",
+  adminReviewsRoutes(controllers.reviews, auth, can)
+);
 
 // 5. Mount routes (client)
 app.use("/api/v1/client/products", clientProductsRoutes(clientControllers.products));
@@ -90,6 +96,9 @@ app.use(
 app.use(
   "/api/v1/client/orders",
   clientOrdersRoutes(clientControllers.orders, auth)
+);
+app.use("/api/v1/client/reviews", 
+  clientReviewsRoutes(clientControllers.reviews, auth)
 );
 
 // Error middleware đơn giản

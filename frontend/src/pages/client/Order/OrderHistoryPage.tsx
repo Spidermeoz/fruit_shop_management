@@ -2,21 +2,21 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
-import { 
-  Package, 
-  Calendar, 
-  MapPin, 
-  CreditCard, 
-  Eye, 
-  XCircle, 
+import {
+  Package,
+  Calendar,
+  MapPin,
+  CreditCard,
+  Eye,
+  XCircle,
   ShoppingBag,
   Clock,
   Truck,
   CheckCircle,
-  AlertCircle,
+  Star,
   Filter,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
 } from "lucide-react";
 
 // =============================
@@ -32,6 +32,7 @@ interface Order {
   createdAt: string;
 
   items: {
+    _reviewed: any;
     productId: number;
     productTitle: string;
     price: number;
@@ -57,6 +58,9 @@ const OrderHistoryPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [reviewingOrderId, setReviewingOrderId] = useState<number | null>(null);
+  const [reviewsData, setReviewsData] = useState<any>({});
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // =============================
   // LOAD ORDERS FROM API
@@ -65,11 +69,42 @@ const OrderHistoryPage: React.FC = () => {
     try {
       const res = await http("GET", "/api/v1/client/orders");
 
+      let result: Order[] = [];
+
       if (res.success && res.data) {
-        if (res.data.rows) setOrders(res.data.rows);
+        if (res.data.rows) result = res.data.rows;
         else if (Array.isArray(res.data))
-          setOrders(res.data.map((o: any) => o.props));
+          result = res.data.map((o: any) => o.props);
       }
+
+      // === CHECK REVIEW FOR EACH ORDER ITEM ===
+      const extendedOrders = [];
+
+      for (const ord of result) {
+        const newItems = [];
+
+        for (const item of ord.items) {
+          // gọi API check review
+          const check = await http(
+            "GET",
+            `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`
+          );
+
+          const reviewed = check?.success ? check.reviewed : false;
+
+          newItems.push({
+            ...item,
+            _reviewed: reviewed, // thêm flag đánh giá vào item
+          });
+        }
+
+        extendedOrders.push({
+          ...ord,
+          items: newItems, // gán lại list item có flag _reviewed
+        });
+      }
+
+      setOrders(extendedOrders);
     } catch (err) {
       console.error("Order load error:", err);
     } finally {
@@ -123,9 +158,9 @@ const OrderHistoryPage: React.FC = () => {
   // =============================
   const statusFormat: Record<
     string,
-    { 
-      text: string; 
-      bg: string; 
+    {
+      text: string;
+      bg: string;
       color: string;
       icon: React.ReactNode;
     }
@@ -134,37 +169,37 @@ const OrderHistoryPage: React.FC = () => {
       text: "Chờ xác nhận",
       bg: "bg-yellow-100",
       color: "text-yellow-700",
-      icon: <Clock className="w-4 h-4" />
+      icon: <Clock className="w-4 h-4" />,
     },
     processing: {
       text: "Đang xử lý",
       bg: "bg-blue-100",
       color: "text-blue-700",
-      icon: <Package className="w-4 h-4" />
+      icon: <Package className="w-4 h-4" />,
     },
     shipping: {
       text: "Đang giao hàng",
       bg: "bg-purple-100",
       color: "text-purple-700",
-      icon: <Truck className="w-4 h-4" />
+      icon: <Truck className="w-4 h-4" />,
     },
     delivered: {
       text: "Đã giao hàng",
       bg: "bg-green-100",
       color: "text-green-700",
-      icon: <CheckCircle className="w-4 h-4" />
+      icon: <CheckCircle className="w-4 h-4" />,
     },
     completed: {
       text: "Hoàn tất",
       bg: "bg-green-200",
       color: "text-green-800",
-      icon: <CheckCircle className="w-4 h-4" />
+      icon: <CheckCircle className="w-4 h-4" />,
     },
-    cancelled: { 
-      text: "Đã hủy", 
-      bg: "bg-red-100", 
+    cancelled: {
+      text: "Đã hủy",
+      bg: "bg-red-100",
       color: "text-red-700",
-      icon: <XCircle className="w-4 h-4" />
+      icon: <XCircle className="w-4 h-4" />,
     },
   };
 
@@ -173,10 +208,60 @@ const OrderHistoryPage: React.FC = () => {
       case "paid":
         return { text: "Đã thanh toán", color: "text-green-600" };
       case "unpaid":
-        return { text: "Thanh toán khi nhận hàng (COD)", color: "text-gray-600" };
+        return {
+          text: "Thanh toán khi nhận hàng (COD)",
+          color: "text-gray-600",
+        };
       default:
         return { text: "Không rõ", color: "text-gray-600" };
     }
+  };
+
+  const updateReviewData = (productId: number, field: string, value: any) => {
+    setReviewsData((prev: any) => ({
+      ...prev,
+      [productId]: {
+        ...(prev[productId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const submitReviews = async (order: Order) => {
+    try {
+      setSubmittingReview(true);
+
+      const products = order.items;
+
+      for (const p of products) {
+        const rd = reviewsData[p.productId];
+        if (!rd || !rd.rating || !rd.content?.trim()) continue;
+
+        await http("POST", "/api/v1/client/reviews", {
+          productId: p.productId,
+          orderId: order.id,
+          rating: rd.rating,
+          content: rd.content,
+        });
+      }
+
+      alert("Đánh giá thành công!");
+      setReviewingOrderId(null);
+      setReviewsData({});
+    } catch (err) {
+      console.error(err);
+      alert("Lỗi khi gửi đánh giá.");
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const checkReviewed = async (orderId: number, productId: number) => {
+    const res = await http(
+      "GET",
+      `/api/v1/client/reviews/check?orderId=${orderId}&productId=${productId}`
+    );
+    return res?.reviewed === true;
   };
 
   // =============================
@@ -220,7 +305,7 @@ const OrderHistoryPage: React.FC = () => {
               <Filter className="w-5 h-5" />
               Bộ lọc đơn hàng
             </h2>
-            
+
             <button
               onClick={() => {
                 setRefreshing(true);
@@ -229,7 +314,9 @@ const OrderHistoryPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
               disabled={refreshing}
             >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`}
+              />
               Làm mới
             </button>
           </div>
@@ -279,7 +366,11 @@ const OrderHistoryPage: React.FC = () => {
           <div className="text-center py-20 bg-white rounded-2xl shadow-md">
             <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <h2 className="text-xl text-gray-700 mb-4">
-              {filterStatus === "all" ? "Bạn chưa có đơn hàng nào" : `Không có đơn hàng ${statusFormat[filterStatus]?.text?.toLowerCase()}`}
+              {filterStatus === "all"
+                ? "Bạn chưa có đơn hàng nào"
+                : `Không có đơn hàng ${statusFormat[
+                    filterStatus
+                  ]?.text?.toLowerCase()}`}
             </h2>
             <Link
               to="/products"
@@ -299,8 +390,8 @@ const OrderHistoryPage: React.FC = () => {
                 order.status === "pending" || order.status === "processing";
 
               return (
-                <div 
-                  key={order.id} 
+                <div
+                  key={order.id}
                   className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
                   {/* TOP */}
@@ -308,9 +399,11 @@ const OrderHistoryPage: React.FC = () => {
                     <div className="flex flex-col md:flex-row justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-3 mb-2">
-                          <h3 
+                          <h3
                             className="text-xl font-bold text-green-800 cursor-pointer hover:text-green-600 transition flex items-center gap-2"
-                            onClick={() => window.location.href = `/orders/${order.id}`}
+                            onClick={() =>
+                              (window.location.href = `/orders/${order.id}`)
+                            }
                           >
                             Đơn hàng #{order.code}
                             <Eye className="w-4 h-4" />
@@ -326,12 +419,19 @@ const OrderHistoryPage: React.FC = () => {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600">
                           <div className="flex items-center gap-1">
                             <Calendar className="w-4 h-4" />
-                            <span>Ngày đặt: {new Date(order.createdAt).toLocaleDateString("vi-VN")}</span>
+                            <span>
+                              Ngày đặt:{" "}
+                              {new Date(order.createdAt).toLocaleDateString(
+                                "vi-VN"
+                              )}
+                            </span>
                           </div>
 
                           <div className="flex items-center gap-1">
                             <CreditCard className="w-4 h-4" />
-                            <span className={paymentInfo.color}>{paymentInfo.text}</span>
+                            <span className={paymentInfo.color}>
+                              {paymentInfo.text}
+                            </span>
                           </div>
                         </div>
 
@@ -339,7 +439,9 @@ const OrderHistoryPage: React.FC = () => {
                           <div className="flex items-start gap-1 mt-2 text-sm text-gray-600">
                             <MapPin className="w-4 h-4 mt-0.5" />
                             <span>
-                              {order.address.address_line1}, {order.address.ward}, {order.address.district}, {order.address.province}
+                              {order.address.address_line1},{" "}
+                              {order.address.ward}, {order.address.district},{" "}
+                              {order.address.province}
                             </span>
                           </div>
                         )}
@@ -356,7 +458,9 @@ const OrderHistoryPage: React.FC = () => {
 
                   {/* ITEMS */}
                   <div className="p-6">
-                    <h4 className="font-semibold text-gray-800 mb-3">Sản phẩm trong đơn</h4>
+                    <h4 className="font-semibold text-gray-800 mb-3">
+                      Sản phẩm trong đơn
+                    </h4>
                     <div className="space-y-3">
                       {order.items.slice(0, 2).map((i) => (
                         <div
@@ -369,8 +473,12 @@ const OrderHistoryPage: React.FC = () => {
                           />
 
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-800">{i.productTitle}</h4>
-                            <p className="text-sm text-gray-600">x{i.quantity}</p>
+                            <h4 className="font-medium text-gray-800">
+                              {i.productTitle}
+                            </h4>
+                            <p className="text-sm text-gray-600">
+                              x{i.quantity}
+                            </p>
                           </div>
 
                           <p className="font-medium text-green-700">
@@ -378,7 +486,7 @@ const OrderHistoryPage: React.FC = () => {
                           </p>
                         </div>
                       ))}
-                      
+
                       {order.items.length > 2 && (
                         <div className="text-center text-sm text-gray-500 pt-2">
                           và {order.items.length - 2} sản phẩm khác
@@ -386,6 +494,115 @@ const OrderHistoryPage: React.FC = () => {
                       )}
                     </div>
                   </div>
+
+                  {/* REVIEW FORM */}
+                  {order.status === "completed" && (
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <button
+                        onClick={() =>
+                          setReviewingOrderId(
+                            reviewingOrderId === order.id ? null : order.id
+                          )
+                        }
+                        className="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg flex items-center gap-2 font-medium"
+                      >
+                        ⭐ Đánh giá sản phẩm
+                      </button>
+
+                      {reviewingOrderId === order.id && (
+                        <div className="mt-4 space-y-6 bg-gray-50 p-4 rounded-xl">
+                          {order.items.map((item) =>
+                            item._reviewed ? (
+                              // ===== SẢN PHẨM ĐÃ ĐƯỢC ĐÁNH GIÁ =====
+                              <div
+                                key={item.productId}
+                                className="p-3 border rounded-lg bg-gray-100 text-gray-600 flex items-center gap-3"
+                              >
+                                <img
+                                  src={item.thumbnail || ""}
+                                  className="w-14 h-14 rounded-lg object-cover bg-gray-200"
+                                />
+                                <div>
+                                  <p className="font-semibold text-gray-700">
+                                    {item.productTitle}
+                                  </p>
+                                  <p className="text-sm mt-1 flex items-center gap-1">
+                                    <Star className="w-4 h-4 text-yellow-500 fill-yellow-400" />
+                                    Bạn đã đánh giá sản phẩm này
+                                  </p>
+                                </div>
+                              </div>
+                            ) : (
+                              // ===== SẢN PHẨM CHƯA ĐƯỢC ĐÁNH GIÁ → FORM REVIEW =====
+                              <div
+                                key={item.productId}
+                                className="border p-3 rounded-lg bg-white"
+                              >
+                                {/* Tên + Ảnh */}
+                                <div className="flex items-center gap-3 mb-3">
+                                  <img
+                                    src={item.thumbnail || ""}
+                                    className="w-14 h-14 rounded-lg object-cover bg-gray-200"
+                                  />
+                                  <p className="font-semibold text-gray-800">
+                                    {item.productTitle}
+                                  </p>
+                                </div>
+
+                                {/* Rating */}
+                                <div className="flex gap-1 mb-3">
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <Star
+                                      key={n}
+                                      className={`w-6 h-6 cursor-pointer ${
+                                        reviewsData[item.productId]?.rating >= n
+                                          ? "text-yellow-500 fill-yellow-400"
+                                          : "text-gray-300"
+                                      }`}
+                                      onClick={() =>
+                                        updateReviewData(
+                                          item.productId,
+                                          "rating",
+                                          n
+                                        )
+                                      }
+                                    />
+                                  ))}
+                                </div>
+
+                                {/* Nội dung */}
+                                <textarea
+                                  rows={3}
+                                  className="w-full border p-2 rounded-lg focus:ring-green-500 focus:border-green-500"
+                                  placeholder="Viết cảm nhận của bạn..."
+                                  value={
+                                    reviewsData[item.productId]?.content || ""
+                                  }
+                                  onChange={(e) =>
+                                    updateReviewData(
+                                      item.productId,
+                                      "content",
+                                      e.target.value
+                                    )
+                                  }
+                                />
+
+                                <button
+                                  disabled={submittingReview}
+                                  onClick={() => submitReviews(order)}
+                                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                >
+                                  {submittingReview
+                                    ? "Đang gửi..."
+                                    : "Gửi đánh giá"}
+                                </button>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* ACTIONS */}
                   <div className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
