@@ -58,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   // ✅ Đăng nhập
-  const login = async (email: string, password: string, remember = false) => {
+  const login = async (email: string, password: string) => {
     const res = await http<any>("POST", "/api/v1/client/auth/login", {
       email,
       password,

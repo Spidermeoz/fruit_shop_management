@@ -12,6 +12,7 @@
   "dependencies": {
     "@tinymce/tinymce-react": "^6.3.0",
     "axios": "^1.13.2",
+    "dayjs": "^1.11.19",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.3",
     "lucide-react": "^0.545.0",

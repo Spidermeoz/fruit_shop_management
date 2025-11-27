@@ -1,123 +1,78 @@
-import React from "react";
-import Card from "../../components/layouts/Card";
-import RevenueChart from "../../components/charts/LineChart";
-import SalesByCategoryChart from "../../components/charts/BarChart";
-import TrafficSourcesChart from "../../components/charts/PieChart";
-import RecentTransactions from "../../components/layouts/RecentTransactions";
-import { TrendingUp, Users, DollarSign, ShoppingCart } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { useAuth } from "../../auth/AuthContext";
+import Can from "../../auth/Can";
 
-interface StatCard {
-  title: string;
-  value: string;
-  icon: LucideIcon;
-  change: string;
-  changeType: "positive" | "negative";
-}
+import {
+  getOrdersForMonth,
+  getRecentOrders,
+} from "../../services/api/dashboardOrdersService";
+import { summarizeOrders } from "../../utils/orderSummary";
 
-const statCards: StatCard[] = [
-  {
-    title: "Total Revenue",
-    value: "$54,239",
-    icon: DollarSign,
-    change: "+12.5%",
-    changeType: "positive",
-  },
-  {
-    title: "Total Users",
-    value: "8,549",
-    icon: Users,
-    change: "+2.1%",
-    changeType: "positive",
-  },
-  {
-    title: "Total Sales",
-    value: "1,423",
-    icon: ShoppingCart,
-    change: "-5.4%",
-    changeType: "negative",
-  },
-  {
-    title: "Growth Rate",
-    value: "23.5%",
-    icon: TrendingUp,
-    change: "+8.2%",
-    changeType: "positive",
-  },
-];
+import OrdersSummaryCards from "../../components/dashboard/OrdersSummaryCards";
+import RecentOrders from "../../components/dashboard/RecentOrders";
+import { useEffect, useState } from "react";
+import type { Order, OrdersSummary } from "../../types/orders";
 
-const DashboardPage: React.FC = () => {
+import { getAllProducts } from "../../services/api/dashboardProductService";
+import { summarizeProducts } from "../../utils/productSummary";
+import type { ProductSummary } from "../../types/products";
+
+import ProductsOverview from "../../components/dashboard/ProductsOverview";
+import UsersOverview from "../../components/dashboard/UsersOverview";
+
+export default function DashboardPage() {
+  const { hasPermission } = useAuth();
+
+  const [summary, setSummary] = useState<OrdersSummary | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+
+  const [productSummary, setProductSummary] = useState<ProductSummary | null>(
+    null
+  );
+
+  // ===== Products =====
+  useEffect(() => {
+    if (!hasPermission("product", "view")) return;
+
+    (async () => {
+      const products = await getAllProducts();
+      setProductSummary(summarizeProducts(products));
+    })();
+  }, [hasPermission]);
+
+  // ===== Orders =====
+  useEffect(() => {
+    if (!hasPermission("order", "view")) return;
+
+    (async () => {
+      const orders = await getOrdersForMonth();
+      setSummary(summarizeOrders(orders));
+
+      const recent = await getRecentOrders();
+      setRecentOrders(recent);
+    })();
+  }, [hasPermission]);
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
-        Dashboard
-      </h1>
+    <div className="space-y-12">
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    {stat.title}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                    {stat.value}
-                  </p>
-                  <p
-                    className={`text-sm mt-2 ${
-                      stat.changeType === "positive"
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
-                  >
-                    {stat.change} from last month
-                  </p>
-                </div>
-                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-full">
-                  <Icon className="w-6 h-6 text-blue-600 dark:text-blue-300" />
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      {/* ================== ORDERS ================== */}
+      <Can module="order" action="view">
+        {summary && <OrdersSummaryCards summary={summary} />}
+      </Can>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <Card>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            Revenue Over Time
-          </h2>
-          <RevenueChart />
-        </Card>
-        <Card>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            Sales by Category
-          </h2>
-          <SalesByCategoryChart />
-        </Card>
-      </div>
+      <Can module="order" action="view">
+        {recentOrders.length > 0 && <RecentOrders orders={recentOrders} />}
+      </Can>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            Recent Transactions
-          </h2>
-          <RecentTransactions />
-        </Card>
-        <Card>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-white mb-4">
-            Traffic Sources
-          </h2>
-          <TrafficSourcesChart />
-        </Card>
-      </div>
+      <Can module="product" action="view">
+        <ProductsOverview />
+      </Can>
+
+      {/* ================== USERS (MODULE 5) ================== */}
+      <Can module="user" action="view">
+        <UsersOverview />
+      </Can>
+
     </div>
   );
-};
-
-export default DashboardPage;
+}
