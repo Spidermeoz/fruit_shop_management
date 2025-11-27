@@ -260,14 +260,6 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
-  const checkReviewed = async (orderId: number, productId: number) => {
-    const res = await http(
-      "GET",
-      `/api/v1/client/reviews/check?orderId=${orderId}&productId=${productId}`
-    );
-    return res?.reviewed === true;
-  };
-
   // =============================
   // LOADING
   // =============================
@@ -467,9 +459,10 @@ const OrderHistoryPage: React.FC = () => {
                     </h4>
                     <div className="space-y-3">
                       {order.items.slice(0, 2).map((i) => (
-                        <div
+                        <Link
                           key={i.productId}
-                          className="flex items-center gap-3 pb-3 border-b last:border-0"
+                          to={`/products/${i.productId}`}
+                          className="flex items-center gap-3 pb-3 border-b last:border-0 hover:bg-gray-50 p-2 rounded transition cursor-pointer"
                         >
                           <img
                             src={i.thumbnail || ""}
@@ -477,7 +470,7 @@ const OrderHistoryPage: React.FC = () => {
                           />
 
                           <div className="flex-1">
-                            <h4 className="font-medium text-gray-800">
+                            <h4 className="font-medium text-gray-800 hover:text-green-600 transition">
                               {i.productTitle}
                             </h4>
                             <p className="text-sm text-gray-600">
@@ -488,7 +481,7 @@ const OrderHistoryPage: React.FC = () => {
                           <p className="font-medium text-green-700">
                             {(i.quantity * i.price).toLocaleString()} đ
                           </p>
-                        </div>
+                        </Link>
                       ))}
 
                       {order.items.length > 2 && (
@@ -544,13 +537,18 @@ const OrderHistoryPage: React.FC = () => {
                               >
                                 {/* Tên + Ảnh */}
                                 <div className="flex items-center gap-3 mb-3">
-                                  <img
-                                    src={item.thumbnail || ""}
-                                    className="w-14 h-14 rounded-lg object-cover bg-gray-200"
-                                  />
-                                  <p className="font-semibold text-gray-800">
-                                    {item.productTitle}
-                                  </p>
+                                  <Link
+                                    to={`/products/${item.productId}`}
+                                    className="flex items-center gap-3"
+                                  >
+                                    <img
+                                      src={item.thumbnail || ""}
+                                      className="w-14 h-14 rounded-lg object-cover bg-gray-200 hover:opacity-80 transition"
+                                    />
+                                    <p className="font-semibold text-gray-800 hover:text-green-600 transition">
+                                      {item.productTitle}
+                                    </p>
+                                  </Link>
                                 </div>
 
                                 {/* Rating */}

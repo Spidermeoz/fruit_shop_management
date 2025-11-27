@@ -21,6 +21,7 @@ import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
 import { clientOrdersRoutes } from "./interfaces/http/express/routes/client/clientOrders.routes";
 import { clientReviewsRoutes } from "./interfaces/http/express/routes/client/clientReviews.routes";
 import { adminReviewsRoutes } from "./interfaces/http/express/routes/adminReviews.routes";
+import { clientUploadRoutes } from "./interfaces/http/express/routes/client/clientUpload.routes";
 
 const app = express();
 
@@ -100,6 +101,7 @@ app.use(
 app.use("/api/v1/client/reviews", 
   clientReviewsRoutes(clientControllers.reviews, auth)
 );
+app.use("/api/v1/client/upload", clientUploadRoutes(controllers.upload, auth));
 
 // Error middleware đơn giản
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

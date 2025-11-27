@@ -79,6 +79,11 @@ const ProfilePage: React.FC = () => {
     confirm: false,
   });
 
+  // State cho avatar
+  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   // ==========================
   // 📌 LOAD PROFILE + ORDERS + ADDRESSES
   // ==========================
@@ -91,7 +96,6 @@ const ProfilePage: React.FC = () => {
   const loadProfile = async () => {
     try {
       setApiError(null);
-      // Sửa đường dẫn API, thêm /api/v1/ vào đầu
       const res = await http("GET", "/api/v1/client/auth/me");
       // ✅ SỬA: Dùng res.data.user thay vì res.data.data
       const userData = res.data.user;
@@ -101,25 +105,21 @@ const ProfilePage: React.FC = () => {
         full_name: userData.full_name,
         email: userData.email,
         phone: userData.phone || "",
-        avatar: userData.avatar || "", // Để trống, sẽ xử lý ở UI
+        avatar: userData.avatar || "",
         role: userData.role,
       });
     } catch (err: any) {
       console.error("Failed to load profile", err);
-      // Xử lý lỗi 401 (Unauthorized) - chuyển hướng đến trang đăng nhập
       if (err.response?.status === 401) {
         navigate("/login");
       } else {
-        setApiError(
-          "Không thể tải thông tin người dùng. Vui lòng thử lại sau."
-        );
+        setApiError("Không thể tải thông tin người dùng. Vui lòng thử lại sau.");
       }
     }
   };
 
   const loadAddresses = async () => {
     try {
-      // Sửa đường dẫn API
       const res = await http("GET", "/api/v1/client/orders/addresses");
       // ✅ SỬA: Dùng res.data thay vì res.data.data
       setAddresses(res.data);
@@ -133,7 +133,6 @@ const ProfilePage: React.FC = () => {
 
   const loadOrders = async () => {
     try {
-      // Sửa đường dẫn API
       const res = await http("GET", "/api/v1/client/orders");
       // ✅ SỬA: Dùng res.data thay vì res.data.data và thêm kiểm tra mảng
       if (Array.isArray(res.data)) {
@@ -148,7 +147,7 @@ const ProfilePage: React.FC = () => {
   };
 
   // ==========================
-  // 📌 SAVE PROFILE (optional: chưa có API → hiện đang alert)
+  // 📌 SAVE PROFILE
   // ==========================
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,13 +186,11 @@ const ProfilePage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      // Sửa đường dẫn API
       const res = await http("POST", "/api/v1/client/auth/change-password", {
         currentPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
 
-      // ✅ THÊM: Kiểm tra success
       if (!res.success) {
         alert(res.message || "Đổi mật khẩu thất bại");
         return;
@@ -213,17 +210,85 @@ const ProfilePage: React.FC = () => {
   };
 
   // ==========================
-  // 📌 HANDLE ADDRESSES
+  // 📌 HANDLE AVATAR
   // ==========================
-  const handleSetDefaultAddress = (index: number) => {
-    // Since API doesn't have a default flag, we'll just handle this in the UI
-    alert("Chức năng đặt địa chỉ mặc định chưa có API backend!");
+  const handleAvatarSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Ảnh phải nhỏ hơn 2MB!");
+      return;
+    }
+
+    // Tạo preview ảnh
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewAvatar(reader.result as string);
+      setSelectedFile(file);
+      setShowConfirmDialog(true);
+    };
+    reader.readAsDataURL(file);
   };
 
-  const handleDeleteAddress = (index: number) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa địa chỉ này?")) {
-      alert("Chức năng xóa địa chỉ chưa có API backend!");
+  const confirmUploadAvatar = async () => {
+    if (!selectedFile) return;
+
+    try {
+      setIsLoading(true);
+
+      // Tạo FormData
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("folder", "avatars");
+
+      // Gửi lên Cloudinary backend
+      const uploadRes = await http("POST", "/api/v1/client/upload", formData);
+
+      const imageUrl = uploadRes.url || uploadRes.data?.url;
+      if (!imageUrl) {
+        alert("Upload ảnh thất bại!");
+        return;
+      }
+
+      // Cập nhật profile
+      const updateRes = await http("PATCH", "/api/v1/client/auth/profile", {
+        avatar: imageUrl,
+      });
+
+      if (!updateRes.success) {
+        alert(updateRes.message || "Không thể cập nhật avatar");
+        return;
+      }
+
+      // Update UI
+      setProfile((prev) => ({
+        ...prev,
+        avatar: imageUrl,
+      }));
+
+      alert("Cập nhật ảnh đại diện thành công!");
+    } catch (err: any) {
+      console.error(err);
+      alert(err?.response?.data?.message || "Lỗi upload avatar");
+    } finally {
+      setIsLoading(false);
+      setShowConfirmDialog(false);
+      setSelectedFile(null);
+      setPreviewAvatar(null);
+      // Reset input
+      const avatarInput = document.getElementById("avatarInput") as HTMLInputElement;
+      if (avatarInput) avatarInput.value = "";
     }
+  };
+
+  const cancelUploadAvatar = () => {
+    setShowConfirmDialog(false);
+    setSelectedFile(null);
+    setPreviewAvatar(null);
+    // Reset input
+    const avatarInput = document.getElementById("avatarInput") as HTMLInputElement;
+    if (avatarInput) avatarInput.value = "";
   };
 
   // ==========================
@@ -296,6 +361,9 @@ const ProfilePage: React.FC = () => {
 
   // Hàm xử lý avatar
   const getAvatarSrc = () => {
+    if (previewAvatar) {
+      return previewAvatar;
+    }
     if (!profile.avatar) {
       return "https://i.imgur.com/5Y2n5xR.jpg"; // Ảnh mặc định
     }
@@ -337,28 +405,46 @@ const ProfilePage: React.FC = () => {
                     alt="Avatar"
                     className="w-24 h-24 rounded-full mx-auto mb-4 object-cover"
                   />
-                  <button className="absolute bottom-4 right-0 bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+                  <div className="absolute bottom-3 right-0">
+                    {/* INPUT FILE ẨN */}
+                    <input
+                      type="file"
+                      id="avatarInput"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarSelected}
+                    />
+
+                    {/* NÚT CAMERA */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        document.getElementById("avatarInput")!.click()
+                      }
+                      className="bg-green-600 text-white p-2 rounded-full hover:bg-green-700 transition"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        fill="none"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-800">
                   {profile.full_name}
@@ -479,8 +565,6 @@ const ProfilePage: React.FC = () => {
                         />
                       </div>
 
-                      {/* Xóa phần vai trò */}
-
                       <div className="flex justify-end gap-3 pt-4">
                         <button
                           type="button"
@@ -517,12 +601,6 @@ const ProfilePage: React.FC = () => {
                           <p className="text-gray-600 text-sm">Số điện thoại</p>
                           <p className="font-medium text-gray-800">
                             {profile.phone}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600 text-sm">Vai trò</p>
-                          <p className="font-medium text-gray-800">
-                            {profile.role.title}
                           </p>
                         </div>
                       </div>
@@ -617,7 +695,6 @@ const ProfilePage: React.FC = () => {
                   <h2 className="text-xl font-semibold text-gray-800">
                     Sổ địa chỉ
                   </h2>
-                  {/* Xóa nút "Thêm địa chỉ mới" */}
                 </div>
 
                 <div className="p-6">
@@ -653,7 +730,6 @@ const ProfilePage: React.FC = () => {
                                 </p>
                               )}
                             </div>
-                            {/* Xóa phần nút chỉnh sửa và xóa */}
                           </div>
                         </div>
                       ))}
@@ -890,6 +966,42 @@ const ProfilePage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Dialog xác nhận thay đổi avatar */}
+      {showConfirmDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+              Xác nhận thay đổi ảnh đại diện
+            </h3>
+            <div className="flex justify-center mb-4">
+              <img
+                src={previewAvatar || ""}
+                alt="Avatar preview"
+                className="w-32 h-32 rounded-full object-cover"
+              />
+            </div>
+            <p className="text-gray-600 mb-6">
+              Bạn có chắc chắn muốn cập nhật ảnh đại diện này không?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelUploadAvatar}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={confirmUploadAvatar}
+                disabled={isLoading}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+              >
+                {isLoading ? "Đang tải lên..." : "Xác nhận"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
