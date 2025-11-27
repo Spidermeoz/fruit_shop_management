@@ -246,6 +246,10 @@ const OrderHistoryPage: React.FC = () => {
       }
 
       alert("Đánh giá thành công!");
+
+      // === GỌI LẠI LOAD ORDERS ĐỂ CẬP NHẬT TRẠNG THÁI ===
+      await loadOrders();
+
       setReviewingOrderId(null);
       setReviewsData({});
     } catch (err) {

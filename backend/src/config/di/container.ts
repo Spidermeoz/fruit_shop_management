@@ -62,6 +62,8 @@ import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
 import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
 import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
 import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
+import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
+import { UpdateMyProfile } from "../../application/auth/usecases/UpdateMyProfile";
 
 // Client Cart controller
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -389,6 +391,8 @@ export const usecases = {
     requestPasswordReset: new RequestPasswordReset(),
     verifyResetOtp: new VerifyResetOtp(),
     resetPassword: new ResetPassword(authServices.password),
+    changePassword: new ChangePassword(userRepo, authServices.password),
+    updateMyProfile: new UpdateMyProfile(userRepo),
   },
   // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
   authServices,
@@ -516,6 +520,8 @@ export const clientControllers = {
     logout: usecases.auth.logout,
     me: usecases.auth.me,
     refresh: usecases.auth.refresh,
+    changePassword: usecases.auth.changePassword,
+    updateMyProfile: usecases.auth.updateMyProfile,
   }),
   forgotPassword: new ClientForgotPasswordController({
     requestPasswordReset: usecases.auth.requestPasswordReset,

@@ -4,6 +4,8 @@ import { Login } from "../../../../../application/auth/usecases/Login";
 import { Logout } from "../../../../../application/auth/usecases/Logout";
 import { GetMe } from "../../../../../application/auth/usecases/GetMe";
 import { RefreshToken } from "../../../../../application/auth/usecases/RefreshToken";
+import { ChangePassword } from "../../../../../application/auth/usecases/ChangePassword";
+import { UpdateMyProfile } from "../../../../../application/auth/usecases/UpdateMyProfile";
 
 export const makeClientAuthController = (uc: {
   register: RegisterClient;
@@ -11,6 +13,8 @@ export const makeClientAuthController = (uc: {
   logout: Logout;
   me: GetMe;
   refresh: RefreshToken;
+  changePassword: ChangePassword;
+  updateMyProfile: UpdateMyProfile;
 }) => {
   return {
     // ✅ POST /api/v1/client/auth/register
@@ -138,6 +142,56 @@ export const makeClientAuthController = (uc: {
         });
       } catch (err) {
         next(err);
+      }
+    },
+
+    changePassword: async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+          return res.status(400).json({
+            success: false,
+            message: "Vui lòng nhập đủ mật khẩu cũ và mật khẩu mới",
+          });
+        }
+
+        await uc.changePassword.execute(userId, currentPassword, newPassword);
+
+        return res.json({
+          success: true,
+          message: "Đổi mật khẩu thành công",
+        });
+      } catch (err: any) {
+        return res.status(400).json({
+          success: false,
+          message: err.message || "Không thể đổi mật khẩu",
+        });
+      }
+    },
+
+    updateProfile: async (req: Request, res: Response) => {
+      try {
+        const userId = req.user!.id;
+        const { full_name, phone, avatar } = req.body;
+
+        const updated = await uc.updateMyProfile.execute(userId, {
+          full_name,
+          phone,
+          avatar,
+        });
+
+        return res.json({
+          success: true,
+          message: "Cập nhật thông tin thành công",
+          data: updated,
+        });
+      } catch (err: any) {
+        return res.status(400).json({
+          success: false,
+          message: err.message || "Không thể cập nhật thông tin",
+        });
       }
     },
   };

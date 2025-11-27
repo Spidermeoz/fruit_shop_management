@@ -7,20 +7,24 @@ export const clientAuthRoutes = (
 ) => {
   const r = Router();
 
-  // ✅ Đăng ký tài khoản
+  // Đăng ký tài khoản
   r.post("/register", controller.register);
 
-  // ✅ Đăng nhập
+  // Đăng nhập
   r.post("/login", controller.login);
 
-  // ✅ Làm mới token
+  // Làm mới token
   r.post("/refresh", controller.refresh);
 
-  // ✅ Lấy thông tin người dùng hiện tại (cần token)
+  // Lấy thông tin người dùng hiện tại (cần token)
   r.get("/me", authMiddleware, controller.me);
 
-  // ✅ Đăng xuất
+  // Đăng xuất
   r.post("/logout", controller.logout);
+
+  r.post("/change-password", authMiddleware, controller.changePassword);
+
+  r.patch("/profile", authMiddleware, controller.updateProfile);
 
   return r;
 };
