@@ -33,7 +33,13 @@ import { ListReviewsByProduct } from "../../application/reviews/usecases/ListRev
 import { ListMyReviews } from "../../application/reviews/usecases/ListMyReviews";
 
 import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
-import { AdminReviewsController, makeAdminReviewsController } from "../../interfaces/http/express/controllers/AdminReviewsController";
+import {
+  AdminReviewsController,
+  makeAdminReviewsController,
+} from "../../interfaces/http/express/controllers/AdminReviewsController";
+
+import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
+import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
 
 // Products usecases
 import { ListProducts } from "../../application/products/usecases/ListProducts";
@@ -53,6 +59,9 @@ import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart"
 
 import { GetPendingReviewSummary } from "../../application/reviews/usecases/GetPendingReviewSummary";
 
+import { GetGeneralSettings } from "../../application/settings/usecases/GetGeneralSettings";
+import { UpdateGeneralSettings } from "../../application/settings/usecases/UpdateGeneralSettings";
+
 // Controllers
 import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
 import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
@@ -69,6 +78,11 @@ import { UpdateMyProfile } from "../../application/auth/usecases/UpdateMyProfile
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
 import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
 import { makeClientOrdersController } from "../../interfaces/http/express/controllers/client/ClientOrdersController";
+
+import {
+  makeSettingsGeneralController,
+  SettingsGeneralController,
+} from "../../interfaces/http/express/controllers/SettingsGeneralController";
 
 // Upload DI
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -155,6 +169,7 @@ import {
 } from "../../interfaces/http/express/controllers/OrdersController";
 import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
 import { CheckReviewed } from "../../application/reviews/usecases/CheckReviewed";
+import { SettingGeneral } from "../../domain/settings/SettingGeneral";
 // import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
@@ -328,6 +343,9 @@ const reviewModels = {
 };
 const reviewRepo = new SequelizeReviewRepository(reviewModels);
 
+const settingModels = { SettingGeneral: SettingGeneralModel };
+const settingsRepo = new SequelizeSettingGeneralRepository(settingModels);
+
 // ===== Usecases =====
 export const usecases = {
   products: {
@@ -423,6 +441,10 @@ export const usecases = {
     checkReviewed: new CheckReviewed(reviewRepo),
     getPendingReviewSummary: new GetPendingReviewSummary(reviewRepo),
   },
+  settings: {
+    get: new GetGeneralSettings(settingsRepo),
+    update: new UpdateGeneralSettings(settingsRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -434,7 +456,8 @@ type Controllers = {
   users: UsersController;
   auth: AuthController;
   orders: OrdersController;
-  reviews: AdminReviewsController
+  reviews: AdminReviewsController;
+  settings: SettingsGeneralController;
 };
 
 export const controllers: Controllers = {
@@ -499,6 +522,11 @@ export const controllers: Controllers = {
     listByProduct: usecases.reviews.listByProduct,
     getPendingReviewSummary: usecases.reviews.getPendingReviewSummary,
   }),
+  settings: makeSettingsGeneralController({
+    get: usecases.settings.get,
+    update: usecases.settings.update,
+    upload: usecases.upload.upload, // tái sử dụng UploadImage có sẵn
+  }),
 };
 
 export const clientControllers = {
@@ -550,5 +578,10 @@ export const clientControllers = {
     listByProduct: usecases.reviews.listByProduct,
     listMyReviews: usecases.reviews.listMine,
     checkReviewed: usecases.reviews.checkReviewed,
+  }),
+  clientSettings: makeSettingsGeneralController({
+    get: usecases.settings.get,
+    update: usecases.settings.update,
+    upload: usecases.upload.upload,
   }),
 } as const;

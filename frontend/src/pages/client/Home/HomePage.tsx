@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
+import Footer from "../../../components/client/layout/Footer";
 
 const HomePage: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
@@ -329,82 +330,7 @@ const HomePage: React.FC = () => {
       </section>
 
       {/* ================== FOOTER ================== */}
-      <footer className="bg-green-800 text-white py-12">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div>
-              <h3 className="text-2xl font-bold mb-4">FreshFruits</h3>
-              <p className="mb-4">
-                Cung cấp trái cây tươi ngon, chất lượng cao đến tận nhà bạn.
-              </p>
-              <div className="flex space-x-4">
-                <a
-                  href="https://github.com/Spidermeoz/fruit_shop_management"
-                  className="hover:text-green-300 transition"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      clipRule="evenodd"
-                      d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.83 9.504.475.083.677-.217.677-.484 0-.233-.007-.867-.011-1.702-2.782.607-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.004.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.931 0-1.088.39-1.979 1.029-2.679-.103-.253-.446-1.266.098-2.64 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 5.042c.847.009 1.682.115 2.477.332 1.91-1.296 2.747-1.026 2.747-1.026.546 1.373.202 2.387.099 2.64.64.7 1.028 1.591 1.028 2.679 0 3.829-2.336 4.673-4.565 4.92.359.307.678.915.678 1.846 0 1.338-.012 2.419-.012 2.747 0 .268.201.576.682.483C19.136 20.217 22 16.46 22 12.017 22 6.484 17.522 2 12 2z"
-                    />
-                  </svg>
-                </a>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-semibold mb-4">Liên kết nhanh</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link to="/" className="hover:text-green-300 transition">
-                    Trang chủ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/product"
-                    className="hover:text-green-300 transition"
-                  >
-                    Sản phẩm
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/about" className="hover:text-green-300 transition">
-                    Giới thiệu
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/contact"
-                    className="hover:text-green-300 transition"
-                  >
-                    Liên hệ
-                  </Link>
-                </li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-semibold mb-4">Liên hệ</h3>
-              <p className="mb-2">📍 Đại học Thăng Long</p>
-              <p className="mb-2">✉️ Email: test@thanglong.edu.vn</p>
-              <p className="mb-2">📞 Điện thoại: 0123 456 789</p>
-            </div>
-          </div>
-
-          <div className="border-t border-green-700 mt-8 pt-8 text-center">
-            <p>
-              &copy; {new Date().getFullYear()} FreshFruits. Tất cả quyền được
-              bảo lưu.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer></Footer>
 
       {/* ================== BACK TO TOP ================== */}
       <button

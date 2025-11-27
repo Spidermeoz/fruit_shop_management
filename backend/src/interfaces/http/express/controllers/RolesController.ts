@@ -363,6 +363,14 @@ export const makeRolesController = (uc: {
               { key: "reply", label: "Trả lời đánh giá" },
             ],
           },
+          {
+            group: "Cài đặt hệ thống",
+            key: "setting",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "update", label: "Cập nhật" },
+            ],
+          },
         ];
 
         const data = modules.map((mod) => {

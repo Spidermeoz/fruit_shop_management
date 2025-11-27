@@ -13,20 +13,54 @@ interface Category {
   children?: Category[];
 }
 
+interface SettingGeneral {
+  website_name?: string | null;
+  logo?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  copyright?: string | null;
+}
+
 const Header: React.FC = () => {
   const [isProductMenuOpen, setIsProductMenuOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [settings, setSettings] = useState<SettingGeneral | null>(null);
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // ✅ Lấy từ AuthContext
+  // Auth + Cart
   const { user, isAuthenticated, logout } = useAuth();
   const { items } = useCart();
   const cartCount = items.length;
 
-  // ✅ Lấy danh mục sản phẩm từ backend
+  // ==========================
+  // 🔥 LOAD GENERAL SETTINGS
+  // ==========================
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await http("GET", "/api/v1/client/settings/general");
+        if (res?.success) {
+          setSettings(res.data);
+        }
+      } catch (err) {
+        console.error("Lỗi tải settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // Giá trị fallback
+  const websiteName = settings?.website_name || "FreshFruits";
+  const logoUrl = settings?.logo || "https://i.imgur.com/8Jk3l7n.jpg"; // ảnh fallback nếu API không có logo
+
+  // ==========================
+  // 🔥 LOAD CATEGORIES
+  // ==========================
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -42,7 +76,7 @@ const Header: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // ✅ Đóng menu khi click ra ngoài (Vẫn giữ để đảm bảo an toàn, dù logic hover chính đã xử lý việc đóng)
+  // Đóng menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -54,7 +88,7 @@ const Header: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Xử lý logout
+  // Logout
   const handleLogout = async () => {
     try {
       await logout();
@@ -65,14 +99,16 @@ const Header: React.FC = () => {
     }
   };
 
-  // 🧩 Toggle submenu
+  // Toggle submenu
   const toggleExpand = (id: number) => {
     setExpandedIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   };
 
-  // 🧩 Đệ quy hiển thị danh mục con
+  // ==========================
+  // 🔁 ĐỆ QUY MENU DANH MỤC
+  // ==========================
   const renderSubMenu = (children: Category[], depth = 1) => (
     <ul className="pl-4 border-l border-gray-200 ml-2">
       {children.map((child) => {
@@ -87,14 +123,14 @@ const Header: React.FC = () => {
               >
                 {child.title}
               </Link>
+
               {hasChildren && (
                 <button
                   onClick={(e) => {
-                    e.preventDefault(); // Ngăn chặn link click nếu click vào nút mở rộng
+                    e.preventDefault();
                     toggleExpand(child.id);
                   }}
                   className="p-1 text-gray-500 hover:text-green-600 transition"
-                  title={isExpanded ? "Thu gọn" : "Mở rộng"}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -125,14 +161,11 @@ const Header: React.FC = () => {
     </ul>
   );
 
-  // 🧩 Menu danh mục cấp 1
   const renderCategoryMenu = (cats: Category[]) => (
     <div
       ref={menuRef}
       className="absolute top-full left-0 mt-0 bg-white rounded-lg shadow-lg py-3 border border-gray-100 z-50 w-72 overflow-y-auto max-h-[70vh]"
-      style={{ animation: "fadeIn 0.15s ease-in-out" }}
     >
-      {/* mt-0 để menu dính liền với nút hover, tránh bị mất focus khi di chuột xuống */}
       {cats.map((cat) => {
         const isExpanded = expandedIds.includes(cat.id);
         const hasChildren = cat.children && cat.children.length > 0;
@@ -146,6 +179,7 @@ const Header: React.FC = () => {
               >
                 {cat.title}
               </Link>
+
               {hasChildren && (
                 <button
                   onClick={(e) => {
@@ -153,7 +187,6 @@ const Header: React.FC = () => {
                     toggleExpand(cat.id);
                   }}
                   className="p-1 text-gray-500 hover:text-green-600 transition"
-                  title={isExpanded ? "Thu gọn" : "Mở rộng"}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -182,19 +215,22 @@ const Header: React.FC = () => {
     </div>
   );
 
+  // ==========================
+  // 🔥 UI HEADER
+  // ==========================
   return (
     <header className="fixed top-0 w-full bg-white shadow-md z-50">
       <div className="container mx-auto px-6 py-4">
         <div className="flex justify-between items-center">
-          {/* Logo */}
+          {/* LOGO + WEBSITE NAME */}
           <Link to="/" className="flex items-center">
             <img
-              src="https://i.imgur.com/8Jk3l7n.jpg"
+              src={logoUrl}
               alt="Logo"
-              className="h-10 w-10 rounded-full mr-3"
+              className="h-10 w-10 rounded-full mr-3 object-cover"
             />
             <span className="text-2xl font-bold text-green-600">
-              FreshFruits
+              {websiteName}
             </span>
           </Link>
 
@@ -207,16 +243,15 @@ const Header: React.FC = () => {
               Trang chủ
             </Link>
 
-            {/* 👇 KHU VỰC ĐÃ SỬA ĐỔI: HOVER VÀ LINK SẢN PHẨM 👇 */}
-            <div 
-              className="relative py-2" // Thêm py-2 để mở rộng vùng hover, tránh mất menu khi di chuyển chuột nhanh
+            {/* Menu sản phẩm */}
+            <div
+              className="relative py-2"
               onMouseEnter={() => setIsProductMenuOpen(true)}
               onMouseLeave={() => setIsProductMenuOpen(false)}
             >
               <Link
                 to="/products"
                 className="text-gray-700 hover:text-green-600 transition font-medium flex items-center"
-                onClick={() => setIsProductMenuOpen(false)} // Đóng menu khi click vào link chính
               >
                 Sản phẩm
                 <svg
@@ -236,12 +271,11 @@ const Header: React.FC = () => {
                   />
                 </svg>
               </Link>
-              
+
               {isProductMenuOpen &&
                 categories.length > 0 &&
                 renderCategoryMenu(categories)}
             </div>
-            {/* 👆 KẾT THÚC KHU VỰC SỬA ĐỔI 👆 */}
 
             <Link
               to="/about"
@@ -257,15 +291,12 @@ const Header: React.FC = () => {
             </Link>
           </nav>
 
-          {/* Hành động */}
+          {/* Cart + User */}
           <div className="flex items-center space-x-4">
-            {/* Giỏ hàng */}
+            {/* Cart */}
             <button
               onClick={() => {
-                if (!isAuthenticated) {
-                  navigate("/login");
-                  return;
-                }
+                if (!isAuthenticated) return navigate("/login");
                 navigate("/cart");
               }}
               className="relative p-2 text-gray-700 hover:text-green-600 transition"
@@ -285,14 +316,14 @@ const Header: React.FC = () => {
                 />
               </svg>
 
-              {/* 🛒 Hiển thị badge nếu có item */}
               {cartCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                   {cartCount}
                 </span>
               )}
             </button>
-            {/* Người dùng */}
+
+            {/* User menu */}
             {isAuthenticated && user ? (
               <div className="relative">
                 <button
@@ -308,27 +339,10 @@ const Header: React.FC = () => {
                       />
                     ) : (
                       <span className="text-white text-sm font-medium">
-                        {user.fullName
-                          ? user.fullName.charAt(0).toUpperCase()
-                          : "U"}
+                        {user.fullName?.charAt(0)?.toUpperCase() || "U"}
                       </span>
                     )}
                   </div>
-
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 text-gray-600"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
                 </button>
 
                 {isUserMenuOpen && (
@@ -374,13 +388,6 @@ const Header: React.FC = () => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </header>
   );
 };

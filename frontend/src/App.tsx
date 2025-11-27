@@ -28,6 +28,7 @@ import UserDetailPage from "./pages/admin/users/UserDetailPage";
 import OrdersPage from "./pages/admin/orders/OrdersPage";
 import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
 import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
+import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -131,8 +132,19 @@ const App: React.FC = () => {
                           />
 
                           <Route path="orders" element={<OrdersPage />} />
-                          <Route path="orders/detail/:id" element={<OrdersDetailPageAdmin />} />
-                          <Route path="orders/:id/timeline" element={<OrderDeliveryTimelinePage />} />
+                          <Route
+                            path="orders/detail/:id"
+                            element={<OrdersDetailPageAdmin />}
+                          />
+                          <Route
+                            path="orders/:id/timeline"
+                            element={<OrderDeliveryTimelinePage />}
+                          />
+
+                          <Route
+                            path="settings/general"
+                            element={<SettingsGeneralPage />}
+                          />
                         </Routes>
                       </main>
                     </div>

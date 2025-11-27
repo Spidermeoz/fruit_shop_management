@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Layout from "../layout/Layout";
 import { http } from "../../../services/http";
+import Footer from "../layout/Footer";
 
 interface Category {
   id: number;
@@ -439,16 +440,7 @@ const ProductListPage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <footer className="bg-gray-100 border-t py-8 mt-16 text-center text-gray-600 text-sm">
-        <p>
-          © {new Date().getFullYear()} FreshFruits. Tất cả các quyền được bảo
-          lưu.
-        </p>
-        <p className="mt-1">
-          Thiết kế & phát triển bởi{" "}
-          <span className="text-green-600 font-medium">FruitShop Team</span>
-        </p>
-      </footer>
+      <Footer></Footer>
     </Layout>
   );
 };

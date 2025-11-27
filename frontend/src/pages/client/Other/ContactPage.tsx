@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
+import Footer from "../../../components/client/layout/Footer";
 
 interface ContactForm {
   name: string;
@@ -331,6 +332,7 @@ const ContactPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <Footer></Footer>
     </Layout>
   );
 };

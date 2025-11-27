@@ -10,6 +10,7 @@ import {
   Users,
   Receipt,
   type LucideIcon,
+  Settings,
 } from "lucide-react";
 import Can from "../../auth/Can";
 
@@ -56,6 +57,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/users",
     icon: Users,
     permission: { module: "user", action: "view" },
+  },
+  {
+    name: "Settings",
+    href: "/admin/settings/general",
+    icon: Settings,
+    permission: { module: "setting", action: "update" },
   },
 ];
 
