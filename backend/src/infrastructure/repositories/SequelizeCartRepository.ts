@@ -19,6 +19,8 @@ export class SequelizeCartRepository implements CartRepository {
           title: String(p.title),
           price:
             p.price !== null && p.price !== undefined ? Number(p.price) : null,
+          // Ánh xạ trường discount_percentage từ DB vào DTO
+          discountPercentage: Number(p.discount_percentage) || 0,
           thumbnail: p.thumbnail ?? null,
           slug: p.slug ?? null,
         }
@@ -74,7 +76,15 @@ export class SequelizeCartRepository implements CartRepository {
         {
           model: this.models.Product,
           as: "product",
-          attributes: ["id", "title", "price", "thumbnail", "slug"],
+          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
+          attributes: [
+            "id",
+            "title",
+            "price",
+            "discount_percentage",
+            "thumbnail",
+            "slug",
+          ],
         },
       ],
     });
@@ -94,7 +104,15 @@ export class SequelizeCartRepository implements CartRepository {
         {
           model: this.models.Product,
           as: "product",
-          attributes: ["id", "title", "price", "thumbnail", "slug"],
+          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
+          attributes: [
+            "id",
+            "title",
+            "price",
+            "discount_percentage",
+            "thumbnail",
+            "slug",
+          ],
         },
       ],
       order: [["created_at", "ASC"]],
@@ -129,7 +147,15 @@ export class SequelizeCartRepository implements CartRepository {
         {
           model: this.models.Product,
           as: "product",
-          attributes: ["id", "title", "price", "thumbnail", "slug"],
+          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
+          attributes: [
+            "id",
+            "title",
+            "price",
+            "discount_percentage",
+            "thumbnail",
+            "slug",
+          ],
         },
       ],
     });
@@ -168,7 +194,15 @@ export class SequelizeCartRepository implements CartRepository {
         {
           model: this.models.Product,
           as: "product",
-          attributes: ["id", "title", "price", "thumbnail", "slug"],
+          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
+          attributes: [
+            "id",
+            "title",
+            "price",
+            "discount_percentage",
+            "thumbnail",
+            "slug",
+          ],
         },
       ],
       order: [["created_at", "ASC"]],

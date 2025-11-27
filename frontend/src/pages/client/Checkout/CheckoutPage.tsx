@@ -19,7 +19,6 @@ import {
   Info,
   Truck,
   FileText,
-  Wallet,
   Building,
   Smartphone,
   RefreshCw,
@@ -109,9 +108,18 @@ const CheckoutPage: React.FC = () => {
     selectedItems.includes(i.productId)
   );
 
-  // Tính tổng tiền
+  // ✅ Thêm hàm tính giá hiệu quả (sau khi giảm giá)
+  const getEffectivePrice = (product: any) => {
+    if (!product) return 0;
+    if (product.discountPercentage && product.discountPercentage > 0) {
+      return product.price * (1 - product.discountPercentage / 100);
+    }
+    return product.price;
+  };
+
+  // ✅ Cập nhật cách tính tổng tiền
   const subtotal = checkoutItems.reduce(
-    (acc, item) => acc + (item.product?.price || 0) * item.quantity,
+    (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
     0
   );
 
@@ -201,6 +209,8 @@ const CheckoutPage: React.FC = () => {
         discountAmount: 0,
         paymentMethod: orderInfo.payment,
       };
+
+      console.log("Payload being sent to backend:", payload);
 
       const res = await http("POST", "/api/v1/client/orders/checkout", payload);
 
@@ -798,12 +808,35 @@ const CheckoutPage: React.FC = () => {
                     <p className="text-sm text-gray-500">x{item.quantity}</p>
                   </div>
 
-                  <p className="text-green-700 font-medium">
-                    {(
-                      (item.product?.price || 0) * item.quantity
-                    ).toLocaleString()}{" "}
-                    đ
-                  </p>
+                  {/* ✅ Cập nhật cách hiển thị giá */}
+                  <div className="text-right">
+                    {(item.product?.discountPercentage ?? 0) > 0 ? (
+                      <div>
+                        <div className="text-green-700 font-medium">
+                          {(
+                            getEffectivePrice(item.product) * item.quantity
+                          ).toLocaleString()}{" "}
+                          đ
+                        </div>
+                        <div className="text-sm text-gray-500 line-through">
+                          {(
+                            (item.product?.price || 0) * item.quantity
+                          ).toLocaleString()}{" "}
+                          đ
+                        </div>
+                        <div className="text-xs bg-red-500 text-white px-2 py-1 rounded mt-1">
+                          -{(item.product?.discountPercentage || 0)}%
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-green-700 font-medium">
+                        {(
+                          (item.product?.price || 0) * item.quantity
+                        ).toLocaleString()}{" "}
+                        đ
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

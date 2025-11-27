@@ -3,6 +3,7 @@ export type CartItemProduct = {
   id: number;
   title: string;
   price: number | null;
+  discountPercentage: number; // Thêm trường này để lưu phần trăm giảm giá
   thumbnail: string | null;
   slug: string | null;
 };

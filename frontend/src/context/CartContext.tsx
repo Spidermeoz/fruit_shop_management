@@ -21,6 +21,7 @@ export interface CartItem {
     id: number;
     title: string;
     price: number | null;
+    discountPercentage?: number; // Thêm trường này
     thumbnail: string | null;
     slug: string | null;
   } | null;

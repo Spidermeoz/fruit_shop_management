@@ -50,7 +50,8 @@ export default function OrdersSummaryCards({
   summary: OrdersSummary;
 }) {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    // Đã thay đổi từ lg:grid-cols-4 thành lg:grid-cols-3
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <SummaryCard
         title="Tổng đơn hàng tháng"
         value={summary.totalOrders}
@@ -91,26 +92,7 @@ export default function OrdersSummaryCards({
         }
         color="green"
       />
-      <SummaryCard
-        title="Tổng giảm giá"
-        value={`${summary.totalDiscount.toLocaleString()}₫`}
-        icon={
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-        }
-        color="red"
-      />
+      {/* Phần tử SummaryCard cho "Tổng giảm giá" đã bị xóa */}
       <SummaryCard
         title="Đơn pending"
         value={summary.pendingOrders}

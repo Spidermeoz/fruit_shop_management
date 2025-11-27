@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
-import { useCart } from "../../../context/CartContext";
+import { useCart, type CartItem } from "../../../context/CartContext";
 import { 
   ShoppingCart, 
   Plus, 
@@ -54,13 +54,22 @@ const CartPage: React.FC = () => {
     setSelectAll(!selectAll);
   };
 
+  // Hàm tính giá hiệu quả (sau khi giảm giá)
+  const getEffectivePrice = (product: CartItem["product"]) => {
+    if (!product || product.price === null) return 0;
+    if (product.discountPercentage && product.discountPercentage > 0) {
+      return product.price * (1 - product.discountPercentage / 100);
+    }
+    return product.price;
+  };
+
   // NEW: Tính subtotal theo selected items
   const selectedProducts = items.filter((item) =>
     selectedItems.includes(item.productId)
   );
 
   const subtotal = selectedProducts.reduce(
-    (acc, item) => acc + (item.product?.price || 0) * item.quantity,
+    (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
     0
   );
 
@@ -183,7 +192,7 @@ const CartPage: React.FC = () => {
 
                       <img
                         src={item.product?.thumbnail || ""}
-                        alt={item.product?.title}
+                        alt={item.product?.title ?? ""}
                         className="w-24 h-24 rounded-lg object-cover shadow-sm"
                       />
 
@@ -191,9 +200,25 @@ const CartPage: React.FC = () => {
                         <h3 className="text-lg font-semibold text-green-800">
                           {item.product?.title}
                         </h3>
-                        <p className="text-green-700 font-medium mt-1">
-                          {(item.product?.price || 0).toLocaleString()} đ / kg
-                        </p>
+                        <div className="mt-1">
+                          {item.product && item.product.discountPercentage && item.product.discountPercentage > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-700 font-medium">
+                                {getEffectivePrice(item.product).toLocaleString()} đ / kg
+                              </span>
+                              <span className="text-gray-500 line-through text-sm">
+                                {(item.product.price || 0).toLocaleString()} đ
+                              </span>
+                              <span className="bg-red-500 text-white px-2 py-1 rounded text-xs">
+                                -{item.product.discountPercentage}%
+                              </span>
+                            </div>
+                          ) : (
+                            <p className="text-green-700 font-medium">
+                              {(item.product?.price || 0).toLocaleString()} đ / kg
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Nút tăng giảm */}
@@ -219,12 +244,31 @@ const CartPage: React.FC = () => {
 
                       {/* Giá & Xóa */}
                       <div className="text-right">
-                        <p className="font-semibold text-green-700 text-lg">
-                          {(
-                            (item.product?.price || 0) * item.quantity
-                          ).toLocaleString()}{" "}
-                          đ
-                        </p>
+                        <div className="font-semibold text-green-700 text-lg">
+                          {item.product && item.product.discountPercentage && item.product.discountPercentage > 0 ? (
+                            <div>
+                              <div>
+                                {(
+                                  getEffectivePrice(item.product) * item.quantity
+                                ).toLocaleString()}{" "}
+                                đ
+                              </div>
+                              <div className="text-sm text-gray-500 line-through">
+                                {(
+                                  (item.product?.price || 0) * item.quantity
+                                ).toLocaleString()}{" "}
+                                đ
+                              </div>
+                            </div>
+                          ) : (
+                            <div>
+                              {(
+                                (item.product?.price || 0) * item.quantity
+                              ).toLocaleString()}{" "}
+                              đ
+                            </div>
+                          )}
+                        </div>
 
                         <button
                           onClick={() => handleRemove(item.productId)}
