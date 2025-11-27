@@ -1,6 +1,16 @@
 import React, { useEffect, useState } from "react";
 import Card from "../../../components/layouts/Card";
-import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Eye,
+  Loader2,
+  Shield,
+  User,
+  Calendar,
+} from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
 import { http } from "../../../services/http";
@@ -17,6 +27,66 @@ interface User {
   } | null;
   created_at?: string;
 }
+
+// Component Badge cho vai trò
+const RoleBadge: React.FC<{ user: User }> = ({ user }) => {
+  const isAdmin = !!user.role;
+
+  return (
+    <div
+      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+        isAdmin
+          ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+          : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+      }`}
+    >
+      {isAdmin ? (
+        <>
+          <Shield className="w-3 h-3 mr-1" />
+          {user.role?.title || "Admin"}
+        </>
+      ) : (
+        <>
+          <User className="w-3 h-3 mr-1" />
+          Customer
+        </>
+      )}
+    </div>
+  );
+};
+
+// Component Badge cho trạng thái
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+  const statusConfig = {
+    active: {
+      color:
+        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      label: "Hoạt động",
+    },
+    inactive: {
+      color:
+        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+      label: "Tạm dừng",
+    },
+    banned: {
+      color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      label: "Bị khóa",
+    },
+  };
+
+  const config = statusConfig[status as keyof typeof statusConfig] || {
+    color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+    label: status,
+  };
+
+  return (
+    <span
+      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.color}`}
+    >
+      {config.label}
+    </span>
+  );
+};
 
 const UsersPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -156,13 +226,23 @@ const UsersPage: React.FC = () => {
     setSelectedUsers([]);
   };
 
-  // ...rest of existing code (useEffect, JSX, etc)...
+  // Format ngày tạo
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return "—";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
   return (
     <div>
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Users
+          Quản lý người dùng
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto relative">
@@ -195,12 +275,12 @@ const UsersPage: React.FC = () => {
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            Add User
+            Thêm người dùng
           </button>
         </div>
       </div>
 
-      {/* ✅ Bộ lọc trạng thái (đã có 'Bị khóa') */}
+      {/* Bộ lọc trạng thái */}
       <div className="flex gap-3 mb-4">
         <button
           onClick={() => handleFilterChange("all")}
@@ -263,7 +343,7 @@ const UsersPage: React.FC = () => {
         </select>
       </div>
 
-      {/* ✅ Thanh bulk actions khi có user được chọn */}
+      {/* Thanh bulk actions khi có user được chọn */}
       {selectedUsers.length > 0 && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
           <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -334,13 +414,23 @@ const UsersPage: React.FC = () => {
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
               <span className="ml-2 text-gray-600 dark:text-gray-400">
-                Loading users...
+                Đang tải dữ liệu...
               </span>
             </div>
           ) : error ? (
             <p className="text-center text-red-500 py-6">{error}</p>
           ) : filteredUsers.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">No users found.</p>
+            <div className="text-center py-12">
+              <div className="mx-auto h-12 w-12 text-gray-400">
+                <User className="w-full h-full" />
+              </div>
+              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+                Không tìm thấy người dùng
+              </h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác.
+              </p>
+            </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
@@ -365,16 +455,19 @@ const UsersPage: React.FC = () => {
                     STT
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    User
+                    Người dùng
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Role
+                    Vai trò
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
+                    Trạng thái
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Ngày tạo
                   </th>
                   <th className="relative px-6 py-3">
                     <span className="sr-only">Actions</span>
@@ -385,7 +478,7 @@ const UsersPage: React.FC = () => {
                 {filteredUsers.map((user, index) => (
                   <tr
                     key={user.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
                     {/* checkbox */}
                     <td className="px-4 py-4 text-center">
@@ -413,12 +506,12 @@ const UsersPage: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <img
-                          className="h-10 w-10 rounded-full object-cover"
+                          className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
                           src={
                             user.avatar ||
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(
                               user.full_name || user.email
-                            )}`
+                            )}&background=random`
                           }
                           alt={user.full_name || "User Avatar"}
                         />
@@ -427,15 +520,15 @@ const UsersPage: React.FC = () => {
                             {user.full_name || "—"}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
-                            #{user.id}
+                            ID: #{user.id}
                           </div>
                         </div>
                       </div>
                     </td>
 
                     {/* Role */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {user.role?.title || "—"}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <RoleBadge user={user} />
                     </td>
 
                     {/* Email */}
@@ -445,19 +538,20 @@ const UsersPage: React.FC = () => {
 
                     {/* Status */}
                     <td className="px-6 py-4 whitespace-nowrap cursor-pointer">
-                      <span
+                      <div
                         onClick={() => handleToggleStatus(user)}
-                        title="Click để đổi trạng thái (active/inactive)"
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition cursor-pointer ${
-                          user.status?.toLowerCase() === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200"
-                            : user.status?.toLowerCase() === "inactive"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 hover:bg-yellow-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
-                        }`}
+                        title="Click để đổi trạng thái"
                       >
-                        {user.status}
-                      </span>
+                        <StatusBadge status={user.status} />
+                      </div>
+                    </td>
+
+                    {/* Created Date */}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      <div className="flex items-center">
+                        <Calendar className="w-4 h-4 mr-1" />
+                        {formatDate(user.created_at)}
+                      </div>
                     </td>
 
                     {/* Actions */}
@@ -465,22 +559,22 @@ const UsersPage: React.FC = () => {
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleViewUser(user.id)}
-                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                          title="View"
+                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+                          title="Xem chi tiết"
                         >
                           <Eye className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleEditUser(user.id)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                          title="Edit"
+                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors"
+                          title="Chỉnh sửa"
                         >
                           <Edit className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          title="Delete"
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
+                          title="Xóa"
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>
