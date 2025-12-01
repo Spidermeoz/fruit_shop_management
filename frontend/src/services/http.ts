@@ -1,6 +1,6 @@
 // src/services/http.ts
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
-const BASE = "http://localhost:3000"; // Set base URL for backend
+const BASE = "https://backend-fruit-shop.onrender.com"; // Set base URL for backend
 
 let accessToken: string | null = null;
 
@@ -22,10 +22,16 @@ export const tokenStore = {
 };
 
 export const forgotPasswordApi = {
-  request: (email: string) => http("POST", "/api/v1/client/forgot-password/request", { email }),
-  verify: (email: string, otp: string) => http("POST", "/api/v1/client/forgot-password/verify", { email, otp }),
+  request: (email: string) =>
+    http("POST", "/api/v1/client/forgot-password/request", { email }),
+  verify: (email: string, otp: string) =>
+    http("POST", "/api/v1/client/forgot-password/verify", { email, otp }),
   reset: (email: string, otp: string, password: string) =>
-    http("POST", "/api/v1/client/forgot-password/reset", { email, otp, password }),
+    http("POST", "/api/v1/client/forgot-password/reset", {
+      email,
+      otp,
+      password,
+    }),
 };
 
 async function coreFetch(url: string, init: RequestInit = {}) {
