@@ -51,14 +51,28 @@ const allowedOrigins = [
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
+    // Allow requests without origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    const allowed = [
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "http://localhost:3000",
+      process.env.FRONTEND_URL,
+      "https://frontend-fruit-shop-w3b3-i6rmf5pej-jeremiews-projects.vercel.app",
+      "https://frontend-fruit-shop-w3b3.vercel.app",
+    ];
+
+    if (allowed.includes(origin)) {
+      return callback(null, true);
     }
+
+    console.warn("❌ Blocked by CORS:", origin);
+    callback(new Error("Not allowed by CORS"));
   },
-  methods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-  allowedHeaders: "Content-Type, Authorization",
+
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
 };
 
@@ -71,6 +85,7 @@ const auth = makeAuthMiddleware(authServices.token, userRepo, {
 const can = makeCan(rolesRepo);
 
 app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 app.use(helmet());
 app.use(express.json({ limit: "15mb" }));
@@ -180,7 +195,5 @@ app.use(
   }
 
   const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
-  app.listen(PORT, () =>
-    console.log(`🚀 Server running on http://localhost:${PORT}`)
-  );
+  app.listen(PORT, () => console.log(`🚀 Server running`));
 })();

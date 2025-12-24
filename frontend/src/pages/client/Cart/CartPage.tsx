@@ -12,7 +12,6 @@ import {
   ArrowRight,
   Check,
   ChevronLeft,
-  Home,
 } from "lucide-react";
 import Footer from "../../../components/client/layout/Footer";
 

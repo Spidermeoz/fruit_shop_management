@@ -1,5 +1,3 @@
-import React from "react";
-
 interface Order {
   id: number;
   user_name: string | null;

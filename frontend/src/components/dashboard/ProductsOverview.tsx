@@ -90,7 +90,6 @@ export default function ProductsOverview() {
   
   // Tính giá trung bình
   const avgPrice = products.reduce((sum, p) => sum + p.price, 0) / products.length;
-  const avgDiscount = products.reduce((sum, p) => sum + (p.discount_percentage || 0), 0) / products.length;
 
   // PIE (category distribution)
   const categoryMap: Record<string, number> = {};

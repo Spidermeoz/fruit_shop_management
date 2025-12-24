@@ -1,6 +1,6 @@
 // src/services/http.ts
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
-const BASE = "https://backend-fruit-shop.onrender.com"; // Set base URL for backend
+const BASE = import.meta.env.VITE_API_BASE_URL; // Set base URL for backend
 
 let accessToken: string | null = null;
 

@@ -5,7 +5,7 @@ import { http } from "../../../services/http";
 import Footer from "../../../components/client/layout/Footer";
 
 const HomePage: React.FC = () => {
-  const [isVisible, setIsVisible] = useState(false);
+  const [, setIsVisible] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [products, setProducts] = useState<any[]>([]);

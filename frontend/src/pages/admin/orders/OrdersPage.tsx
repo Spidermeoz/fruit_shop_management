@@ -74,7 +74,7 @@ const OrdersPage: React.FC = () => {
 
   // Popup hỏi hoàn tất đơn hàng
   const [confirmCompleteModal, setConfirmCompleteModal] = useState(false);
-  const [pendingNewStatus, setPendingNewStatus] = useState<string | null>(null);
+  const [, setPendingNewStatus] = useState<string | null>(null);
 
   // Hàm gọi khi admin chọn "Đã giao"
   const requestChangeToDelivered = (order: OrderProps, newStatus: string) => {

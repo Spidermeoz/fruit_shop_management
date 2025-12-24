@@ -33,7 +33,7 @@ const ReviewPage: React.FC = () => {
   const [userReview, setUserReview] = useState<Review | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showReviewForm, setShowReviewForm] = useState(false);
-  const [hoveredStar, setHoveredStar] = useState(0);
+  const [, setHoveredStar] = useState(0);
   const [selectedImages, setSelectedImages] = useState<string[]>([]);
   const [filterRating, setFilterRating] = useState(0);
 

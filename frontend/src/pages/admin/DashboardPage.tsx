@@ -25,7 +25,7 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<OrdersSummary | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
-  const [productSummary, setProductSummary] = useState<ProductSummary | null>(
+  const [, setProductSummary] = useState<ProductSummary | null>(
     null
   );
 
