@@ -165,6 +165,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 
 ## Cấu trúc thư mục
 
+```
 ├── 📁 backend
 │   ├── 📁 src
 │   │   ├── 📁 application
@@ -528,3 +529,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   └── 📄 vite.config.ts
 ├── ⚙️ .gitignore
 └── 📝 README.md
+```
+
+---
