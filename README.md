@@ -56,7 +56,7 @@ Frontend là một ứng dụng **Single Page Application (SPA)** được xây 
     -   `src/context`: Quản lý state toàn cục (e.g., AuthContext, CartContext).
     -   `src/hooks`: Chứa các custom hooks.
 
-## 🚀 Cài đặt và Chạy dự án
+## Cài đặt và Chạy dự án
 
 ### Yêu cầu
 -   Node.js (phiên bản 18.x trở lên)

@@ -1,62 +1,9 @@
-import React, { useState } from "react";
+import React from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import Footer from "../../../components/client/layout/Footer";
 
-interface ContactForm {
-  name: string;
-  email: string;
-  phone: string;
-  subject: string;
-  message: string;
-}
-
 const ContactPage: React.FC = () => {
-  const [formData, setFormData] = useState<ContactForm>({
-    name: "",
-    email: "",
-    phone: "",
-    subject: "",
-    message: "",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    // Giả lập gửi form
-    setTimeout(() => {
-      setIsSubmitting(false);
-      setSubmitSuccess(true);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        subject: "",
-        message: "",
-      });
-
-      // Reset success message sau 5 giây
-      setTimeout(() => {
-        setSubmitSuccess(false);
-      }, 5000);
-    }, 1500);
-  };
-
   const contactInfo = [
     {
       title: "Địa chỉ",
@@ -157,154 +104,90 @@ const ContactPage: React.FC = () => {
 
       <div className="container mx-auto px-6 py-10">
         <div className="grid md:grid-cols-2 gap-12">
-          {/* Contact Form */}
+          {/* Chat Options */}
           <div>
             <h2 className="text-2xl font-bold text-green-800 mb-6">
-              Gửi tin nhắn cho chúng tôi
+              Kết nối với chúng tôi
             </h2>
+            <p className="text-gray-600 mb-8">
+              Chọn nền tảng bạn muốn để trò chuyện trực tiếp với chúng tôi.
+              Chúng tôi sẽ phản hồi nhanh nhất có thể!
+            </p>
 
-            {submitSuccess && (
-              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6">
-                Cảm ơn bạn đã liên hệ! Chúng tôi sẽ phản hồi sớm nhất có thể.
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label
-                    htmlFor="name"
-                    className="block text-gray-700 text-sm font-medium mb-2"
-                  >
-                    Họ và tên <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Nhập họ và tên của bạn"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="email"
-                    className="block text-gray-700 text-sm font-medium mb-2"
-                  >
-                    Email <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                    placeholder="Nhập email của bạn"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="phone"
-                  className="block text-gray-700 text-sm font-medium mb-2"
-                >
-                  Số điện thoại <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  id="phone"
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Nhập số điện thoại của bạn"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="subject"
-                  className="block text-gray-700 text-sm font-medium mb-2"
-                >
-                  Chủ đề <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="subject"
-                  name="subject"
-                  value={formData.subject}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                >
-                  <option value="">Chọn chủ đề</option>
-                  <option value="order">Hỏi về đơn hàng</option>
-                  <option value="product">Hỏi về sản phẩm</option>
-                  <option value="partnership">Hợp tác kinh doanh</option>
-                  <option value="feedback">Góp ý</option>
-                  <option value="other">Khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="message"
-                  className="block text-gray-700 text-sm font-medium mb-2"
-                >
-                  Tin nhắn <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  id="message"
-                  name="message"
-                  value={formData.message}
-                  onChange={handleChange}
-                  required
-                  rows={5}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                  placeholder="Nhập nội dung tin nhắn của bạn"
-                ></textarea>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            <div className="space-y-4">
+              {/* Messenger Button */}
+              <a
+                href="https://www.facebook.com/spd.meow.0502"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between w-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-600 hover:opacity-90 text-white py-4 px-6 rounded-xl font-semibold shadow-md hover:shadow-xl transform hover:scale-105 transition-all duration-300"
               >
-                {isSubmitting ? (
-                  <>
-                    <svg
-                      className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Đang gửi...
-                  </>
-                ) : (
-                  "Gửi tin nhắn"
-                )}
-              </button>
-            </form>
+                <div className="flex items-center">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-6 h-6 mr-3"
+                  >
+                    <path d="M12 2C6.477 2 2 6.145 2 11.265c0 2.912 1.472 5.507 3.771 7.203V22l3.356-1.842c.893.247 1.84.38 2.873.38 5.523 0 10-4.145 10-9.273S17.523 2 12 2zm1.06 12.445l-2.548-2.718-4.86 2.718 5.346-5.67 2.59 2.718 4.818-2.718-5.346 5.67z" />
+                  </svg>
+
+                  <span>Chat qua Messenger</span>
+                </div>
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </a>
+
+              {/* Zalo Button */}
+              <a
+                href="https://zalo.me/0967004916"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between w-full bg-[#0068FF] hover:bg-[#0050d4] text-white py-4 px-6 rounded-xl font-semibold shadow-md hover:shadow-xl transform hover:scale-105 transition-all duration-300"
+              >
+                <div className="flex items-center">
+                  <img
+                    src="https://upload.wikimedia.org/wikipedia/commons/9/91/Icon_of_Zalo.svg"
+                    alt="Zalo"
+                    className="w-6 h-6 mr-3"
+                  />
+
+                  <span>Chat qua Zalo</span>
+                </div>
+
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </a>
+            </div>
+
+            <div className="mt-8 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-600">
+                <strong>Lưu ý:</strong> Bạn sẽ được chuyển hướng đến ứng dụng
+                tương ứng để bắt đầu cuộc trò chuyện. Đảm bảo bạn đã cài đặt ứng
+                dụng trên thiết bị của mình.
+              </p>
+            </div>
           </div>
 
           {/* Contact Info */}
