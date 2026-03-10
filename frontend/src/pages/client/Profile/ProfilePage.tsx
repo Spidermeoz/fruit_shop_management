@@ -146,11 +146,24 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // validate phone number
+  const confirmPhoneNumber = (phoneNumber: string) => {
+    const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+    return phoneRegex.test(phoneNumber);
+  }
+
   // ==========================
   // 📌 SAVE PROFILE
   // ==========================
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isPhoneNumber = confirmPhoneNumber(profile.phone);
+    if(!isPhoneNumber) {
+      alert('Số điện thoại sai định dạng');
+
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -338,7 +351,7 @@ const ProfilePage: React.FC = () => {
           bgColor: "bg-gray-100",
           textColor: "text-gray-700",
         };
-    }
+    }         
   };
 
   const handleProfileChange = (
