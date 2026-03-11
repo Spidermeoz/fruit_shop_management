@@ -13,6 +13,8 @@ export const clientCartRoutes = (
   // Thêm sản phẩm vào giỏ
   r.post("/items", authMiddleware, controller.add);
 
+  r.delete("/all-items", authMiddleware, controller.removeAllItems);
+  
   // Cập nhật số lượng
   r.patch("/items/:productId", authMiddleware, controller.update);
 

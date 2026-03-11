@@ -56,6 +56,7 @@ import { AddToCart } from "../../application/carts/usecases/AddToCart";
 import { ListCartItems } from "../../application/carts/usecases/ListCartItems";
 import { UpdateCartItem } from "../../application/carts/usecases/UpdateCartItem";
 import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart";
+import { RemoveAllFromCart } from "../../application/carts";
 
 import { GetPendingReviewSummary } from "../../application/reviews/usecases/GetPendingReviewSummary";
 
@@ -419,6 +420,7 @@ export const usecases = {
     listItems: new ListCartItems(cartRepo),
     updateItem: new UpdateCartItem(cartRepo),
     removeItem: new RemoveFromCart(cartRepo),
+    removeAllItems: new RemoveAllFromCart(cartRepo),
   },
   orders: {
     createFromCart: new CreateOrderFromCart(orderRepo, cartRepo, productRepo),
@@ -565,6 +567,7 @@ export const clientControllers = {
     listItems: usecases.carts.listItems,
     updateItem: usecases.carts.updateItem,
     removeItem: usecases.carts.removeItem,
+    removeAllItems: usecases.carts.removeAllItems,
   }),
   orders: makeClientOrdersController({
     createFromCart: usecases.orders.createFromCart,

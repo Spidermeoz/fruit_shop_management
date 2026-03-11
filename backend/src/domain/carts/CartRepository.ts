@@ -29,6 +29,12 @@ export interface CartRepository {
    */
   removeItem(userId: number, productId: number): Promise<void>;
 
+
+  /**
+   * Xoá hết sản phẩm khỏi giỏ
+   */
+
+  removeAllItems(userId: number): Promise<void>;
   /**
    * Lấy danh sách item được chọn (theo productIds)
    * Dùng cho quá trình checkout

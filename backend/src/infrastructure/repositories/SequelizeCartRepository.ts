@@ -174,6 +174,16 @@ export class SequelizeCartRepository implements CartRepository {
     });
   }
 
+
+  // remove all item
+  async removeAllItems(userId: number): Promise<void> {
+      const cart = await this.getOrCreateCart(userId);
+      if(!cart) return;
+      await this.models.CartItem.destroy({
+        where: { cart_id: cart.id }
+      });
+  }
+
   // =====================================================
   // LIST SELECTED ITEMS FOR CHECKOUT
   // =====================================================
