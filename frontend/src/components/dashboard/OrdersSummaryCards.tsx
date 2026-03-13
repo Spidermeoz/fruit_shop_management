@@ -20,11 +20,14 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
   icon,
   color,
 }) => {
+  // Thêm các class dark: cho từng màu để tương thích giao diện tối
   const colorClasses = {
-    blue: "bg-blue-50 text-blue-600 border-blue-200",
-    green: "bg-green-50 text-green-600 border-green-200",
-    red: "bg-red-50 text-red-600 border-red-200",
-    orange: "bg-orange-50 text-orange-600 border-orange-200",
+    blue: "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
+    green:
+      "bg-green-50 text-green-600 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800",
+    red: "bg-red-50 text-red-600 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
+    orange:
+      "bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
   };
 
   return (
@@ -35,10 +38,19 @@ const SummaryCard: React.FC<SummaryCardProps> = ({
     >
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold mt-1">{value}</p>
+          {/* Thêm dark:text-gray-400 cho tiêu đề */}
+          <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            {title}
+          </p>
+          {/* Thêm text-gray-900 và dark:text-white để đảm bảo màu chữ chính chính xác */}
+          <p className="text-2xl font-bold mt-1 text-gray-900 dark:text-white">
+            {value}
+          </p>
         </div>
-        <div className="p-2 rounded-full bg-white bg-opacity-60">{icon}</div>
+        {/* Thêm nền tối mờ cho khung chứa Icon */}
+        <div className="p-2 rounded-full bg-white bg-opacity-60 dark:bg-gray-800 dark:bg-opacity-50">
+          {icon}
+        </div>
       </div>
     </div>
   );
@@ -50,7 +62,6 @@ export default function OrdersSummaryCards({
   summary: OrdersSummary;
 }) {
   return (
-    // Đã thay đổi từ lg:grid-cols-4 thành lg:grid-cols-3
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <SummaryCard
         title="Tổng đơn hàng tháng"
@@ -92,7 +103,6 @@ export default function OrdersSummaryCards({
         }
         color="green"
       />
-      {/* Phần tử SummaryCard cho "Tổng giảm giá" đã bị xóa */}
       <SummaryCard
         title="Đơn pending"
         value={summary.pendingOrders}
