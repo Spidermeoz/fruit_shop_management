@@ -207,6 +207,13 @@ const ProfilePage: React.FC = () => {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if(passwordData.currentPassword == passwordData.newPassword) {
+      setErrors({
+        newPassword: "Mật khẩu mới phải khác với mật khẩu hiện tại"
+      });
+      return;
+    }
+
     if(!validateNewPassword(passwordData.newPassword)) {
       setErrors({
         newPassword: "Mật khẩu phải tối thiểu 6 ký tự"
