@@ -264,7 +264,7 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 mb-8">
-              <div className="flex items-center border border-gray-300 rounded-lg">
+              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={decreaseQuantity}
                   disabled={quantity <= 1}
