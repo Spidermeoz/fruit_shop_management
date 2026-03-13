@@ -132,6 +132,13 @@ const ProductListPage: React.FC = () => {
     setPriceRange(newRange);
   };
 
+  const handleClearFilter = () => {
+    setSearchParams({});
+    setSearchTerm("");
+    setSortBy("default");
+    setPriceRange([0, 1000000])
+  }
+
   return (
     <Layout>
       {/* Header */}
@@ -270,12 +277,7 @@ const ProductListPage: React.FC = () => {
               </div>
 
               <button
-                onClick={() => {
-                  setSearchParams({});
-                  setSearchTerm("");
-                  setSortBy("default");
-                  setPriceRange([0, 1000000]);
-                }}
+                onClick={() => handleClearFilter()}
                 className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
               >
                 Xóa bộ lọc

@@ -82,7 +82,7 @@ const ProductDetailPage: React.FC = () => {
             );
             if (related?.success && Array.isArray(related.data)) {
               const filtered = related.data.filter(
-                (p: { id: any }) => p.id !== res.data.id
+                (p: { id: number }) => p.id !== res.data.id
               );
               setRelatedProducts(filtered);
             }

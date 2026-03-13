@@ -149,8 +149,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   // =======================
   // Clear cart on logout
   // =======================
-  const clearCart = () => {
-    setItems([]);
+  const clearCart = async () => {
+    try {
+      const res = await http("DELETE",'/api/v1/client/cart/all-items');
+      if(res.success) {
+        setItems([]);
+      }
+    }
+    catch (err) {
+      console.error("Lỗi xoá sản phẩm trong giỏ:", err);
+    }
   };
 
   // =======================

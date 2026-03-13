@@ -1,14 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { AddToCart } from "../../../../../application/carts/usecases/AddToCart";
-import { ListCartItems } from "../../../../../application/carts/usecases/ListCartItems";
-import { UpdateCartItem } from "../../../../../application/carts/usecases/UpdateCartItem";
-import { RemoveFromCart } from "../../../../../application/carts/usecases/RemoveFromCart";
+import { AddToCart, ListCartItems, RemoveAllFromCart, RemoveFromCart, UpdateCartItem } from "../../../../../application/carts";
 
 export const makeClientCartController = (uc: {
   addToCart: AddToCart;
   listItems: ListCartItems;
   updateItem: UpdateCartItem;
   removeItem: RemoveFromCart;
+  removeAllItems: RemoveAllFromCart;
 }) => {
   return {
     // GET /api/v1/client/cart
@@ -85,6 +83,21 @@ export const makeClientCartController = (uc: {
         next(err);
       }
     },
+
+    // DELETE ALL /api/v1/client/cart/all-items
+    removeAllItems: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = Number((req as any).user?.id);
+        await uc.removeAllItems.execute( userId );
+        res.json({
+          success: true,
+          data: true,
+        });
+      }
+      catch (err) {
+        next(err);
+      }
+    }
   };
 };
 

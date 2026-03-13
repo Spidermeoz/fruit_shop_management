@@ -45,12 +45,22 @@ interface OrderItem {
   }>;
 }
 
+type PasswordErrors = {
+  newPassword?: string | null;
+  confirmPassword?: string | null;
+};
+
+
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("info");
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<PasswordErrors>({
+    newPassword: null,
+    confirmPassword: null
+  });
 
   const [profile, setProfile] = useState<UserProfile>({
     id: 0,
@@ -146,11 +156,24 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  // validate phone number
+  const confirmPhoneNumber = (phoneNumber: string) => {
+    const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
+    return phoneRegex.test(phoneNumber);
+  }
+
   // ==========================
   // 📌 SAVE PROFILE
   // ==========================
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isPhoneNumber = confirmPhoneNumber(profile.phone);
+    if(!isPhoneNumber) {
+      alert('Số điện thoại sai định dạng');
+
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     try {
@@ -173,14 +196,27 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+
+  const validateNewPassword = (password: string) => {
+    return password.length >= 6
+  }
+
   // ==========================
   // 📌 CHANGE PASSWORD
   // ==========================
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if(!validateNewPassword(passwordData.newPassword)) {
+      setErrors({
+        newPassword: "Mật khẩu phải tối thiểu 6 ký tự"
+      });
+      return;
+    }
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("Mật khẩu xác nhận không khớp!");
+      setErrors({
+        confirmPassword: "Mật khẩu xác nhận không khớp"
+      });
       return;
     }
 
@@ -338,7 +374,7 @@ const ProfilePage: React.FC = () => {
           bgColor: "bg-gray-100",
           textColor: "text-gray-700",
         };
-    }
+    }         
   };
 
   const handleProfileChange = (
@@ -357,6 +393,10 @@ const ProfilePage: React.FC = () => {
       ...prev,
       [name]: value,
     }));
+    setErrors({
+      newPassword: null,
+      confirmPassword: null
+    })
   };
 
   // Hàm xử lý avatar
@@ -885,6 +925,12 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
+                    {
+                      errors.newPassword && 
+                      <p className="mt-1 text-sm text-red-500">
+                        {errors.newPassword}
+                      </p>
+                    }
 
                     <div>
                       <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -949,6 +995,12 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
+                    {
+                      errors.confirmPassword && 
+                      <p className="mt-1 text-sm text-red-500">
+                        {errors.confirmPassword}
+                      </p>
+                    }
 
                     <div className="flex justify-end">
                       <button
