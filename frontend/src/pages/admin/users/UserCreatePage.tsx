@@ -6,7 +6,7 @@ import React, {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { http } from "../../../services/http";
 
@@ -71,7 +71,7 @@ const UserCreatePage: React.FC = () => {
 
   // 🔹 Xử lý input
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -135,7 +135,7 @@ const UserCreatePage: React.FC = () => {
         const up = await http<ApiOk>(
           "POST",
           "/api/v1/admin/upload",
-          formDataImg
+          formDataImg,
         );
         uploadedAvatarUrl = up?.data?.url || up?.url || "";
         if (!uploadedAvatarUrl) {
@@ -165,7 +165,7 @@ const UserCreatePage: React.FC = () => {
       const res = await http<ApiOk>(
         "POST",
         "/api/v1/admin/users/create",
-        payload
+        payload,
       );
       if (res.success) {
         alert("🎉 Tạo người dùng thành công!");
@@ -190,260 +190,301 @@ const UserCreatePage: React.FC = () => {
   };
 
   return (
-    <Card>
+    <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Thêm người dùng
         </h1>
         <button
           onClick={() => navigate("/admin/users")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Họ và tên */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Họ và tên <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            name="full_name"
-            value={formData.full_name}
-            onChange={handleChange}
-            placeholder="Nhập họ và tên..."
-            className={`w-full border ${
-              errors.full_name ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-          />
-          {errors.full_name && (
-            <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>
-          )}
-        </div>
-
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Email <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            placeholder="Nhập địa chỉ email..."
-            className={`w-full border ${
-              errors.email ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-          />
-          {errors.email && (
-            <p className="text-sm text-red-600 mt-1">{errors.email}</p>
-          )}
-        </div>
-
-        {/* Mật khẩu */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Mật khẩu <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            placeholder="Nhập mật khẩu..."
-            className={`w-full border ${
-              errors.password ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-          />
-          {errors.password && (
-            <p className="text-sm text-red-600 mt-1">{errors.password}</p>
-          )}
-        </div>
-
-        {/* Số điện thoại */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Số điện thoại
-          </label>
-          <input
-            type="text"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            placeholder="Nhập số điện thoại..."
-            className={`w-full border ${
-              errors.phone ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-          />
-          {errors.phone && (
-            <p className="text-sm text-red-600 mt-1">{errors.phone}</p>
-          )}
-        </div>
-
-        {/* Vai trò */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Vai trò <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="role_id"
-            value={formData.role_id}
-            onChange={handleChange}
-            className={`w-full border ${
-              errors.role_id ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-          >
-            <option value="">-- Chọn vai trò --</option>
-            {roles.map((role) => (
-              <option key={role.id} value={role.id}>
-                {role.title}
-              </option>
-            ))}
-          </select>
-          {errors.role_id && (
-            <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>
-          )}
-        </div>
-
-        {/* Ảnh đại diện */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-            Ảnh đại diện
-          </label>
-
-          {/* Tab chọn phương thức */}
-          <div className="flex mb-3">
-            <button
-              type="button"
-              className={`px-4 py-2 mr-2 rounded ${
-                imageMethod === "upload"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
-              }`}
-              onClick={() => setImageMethod("upload")}
-            >
-              Upload ảnh
-            </button>
-            <button
-              type="button"
-              className={`px-4 py-2 rounded ${
-                imageMethod === "url"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
-              }`}
-              onClick={() => setImageMethod("url")}
-            >
-              Nhập URL
-            </button>
+      <Card>
+        <form onSubmit={handleSubmit} className="space-y-4 p-2">
+          {/* Họ và tên */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Họ và tên <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="full_name"
+              value={formData.full_name}
+              onChange={handleChange}
+              placeholder="Nhập họ và tên..."
+              className={`w-full border ${
+                errors.full_name
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            />
+            {errors.full_name && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.full_name}
+              </p>
+            )}
           </div>
 
-          {/* Nội dung theo phương thức */}
-          {imageMethod === "upload" ? (
-            <div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleImageSelect}
-              />
-            </div>
-          ) : (
-            <div>
-              <input
-                type="url"
-                placeholder="Nhập URL ảnh đại diện"
-                value={imageUrl}
-                onChange={(e) => {
-                  setImageUrl(e.target.value);
-                  setPreviewImage(e.target.value);
-                  setFormData((prev) => ({ ...prev, avatar: e.target.value }));
-                }}
-                className={`w-full border ${
-                  errors.avatar ? "border-red-500" : "border-gray-300"
-                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
-              />
-            </div>
-          )}
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="Nhập địa chỉ email..."
+              className={`w-full border ${
+                errors.email
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            />
+            {errors.email && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.email}
+              </p>
+            )}
+          </div>
 
-          {errors.avatar && (
-            <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
-          )}
+          {/* Mật khẩu */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Mật khẩu <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              placeholder="Nhập mật khẩu..."
+              className={`w-full border ${
+                errors.password
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            />
+            {errors.password && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.password}
+              </p>
+            )}
+          </div>
 
-          {previewImage && (
-            <div className="mt-3 relative w-fit">
-              <img
-                src={previewImage}
-                alt="preview"
-                className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
-              />
+          {/* Số điện thoại */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Số điện thoại
+            </label>
+            <input
+              type="text"
+              name="phone"
+              value={formData.phone}
+              onChange={handleChange}
+              placeholder="Nhập số điện thoại..."
+              className={`w-full border ${
+                errors.phone
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            />
+            {errors.phone && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.phone}
+              </p>
+            )}
+          </div>
+
+          {/* Vai trò */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Vai trò <span className="text-red-500">*</span>
+            </label>
+            <select
+              name="role_id"
+              value={formData.role_id}
+              onChange={handleChange}
+              className={`w-full border ${
+                errors.role_id
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            >
+              <option value="">-- Chọn vai trò --</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.title}
+                </option>
+              ))}
+            </select>
+            {errors.role_id && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.role_id}
+              </p>
+            )}
+          </div>
+
+          {/* Ảnh đại diện */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Ảnh đại diện
+            </label>
+
+            {/* Tab chọn phương thức - Đã dùng gap-3 thay vì mr-2 */}
+            <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
-                onClick={() => {
-                  setSelectedFile(null);
-                  setImageUrl("");
-                  setPreviewImage("");
-                }}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600"
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                  imageMethod === "upload"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                }`}
+                onClick={() => setImageMethod("upload")}
               >
-                ×
+                Upload ảnh
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
+                  imageMethod === "url"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                }`}
+                onClick={() => setImageMethod("url")}
+              >
+                Nhập URL
               </button>
             </div>
-          )}
-        </div>
 
-        {/* Trạng thái */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Trạng thái
-          </label>
-          <div className="flex gap-6">
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name="status"
-                value="active"
-                checked={formData.status === "active"}
-                onChange={handleChange}
-              />
-              <span className="text-gray-800 dark:text-gray-200">
-                Hoạt động
-              </span>
-            </label>
-            <label className="flex items-center space-x-2">
-              <input
-                type="radio"
-                name="status"
-                value="inactive"
-                checked={formData.status === "inactive"}
-                onChange={handleChange}
-              />
-              <span className="text-gray-800 dark:text-gray-200">Tạm dừng</span>
-            </label>
+            {/* Nội dung theo phương thức */}
+            {imageMethod === "upload" ? (
+              <div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
+                />
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="url"
+                  placeholder="Nhập URL ảnh đại diện"
+                  value={imageUrl}
+                  onChange={(e) => {
+                    setImageUrl(e.target.value);
+                    setPreviewImage(e.target.value);
+                    setFormData((prev) => ({
+                      ...prev,
+                      avatar: e.target.value,
+                    }));
+                  }}
+                  className={`w-full border ${
+                    errors.avatar
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+                />
+              </div>
+            )}
+
+            {errors.avatar && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.avatar}
+              </p>
+            )}
+
+            {previewImage && (
+              <div className="mt-4 relative w-fit">
+                <img
+                  src={previewImage}
+                  alt="preview"
+                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600 shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setImageUrl("");
+                    setPreviewImage("");
+                    setFormData((prev) => ({ ...prev, avatar: "" }));
+                  }}
+                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 shadow-md transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Nút hành động */}
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            type="button"
-            onClick={() => navigate("/admin/users")}
-            className="px-4 py-2 rounded-md border border-gray-400 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-          >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-            disabled={loading}
-          >
-            {loading ? "Đang lưu..." : "Lưu người dùng"}
-          </button>
-        </div>
-      </form>
-    </Card>
+          {/* Trạng thái */}
+          <div className="pt-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Trạng thái
+            </label>
+            <div className="flex gap-6">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="status"
+                  value="active"
+                  checked={formData.status === "active"}
+                  onChange={handleChange}
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="text-gray-800 dark:text-gray-200">
+                  Hoạt động
+                </span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="status"
+                  value="inactive"
+                  checked={formData.status === "inactive"}
+                  onChange={handleChange}
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="text-gray-800 dark:text-gray-200">
+                  Tạm dừng
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Nút hành động */}
+          <div className="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              onClick={() => navigate("/admin/users")}
+              className="px-4 py-2 rounded-md text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors font-medium"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              className="flex items-center gap-2 px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
+                </>
+              ) : (
+                "Lưu người dùng"
+              )}
+            </button>
+          </div>
+        </form>
+      </Card>
+    </div>
   );
 };
 

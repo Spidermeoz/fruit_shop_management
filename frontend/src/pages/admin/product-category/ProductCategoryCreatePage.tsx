@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
@@ -50,7 +50,7 @@ const ProductCategoryCreatePage: React.FC = () => {
   });
 
   const [parentCategories, setParentCategories] = useState<ParentCategory[]>(
-    []
+    [],
   );
 
   // ✅ Gọi API lấy danh sách danh mục cha (dùng http)
@@ -58,7 +58,7 @@ const ProductCategoryCreatePage: React.FC = () => {
     try {
       const res = await http<ApiList<ParentCategory>>(
         "GET",
-        "/api/v1/admin/product-category?limit=100"
+        "/api/v1/admin/product-category?limit=100",
       );
       if (res.success && Array.isArray(res.data)) {
         setParentCategories(res.data);
@@ -74,7 +74,7 @@ const ProductCategoryCreatePage: React.FC = () => {
 
   // ✅ Xử lý input
   const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -127,7 +127,7 @@ const ProductCategoryCreatePage: React.FC = () => {
         const uploadRes = await http<ApiOk>(
           "POST",
           "/api/v1/admin/upload",
-          formDataImg
+          formDataImg,
         );
         uploadedThumbnailUrl = uploadRes?.data?.url || uploadRes?.url || "";
         if (!uploadedThumbnailUrl) {
@@ -145,7 +145,7 @@ const ProductCategoryCreatePage: React.FC = () => {
 
       // 🔹 Upload ảnh trong nội dung TinyMCE
       const updatedDescription = await uploadImagesInContent(
-        formData.description
+        formData.description,
       );
 
       // 🔹 Gửi dữ liệu danh mục mới lên server
@@ -161,7 +161,7 @@ const ProductCategoryCreatePage: React.FC = () => {
       const createRes = await http<ApiOk & { errors?: any }>(
         "POST",
         "/api/v1/admin/product-category/create",
-        payload
+        payload,
       );
 
       if (createRes.success) {
@@ -192,16 +192,16 @@ const ProductCategoryCreatePage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/product-category")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5 p-2">
         {/* --- Danh mục cha --- */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Danh mục cha
           </label>
           <select
@@ -217,8 +217,10 @@ const ProductCategoryCreatePage: React.FC = () => {
               }
             }}
             className={`w-full border ${
-              errors.parent_id ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              errors.parent_id
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-300 dark:border-gray-600"
+            } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
           >
             <option value="">-- Không có (danh mục gốc) --</option>
             {parentCategories.map((cat) => (
@@ -228,13 +230,15 @@ const ProductCategoryCreatePage: React.FC = () => {
             ))}
           </select>
           {errors.parent_id && (
-            <p className="text-sm text-red-600 mt-1">{errors.parent_id}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              {errors.parent_id}
+            </p>
           )}
         </div>
 
         {/* --- Tên danh mục --- */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Tên danh mục
           </label>
           <input
@@ -243,11 +247,15 @@ const ProductCategoryCreatePage: React.FC = () => {
             value={formData.title}
             onChange={handleInputChange}
             className={`w-full border ${
-              errors.title ? "border-red-500" : "border-gray-300"
-            } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              errors.title
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-300 dark:border-gray-600"
+            } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
           />
           {errors.title && (
-            <p className="text-sm text-red-600 mt-1">{errors.title}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              {errors.title}
+            </p>
           )}
         </div>
 
@@ -266,18 +274,18 @@ const ProductCategoryCreatePage: React.FC = () => {
 
         {/* --- Ảnh minh họa --- */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Ảnh minh họa
           </label>
 
-          {/* Tab chọn phương thức */}
-          <div className="flex mb-3">
+          {/* Tab chọn phương thức - dùng flex-wrap và gap-3 */}
+          <div className="flex flex-wrap gap-3 mb-4">
             <button
               type="button"
-              className={`px-4 py-2 mr-2 rounded ${
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                 imageMethod === "upload"
                   ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               }`}
               onClick={() => setImageMethod("upload")}
             >
@@ -285,10 +293,10 @@ const ProductCategoryCreatePage: React.FC = () => {
             </button>
             <button
               type="button"
-              className={`px-4 py-2 rounded ${
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                 imageMethod === "url"
                   ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
               }`}
               onClick={() => setImageMethod("url")}
             >
@@ -303,6 +311,7 @@ const ProductCategoryCreatePage: React.FC = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleImageSelect}
+                className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
               />
             </div>
           ) : (
@@ -320,54 +329,70 @@ const ProductCategoryCreatePage: React.FC = () => {
                   }));
                 }}
                 className={`w-full border ${
-                  errors.thumbnail ? "border-red-500" : "border-gray-300"
-                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                  errors.thumbnail
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
               />
             </div>
           )}
 
           {errors.thumbnail && (
-            <p className="text-sm text-red-600 mt-1">{errors.thumbnail}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              {errors.thumbnail}
+            </p>
           )}
 
           {previewImage && (
-            <div className="mt-3">
+            <div className="mt-4 relative w-fit">
               <img
                 src={previewImage}
                 alt="preview"
-                className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600 shadow-sm"
               />
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedFile(null);
+                  setImageUrl("");
+                  setPreviewImage("");
+                  setFormData((prev) => ({ ...prev, thumbnail: "" }));
+                }}
+                className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 dark:hover:bg-red-500 transition-colors shadow-md"
+              >
+                ×
+              </button>
             </div>
           )}
         </div>
 
         {/* --- Trạng thái --- */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <div className="pt-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Trạng thái
           </label>
           <div className="flex gap-6">
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="radio"
                 name="status"
                 value="active"
                 checked={formData.status === "active"}
                 onChange={handleInputChange}
-                className="text-blue-600 focus:ring-blue-500"
+                className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
               />
               <span className="text-gray-800 dark:text-gray-200">
                 Hoạt động
               </span>
             </label>
-            <label className="flex items-center space-x-2">
+            <label className="flex items-center space-x-2 cursor-pointer">
               <input
                 type="radio"
                 name="status"
                 value="inactive"
                 checked={formData.status === "inactive"}
                 onChange={handleInputChange}
-                className="text-red-600 focus:ring-red-500"
+                className="text-red-600 focus:ring-red-500 dark:bg-gray-700 dark:border-gray-600"
               />
               <span className="text-gray-800 dark:text-gray-200">
                 Dừng hoạt động
@@ -377,20 +402,26 @@ const ProductCategoryCreatePage: React.FC = () => {
         </div>
 
         {/* --- Nút hành động --- */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-3 mt-6 pt-4">
           <button
             type="button"
             onClick={() => navigate("/admin/product-category")}
-            className="px-4 py-2 rounded-md border border-gray-400 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            className="flex items-center gap-2 px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
             disabled={loading}
           >
-            {loading ? "Đang lưu..." : "Lưu danh mục"}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
+              </>
+            ) : (
+              "Lưu danh mục"
+            )}
           </button>
         </div>
       </form>

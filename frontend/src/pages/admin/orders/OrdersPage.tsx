@@ -176,13 +176,19 @@ const OrdersPage: React.FC = () => {
     cancelled: "Đã hủy",
   };
 
+  // Cập nhật Dark Mode cho các Badge trạng thái
   const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    processing: "bg-blue-100 text-blue-800",
-    shipping: "bg-purple-100 text-purple-800",
-    delivered: "bg-green-100 text-green-800",
-    completed: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-800",
+    pending:
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    processing:
+      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    shipping:
+      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+    delivered:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    completed:
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   };
 
   return (
@@ -200,7 +206,7 @@ const OrdersPage: React.FC = () => {
           <input
             type="text"
             placeholder="Tìm kiếm mã đơn hàng..."
-            className="w-full pl-10 pr-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full pl-10 pr-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
@@ -210,7 +216,7 @@ const OrdersPage: React.FC = () => {
       {/* ====================== */}
       {/* Filter Status */}
       {/* ====================== */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         {[
           ["all", "Tất cả"],
           ["pending", "Chờ duyệt"],
@@ -223,10 +229,10 @@ const OrdersPage: React.FC = () => {
           <button
             key={value}
             onClick={() => handleFilterChange(value)}
-            className={`px-4 py-2 rounded-md text-sm border ${
+            className={`px-4 py-2 rounded-md text-sm border transition-colors ${
               statusFilter === value
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300"
+                ? "bg-blue-600 text-white border-blue-600 dark:bg-blue-600 dark:border-blue-600"
+                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
             }`}
           >
             {label}
@@ -241,35 +247,39 @@ const OrdersPage: React.FC = () => {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="flex justify-center items-center py-10">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+              <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
               <span className="ml-2 text-gray-600 dark:text-gray-400">
                 Loading orders...
               </span>
             </div>
           ) : error ? (
-            <p className="text-center text-red-500 py-6">{error}</p>
+            <p className="text-center text-red-500 dark:text-red-400 py-6">
+              {error}
+            </p>
           ) : orders.length === 0 ? (
-            <p className="text-center py-6 text-gray-500">Không có đơn hàng.</p>
+            <p className="text-center py-6 text-gray-500 dark:text-gray-400">
+              Không có đơn hàng.
+            </p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
               <thead className="bg-gray-50 dark:bg-gray-800">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     STT
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Mã đơn
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Người nhận
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Giá trị
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Trạng thái
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Thanh toán
                   </th>
                   <th className="px-4 py-3 text-right"></th>
@@ -280,9 +290,9 @@ const OrdersPage: React.FC = () => {
                 {orders.map((order, index) => (
                   <tr
                     key={order.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       {(currentPage - 1) * 10 + index + 1}
                     </td>
 
@@ -290,26 +300,27 @@ const OrdersPage: React.FC = () => {
                       <p className="font-medium text-gray-900 dark:text-white">
                         {order.code}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
                         {new Date(order.createdAt).toLocaleString()}
                       </p>
                     </td>
 
-                    <td className="px-4 py-3 text-sm text-gray-700">
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       <p>{order.address?.fullName || "—"}</p>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-gray-400 dark:text-gray-500">
                         {order.address?.phone}
                       </p>
                     </td>
 
-                    <td className="px-4 py-3 text-sm font-semibold text-green-700">
+                    <td className="px-4 py-3 text-sm font-semibold text-green-700 dark:text-green-400">
                       {order.finalPrice.toLocaleString()} đ
                     </td>
 
                     <td className="px-4 py-3">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          statusColors[order.status] || "bg-gray-200"
+                          statusColors[order.status] ||
+                          "bg-gray-200 dark:bg-gray-700 dark:text-gray-300"
                         }`}
                       >
                         {statusLabels[order.status] || order.status}
@@ -318,11 +329,11 @@ const OrdersPage: React.FC = () => {
 
                     <td className="px-4 py-3">
                       {order.paymentStatus === "paid" ? (
-                        <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-semibold">
+                        <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-semibold">
                           Đã thanh toán
                         </span>
                       ) : (
-                        <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
+                        <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold">
                           Chưa thanh toán
                         </span>
                       )}
@@ -334,7 +345,7 @@ const OrdersPage: React.FC = () => {
                           onClick={() =>
                             navigate(`/admin/orders/detail/${order.id}`)
                           }
-                          className="text-blue-600 hover:text-blue-800"
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                           title="Xem chi tiết"
                         >
                           <Eye className="w-5 h-5 inline-block" />
@@ -343,7 +354,7 @@ const OrdersPage: React.FC = () => {
                         {/* Nút cập nhật trạng thái */}
                         <button
                           onClick={() => openUpdateStatusModal(order)}
-                          className="text-green-600 hover:text-green-800"
+                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
                           title="Cập nhật trạng thái"
                         >
                           <Edit className="w-5 h-5 inline-block" />
@@ -353,7 +364,7 @@ const OrdersPage: React.FC = () => {
                         {order.paymentStatus !== "paid" && (
                           <button
                             onClick={() => openPaymentModal(order)}
-                            className="text-purple-600 hover:text-purple-800"
+                            className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
                             title="Xác nhận thanh toán COD"
                           >
                             💰
@@ -373,14 +384,14 @@ const OrdersPage: React.FC = () => {
       {/* Modal Cập nhật trạng thái */}
       {/* ====================== */}
       {showStatusModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
               Cập nhật trạng thái đơn hàng
             </h2>
 
             <select
-              className="w-full border rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200"
+              className="w-full border dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={selectedOrder.status}
               onChange={(e) => {
                 const newStatus = e.target.value;
@@ -397,7 +408,7 @@ const OrdersPage: React.FC = () => {
                   selectedOrder.paymentStatus === "paid"
                 ) {
                   alert(
-                    "Đơn hàng đã được thanh toán, không thể chuyển sang trạng thái 'Đã hủy'."
+                    "Đơn hàng đã được thanh toán, không thể chuyển sang trạng thái 'Đã hủy'.",
                   );
                   return;
                 }
@@ -417,16 +428,16 @@ const OrdersPage: React.FC = () => {
               <option value="cancelled">Đã hủy</option>
             </select>
 
-            <div className="flex justify-end gap-3 mt-4">
+            <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowStatusModal(false)}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded"
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
               >
                 Đóng
               </button>
 
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
                 onClick={async () => {
                   try {
                     await http(
@@ -434,7 +445,7 @@ const OrdersPage: React.FC = () => {
                       `/api/v1/admin/orders/${selectedOrder.id}/status`,
                       {
                         status: selectedOrder.status,
-                      }
+                      },
                     );
 
                     alert("Cập nhật trạng thái thành công!");
@@ -456,7 +467,7 @@ const OrdersPage: React.FC = () => {
       {/* Modal Thanh toán COD */}
       {/* ====================== */}
       {showPaymentModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
             <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
               Xác nhận thanh toán COD
@@ -468,29 +479,29 @@ const OrdersPage: React.FC = () => {
             </label>
             <input
               type="number"
-              className="w-full border rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 mb-3"
+              className="w-full border dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={paymentAmount}
               onChange={(e) => setPaymentAmount(e.target.value)}
             />
 
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Tổng cần thu:{" "}
-              <strong className="text-green-700">
+              <strong className="text-green-700 dark:text-green-400">
                 {selectedOrder.finalPrice.toLocaleString()} đ
               </strong>
             </p>
 
             {/* Buttons */}
-            <div className="flex justify-end gap-3 mt-4">
+            <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowPaymentModal(false)}
-                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded"
+                className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
               >
                 Đóng
               </button>
 
               <button
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
+                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                 onClick={async () => {
                   try {
                     const amountNumber = Number(paymentAmount);
@@ -504,7 +515,7 @@ const OrdersPage: React.FC = () => {
                       `/api/v1/admin/orders/${selectedOrder.id}/payment`,
                       {
                         amount: amountNumber, // 🎯 chỉ gửi amount theo backend mới
-                      }
+                      },
                     );
 
                     alert("Xác nhận thanh toán thành công!");
@@ -527,23 +538,23 @@ const OrdersPage: React.FC = () => {
       {/* Modal Xác nhận hoàn tất */}
       {/* ====================== */}
       {confirmCompleteModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-md text-center">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
               Đơn hàng đã được thanh toán
             </h2>
-            <p className="text-gray-700 dark:text-gray-300 mb-5">
+            <p className="text-gray-700 dark:text-gray-300 mb-6">
               Bạn muốn đánh dấu đơn hàng này là <strong>Hoàn tất</strong> luôn
               không?
             </p>
 
-            <div className="flex justify-center gap-3">
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
               <button
                 onClick={() => {
                   // Hoàn tất luôn
                   saveStatusChange(selectedOrder, "completed");
                 }}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
               >
                 Hoàn tất đơn hàng
               </button>
@@ -553,14 +564,14 @@ const OrdersPage: React.FC = () => {
                   // Giữ trạng thái delivered
                   saveStatusChange(selectedOrder, "delivered");
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
               >
                 Chỉ đánh dấu đã giao
               </button>
 
               <button
                 onClick={() => setConfirmCompleteModal(false)}
-                className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-800 dark:text-gray-200 rounded"
+                className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded transition-colors"
               >
                 Hủy
               </button>

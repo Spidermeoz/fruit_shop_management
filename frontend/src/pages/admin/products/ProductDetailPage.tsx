@@ -1,3 +1,4 @@
+// src/pages/ProductDetailPage.tsx
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit } from "lucide-react";
@@ -72,7 +73,7 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
         `/api/v1/admin/reviews/${reviewId}/reply`,
         {
           content,
-        }
+        },
       );
 
       if (res.success) {
@@ -89,20 +90,24 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
   };
 
   return (
-    <div className="mt-3 ml-10 border-l-4 border-gray-300 pl-4">
-      <p className="font-medium text-gray-700 mb-2">Phản hồi đánh giá:</p>
+    // Thêm dark mode cho viền
+    <div className="mt-3 ml-10 border-l-4 border-gray-300 dark:border-gray-600 pl-4">
+      <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">
+        Phản hồi đánh giá:
+      </p>
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
         rows={3}
-        className="w-full p-2 border rounded-md bg-gray-50 dark:bg-gray-800 dark:text-white"
+        // Thêm focus border cho textarea
+        className="w-full p-2 border dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
         placeholder="Nhập nội dung phản hồi..."
       />
 
       <button
         onClick={handleReply}
         disabled={loading}
-        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
       >
         {loading ? "Đang gửi..." : "Gửi phản hồi"}
       </button>
@@ -127,7 +132,7 @@ const ProductDetailPage: React.FC = () => {
       setLoadingProduct(true);
       const json = await http<any>(
         "GET",
-        `/api/v1/admin/products/detail/${id}`
+        `/api/v1/admin/products/detail/${id}`,
       );
 
       if (json.success && json.data) {
@@ -149,7 +154,7 @@ const ProductDetailPage: React.FC = () => {
       setLoadingReviews(true);
       const json = await http<any>(
         "GET",
-        `/api/v1/admin/reviews/product/${id}`
+        `/api/v1/admin/reviews/product/${id}`,
       );
 
       if (json.success && Array.isArray(json.data)) {
@@ -174,7 +179,7 @@ const ProductDetailPage: React.FC = () => {
   if (loadingProduct) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
-        <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+        <Loader2 className="w-6 h-6 text-gray-500 dark:text-gray-400 animate-spin" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải...
         </span>
@@ -186,12 +191,12 @@ const ProductDetailPage: React.FC = () => {
   if (error || !product) {
     return (
       <div className="flex flex-col justify-center items-center h-[70vh] text-center">
-        <p className="text-red-500 font-medium">
+        <p className="text-red-500 dark:text-red-400 font-medium">
           {error || "Sản phẩm không tồn tại."}
         </p>
         <button
           onClick={() => navigate(-1)}
-          className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+          className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         >
           Quay lại
         </button>
@@ -209,13 +214,13 @@ const ProductDetailPage: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={() => navigate(`/admin/products/edit/${id}`)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
           >
             <Edit className="w-4 h-4" /> Chỉnh sửa
           </button>
           <button
             onClick={() => navigate("/admin/products")}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
@@ -224,57 +229,88 @@ const ProductDetailPage: React.FC = () => {
 
       <Card>
         {/* GRID PRODUCT INFO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
           {/* IMAGE */}
           <div className="flex justify-center md:justify-start">
             <img
               src={product.thumbnail || "https://via.placeholder.com/300"}
               alt={product.title}
-              className="w-64 h-64 object-cover rounded-lg border dark:border-gray-700"
+              className="w-64 h-64 object-cover rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
             />
           </div>
 
           {/* INFO */}
           <div className="space-y-3 text-gray-800 dark:text-gray-200">
-            <h2 className="text-2xl font-semibold">{product.title}</h2>
+            <h2 className="text-2xl font-semibold dark:text-white">
+              {product.title}
+            </h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Mã sản phẩm: #{product.id}
             </p>
 
-            <div className="grid grid-cols-2 gap-2 text-sm mt-2">
+            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm mt-4">
               <p>
-                <span className="font-medium">Danh mục:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Danh mục:
+                </span>{" "}
                 {product.category?.title || "—"}
               </p>
               <p>
-                <span className="font-medium">Giá:</span>{" "}
-                {product.price.toLocaleString()}₫
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Giá:
+                </span>{" "}
+                <span className="text-green-600 dark:text-green-400 font-semibold">
+                  {product.price.toLocaleString()}₫
+                </span>
               </p>
               <p>
-                <span className="font-medium">Vị trí:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Vị trí:
+                </span>{" "}
                 {product.position ?? "—"}
               </p>
               <p>
-                <span className="font-medium">Giảm giá:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Giảm giá:
+                </span>{" "}
                 {product.discount_percentage ?? 0}%
               </p>
               <p>
-                <span className="font-medium">Tồn kho:</span> {product.stock}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Tồn kho:
+                </span>{" "}
+                {product.stock}
               </p>
               <p>
-                <span className="font-medium">Nổi bật:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Nổi bật:
+                </span>{" "}
                 {product.featured ? "Có" : "Không"}
               </p>
-              <p>
-                <span className="font-medium">Trạng thái:</span>{" "}
-                {product.status}
+              <p className="flex items-center gap-2">
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Trạng thái:
+                </span>{" "}
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                    product.status === "active"
+                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  }`}
+                >
+                  {product.status === "active" ? "Hoạt động" : "Dừng"}
+                </span>
               </p>
               <p>
-                <span className="font-medium">Đánh giá TB:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Đánh giá TB:
+                </span>{" "}
                 {product.average_rating ?? "—"}
               </p>
               <p>
-                <span className="font-medium">Lượt đánh giá:</span>{" "}
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Lượt đánh giá:
+                </span>{" "}
                 {product.review_count ?? "—"}
               </p>
             </div>
@@ -282,24 +318,30 @@ const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* DESCRIPTION */}
-        <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-2">Mô tả sản phẩm</h2>
+        <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6 px-2">
+          <h2 className="text-lg font-semibold mb-4 dark:text-white">
+            Mô tả sản phẩm
+          </h2>
           <div
-            className="prose dark:prose-invert max-w-none"
+            className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
         </div>
 
         {/* SYSTEM INFO */}
-        <div className="mt-6 border-t pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-2">
+        <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6 px-2 grid grid-cols-1 sm:grid-cols-2 text-sm gap-3 text-gray-700 dark:text-gray-400">
           <p>
-            <span className="font-medium">Ngày tạo:</span>{" "}
+            <span className="font-medium text-gray-600 dark:text-gray-300">
+              Ngày tạo:
+            </span>{" "}
             {product.created_at
               ? new Date(product.created_at).toLocaleString()
               : "—"}
           </p>
           <p>
-            <span className="font-medium">Cập nhật:</span>{" "}
+            <span className="font-medium text-gray-600 dark:text-gray-300">
+              Cập nhật:
+            </span>{" "}
             {product.updated_at
               ? new Date(product.updated_at).toLocaleString()
               : "—"}
@@ -307,68 +349,82 @@ const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* ====== REVIEWS SECTION ====== */}
-        <div className="mt-10">
-          <h2 className="text-xl font-semibold mb-4">Đánh giá sản phẩm</h2>
+        <div className="mt-10 px-2">
+          <h2 className="text-xl font-semibold mb-6 dark:text-white border-b pb-2 dark:border-gray-700">
+            Đánh giá sản phẩm
+          </h2>
 
           {loadingReviews ? (
-            <p className="text-gray-500">Đang tải đánh giá...</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              Đang tải đánh giá...
+            </p>
           ) : reviews.length === 0 ? (
-            <p className="text-gray-500">Chưa có đánh giá nào.</p>
+            <p className="text-gray-500 dark:text-gray-400">
+              Chưa có đánh giá nào.
+            </p>
           ) : (
             <div className="space-y-6">
               {reviews.map((rv) => {
                 const replied = rv.replies && rv.replies.length > 0;
 
                 return (
-                  <div key={rv.id} className="border-b pb-4">
+                  <div
+                    key={rv.id}
+                    className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0"
+                  >
                     {/* USER INFO */}
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-3">
                       <img
                         src={
                           rv.user?.avatar ||
                           "https://ui-avatars.com/api/?name=U"
                         }
-                        className="w-10 h-10 rounded-full"
+                        className="w-10 h-10 rounded-full border dark:border-gray-600"
                       />
                       <div>
                         <p className="font-semibold text-gray-800 dark:text-gray-100">
                           {rv.user?.name || "Người dùng"}
                         </p>
-                        <p className="text-gray-500 text-sm">
+                        <p className="text-gray-500 dark:text-gray-400 text-xs">
                           {new Date(
-                            rv.created_at || rv.createdAt!
+                            rv.created_at || rv.createdAt!,
                           ).toLocaleString()}
                         </p>
                       </div>
                     </div>
 
                     {/* RATING */}
-                    <div className="flex text-yellow-500 mb-2">
+                    <div className="flex text-yellow-500 mb-3 text-sm">
                       {Array.from({ length: rv.rating || 0 }).map((_, i) => (
                         <span key={i}>★</span>
                       ))}
                       {Array.from({ length: 5 - (rv.rating || 0) }).map(
                         (_, i) => (
-                          <span key={i} className="text-gray-300">
+                          <span
+                            key={i}
+                            className="text-gray-300 dark:text-gray-600"
+                          >
                             ★
                           </span>
-                        )
+                        ),
                       )}
                     </div>
 
                     {/* CONTENT */}
-                    <p className="text-gray-800 dark:text-gray-200">
+                    <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed">
                       {rv.content}
                     </p>
 
                     {/* EXISTING ADMIN REPLY */}
                     {rv.replies && rv.replies.length > 0 && (
-                      <div className="mt-3 ml-10 border-l-4 border-blue-600 pl-4">
-                        <p className="text-blue-700 font-semibold">
+                      <div className="mt-4 ml-10 border-l-4 border-blue-500 dark:border-blue-700 pl-4 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-r-md">
+                        <p className="text-blue-700 dark:text-blue-400 font-semibold text-sm mb-1">
                           Phản hồi của shop:
                         </p>
-                        <p>{rv.replies[0].content}</p>
-                        <p className="text-gray-500 text-xs">
+                        <p className="text-gray-700 dark:text-gray-300 text-sm">
+                          {rv.replies[0].content}
+                        </p>
+                        <p className="text-gray-500 dark:text-gray-500 text-xs mt-2">
                           {new Date(rv.replies[0].created_at!).toLocaleString()}
                         </p>
                       </div>

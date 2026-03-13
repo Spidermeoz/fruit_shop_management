@@ -39,7 +39,7 @@ const UserDetailPage: React.FC = () => {
 
       const res = await http<ApiDetail<User>>(
         "GET",
-        `/api/v1/admin/users/detail/${id}`
+        `/api/v1/admin/users/detail/${id}`,
       );
       if (res?.success && res.data) {
         setUser(res.data);
@@ -62,7 +62,7 @@ const UserDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
-        <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+        <Loader2 className="w-6 h-6 text-gray-500 dark:text-gray-400 animate-spin" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải...
         </span>
@@ -73,10 +73,10 @@ const UserDetailPage: React.FC = () => {
   if (error) {
     return (
       <div className="flex flex-col justify-center items-center h-[70vh] text-center">
-        <p className="text-red-500 font-medium">{error}</p>
+        <p className="text-red-500 dark:text-red-400 font-medium">{error}</p>
         <button
           onClick={() => navigate(-1)}
-          className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600"
+          className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
         >
           Quay lại
         </button>
@@ -86,14 +86,15 @@ const UserDetailPage: React.FC = () => {
 
   if (!user) return null;
 
+  // Cập nhật Dark Mode mượt mà hơn cho các badge trạng thái
   const getStatusClass = (status: string) => {
     switch (status.toLowerCase()) {
       case "active":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
       case "inactive":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
       case "banned":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
     }
@@ -110,13 +111,15 @@ const UserDetailPage: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={() => navigate(`/admin/users/edit/${id}`)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md"
+            // Thêm class dark mode cho nút Chỉnh sửa
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
           >
             <Edit className="w-4 h-4" /> Chỉnh sửa
           </button>
           <button
             onClick={() => navigate("/admin/users")}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+            // Thêm class dark mode cho nút Quay lại
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại
           </button>
@@ -125,8 +128,8 @@ const UserDetailPage: React.FC = () => {
 
       {/* Nội dung chính */}
       <Card>
-        <div className="space-y-8">
-          {/* Thông tin cơ bản */}
+        <div className="space-y-8 p-2">
+          {/* Thông tự cơ bản */}
           <div>
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
               Thông tin cơ bản
@@ -137,7 +140,7 @@ const UserDetailPage: React.FC = () => {
                 src={
                   user.avatar ||
                   `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                    user.full_name || user.email
+                    user.full_name || user.email,
                   )}&background=0D8ABC&color=fff`
                 }
                 alt="Avatar"
@@ -147,25 +150,36 @@ const UserDetailPage: React.FC = () => {
               {/* Info */}
               <div className="space-y-3 text-gray-800 dark:text-gray-200">
                 <p>
-                  <span className="font-medium">Họ và tên:</span>{" "}
+                  <span className="font-medium text-gray-600 dark:text-gray-400">
+                    Họ và tên:
+                  </span>{" "}
                   {user.full_name || "—"}
                 </p>
                 <p>
-                  <span className="font-medium">Email:</span> {user.email}
+                  <span className="font-medium text-gray-600 dark:text-gray-400">
+                    Email:
+                  </span>{" "}
+                  {user.email}
                 </p>
                 <p>
-                  <span className="font-medium">Số điện thoại:</span>{" "}
+                  <span className="font-medium text-gray-600 dark:text-gray-400">
+                    Số điện thoại:
+                  </span>{" "}
                   {user.phone || "—"}
                 </p>
                 <p>
-                  <span className="font-medium">Vai trò:</span>{" "}
+                  <span className="font-medium text-gray-600 dark:text-gray-400">
+                    Vai trò:
+                  </span>{" "}
                   {user.role?.title || "—"}
                 </p>
-                <p>
-                  <span className="font-medium">Trạng thái:</span>{" "}
+                <p className="flex items-center gap-2">
+                  <span className="font-medium text-gray-600 dark:text-gray-400">
+                    Trạng thái:
+                  </span>
                   <span
                     className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusClass(
-                      user.status
+                      user.status,
                     )}`}
                   >
                     {user.status}
@@ -176,15 +190,19 @@ const UserDetailPage: React.FC = () => {
           </div>
 
           {/* Thông tin hệ thống */}
-          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-2 text-gray-700 dark:text-gray-300">
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 grid grid-cols-1 sm:grid-cols-2 text-sm gap-y-3 text-gray-700 dark:text-gray-300">
             <p>
-              <span className="font-medium">Ngày tạo:</span>{" "}
+              <span className="font-medium text-gray-600 dark:text-gray-400">
+                Ngày tạo:
+              </span>{" "}
               {user.created_at
                 ? new Date(user.created_at).toLocaleString()
                 : "—"}
             </p>
             <p>
-              <span className="font-medium">Cập nhật gần nhất:</span>{" "}
+              <span className="font-medium text-gray-600 dark:text-gray-400">
+                Cập nhật gần nhất:
+              </span>{" "}
               {user.updated_at
                 ? new Date(user.updated_at).toLocaleString()
                 : "—"}

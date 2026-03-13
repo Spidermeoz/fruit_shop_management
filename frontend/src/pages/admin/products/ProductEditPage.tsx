@@ -52,7 +52,7 @@ const ProductEditPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
-    "keep"
+    "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
   // 🔹 Lấy dữ liệu sản phẩm
@@ -69,7 +69,7 @@ const ProductEditPage: React.FC = () => {
     } catch (err) {
       console.error(err);
       setFetchError(
-        err instanceof Error ? err.message : "Không thể kết nối server."
+        err instanceof Error ? err.message : "Không thể kết nối server.",
       );
     } finally {
       setLoading(false);
@@ -80,7 +80,10 @@ const ProductEditPage: React.FC = () => {
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const json = await http<any>("GET", "/api/v1/admin/product-category?limit=100");
+        const json = await http<any>(
+          "GET",
+          "/api/v1/admin/product-category?limit=100",
+        );
         if (json.success && Array.isArray(json.data)) {
           const normalized = json.data.map((c: any) => ({
             ...c,
@@ -101,7 +104,7 @@ const ProductEditPage: React.FC = () => {
 
   // 🔹 Xử lý input
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, type, value } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -112,7 +115,7 @@ const ProductEditPage: React.FC = () => {
             ...prev,
             [name]: type === "checkbox" ? (checked ? 1 : 0) : value,
           }
-        : prev
+        : prev,
     );
 
     if (formErrors[name as keyof typeof formErrors]) {
@@ -183,7 +186,7 @@ const ProductEditPage: React.FC = () => {
         const dataUpload = await http<any>(
           "POST",
           "/api/v1/admin/upload",
-          formDataImg
+          formDataImg,
         );
 
         if (dataUpload.success && dataUpload.data?.url) {
@@ -200,7 +203,7 @@ const ProductEditPage: React.FC = () => {
 
       // 🔸 Upload ảnh trong nội dung TinyMCE (lazy upload)
       const updatedDescription = await uploadImagesInContent(
-        product.description
+        product.description,
       );
 
       // --- Chuẩn hóa payload ---
@@ -226,7 +229,7 @@ const ProductEditPage: React.FC = () => {
       const json = await http<any>(
         "PATCH",
         `/api/v1/admin/products/edit/${id}`,
-        payload
+        payload,
       );
 
       if (json.success) {
@@ -251,7 +254,7 @@ const ProductEditPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải dữ liệu sản phẩm...
         </span>
@@ -260,7 +263,11 @@ const ProductEditPage: React.FC = () => {
   }
 
   if (fetchError)
-    return <p className="text-center text-red-500 py-10">{fetchError}</p>;
+    return (
+      <p className="text-center text-red-500 dark:text-red-400 py-10">
+        {fetchError}
+      </p>
+    );
   if (!product) return null;
 
   return (
@@ -271,17 +278,17 @@ const ProductEditPage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/products")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
       <Card>
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4 p-2">
           {/* Danh mục */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Danh mục sản phẩm
             </label>
             <select
@@ -290,9 +297,9 @@ const ProductEditPage: React.FC = () => {
               onChange={handleChange}
               className={`w-full border ${
                 formErrors.product_category_id
-                  ? "border-red-500"
-                  : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             >
               <option value="" disabled>
                 -- Chọn danh mục --
@@ -300,7 +307,7 @@ const ProductEditPage: React.FC = () => {
               {renderCategoryOptions(buildCategoryTree(categories))}
             </select>
             {formErrors.product_category_id && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 {formErrors.product_category_id}
               </p>
             )}
@@ -308,7 +315,7 @@ const ProductEditPage: React.FC = () => {
 
           {/* Tên sản phẩm */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Tên sản phẩm
             </label>
             <input
@@ -317,24 +324,33 @@ const ProductEditPage: React.FC = () => {
               value={product.title || ""}
               onChange={handleChange}
               className={`w-full border ${
-                formErrors.title ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                formErrors.title
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {formErrors.title && (
-              <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.title}
+              </p>
             )}
           </div>
 
           {/* Mô tả */}
-          <RichTextEditor
-            value={product.description}
-            onChange={handleDescriptionChange}
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Mô tả
+            </label>
+            <RichTextEditor
+              value={product.description}
+              onChange={handleDescriptionChange}
+            />
+          </div>
 
           {/* Giá & Giảm giá */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Giá (₫)
               </label>
               <input
@@ -343,16 +359,20 @@ const ProductEditPage: React.FC = () => {
                 value={product.price || ""}
                 onChange={handleChange}
                 className={`w-full border ${
-                  formErrors.price ? "border-red-500" : "border-gray-300"
-                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                  formErrors.price
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
               />
               {formErrors.price && (
-                <p className="text-sm text-red-600 mt-1">{formErrors.price}</p>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {formErrors.price}
+                </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Giảm giá (%)
               </label>
               <input
@@ -360,7 +380,7 @@ const ProductEditPage: React.FC = () => {
                 name="discount_percentage"
                 value={product.discount_percentage || ""}
                 onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               />
             </div>
           </div>
@@ -368,7 +388,7 @@ const ProductEditPage: React.FC = () => {
           {/* Tồn kho & vị trí */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Tồn kho
               </label>
               <input
@@ -377,15 +397,19 @@ const ProductEditPage: React.FC = () => {
                 value={product.stock || ""}
                 onChange={handleChange}
                 className={`w-full border ${
-                  formErrors.stock ? "border-red-500" : "border-gray-300"
-                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                  formErrors.stock
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
               />
               {formErrors.stock && (
-                <p className="text-sm text-red-600 mt-1">{formErrors.stock}</p>
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {formErrors.stock}
+                </p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Vị trí hiển thị
               </label>
               <input
@@ -394,25 +418,25 @@ const ProductEditPage: React.FC = () => {
                 value={product.position || ""}
                 onChange={handleChange}
                 placeholder="Nếu bỏ trống sẽ tự xếp cuối"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               />
             </div>
           </div>
 
           {/* Ảnh sản phẩm */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Ảnh sản phẩm
             </label>
 
-            {/* Tab chọn phương thức */}
-            <div className="flex mb-3">
+            {/* Tab chọn phương thức - Đã thay đổi thành flex-wrap và gap-3 */}
+            <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
-                className={`px-4 py-2 mr-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "upload"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("upload")}
               >
@@ -420,10 +444,10 @@ const ProductEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "url"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("url")}
               >
@@ -431,10 +455,10 @@ const ProductEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "keep"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => {
                   setImageMethod("keep");
@@ -452,6 +476,7 @@ const ProductEditPage: React.FC = () => {
                   type="file"
                   accept="image/*"
                   onChange={handleImageSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
                 />
               </div>
             ) : imageMethod === "url" ? (
@@ -464,12 +489,14 @@ const ProductEditPage: React.FC = () => {
                     setImageUrl(e.target.value);
                     setPreviewImage(e.target.value);
                     setProduct((prev) =>
-                      prev ? { ...prev, thumbnail: e.target.value } : prev
+                      prev ? { ...prev, thumbnail: e.target.value } : prev,
                     );
                   }}
                   className={`w-full border ${
-                    formErrors.thumbnail ? "border-red-500" : "border-gray-300"
-                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                    formErrors.thumbnail
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
                 />
               </div>
             ) : (
@@ -479,17 +506,17 @@ const ProductEditPage: React.FC = () => {
             )}
 
             {formErrors.thumbnail && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 {formErrors.thumbnail}
               </p>
             )}
 
             {previewImage && (
-              <div className="mt-3 relative w-fit">
+              <div className="mt-4 relative w-fit">
                 <img
                   src={previewImage}
                   alt="preview"
-                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600 shadow-sm"
                 />
                 {imageMethod !== "keep" && (
                   <button
@@ -500,7 +527,7 @@ const ProductEditPage: React.FC = () => {
                       setImageMethod("keep");
                       setPreviewImage(product.thumbnail);
                     }}
-                    className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
+                    className="absolute -top-2 -right-2 bg-gray-500 dark:bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors shadow-md"
                   >
                     ×
                   </button>
@@ -510,34 +537,34 @@ const ProductEditPage: React.FC = () => {
           </div>
 
           {/* Trạng thái & Nổi bật */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             {/* Trạng thái */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Trạng thái
               </label>
               <div className="flex gap-6">
-                <label className="flex items-center space-x-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="radio"
                     name="status"
                     value="active"
                     checked={product.status === "active"}
                     onChange={handleChange}
-                    className="text-blue-600 focus:ring-blue-500"
+                    className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <span className="text-gray-800 dark:text-gray-200">
                     Hoạt động
                   </span>
                 </label>
-                <label className="flex items-center space-x-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="radio"
                     name="status"
                     value="inactive"
                     checked={product.status === "inactive"}
                     onChange={handleChange}
-                    className="text-red-600 focus:ring-red-500"
+                    className="text-red-600 focus:ring-red-500 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <span className="text-gray-800 dark:text-gray-200">
                     Dừng hoạt động
@@ -548,31 +575,31 @@ const ProductEditPage: React.FC = () => {
 
             {/* Sản phẩm nổi bật */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Sản phẩm nổi bật
               </label>
               <div className="flex gap-6">
-                <label className="flex items-center space-x-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="radio"
                     name="featured"
                     value={1}
                     checked={Number(product.featured) === 1}
                     onChange={handleChange}
-                    className="text-blue-600 focus:ring-blue-500"
+                    className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <span className="text-gray-800 dark:text-gray-200">
                     Nổi bật
                   </span>
                 </label>
-                <label className="flex items-center space-x-2">
+                <label className="flex items-center space-x-2 cursor-pointer">
                   <input
                     type="radio"
                     name="featured"
                     value={0}
                     checked={Number(product.featured) === 0}
                     onChange={handleChange}
-                    className="text-red-600 focus:ring-red-500"
+                    className="text-gray-600 focus:ring-gray-500 dark:bg-gray-700 dark:border-gray-600"
                   />
                   <span className="text-gray-800 dark:text-gray-200">
                     Không nổi bật
@@ -583,7 +610,7 @@ const ProductEditPage: React.FC = () => {
           </div>
 
           {/* Nút lưu */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button
               type="submit"
               disabled={saving}

@@ -49,7 +49,7 @@ const RoleEditPage: React.FC = () => {
       setFetchError("");
       const res = await http<ApiDetail<Role>>(
         "GET",
-        `/api/v1/admin/roles/edit/${id}`
+        `/api/v1/admin/roles/edit/${id}`,
       );
       if (res?.success && res.data) {
         setRole(res.data);
@@ -109,7 +109,9 @@ const RoleEditPage: React.FC = () => {
       setSaving(true);
       setFormErrors({});
 
-      const processedDescription = await uploadImagesInContent(role.description || "");
+      const processedDescription = await uploadImagesInContent(
+        role.description || "",
+      );
 
       const res = await http<ApiOk>("PATCH", `/api/v1/admin/roles/edit/${id}`, {
         title: role.title,
@@ -143,7 +145,7 @@ const RoleEditPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải dữ liệu vai trò...
         </span>
@@ -151,7 +153,12 @@ const RoleEditPage: React.FC = () => {
     );
   }
 
-  if (fetchError) return <p className="text-center text-red-500 py-10">{fetchError}</p>;
+  if (fetchError)
+    return (
+      <p className="text-center text-red-500 dark:text-red-400 py-10">
+        {fetchError}
+      </p>
+    );
   if (!role) return null;
 
   return (
@@ -163,7 +170,8 @@ const RoleEditPage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/roles")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          // Thêm dark mode cho nút quay lại
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
@@ -171,7 +179,7 @@ const RoleEditPage: React.FC = () => {
 
       {/* Form */}
       <Card>
-        <form onSubmit={handleSave} className="space-y-5">
+        <form onSubmit={handleSave} className="space-y-5 p-2">
           {/* --- Tên vai trò --- */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -182,9 +190,18 @@ const RoleEditPage: React.FC = () => {
               name="title"
               value={role.title || ""}
               onChange={handleChange}
-              className={`w-full border ${formErrors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              // Thêm dark mode và hiệu ứng focus cho ô input
+              className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                formErrors.title
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              }`}
             />
-            {formErrors.title && <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>}
+            {formErrors.title && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.title}
+              </p>
+            )}
           </div>
 
           {/* --- Mô tả (TinyMCE) --- */}
@@ -196,11 +213,15 @@ const RoleEditPage: React.FC = () => {
               value={role.description || ""}
               onChange={handleDescriptionChange}
             />
-            {formErrors.description && <p className="text-sm text-red-600 mt-1">{formErrors.description}</p>}
+            {formErrors.description && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.description}
+              </p>
+            )}
           </div>
 
           {/* --- Nút hành động --- */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
               disabled={saving}

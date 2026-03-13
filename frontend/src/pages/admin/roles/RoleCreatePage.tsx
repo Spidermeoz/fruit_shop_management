@@ -1,7 +1,7 @@
 // src/pages/admin/roles/RoleCreatePage.tsx
 import React, { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import RichTextEditor from "../../../components/common/RichTextEditor";
 import { http } from "../../../services/http";
@@ -63,7 +63,7 @@ const RoleCreatePage: React.FC = () => {
       setErrors({});
 
       const processedDescription = await uploadImagesInContent(
-        formData.description
+        formData.description,
       );
 
       const payload = {
@@ -74,7 +74,7 @@ const RoleCreatePage: React.FC = () => {
       const res = await http<ApiOk<any> | ApiErr>(
         "POST",
         "/api/v1/admin/roles/create",
-        payload
+        payload,
       );
 
       if (res.success) {
@@ -106,17 +106,18 @@ const RoleCreatePage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/roles")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          // Thêm dark mode cho nút quay lại
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5 p-2">
         {/* Tên vai trò */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Tên vai trò
           </label>
           <input
@@ -125,9 +126,18 @@ const RoleCreatePage: React.FC = () => {
             value={formData.title}
             onChange={handleChange}
             placeholder="Nhập tên vai trò..."
-            className={`w-full border ${errors.title ? 'border-red-500' : 'border-gray-300'} dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+            // Thêm class dark mode và hiệu ứng focus
+            className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+              errors.title
+                ? "border-red-500 dark:border-red-500"
+                : "border-gray-300 dark:border-gray-600"
+            }`}
           />
-          {errors.title && <p className="text-sm text-red-600 mt-1">{errors.title}</p>}
+          {errors.title && (
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              {errors.title}
+            </p>
+          )}
         </div>
 
         {/* Mô tả (TinyMCE) */}
@@ -139,29 +149,42 @@ const RoleCreatePage: React.FC = () => {
             value={formData.description}
             onChange={handleDescriptionChange}
           />
-          {errors.description && <p className="text-sm text-red-600 mt-1">{errors.description}</p>}
+          {errors.description && (
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+              {errors.description}
+            </p>
+          )}
         </div>
 
         {/* General Error */}
         {errors.general && (
-          <p className="text-sm text-red-600 text-center">{errors.general}</p>
+          <p className="text-sm text-red-600 dark:text-red-400 text-center">
+            {errors.general}
+          </p>
         )}
 
         {/* Nút hành động */}
-        <div className="flex justify-end gap-3 mt-6">
+        <div className="flex justify-end gap-3 mt-6 pt-4">
           <button
             type="button"
             onClick={() => navigate("/admin/roles")}
-            className="px-4 py-2 rounded-md border border-gray-400 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+            // Thêm dark mode cho nút Hủy
+            className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
           >
             Hủy
           </button>
           <button
             type="submit"
-            className="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+            className="flex items-center gap-2 px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
             disabled={loading}
           >
-            {loading ? "Đang lưu..." : "Lưu vai trò"}
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
+              </>
+            ) : (
+              "Lưu vai trò"
+            )}
           </button>
         </div>
       </form>

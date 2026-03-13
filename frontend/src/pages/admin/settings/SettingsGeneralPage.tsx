@@ -1,4 +1,9 @@
-import React, { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import React, {
+  useEffect,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Card from "../../../components/layouts/Card";
@@ -53,7 +58,7 @@ const SettingsGeneralPage: React.FC = () => {
   // 🧩 HANDLE CHANGE
   // ==========================
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setSettings((prev) => (prev ? { ...prev, [name]: value } : prev));
@@ -115,7 +120,7 @@ const SettingsGeneralPage: React.FC = () => {
       const json = await http<any>(
         "PATCH",
         "/api/v1/admin/settings/general",
-        formData
+        formData,
       );
 
       if (json.success) {
@@ -138,13 +143,19 @@ const SettingsGeneralPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
-        <span className="ml-2 text-gray-600">Đang tải cấu hình...</span>
+        {/* Thêm dark:text-gray-400 */}
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
+        <span className="ml-2 text-gray-600 dark:text-gray-400">
+          Đang tải cấu hình...
+        </span>
       </div>
     );
   }
 
-  if (!settings) return <p className="text-center py-10">Không có dữ liệu.</p>;
+  if (!settings)
+    return (
+      <p className="text-center py-10 dark:text-gray-400">Không có dữ liệu.</p>
+    );
 
   return (
     <div>
@@ -156,7 +167,8 @@ const SettingsGeneralPage: React.FC = () => {
 
         <button
           onClick={() => navigate("/admin/dashboard")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 hover:bg-gray-300 rounded-md"
+          // Thêm dark mode cho nút quay lại
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
@@ -164,97 +176,124 @@ const SettingsGeneralPage: React.FC = () => {
 
       {/* CARD */}
       <Card>
-        <form onSubmit={handleSave} className="space-y-5">
+        <form onSubmit={handleSave} className="space-y-5 p-2">
           {/* Website name */}
           <div>
-            <label className="block font-medium mb-1">Tên website</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Tên website
+            </label>
             <input
               type="text"
               name="website_name"
               value={settings.website_name || ""}
               onChange={handleChange}
-              className={`w-full border p-2 rounded ${
-                formErrors.website_name ? "border-red-500" : "border-gray-300"
+              // Thêm dark mode cho ô input
+              className={`w-full border p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                formErrors.website_name
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
               }`}
             />
             {formErrors.website_name && (
-              <p className="text-sm text-red-600">{formErrors.website_name}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.website_name}
+              </p>
             )}
           </div>
 
           {/* Logo */}
           <div>
-            <label className="block font-medium mb-1">Logo</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Logo
+            </label>
 
-            <input type="file" accept="image/*" onChange={handleImageSelect} />
+            {/* Style lại nút chọn file cho gọn gàng và hỗ trợ dark mode */}
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
+            />
 
             {previewLogo && (
               <img
                 src={previewLogo}
                 alt="Logo preview"
-                className="mt-3 h-16 w-16 object-cover rounded border"
+                className="mt-3 h-16 w-16 object-cover rounded border border-gray-300 dark:border-gray-600"
               />
             )}
           </div>
 
           {/* Phone */}
           <div>
-            <label className="block font-medium mb-1">Số điện thoại</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Số điện thoại
+            </label>
             <input
               type="text"
               name="phone"
               value={settings.phone || ""}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
           </div>
 
           {/* Email */}
           <div>
-            <label className="block font-medium mb-1">Email</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Email
+            </label>
             <input
               type="email"
               name="email"
               value={settings.email || ""}
               onChange={handleChange}
-              className={`w-full border p-2 rounded ${
-                formErrors.email ? "border-red-500" : "border-gray-300"
+              className={`w-full border p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                formErrors.email
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
               }`}
             />
             {formErrors.email && (
-              <p className="text-sm text-red-600">{formErrors.email}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.email}
+              </p>
             )}
           </div>
 
           {/* Address */}
           <div>
-            <label className="block font-medium mb-1">Địa chỉ</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Địa chỉ
+            </label>
             <textarea
               name="address"
               value={settings.address || ""}
               onChange={handleChange}
-              className="w-full border p-2 rounded h-20"
+              className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded h-20 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
           </div>
 
           {/* Copyright */}
           <div>
-            <label className="block font-medium mb-1">Bản quyền</label>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Bản quyền
+            </label>
             <input
               type="text"
               name="copyright"
               value={settings.copyright || ""}
               onChange={handleChange}
-              className="w-full border p-2 rounded"
+              className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
           </div>
 
           {/* Save button */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
               disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50"
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 transition-colors"
             >
               {saving ? (
                 <>

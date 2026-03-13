@@ -44,7 +44,7 @@ const ProductCategoryEditPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>("");
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
-    "keep"
+    "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
 
@@ -54,7 +54,7 @@ const ProductCategoryEditPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiDetail<Category>>(
         "GET",
-        `/api/v1/admin/product-category/edit/${id}`
+        `/api/v1/admin/product-category/edit/${id}`,
       );
       if (res.success && res.data) {
         setCategory(res.data);
@@ -73,7 +73,7 @@ const ProductCategoryEditPage: React.FC = () => {
     try {
       const res = await http<ApiList<Category>>(
         "GET",
-        `/api/v1/admin/product-category`
+        `/api/v1/admin/product-category`,
       );
       if (res.success && Array.isArray(res.data)) {
         setCategories(res.data);
@@ -102,7 +102,7 @@ const ProductCategoryEditPage: React.FC = () => {
 
   // ✅ Xử lý input
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setCategory((prev) => (prev ? { ...prev, [name]: value } : prev));
@@ -147,7 +147,7 @@ const ProductCategoryEditPage: React.FC = () => {
         const up = await http<ApiOk>(
           "POST",
           "/api/v1/admin/upload",
-          formDataImg
+          formDataImg,
         );
         const url = up?.data?.url || (up as any)?.url;
         if (!url) {
@@ -170,7 +170,7 @@ const ProductCategoryEditPage: React.FC = () => {
 
       // 🔹 Upload ảnh trong description (nếu có)
       const updatedDescription = await uploadImagesInContent(
-        category.description || ""
+        category.description || "",
       );
 
       // 🔹 Payload
@@ -185,7 +185,7 @@ const ProductCategoryEditPage: React.FC = () => {
       const res = await http<ApiOk & { errors?: any }>(
         "PATCH",
         `/api/v1/admin/product-category/edit/${id}`,
-        payload
+        payload,
       );
 
       if (res.success) {
@@ -209,7 +209,7 @@ const ProductCategoryEditPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải danh mục...
         </span>
@@ -218,7 +218,11 @@ const ProductCategoryEditPage: React.FC = () => {
   }
 
   if (fetchError) {
-    return <p className="text-center text-red-500 py-10">{fetchError}</p>;
+    return (
+      <p className="text-center text-red-500 dark:text-red-400 py-10">
+        {fetchError}
+      </p>
+    );
   }
 
   if (!category) return null;
@@ -231,17 +235,17 @@ const ProductCategoryEditPage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/product-category")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
       <Card>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-5 p-2">
           {/* Tên danh mục */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Tên danh mục
             </label>
             <input
@@ -250,17 +254,21 @@ const ProductCategoryEditPage: React.FC = () => {
               value={category.title}
               onChange={handleChange}
               className={`w-full border ${
-                formErrors.title ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                formErrors.title
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {formErrors.title && (
-              <p className="text-sm text-red-600 mt-1">{formErrors.title}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.title}
+              </p>
             )}
           </div>
 
           {/* Danh mục cha */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Danh mục cha
             </label>
             <select
@@ -276,15 +284,17 @@ const ProductCategoryEditPage: React.FC = () => {
                         ...prev,
                         parent_id: value === "" ? null : Number(value),
                       }
-                    : prev
+                    : prev,
                 );
                 if (formErrors.parent_id) {
                   setFormErrors((prev) => ({ ...prev, parent_id: undefined }));
                 }
               }}
               className={`w-full border ${
-                formErrors.parent_id ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                formErrors.parent_id
+                  ? "border-red-500 dark:border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             >
               <option value="">-- Danh mục gốc --</option>
               {categories
@@ -296,7 +306,7 @@ const ProductCategoryEditPage: React.FC = () => {
                 ))}
             </select>
             {formErrors.parent_id && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 {formErrors.parent_id}
               </p>
             )}
@@ -315,18 +325,18 @@ const ProductCategoryEditPage: React.FC = () => {
 
           {/* Ảnh minh họa */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Ảnh minh họa
             </label>
 
-            {/* Tab chọn phương thức */}
-            <div className="flex mb-3">
+            {/* Tab chọn phương thức - Đã thay đổi thành flex-wrap và gap-3 */}
+            <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
-                className={`px-4 py-2 mr-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "upload"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("upload")}
               >
@@ -334,10 +344,10 @@ const ProductCategoryEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "url"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("url")}
               >
@@ -345,10 +355,10 @@ const ProductCategoryEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "keep"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => {
                   setImageMethod("keep");
@@ -366,6 +376,7 @@ const ProductCategoryEditPage: React.FC = () => {
                   type="file"
                   accept="image/*"
                   onChange={handleImageSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
                 />
               </div>
             ) : imageMethod === "url" ? (
@@ -378,12 +389,14 @@ const ProductCategoryEditPage: React.FC = () => {
                     setImageUrl(e.target.value);
                     setPreviewImage(e.target.value);
                     setCategory((prev) =>
-                      prev ? { ...prev, thumbnail: e.target.value } : prev
+                      prev ? { ...prev, thumbnail: e.target.value } : prev,
                     );
                   }}
                   className={`w-full border ${
-                    formErrors.thumbnail ? "border-red-500" : "border-gray-300"
-                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                    formErrors.thumbnail
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
                 />
               </div>
             ) : (
@@ -393,17 +406,17 @@ const ProductCategoryEditPage: React.FC = () => {
             )}
 
             {formErrors.thumbnail && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 {formErrors.thumbnail}
               </p>
             )}
 
             {previewImage && (
-              <div className="mt-3 relative w-fit">
+              <div className="mt-4 relative w-fit">
                 <img
                   src={previewImage}
                   alt="preview"
-                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
+                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600 shadow-sm"
                 />
                 {imageMethod !== "keep" && (
                   <button
@@ -414,7 +427,7 @@ const ProductCategoryEditPage: React.FC = () => {
                       setImageMethod("keep");
                       setPreviewImage(category.thumbnail);
                     }}
-                    className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
+                    className="absolute -top-2 -right-2 bg-red-500 dark:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 dark:hover:bg-red-500 transition-colors shadow-md"
                   >
                     ×
                   </button>
@@ -424,32 +437,32 @@ const ProductCategoryEditPage: React.FC = () => {
           </div>
 
           {/* Trạng thái */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <div className="pt-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Trạng thái
             </label>
             <div className="flex gap-6">
-              <label className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   name="status"
                   value="active"
                   checked={category.status === "active"}
                   onChange={handleChange}
-                  className="text-blue-600 focus:ring-blue-500"
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
                   Hoạt động
                 </span>
               </label>
-              <label className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   name="status"
                   value="inactive"
                   checked={category.status === "inactive"}
                   onChange={handleChange}
-                  className="text-red-600 focus:ring-red-500"
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
                   Dừng hoạt động
@@ -459,7 +472,7 @@ const ProductCategoryEditPage: React.FC = () => {
           </div>
 
           {/* Nút lưu */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button
               type="submit"
               disabled={saving}

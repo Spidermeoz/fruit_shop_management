@@ -54,7 +54,7 @@ const UserEditPage: React.FC = () => {
     }
   >({});
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
-    "keep"
+    "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
 
@@ -64,7 +64,7 @@ const UserEditPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiDetail<User>>(
         "GET",
-        `/api/v1/admin/users/edit/${id}`
+        `/api/v1/admin/users/edit/${id}`,
       );
       if (res.success && res.data) {
         const data = res.data as User;
@@ -99,7 +99,7 @@ const UserEditPage: React.FC = () => {
 
   // 🔹 Xử lý input
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setUser((prev) => (prev ? { ...prev, [name]: value } : prev));
@@ -167,7 +167,7 @@ const UserEditPage: React.FC = () => {
         const up = await http<ApiOk>(
           "POST",
           "/api/v1/admin/upload",
-          formDataImg
+          formDataImg,
         );
         const url = up?.data?.url || up?.url;
         if (!url) {
@@ -197,7 +197,7 @@ const UserEditPage: React.FC = () => {
       const resp = await http<ApiOk>(
         "PATCH",
         `/api/v1/admin/users/edit/${id}`,
-        body
+        body,
       );
 
       if (resp.success) {
@@ -219,7 +219,7 @@ const UserEditPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
+        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải dữ liệu người dùng...
         </span>
@@ -237,17 +237,17 @@ const UserEditPage: React.FC = () => {
         </h1>
         <button
           onClick={() => navigate("/admin/users")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-md"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
       <Card>
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4 p-2">
           {/* Họ và tên */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Họ và tên <span className="text-red-500">*</span>
             </label>
             <input
@@ -257,16 +257,18 @@ const UserEditPage: React.FC = () => {
               onChange={handleChange}
               className={`w-full border ${
                 errors.full_name ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {errors.full_name && (
-              <p className="text-sm text-red-600 mt-1">{errors.full_name}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.full_name}
+              </p>
             )}
           </div>
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email <span className="text-red-500">*</span>
             </label>
             <input
@@ -276,16 +278,18 @@ const UserEditPage: React.FC = () => {
               onChange={handleChange}
               className={`w-full border ${
                 errors.email ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {errors.email && (
-              <p className="text-sm text-red-600 mt-1">{errors.email}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.email}
+              </p>
             )}
           </div>
 
           {/* Mật khẩu mới */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Mật khẩu mới (tuỳ chọn)
             </label>
             <input
@@ -295,16 +299,18 @@ const UserEditPage: React.FC = () => {
               placeholder="Nhập mật khẩu mới..."
               className={`w-full border ${
                 errors.password ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {errors.password && (
-              <p className="text-sm text-red-600 mt-1">{errors.password}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.password}
+              </p>
             )}
           </div>
 
           {/* Xác nhận mật khẩu */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Xác nhận mật khẩu mới
             </label>
             <input
@@ -314,10 +320,10 @@ const UserEditPage: React.FC = () => {
               placeholder="Nhập lại mật khẩu mới..."
               className={`w-full border ${
                 errors.confirmPassword ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
             {errors.confirmPassword && (
-              <p className="text-sm text-red-600 mt-1">
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                 {errors.confirmPassword}
               </p>
             )}
@@ -325,7 +331,7 @@ const UserEditPage: React.FC = () => {
 
           {/* Số điện thoại */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Số điện thoại
             </label>
             <input
@@ -333,13 +339,13 @@ const UserEditPage: React.FC = () => {
               name="phone"
               value={user.phone || ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
           </div>
 
           {/* Vai trò */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Vai trò <span className="text-red-500">*</span>
             </label>
             <select
@@ -348,7 +354,7 @@ const UserEditPage: React.FC = () => {
               onChange={handleChange}
               className={`w-full border ${
                 errors.role_id ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             >
               <option value="">-- Chọn vai trò --</option>
               {roles.map((role) => (
@@ -358,24 +364,26 @@ const UserEditPage: React.FC = () => {
               ))}
             </select>
             {errors.role_id && (
-              <p className="text-sm text-red-600 mt-1">{errors.role_id}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.role_id}
+              </p>
             )}
           </div>
 
           {/* Ảnh đại diện */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Ảnh đại diện
             </label>
 
-            {/* Tab chọn phương thức */}
-            <div className="flex mb-3">
+            {/* Tab chọn phương thức - Đã sửa khoảng cách bằng gap-3 */}
+            <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
-                className={`px-4 py-2 mr-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "upload"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("upload")}
               >
@@ -383,10 +391,10 @@ const UserEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "url"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => setImageMethod("url")}
               >
@@ -394,10 +402,10 @@ const UserEditPage: React.FC = () => {
               </button>
               <button
                 type="button"
-                className={`px-4 py-2 rounded ${
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
                   imageMethod === "keep"
                     ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700"
+                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                 }`}
                 onClick={() => {
                   setImageMethod("keep");
@@ -415,6 +423,7 @@ const UserEditPage: React.FC = () => {
                   type="file"
                   accept="image/*"
                   onChange={handleImageSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
                 />
               </div>
             ) : imageMethod === "url" ? (
@@ -427,12 +436,12 @@ const UserEditPage: React.FC = () => {
                     setImageUrl(e.target.value);
                     setPreviewImage(e.target.value);
                     setUser((prev) =>
-                      prev ? { ...prev, avatar: e.target.value } : prev
+                      prev ? { ...prev, avatar: e.target.value } : prev,
                     );
                   }}
                   className={`w-full border ${
                     errors.avatar ? "border-red-500" : "border-gray-300"
-                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
+                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
                 />
               </div>
             ) : (
@@ -442,11 +451,13 @@ const UserEditPage: React.FC = () => {
             )}
 
             {errors.avatar && (
-              <p className="text-sm text-red-600 mt-1">{errors.avatar}</p>
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.avatar}
+              </p>
             )}
 
             {previewImage && (
-              <div className="mt-3 relative w-fit">
+              <div className="mt-4 relative w-fit">
                 <img
                   src={previewImage}
                   alt="preview"
@@ -461,7 +472,7 @@ const UserEditPage: React.FC = () => {
                       setImageMethod("keep");
                       setPreviewImage(user.avatar || "");
                     }}
-                    className="absolute -top-2 -right-2 bg-gray-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600"
+                    className="absolute -top-2 -right-2 bg-gray-500 dark:bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
                   >
                     ×
                   </button>
@@ -471,30 +482,32 @@ const UserEditPage: React.FC = () => {
           </div>
 
           {/* Trạng thái */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <div className="pt-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Trạng thái
             </label>
             <div className="flex gap-6">
-              <label className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   name="status"
                   value="active"
                   checked={user.status === "active"}
                   onChange={handleChange}
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
                   Hoạt động
                 </span>
               </label>
-              <label className="flex items-center space-x-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   name="status"
                   value="inactive"
                   checked={user.status === "inactive"}
                   onChange={handleChange}
+                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
                   Tạm dừng
@@ -504,7 +517,7 @@ const UserEditPage: React.FC = () => {
           </div>
 
           {/* Nút lưu */}
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-4">
             <button
               type="submit"
               disabled={saving}

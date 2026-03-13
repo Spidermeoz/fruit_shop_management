@@ -29,7 +29,7 @@ const normalizeKey = (key: string) => key.replace(/s$/, "").toLowerCase();
 
 const PermissionsPage: React.FC = () => {
   const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>(
-    []
+    [],
   );
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +42,7 @@ const PermissionsPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiOk<any> | ApiErr>(
         "GET",
-        "/api/v1/admin/roles/permissions"
+        "/api/v1/admin/roles/permissions",
       );
 
       if ("success" in res && res.success) {
@@ -101,7 +101,7 @@ const PermissionsPage: React.FC = () => {
   const handleToggle = (
     roleId: number,
     moduleKey: string,
-    actionKey: string
+    actionKey: string,
   ) => {
     setRoles((prev) =>
       prev.map((role) => {
@@ -121,7 +121,7 @@ const PermissionsPage: React.FC = () => {
           ...role,
           permissions: { ...role.permissions, [normalizedKey]: next },
         };
-      })
+      }),
     );
   };
 
@@ -132,7 +132,7 @@ const PermissionsPage: React.FC = () => {
       const res = await http<ApiOk<any> | ApiErr>(
         "PATCH",
         "/api/v1/admin/roles/permissions",
-        { roles }
+        { roles },
       );
       if ("success" in res && res.success) {
         alert("✅ Cập nhật phân quyền thành công!");
@@ -150,7 +150,7 @@ const PermissionsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh]">
-        <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+        <Loader2 className="w-6 h-6 text-gray-500 dark:text-gray-400 animate-spin" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải dữ liệu phân quyền...
         </span>
@@ -199,13 +199,13 @@ const PermissionsPage: React.FC = () => {
           <table className="min-w-full border-collapse border border-gray-200 dark:border-gray-700 text-sm">
             <thead className="bg-gray-100 dark:bg-gray-800">
               <tr>
-                <th className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-left">
+                <th className="border border-gray-200 dark:border-gray-700 px-4 py-3 text-left font-semibold text-gray-800 dark:text-gray-200">
                   Tính năng
                 </th>
                 {roles.map((role) => (
                   <th
                     key={role.id}
-                    className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-center font-semibold text-gray-800 dark:text-gray-200"
+                    className="border border-gray-200 dark:border-gray-700 px-4 py-3 text-center font-semibold text-gray-800 dark:text-gray-200"
                   >
                     {role.title}
                   </th>
@@ -216,40 +216,44 @@ const PermissionsPage: React.FC = () => {
             <tbody>
               {permissionGroups.map((group) => (
                 <React.Fragment key={group.key}>
-                  <tr className="bg-gray-50 dark:bg-gray-800">
+                  <tr className="bg-gray-50 dark:bg-gray-800/50">
                     <td
                       colSpan={roles.length + 1}
-                      className="px-4 py-2 font-semibold text-gray-800 dark:text-gray-100"
+                      className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100 bg-gray-200/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-700"
                     >
                       {group.group}
                     </td>
                   </tr>
 
                   {group.actions.map((action) => (
-                    <tr key={action.action_key}>
-                      <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-gray-800 dark:text-gray-200">
+                    <tr
+                      key={action.action_key}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                    >
+                      <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-gray-800 dark:text-gray-300">
                         {action.action_label}
                       </td>
                       {roles.map((role) => (
                         <td
                           key={role.id}
-                          className="border border-gray-200 dark:border-gray-700 text-center"
+                          className="border border-gray-200 dark:border-gray-700 text-center py-2"
                         >
                           <input
                             type="checkbox"
                             checked={isChecked(
                               role,
                               group.key,
-                              action.action_key
+                              action.action_key,
                             )}
                             onChange={() =>
                               handleToggle(
                                 role.id,
                                 group.key,
-                                action.action_key
+                                action.action_key,
                               )
                             }
-                            className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                            // Thêm dark mode cho checkbox
+                            className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-blue-600 dark:ring-offset-gray-800"
                           />
                         </td>
                       ))}
