@@ -35,12 +35,5 @@ export class UpdateOrderStatus {
 
     // Update
     await this.orderRepo.updateStatus(orderId, newStatus);
-
-    await this.orderRepo.addDeliveryHistory(
-      orderId,
-      newStatus,
-      null,
-      `State changed from ${currentStatus} to ${newStatus}`,
-    );
   }
 }

@@ -74,7 +74,7 @@ const OrdersPage: React.FC = () => {
   // Modal Thanh toán COD
   // ============================
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentAmount, setPaymentAmount] = useState("");
+  const [,setPaymentAmount] = useState("");
 
   const openPaymentModal = (order: OrderProps) => {
     setSelectedOrder(order);
