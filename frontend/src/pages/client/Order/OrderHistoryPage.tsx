@@ -87,7 +87,7 @@ const OrderHistoryPage: React.FC = () => {
           // gọi API check review
           const check = await http(
             "GET",
-            `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`
+            `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`,
           );
 
           const reviewed = check?.success ? check.reviewed : false;
@@ -231,25 +231,32 @@ const OrderHistoryPage: React.FC = () => {
     try {
       setSubmittingReview(true);
 
-      const products = order.items;
+      let sent = false;
 
-      for (const p of products) {
+      for (const p of order.items) {
         const rd = reviewsData[p.productId];
-        if (!rd || !rd.rating || !rd.content?.trim()) continue;
+
+        // chỉ bỏ qua nếu KHÔNG có rating và KHÔNG có content
+        if (!rd || (!rd.rating && !rd.content?.trim())) continue;
 
         await http("POST", "/api/v1/client/reviews", {
           productId: p.productId,
           orderId: order.id,
-          rating: rd.rating,
-          content: rd.content,
+          rating: rd.rating || null,
+          content: rd.content || null,
         });
+
+        sent = true;
+      }
+
+      if (!sent) {
+        alert("Vui lòng nhập nội dung hoặc chọn số sao.");
+        return;
       }
 
       alert("Đánh giá thành công!");
 
-      // === GỌI LẠI LOAD ORDERS ĐỂ CẬP NHẬT TRẠNG THÁI ===
       await loadOrders();
-
       setReviewingOrderId(null);
       setReviewsData({});
     } catch (err) {
@@ -418,7 +425,7 @@ const OrderHistoryPage: React.FC = () => {
                             <span>
                               Ngày đặt:{" "}
                               {new Date(order.createdAt).toLocaleDateString(
-                                "vi-VN"
+                                "vi-VN",
                               )}
                             </span>
                           </div>
@@ -498,7 +505,7 @@ const OrderHistoryPage: React.FC = () => {
                       <button
                         onClick={() =>
                           setReviewingOrderId(
-                            reviewingOrderId === order.id ? null : order.id
+                            reviewingOrderId === order.id ? null : order.id,
                           )
                         }
                         className="px-4 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded-lg flex items-center gap-2 font-medium"
@@ -565,7 +572,7 @@ const OrderHistoryPage: React.FC = () => {
                                         updateReviewData(
                                           item.productId,
                                           "rating",
-                                          n
+                                          n,
                                         )
                                       }
                                     />
@@ -584,7 +591,7 @@ const OrderHistoryPage: React.FC = () => {
                                     updateReviewData(
                                       item.productId,
                                       "content",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                 />
@@ -599,7 +606,7 @@ const OrderHistoryPage: React.FC = () => {
                                     : "Gửi đánh giá"}
                                 </button>
                               </div>
-                            )
+                            ),
                           )}
                         </div>
                       )}
