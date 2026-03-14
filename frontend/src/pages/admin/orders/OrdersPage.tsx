@@ -56,6 +56,16 @@ const OrdersPage: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderProps | null>(null);
 
   const openUpdateStatusModal = (order: OrderProps) => {
+    if (order.status === "cancelled") {
+      alert("Đơn hàng đã bị hủy nên không thể chỉnh sửa.");
+      return;
+    }
+
+    if (order.status === "completed") {
+      alert("Đơn hàng đã hoàn thành nên không thể chỉnh sửa.");
+      return;
+    }
+
     setSelectedOrder(order);
     setShowStatusModal(true);
   };
@@ -354,22 +364,43 @@ const OrdersPage: React.FC = () => {
                         {/* Nút cập nhật trạng thái */}
                         <button
                           onClick={() => openUpdateStatusModal(order)}
-                          className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-                          title="Cập nhật trạng thái"
+                          className={`${
+                            order.status === "cancelled" ||
+                            order.status === "completed"
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                          }`}
+                          title={
+                            order.status === "cancelled"
+                              ? "Đơn hàng đã hủy"
+                              : order.status === "completed"
+                                ? "Đơn hàng đã hoàn thành"
+                                : "Cập nhật trạng thái"
+                          }
                         >
                           <Edit className="w-5 h-5 inline-block" />
                         </button>
 
                         {/* Nút xác nhận thanh toán COD */}
-                        {order.paymentStatus !== "paid" && (
-                          <button
-                            onClick={() => openPaymentModal(order)}
-                            className="text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
-                            title="Xác nhận thanh toán COD"
-                          >
-                            💰
-                          </button>
-                        )}
+                        <button
+                          onClick={() => {
+                            if (order.paymentStatus !== "paid") {
+                              openPaymentModal(order);
+                            }
+                          }}
+                          className={`${
+                            order.paymentStatus === "paid"
+                              ? "text-green-600 cursor-default"
+                              : "text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
+                          }`}
+                          title={
+                            order.paymentStatus === "paid"
+                              ? "Đơn hàng đã thanh toán"
+                              : "Xác nhận thanh toán COD"
+                          }
+                        >
+                          {order.paymentStatus === "paid" ? "✔️" : "💰"}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -396,13 +427,40 @@ const OrdersPage: React.FC = () => {
               onChange={(e) => {
                 const newStatus = e.target.value;
 
-                // Nếu chọn "delivered" và đơn đã thanh toán → hỏi hoàn tất
+                // Không cho hoàn thành nếu chưa thanh toán
+                if (
+                  newStatus === "completed" &&
+                  selectedOrder.paymentStatus !== "paid"
+                ) {
+                  alert(
+                    "Đơn hàng chưa được thanh toán nên không thể chuyển sang trạng thái 'Hoàn thành'.",
+                  );
+                  return;
+                }
+
+                // xác nhận khi chuyển sang hoàn thành
+                if (newStatus === "completed") {
+                  const ok = window.confirm(
+                    "Bạn có chắc muốn đánh dấu đơn hàng này là HOÀN THÀNH không?",
+                  );
+                  if (!ok) return;
+                }
+
+                // xác nhận khi hủy đơn
+                if (newStatus === "cancelled") {
+                  const ok = window.confirm(
+                    "Bạn có chắc muốn HỦY đơn hàng này không?",
+                  );
+                  if (!ok) return;
+                }
+
+                // Nếu chọn delivered và đã thanh toán → hỏi hoàn tất
                 if (newStatus === "delivered") {
                   requestChangeToDelivered(selectedOrder, newStatus);
                   return;
                 }
 
-                // ❌ Không cho hủy đơn đã thanh toán
+                // Không cho hủy đơn đã thanh toán
                 if (
                   newStatus === "cancelled" &&
                   selectedOrder.paymentStatus === "paid"
@@ -413,7 +471,6 @@ const OrdersPage: React.FC = () => {
                   return;
                 }
 
-                // Ngược lại → đổi trạng thái ngay
                 setSelectedOrder({
                   ...selectedOrder,
                   status: newStatus,
@@ -423,8 +480,16 @@ const OrdersPage: React.FC = () => {
               <option value="pending">Chờ duyệt</option>
               <option value="processing">Đang xử lý</option>
               <option value="shipping">Đang giao</option>
-              <option value="delivered">Hoàn thành</option>
-              <option value="completed">Hoàn tất</option>
+              <option value="delivered">Đã giao</option>
+              <option
+                value="completed"
+                disabled={selectedOrder.paymentStatus !== "paid"}
+              >
+                Hoàn tất{" "}
+                {selectedOrder.paymentStatus !== "paid"
+                  ? "(Chưa thanh toán)"
+                  : ""}
+              </option>
               <option value="cancelled">Đã hủy</option>
             </select>
 
@@ -469,30 +534,64 @@ const OrdersPage: React.FC = () => {
       {showPaymentModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold mb-5 text-gray-900 dark:text-white">
               Xác nhận thanh toán COD
             </h2>
 
-            {/* Amount */}
-            <label className="block text-sm mb-2 font-medium text-gray-700 dark:text-gray-300">
-              Số tiền khách trả
-            </label>
-            <input
-              type="number"
-              className="w-full border dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-            />
+            {/* Order Info */}
+            <div className="space-y-3 mb-5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Mã đơn hàng
+                </span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {selectedOrder.code}
+                </span>
+              </div>
 
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Tổng cần thu:{" "}
-              <strong className="text-green-700 dark:text-green-400">
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Khách hàng
+                </span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {selectedOrder.address?.fullName || "—"}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Trạng thái đơn
+                </span>
+
+                <span
+                  className={`px-2 py-1 text-xs rounded-full ${
+                    statusColors[selectedOrder.status]
+                  }`}
+                >
+                  {statusLabels[selectedOrder.status]}
+                </span>
+              </div>
+            </div>
+
+            {/* Payment Box */}
+            <div className="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-4 mb-4 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Số tiền cần thu
+              </p>
+
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
                 {selectedOrder.finalPrice.toLocaleString()} đ
-              </strong>
-            </p>
+              </p>
+            </div>
+
+            {/* Warning */}
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-300 mb-5">
+              ⚠️ Hãy chắc chắn rằng khách hàng đã thanh toán{" "}
+              <b>đầy đủ số tiền</b> trước khi xác nhận.
+            </div>
 
             {/* Buttons */}
-            <div className="flex justify-end gap-3 mt-6">
+            <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowPaymentModal(false)}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
@@ -501,20 +600,14 @@ const OrdersPage: React.FC = () => {
               </button>
 
               <button
-                className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors"
                 onClick={async () => {
                   try {
-                    const amountNumber = Number(paymentAmount);
-
-                    if (amountNumber < selectedOrder.finalPrice) {
-                      return alert("Số tiền thanh toán nhỏ hơn tổng đơn hàng!");
-                    }
-
                     await http(
                       "POST",
                       `/api/v1/admin/orders/${selectedOrder.id}/payment`,
                       {
-                        amount: amountNumber, // 🎯 chỉ gửi amount theo backend mới
+                        amount: selectedOrder.finalPrice,
                       },
                     );
 
@@ -527,7 +620,7 @@ const OrdersPage: React.FC = () => {
                   }
                 }}
               >
-                Xác nhận thanh toán
+                Xác nhận đã thanh toán
               </button>
             </div>
           </div>
