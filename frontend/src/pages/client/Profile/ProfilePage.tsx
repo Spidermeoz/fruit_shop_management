@@ -46,6 +46,7 @@ interface OrderItem {
 }
 
 type PasswordErrors = {
+  currentPassword?:string|null;
   newPassword?: string | null;
   confirmPassword?: string | null;
 };
@@ -201,22 +202,61 @@ const ProfilePage: React.FC = () => {
     return password.length >= 6
   }
 
+
+  const haveErrorPassword = () => {
+    const newErrors = {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: ""
+    };
+
+    if (!passwordData.currentPassword) {
+      newErrors.currentPassword = "Chưa nhập mật khẩu";
+    }
+
+    if (!passwordData.newPassword) {
+      newErrors.newPassword = "Chưa nhập mật khẩu";
+    }
+
+    if (!passwordData.confirmPassword) {
+      newErrors.confirmPassword = "Chưa nhập mật khẩu";
+    }
+
+    if (
+      passwordData.currentPassword &&
+      passwordData.newPassword &&
+      passwordData.currentPassword === passwordData.newPassword
+    ) {
+      newErrors.newPassword = "Mật khẩu mới phải khác với mật khẩu hiện tại";
+    }
+
+    if (
+      passwordData.newPassword &&
+      !validateNewPassword(passwordData.newPassword)
+    ) {
+      newErrors.newPassword = "Mật khẩu phải tối thiểu 6 ký tự";
+    }
+
+    if (
+      passwordData.newPassword &&
+      passwordData.confirmPassword &&
+      passwordData.newPassword !== passwordData.confirmPassword
+    ) {
+      newErrors.confirmPassword = "Mật khẩu xác nhận không khớp";
+    }
+
+    setErrors(newErrors);
+
+    return Object.keys(newErrors).length > 0;
+  };
+
   // ==========================
   // 📌 CHANGE PASSWORD
   // ==========================
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if(!validateNewPassword(passwordData.newPassword)) {
-      setErrors({
-        newPassword: "Mật khẩu phải tối thiểu 6 ký tự"
-      });
-      return;
-    }
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setErrors({
-        confirmPassword: "Mật khẩu xác nhận không khớp"
-      });
+    if(haveErrorPassword()) {
       return;
     }
 
@@ -861,7 +901,12 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-
+                    {
+                      errors.currentPassword && 
+                      <p className="mt-1 text-sm text-red-500">
+                        {errors.currentPassword}
+                      </p>
+                    }
                     <div>
                       <label className="block text-gray-700 text-sm font-medium mb-2">
                         Mật khẩu mới

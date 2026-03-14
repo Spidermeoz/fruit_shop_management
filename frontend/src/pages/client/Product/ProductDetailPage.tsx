@@ -264,10 +264,12 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 mb-8">
-              <div className="flex items-center border border-gray-300 rounded-lg">
+              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
                 <button
                   onClick={decreaseQuantity}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  disabled={quantity <= 1}
+                  className={`px-4 py-2 text-gray-600 hover:bg-gray-100 
+                    ${quantity <= 1 ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
                 >
                   -
                 </button>
@@ -276,7 +278,9 @@ const ProductDetailPage: React.FC = () => {
                 </span>
                 <button
                   onClick={increaseQuantity}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100"
+                  disabled={quantity >= product.stock}
+                  className={`px-4 py-2 text-gray-600 hover:bg-gray-100 
+                    ${quantity >= product.stock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
                 >
                   +
                 </button>
