@@ -56,6 +56,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             productTitle: item.product_title,
             price: Number(item.price),
             quantity: Number(item.quantity),
+            thumbnail: item.product?.thumbnail || null,
           }))
         : [],
 
@@ -84,7 +85,7 @@ export class SequelizeOrderRepository implements OrderRepository {
           inventory_applied: 0,
           user_info: data.userInfo,
         },
-        { transaction: t }
+        { transaction: t },
       );
 
       // Create items
@@ -97,7 +98,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             price: item.price,
             product_title: item.title,
           },
-          { transaction: t }
+          { transaction: t },
         );
       }
 
@@ -116,7 +117,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             postal_code: data.address.postalCode ?? "",
             notes: data.address.notes ?? "",
           },
-          { transaction: t }
+          { transaction: t },
         );
       }
 
@@ -166,7 +167,17 @@ export class SequelizeOrderRepository implements OrderRepository {
     const { rows, count } = await this.models.Order.findAndCountAll({
       where: { user_id: userId, deleted: 0 },
       include: [
-        { model: this.models.OrderItem, as: "items" },
+        {
+          model: this.models.OrderItem,
+          as: "items",
+          include: [
+            {
+              model: this.models.Product,
+              as: "product",
+              attributes: ["thumbnail"],
+            },
+          ],
+        },
         { model: this.models.OrderAddress, as: "address" },
         { model: this.models.DeliveryStatusHistory, as: "deliveryHistory" },
       ],
@@ -276,7 +287,7 @@ export class SequelizeOrderRepository implements OrderRepository {
     orderId: number,
     status: string,
     location?: string,
-    note?: string
+    note?: string,
   ) {
     await this.models.DeliveryStatusHistory.create({
       order_id: orderId,
@@ -292,7 +303,7 @@ export class SequelizeOrderRepository implements OrderRepository {
   async updatePaymentStatus(orderId: number, status: string) {
     await this.models.Order.update(
       { payment_status: status },
-      { where: { id: orderId } }
+      { where: { id: orderId } },
     );
   }
 

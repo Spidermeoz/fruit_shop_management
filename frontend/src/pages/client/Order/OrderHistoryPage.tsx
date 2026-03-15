@@ -647,13 +647,23 @@ const OrderHistoryPage: React.FC = () => {
                       )}
 
                       {/* MUA LẠI */}
-                      <Link
-                        to="/products"
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        Mua lại
-                      </Link>
+                      {order.items && order.items.length > 0 ? (
+                        <Link
+                          to={`/products/${order.items[0].productId}`}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                          Mua lại
+                        </Link>
+                      ) : (
+                        <Link
+                          to="/products"
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                          Mua sắm
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>
