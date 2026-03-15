@@ -22,6 +22,7 @@ const CartPage: React.FC = () => {
   // Danh sách sản phẩm được chọn
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
+  const [qtyInputs, setQtyInputs] = useState<Record<number, number>>({});
 
   useEffect(() => {
     fetchCart();
@@ -32,7 +33,7 @@ const CartPage: React.FC = () => {
     setSelectedItems((prev) =>
       prev.includes(productId)
         ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
+        : [...prev, productId],
     );
   };
 
@@ -54,6 +55,14 @@ const CartPage: React.FC = () => {
     setSelectAll(!selectAll);
   };
 
+  useEffect(() => {
+    const map: Record<number, number> = {};
+    items.forEach((item) => {
+      map[item.productId] = item.quantity;
+    });
+    setQtyInputs(map);
+  }, [items]);
+
   // Hàm tính giá hiệu quả (sau khi giảm giá)
   const getEffectivePrice = (product: CartItem["product"]) => {
     if (!product || product.price === null) return 0;
@@ -65,12 +74,12 @@ const CartPage: React.FC = () => {
 
   // NEW: Tính subtotal theo selected items
   const selectedProducts = items.filter((item) =>
-    selectedItems.includes(item.productId)
+    selectedItems.includes(item.productId),
   );
 
   const subtotal = selectedProducts.reduce(
     (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
-    0
+    0,
   );
 
   const shippingFee = selectedItems.length > 0 ? 20000 : 0;
@@ -80,7 +89,23 @@ const CartPage: React.FC = () => {
   const handleUpdateQty = (productId: number, delta: number) => {
     const item = items.find((i) => i.productId === productId);
     if (!item) return;
-    const newQty = Math.max(1, item.quantity + delta);
+
+    const stock = item.product?.stock || 9999;
+
+    const current = qtyInputs[productId] ?? item.quantity;
+    let newQty = current + delta;
+
+    if (newQty < 1) newQty = 1;
+    if (newQty > stock) {
+      alert(`Chỉ còn ${stock} sản phẩm`);
+      newQty = stock;
+    }
+
+    setQtyInputs((prev) => ({
+      ...prev,
+      [productId]: newQty,
+    }));
+
     updateItem(productId, newQty);
   };
 
@@ -191,16 +216,21 @@ const CartPage: React.FC = () => {
                           className="w-5 h-5 accent-green-600 rounded"
                         />
 
-                        <img
-                          src={item.product?.thumbnail || ""}
-                          alt={item.product?.title ?? ""}
-                          className="w-24 h-24 rounded-lg object-cover shadow-sm"
-                        />
+                        <Link to={`/products/${item.productId}`}>
+                          <img
+                            src={item.product?.thumbnail || ""}
+                            alt={item.product?.title ?? ""}
+                            className="w-24 h-24 rounded-lg object-cover shadow-sm hover:scale-105 transition"
+                          />
+                        </Link>
 
                         <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-green-800">
+                          <Link
+                            to={`/products/${item.productId}`}
+                            className="text-lg font-semibold text-green-800 hover:text-green-600 transition"
+                          >
                             {item.product?.title}
-                          </h3>
+                          </Link>
                           <div className="mt-1">
                             {item.product &&
                             item.product.discountPercentage &&
@@ -208,7 +238,7 @@ const CartPage: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <span className="text-green-700 font-medium">
                                   {getEffectivePrice(
-                                    item.product
+                                    item.product,
                                   ).toLocaleString()}{" "}
                                   đ / kg
                                 </span>
@@ -230,21 +260,49 @@ const CartPage: React.FC = () => {
 
                         {/* Nút tăng giảm */}
                         <div className="flex items-center gap-2">
-                          <div className="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden shadow-sm">
+                          <div className="inline-flex items-center border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white">
                             <button
                               onClick={() =>
                                 handleUpdateQty(item.productId, -1)
                               }
-                              className="px-3 py-2 text-green-700 hover:bg-green-100 transition"
+                              className="w-10 h-10 flex items-center justify-center text-green-700 hover:bg-green-100 active:bg-green-200 transition"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
-                            <span className="px-3 py-2 border-l border-r border-gray-300 font-medium">
-                              {item.quantity}
-                            </span>
+
+                            <input
+                              type="number"
+                              min="1"
+                              max={item.product?.stock || 9999}
+                              value={qtyInputs[item.productId] ?? item.quantity}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (!/^\d*$/.test(val)) return;
+                                setQtyInputs((prev) => ({
+                                  ...prev,
+                                  [item.productId]: Number(val),
+                                }));
+                              }}
+                              onBlur={(e) => {
+                                let qty = Number(e.target.value);
+                                if (!qty || qty <= 0) qty = 1;
+                                const stock = item.product?.stock || 9999;
+                                if (qty > stock) {
+                                  alert(`Chỉ còn ${stock} sản phẩm`);
+                                  qty = stock;
+                                }
+                                setQtyInputs((prev) => ({
+                                  ...prev,
+                                  [item.productId]: qty,
+                                }));
+                                updateItem(item.productId, qty);
+                              }}
+                              className="w-14 h-10 text-center font-medium text-gray-700 border-l border-r border-gray-300 focus:outline-none focus:bg-green-50 transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+
                             <button
                               onClick={() => handleUpdateQty(item.productId, 1)}
-                              className="px-3 py-2 text-green-700 hover:bg-green-100 transition"
+                              className="w-10 h-10 flex items-center justify-center text-green-700 hover:bg-green-100 active:bg-green-200 transition"
                             >
                               <Plus className="w-4 h-4" />
                             </button>

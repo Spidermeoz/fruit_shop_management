@@ -398,13 +398,13 @@ export const usecases = {
       rolesRepo,
       authServices.token,
       authServices.refresh,
-      authServices.password
+      authServices.password,
     ),
     logout: new Logout(userRepo),
     refresh: new RefreshToken(
       userRepo,
       authServices.token,
-      authServices.refresh
+      authServices.refresh,
     ),
     me: new GetMe(userRepo, rolesRepo),
     requestPasswordReset: new RequestPasswordReset(),
@@ -416,9 +416,9 @@ export const usecases = {
   // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
   authServices,
   carts: {
-    addToCart: new AddToCart(cartRepo),
+    addToCart: new AddToCart(cartRepo, productRepo),
     listItems: new ListCartItems(cartRepo),
-    updateItem: new UpdateCartItem(cartRepo),
+    updateItem: new UpdateCartItem(cartRepo, productRepo),
     removeItem: new RemoveFromCart(cartRepo),
     removeAllItems: new RemoveAllFromCart(cartRepo),
   },
@@ -544,7 +544,7 @@ export const clientControllers = {
       userRepo,
       authServices.password,
       authServices.token,
-      authServices.refresh
+      authServices.refresh,
     ),
     login: usecases.auth.login,
     logout: usecases.auth.logout,

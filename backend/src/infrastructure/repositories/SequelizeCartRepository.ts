@@ -23,6 +23,7 @@ export class SequelizeCartRepository implements CartRepository {
           discountPercentage: Number(p.discount_percentage) || 0,
           thumbnail: p.thumbnail ?? null,
           slug: p.slug ?? null,
+          stock: Number(p.stock) || 0,
         }
       : null;
 
@@ -84,6 +85,7 @@ export class SequelizeCartRepository implements CartRepository {
             "discount_percentage",
             "thumbnail",
             "slug",
+            "stock"
           ],
         },
       ],
@@ -112,6 +114,7 @@ export class SequelizeCartRepository implements CartRepository {
             "discount_percentage",
             "thumbnail",
             "slug",
+            "stock"
           ],
         },
       ],
@@ -155,6 +158,7 @@ export class SequelizeCartRepository implements CartRepository {
             "discount_percentage",
             "thumbnail",
             "slug",
+            "stock"
           ],
         },
       ],
@@ -212,6 +216,7 @@ export class SequelizeCartRepository implements CartRepository {
             "discount_percentage",
             "thumbnail",
             "slug",
+            "stock"
           ],
         },
       ],

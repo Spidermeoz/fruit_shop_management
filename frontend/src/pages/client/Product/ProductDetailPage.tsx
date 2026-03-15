@@ -78,11 +78,11 @@ const ProductDetailPage: React.FC = () => {
           if (res.data.category?.id) {
             const related = await http(
               "GET",
-              `/api/v1/client/products?categoryId=${res.data.category.id}&limit=4`
+              `/api/v1/client/products?categoryId=${res.data.category.id}&limit=4`,
             );
             if (related?.success && Array.isArray(related.data)) {
               const filtered = related.data.filter(
-                (p: { id: number }) => p.id !== res.data.id
+                (p: { id: number }) => p.id !== res.data.id,
               );
               setRelatedProducts(filtered);
             }
@@ -108,7 +108,7 @@ const ProductDetailPage: React.FC = () => {
     try {
       const res = await http(
         "GET",
-        `/api/v1/client/reviews/product/${productId}`
+        `/api/v1/client/reviews/product/${productId}`,
       );
       if (res?.success && Array.isArray(res.data)) {
         setReviews(res.data);
@@ -132,15 +132,30 @@ const ProductDetailPage: React.FC = () => {
     return counts;
   }, [reviews]);
 
-  const { addToCart } = useCart();
+  const { addToCart, items } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+
+  const quantityInCart = useMemo(() => {
+    const item = items.find((i) => i.productId === product?.id);
+    return item?.quantity || 0;
+  }, [items, product]);
+
+  const remainingStock = useMemo(() => {
+    if (!product) return 0;
+    return Math.max(0, product.stock - quantityInCart);
+  }, [product, quantityInCart]);
 
   const handleAddToCart = async () => {
     if (!product) return;
 
     if (!isAuthenticated) {
       navigate("/login");
+      return;
+    }
+
+    if (quantity > remainingStock) {
+      alert(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
       return;
     }
 
@@ -264,23 +279,48 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4 mb-8">
-              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden shadow-sm bg-white">
                 <button
                   onClick={decreaseQuantity}
                   disabled={quantity <= 1}
-                  className={`px-4 py-2 text-gray-600 hover:bg-gray-100 
+                  className={`w-10 h-10 flex items-center justify-center text-xl text-green-700 hover:bg-green-100 active:bg-green-200 transition 
                     ${quantity <= 1 ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
                 >
                   -
                 </button>
-                <span className="px-4 py-2 border-l border-r border-gray-300">
-                  {quantity}
-                </span>
+
+                <input
+                  type="number"
+                  min="1"
+                  max={remainingStock || 1}
+                  value={quantity}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // Chỉ cho phép nhập số (có thể để trống tạm thời khi đang gõ)
+                    if (!/^\d*$/.test(val)) return;
+                    setQuantity(val === "" ? ("" as any) : Number(val));
+                  }}
+                  onBlur={(e) => {
+                    let qty = Number(e.target.value);
+                    // Nếu để trống hoặc nhập số <= 0 thì tự động chuyển thành 1
+                    if (!qty || qty <= 0) qty = 1;
+
+                    // Nếu nhập quá số lượng cho phép
+                    if (qty > remainingStock) {
+                      alert(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
+                      qty = remainingStock;
+                    }
+                    setQuantity(qty);
+                  }}
+                  className="w-14 h-10 text-center font-medium text-gray-700 border-l border-r border-gray-300 focus:outline-none focus:bg-green-50 transition-colors
+                             [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+
                 <button
                   onClick={increaseQuantity}
-                  disabled={quantity >= product.stock}
-                  className={`px-4 py-2 text-gray-600 hover:bg-gray-100 
-                    ${quantity >= product.stock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
+                  disabled={quantity >= remainingStock}
+                  className={`w-10 h-10 flex items-center justify-center text-xl text-green-700 hover:bg-green-100 active:bg-green-200 transition 
+                    ${quantity >= remainingStock ? "opacity-50 cursor-not-allowed hover:bg-transparent" : ""}`}
                 >
                   +
                 </button>
@@ -288,7 +328,13 @@ const ProductDetailPage: React.FC = () => {
 
               <button
                 onClick={handleAddToCart}
-                className="bg-gradient-to-r from-green-600 to-green-700 text-white px-8 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+                disabled={remainingStock <= 0}
+                className={`px-8 py-3 rounded-lg font-medium transform transition-all duration-300
+                  ${
+                    remainingStock <= 0
+                      ? "bg-gray-400 text-white cursor-not-allowed"
+                      : "bg-gradient-to-r from-green-600 to-green-700 text-white hover:shadow-lg hover:scale-105"
+                  }`}
               >
                 Thêm vào giỏ hàng
               </button>
@@ -309,6 +355,27 @@ const ProductDetailPage: React.FC = () => {
                     : "Hết hàng"}
                 </span>
               </p>
+
+              {/* HIỂN THỊ SỐ LƯỢNG TRONG GIỎ */}
+              {quantityInCart > 0 && (
+                <p className="text-blue-600">
+                  Trong giỏ hàng của bạn:{" "}
+                  <span className="font-semibold">{quantityInCart}</span> sản
+                  phẩm
+                </p>
+              )}
+
+              {/* HIỂN THỊ CÓ THỂ THÊM */}
+              {remainingStock > 0 && (
+                <p className="text-gray-500 text-sm">
+                  Bạn có thể thêm tối đa{" "}
+                  <span className="font-semibold text-green-700">
+                    {remainingStock}
+                  </span>{" "}
+                  sản phẩm nữa
+                </p>
+              )}
+
               <p>
                 Mã sản phẩm: <span className="font-medium">{product.id}</span>
               </p>
@@ -377,7 +444,8 @@ const ProductDetailPage: React.FC = () => {
                           : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                       }`}
                     >
-                      {star} ★ ({ratingCounts[star as keyof typeof ratingCounts]})
+                      {star} ★ (
+                      {ratingCounts[star as keyof typeof ratingCounts]})
                     </button>
                   ))}
                 </div>
@@ -386,7 +454,7 @@ const ProductDetailPage: React.FC = () => {
                 {reviews
                   .filter(
                     (review) =>
-                      ratingFilter === "all" || review.rating === ratingFilter
+                      ratingFilter === "all" || review.rating === ratingFilter,
                   )
                   .map((review) => (
                     <div key={review.id} className="border-b pb-4">
@@ -397,7 +465,7 @@ const ProductDetailPage: React.FC = () => {
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(
                               review.user?.full_name ||
                                 review.user?.name ||
-                                "User"
+                                "User",
                             )}`
                           }
                           className="w-10 h-10 rounded-full"
@@ -418,11 +486,13 @@ const ProductDetailPage: React.FC = () => {
                         {Array.from({ length: review.rating }).map((_, i) => (
                           <span key={i}>★</span>
                         ))}
-                        {Array.from({ length: 5 - review.rating }).map((_, i) => (
-                          <span key={i} className="text-gray-300">
-                            ★
-                          </span>
-                        ))}
+                        {Array.from({ length: 5 - review.rating }).map(
+                          (_, i) => (
+                            <span key={i} className="text-gray-300">
+                              ★
+                            </span>
+                          ),
+                        )}
                       </div>
                       <p className="mt-2 text-gray-800">{review.content}</p>
                       {review.replies && review.replies.length > 0 && (
@@ -430,10 +500,12 @@ const ProductDetailPage: React.FC = () => {
                           <p className="text-green-700 font-medium">
                             Phản hồi từ shop:
                           </p>
-                          <p className="text-gray-700">{review.replies[0].content}</p>
+                          <p className="text-gray-700">
+                            {review.replies[0].content}
+                          </p>
                           <p className="text-gray-500 text-xs">
                             {new Date(
-                              review.replies[0].created_at
+                              review.replies[0].created_at,
                             ).toLocaleString()}
                           </p>
                         </div>
@@ -444,7 +516,7 @@ const ProductDetailPage: React.FC = () => {
                 {/* ✅ Thông báo khi không có đánh giá nào sau khi lọc */}
                 {reviews.filter(
                   (review) =>
-                    ratingFilter === "all" || review.rating === ratingFilter
+                    ratingFilter === "all" || review.rating === ratingFilter,
                 ).length === 0 && (
                   <p className="text-gray-600">
                     Không có đánh giá nào cho mức sao đã chọn.
