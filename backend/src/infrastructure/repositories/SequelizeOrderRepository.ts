@@ -124,7 +124,17 @@ export class SequelizeOrderRepository implements OrderRepository {
       // Reload full order with relations
       const full = await this.models.Order.findByPk(order.id, {
         include: [
-          { model: this.models.OrderItem, as: "items" },
+          {
+            model: this.models.OrderItem,
+            as: "items",
+            include: [
+              {
+                model: this.models.Product,
+                as: "product",
+                attributes: ["thumbnail"],
+              },
+            ],
+          },
           { model: this.models.OrderAddress, as: "address" },
         ],
         transaction: t,
@@ -146,7 +156,17 @@ export class SequelizeOrderRepository implements OrderRepository {
     const row = await this.models.Order.findOne({
       where: { id, deleted: 0 },
       include: [
-        { model: this.models.OrderItem, as: "items" },
+        {
+          model: this.models.OrderItem,
+          as: "items",
+          include: [
+            {
+              model: this.models.Product,
+              as: "product",
+              attributes: ["thumbnail"],
+            },
+          ],
+        },
         { model: this.models.OrderAddress, as: "address" },
         { model: this.models.Payment, as: "payments" },
         { model: this.models.DeliveryStatusHistory, as: "deliveryHistory" },

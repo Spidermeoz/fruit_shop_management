@@ -2,20 +2,20 @@ import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
-import { 
-  Clock, 
-  Package, 
-  Truck, 
-  CheckCircle, 
-  XCircle, 
-  MapPin, 
+import {
+  Clock,
+  Package,
+  Truck,
+  CheckCircle,
+  XCircle,
+  MapPin,
   Phone,
   User,
   Calendar,
   CreditCard,
   FileText,
   ArrowLeft,
-  HelpCircle
+  HelpCircle,
 } from "lucide-react";
 
 // ==========================
@@ -35,7 +35,7 @@ interface OrderDetail {
   paymentMethod?: string;
   trackingToken?: string;
   estimatedDelivery?: string;
-  
+
   items: {
     productId: number;
     productTitle: string;
@@ -53,7 +53,7 @@ interface OrderDetail {
     province: string;
     notes?: string;
   } | null;
-  
+
   deliveryHistory?: {
     id: number;
     status: string;
@@ -98,6 +98,29 @@ const OrderDetailPage: React.FC = () => {
     fetchOrder();
   }, [id]);
 
+  const handleCancelOrder = async () => {
+    if (!order) return;
+
+    const ok = window.confirm("Bạn có chắc muốn hủy đơn hàng này?");
+    if (!ok) return;
+
+    try {
+      const res = await http(
+        "POST",
+        `/api/v1/client/orders/${order.id}/cancel`,
+      );
+
+      if (res.success) {
+        alert("Hủy đơn hàng thành công");
+        window.location.reload();
+      } else {
+        alert(res.message || "Không thể hủy đơn hàng");
+      }
+    } catch (err) {
+      alert("Có lỗi khi hủy đơn hàng");
+    }
+  };
+
   // ==========================
   // STATUS INFO
   // ==========================
@@ -108,7 +131,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Chờ xác nhận",
           bg: "bg-yellow-100",
           color: "text-yellow-700",
-          icon: <Clock className="w-5 h-5" />
+          icon: <Clock className="w-5 h-5" />,
         };
 
       case "processing":
@@ -116,7 +139,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Đang xử lý",
           bg: "bg-blue-100",
           color: "text-blue-700",
-          icon: <Package className="w-5 h-5" />
+          icon: <Package className="w-5 h-5" />,
         };
 
       case "shipping":
@@ -124,7 +147,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Đang giao hàng",
           bg: "bg-purple-100",
           color: "text-purple-700",
-          icon: <Truck className="w-5 h-5" />
+          icon: <Truck className="w-5 h-5" />,
         };
 
       case "delivered":
@@ -132,7 +155,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Đã giao hàng",
           bg: "bg-green-100",
           color: "text-green-700",
-          icon: <CheckCircle className="w-5 h-5" />
+          icon: <CheckCircle className="w-5 h-5" />,
         };
 
       case "completed":
@@ -140,7 +163,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Hoàn tất",
           bg: "bg-green-200",
           color: "text-green-800",
-          icon: <CheckCircle className="w-5 h-5" />
+          icon: <CheckCircle className="w-5 h-5" />,
         };
 
       case "cancelled":
@@ -148,7 +171,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Đã hủy",
           bg: "bg-red-100",
           color: "text-red-700",
-          icon: <XCircle className="w-5 h-5" />
+          icon: <XCircle className="w-5 h-5" />,
         };
 
       default:
@@ -156,7 +179,7 @@ const OrderDetailPage: React.FC = () => {
           text: "Không xác định",
           bg: "bg-gray-100",
           color: "text-gray-700",
-          icon: <Package className="w-5 h-5" />
+          icon: <Package className="w-5 h-5" />,
         };
     }
   };
@@ -164,16 +187,16 @@ const OrderDetailPage: React.FC = () => {
   // Hàm lấy icon cho từng trạng thái
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending':
+      case "pending":
         return <Clock className="w-5 h-5" />;
-      case 'processing':
+      case "processing":
         return <Package className="w-5 h-5" />;
-      case 'shipping':
+      case "shipping":
         return <Truck className="w-5 h-5" />;
-      case 'delivered':
-      case 'completed':
+      case "delivered":
+      case "completed":
         return <CheckCircle className="w-5 h-5" />;
-      case 'cancelled':
+      case "cancelled":
         return <XCircle className="w-5 h-5" />;
       default:
         return <Package className="w-5 h-5" />;
@@ -183,18 +206,18 @@ const OrderDetailPage: React.FC = () => {
   // Hàm lấy văn bản cho từng trạng thái
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'Chờ xác nhận';
-      case 'processing':
-        return 'Đang xử lý';
-      case 'shipping':
-        return 'Đang giao hàng';
-      case 'delivered':
-        return 'Đã giao hàng';
-      case 'completed':
-        return 'Hoàn tất';
-      case 'cancelled':
-        return 'Đã hủy';
+      case "pending":
+        return "Chờ xác nhận";
+      case "processing":
+        return "Đang xử lý";
+      case "shipping":
+        return "Đang giao hàng";
+      case "delivered":
+        return "Đã giao hàng";
+      case "completed":
+        return "Hoàn tất";
+      case "cancelled":
+        return "Đã hủy";
       default:
         return status;
     }
@@ -202,14 +225,20 @@ const OrderDetailPage: React.FC = () => {
 
   // Hàm tính toán tiến trình (phần trăm)
   const calculateProgress = (order: OrderDetail) => {
-    const statusFlow = ['pending', 'processing', 'shipping', 'delivered', 'completed'];
+    const statusFlow = [
+      "pending",
+      "processing",
+      "shipping",
+      "delivered",
+      "completed",
+    ];
     const currentIndex = statusFlow.indexOf(order.status);
-    
+
     if (currentIndex === -1) return 0;
-    
+
     // Nếu đã hủy, trả về 0%
-    if (order.status === 'cancelled') return 0;
-    
+    if (order.status === "cancelled") return 0;
+
     // Tính toán phần trăm dựa trên vị trí trong luồng
     return ((currentIndex + 1) / statusFlow.length) * 100;
   };
@@ -222,13 +251,13 @@ const OrderDetailPage: React.FC = () => {
     const diffMins = Math.floor(diffMs / 60000);
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
-    
-    if (diffMins < 1) return 'Vừa xong';
+
+    if (diffMins < 1) return "Vừa xong";
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     if (diffDays < 7) return `${diffDays} ngày trước`;
-    
-    return date.toLocaleDateString('vi-VN');
+
+    return date.toLocaleDateString("vi-VN");
   };
 
   // ==========================
@@ -289,7 +318,8 @@ const OrderDetailPage: React.FC = () => {
               {order.estimatedDelivery && (
                 <p className="text-gray-600 flex items-center gap-1 mt-1">
                   <Truck className="w-4 h-4" />
-                  Dự kiến giao: {new Date(order.estimatedDelivery).toLocaleDateString()}
+                  Dự kiến giao:{" "}
+                  {new Date(order.estimatedDelivery).toLocaleDateString()}
                 </p>
               )}
             </div>
@@ -383,9 +413,9 @@ const OrderDetailPage: React.FC = () => {
                         <div className="flex items-start gap-2">
                           <MapPin className="w-4 h-4 mt-0.5 text-gray-500" />
                           <p>
-                            <strong>Địa chỉ:</strong> {order.address.addressLine1}
-                            , {order.address.ward}, {order.address.district},{" "}
-                            {order.address.province}
+                            <strong>Địa chỉ:</strong>{" "}
+                            {order.address.addressLine1}, {order.address.ward},{" "}
+                            {order.address.district}, {order.address.province}
                           </p>
                         </div>
                         {order.address.notes && (
@@ -416,8 +446,16 @@ const OrderDetailPage: React.FC = () => {
                     </div>
                     <div className="flex justify-between">
                       <span>Trạng thái:</span>
-                      <span className={order.paymentStatus === "paid" ? "text-green-600" : "text-red-600"}>
-                        {order.paymentStatus === "paid" ? "Đã thanh toán" : "Chưa thanh toán"}
+                      <span
+                        className={
+                          order.paymentStatus === "paid"
+                            ? "text-green-600"
+                            : "text-red-600"
+                        }
+                      >
+                        {order.paymentStatus === "paid"
+                          ? "Đã thanh toán"
+                          : "Chưa thanh toán"}
                       </span>
                     </div>
                     {order.trackingToken && (
@@ -452,7 +490,9 @@ const OrderDetailPage: React.FC = () => {
                     )}
                     <div className="flex justify-between font-bold pt-2 border-t">
                       <span>Tổng cộng:</span>
-                      <span className="text-green-700">{order.finalPrice.toLocaleString()} đ</span>
+                      <span className="text-green-700">
+                        {order.finalPrice.toLocaleString()} đ
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -465,25 +505,39 @@ const OrderDetailPage: React.FC = () => {
                 {order.items.map((item) => (
                   <div
                     key={item.productId}
-                    className="flex items-center gap-4 border-b pb-4"
+                    className="flex items-center gap-4 border-b pb-4 hover:bg-gray-50 p-2 rounded-lg transition"
                   >
-                    <img
-                      src={item.thumbnail || "/placeholder-image.jpg"}
-                      className="w-20 h-20 rounded-lg object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = "/placeholder-image.jpg";
-                      }}
-                    />
+                    {/* IMAGE */}
+                    <Link to={`/products/${item.productId}`}>
+                      <img
+                        src={item.thumbnail || "/placeholder-image.jpg"}
+                        className="w-20 h-20 rounded-lg object-cover hover:opacity-80 transition"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src =
+                            "/placeholder-image.jpg";
+                        }}
+                      />
+                    </Link>
+
+                    {/* PRODUCT INFO */}
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-800">
+                      <Link
+                        to={`/products/${item.productId}`}
+                        className="font-medium text-gray-800 hover:text-green-600 transition"
+                      >
                         {item.productTitle}
-                      </h4>
-                      <p className="text-sm text-gray-600">x{item.quantity}</p>
+                      </Link>
+
+                      <p className="text-sm text-gray-600 mt-1">
+                        x{item.quantity}
+                      </p>
+
                       <p className="text-sm text-gray-500">
                         {item.price.toLocaleString()} đ / sản phẩm
                       </p>
                     </div>
 
+                    {/* TOTAL PRICE */}
                     <p className="font-medium text-green-700">
                       {(item.price * item.quantity).toLocaleString()} đ
                     </p>
@@ -496,22 +550,25 @@ const OrderDetailPage: React.FC = () => {
             {activeTab === "timeline" && (
               <div>
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="font-semibold text-gray-800 text-lg">Tiến trình giao hàng</h3>
-                  {order.deliveryHistory && order.deliveryHistory.length > 0 && (
-                    <button 
-                      className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                      onClick={() => setShowAllHistory(!showAllHistory)}
-                    >
-                      {showAllHistory ? "Thu gọn" : "Xem tất cả"}
-                    </button>
-                  )}
+                  <h3 className="font-semibold text-gray-800 text-lg">
+                    Tiến trình giao hàng
+                  </h3>
+                  {order.deliveryHistory &&
+                    order.deliveryHistory.length > 0 && (
+                      <button
+                        className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                        onClick={() => setShowAllHistory(!showAllHistory)}
+                      >
+                        {showAllHistory ? "Thu gọn" : "Xem tất cả"}
+                      </button>
+                    )}
                 </div>
 
                 {order.deliveryHistory && order.deliveryHistory.length > 0 ? (
                   <div className="relative">
                     {/* Timeline Progress Bar */}
                     <div className="relative h-2 bg-gray-200 rounded-full mb-6 overflow-hidden">
-                      <div 
+                      <div
                         className="absolute h-full bg-green-500 rounded-full transition-all duration-500 ease-out"
                         style={{ width: `${calculateProgress(order)}%` }}
                       ></div>
@@ -524,12 +581,12 @@ const OrderDetailPage: React.FC = () => {
                         .sort(
                           (a, b) =>
                             new Date(a.createdAt).getTime() -
-                            new Date(b.createdAt).getTime()
+                            new Date(b.createdAt).getTime(),
                         )
                         ?.map((step, idx) => (
-                          <div 
-                            key={step.id} 
-                            className={`relative transition-all duration-300 ${!showAllHistory && idx > 2 ? 'hidden' : ''}`}
+                          <div
+                            key={step.id}
+                            className={`relative transition-all duration-300 ${!showAllHistory && idx > 2 ? "hidden" : ""}`}
                           >
                             {/* Connector Line */}
                             {idx < (order.deliveryHistory?.length ?? 0) - 1 && (
@@ -539,15 +596,18 @@ const OrderDetailPage: React.FC = () => {
                             {/* Timeline Item */}
                             <div className="flex items-start gap-3">
                               {/* Status Icon */}
-                              <div className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full ${
-                                step.status === 'completed' || step.status === 'delivered' 
-                                  ? 'bg-green-100 text-green-600' 
-                                  : step.status === 'cancelled'
-                                  ? 'bg-red-100 text-red-600'
-                                  : step.status === 'shipping'
-                                  ? 'bg-blue-100 text-blue-600'
-                                  : 'bg-gray-100 text-gray-600'
-                              }`}>
+                              <div
+                                className={`relative z-10 flex items-center justify-center w-10 h-10 rounded-full ${
+                                  step.status === "completed" ||
+                                  step.status === "delivered"
+                                    ? "bg-green-100 text-green-600"
+                                    : step.status === "cancelled"
+                                      ? "bg-red-100 text-red-600"
+                                      : step.status === "shipping"
+                                        ? "bg-blue-100 text-blue-600"
+                                        : "bg-gray-100 text-gray-600"
+                                }`}
+                              >
                                 {getStatusIcon(step.status)}
                               </div>
 
@@ -563,13 +623,16 @@ const OrderDetailPage: React.FC = () => {
                                     </p>
                                   </div>
                                   <span className="text-xs text-gray-400">
-                                    {new Date(step.createdAt).toLocaleString('vi-VN', {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      day: '2-digit',
-                                      month: '2-digit',
-                                      year: 'numeric'
-                                    })}
+                                    {new Date(step.createdAt).toLocaleString(
+                                      "vi-VN",
+                                      {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      },
+                                    )}
                                   </span>
                                 </div>
 
@@ -600,12 +663,18 @@ const OrderDetailPage: React.FC = () => {
                             Trạng thái hiện tại: {getStatusText(order.status)}
                           </p>
                           <p className="text-sm text-blue-700 mt-1">
-                            {order.status === 'pending' && 'Đơn hàng của bạn đang chờ được xác nhận.'}
-                            {order.status === 'processing' && 'Đơn hàng của bạn đang được chuẩn bị.'}
-                            {order.status === 'shipping' && 'Đơn hàng đang được giao đến bạn.'}
-                            {order.status === 'delivered' && 'Đơn hàng đã được giao thành công.'}
-                            {order.status === 'completed' && 'Đơn hàng đã hoàn tất.'}
-                            {order.status === 'cancelled' && 'Đơn hàng đã bị hủy.'}
+                            {order.status === "pending" &&
+                              "Đơn hàng của bạn đang chờ được xác nhận."}
+                            {order.status === "processing" &&
+                              "Đơn hàng của bạn đang được chuẩn bị."}
+                            {order.status === "shipping" &&
+                              "Đơn hàng đang được giao đến bạn."}
+                            {order.status === "delivered" &&
+                              "Đơn hàng đã được giao thành công."}
+                            {order.status === "completed" &&
+                              "Đơn hàng đã hoàn tất."}
+                            {order.status === "cancelled" &&
+                              "Đơn hàng đã bị hủy."}
                           </p>
                         </div>
                       </div>
@@ -615,7 +684,9 @@ const OrderDetailPage: React.FC = () => {
                   <div className="flex items-center justify-center py-8 bg-gray-50 rounded-lg">
                     <div className="text-center">
                       <Package className="w-10 h-10 mx-auto text-gray-400 mb-2" />
-                      <p className="text-gray-500">Đang chờ cập nhật tiến trình giao hàng...</p>
+                      <p className="text-gray-500">
+                        Đang chờ cập nhật tiến trình giao hàng...
+                      </p>
                     </div>
                   </div>
                 )}
@@ -633,23 +704,32 @@ const OrderDetailPage: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
             Quay lại lịch sử đơn hàng
           </Link>
-          {order.status === 'pending' && (
-            <button className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700">
-              Hủy đơn hàng
-            </button>
-          )}
-          {order.status === 'shipping' && order.trackingToken && (
-            <button 
+          {order.status === "pending" ||
+            (order.status === "processing" && (
+              <button
+                onClick={handleCancelOrder}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Hủy đơn hàng
+              </button>
+            ))}
+          {order.status === "shipping" && order.trackingToken && (
+            <button
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              onClick={() => window.open(`/track/${order.trackingToken}`, '_blank')}
+              onClick={() =>
+                window.open(`/track/${order.trackingToken}`, "_blank")
+              }
             >
               Theo dõi đơn hàng
             </button>
           )}
-          <button className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2">
+          <Link
+            to="/contact"
+            className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+          >
             <HelpCircle className="w-4 h-4" />
             Liên hệ hỗ trợ
-          </button>
+          </Link>
         </div>
       </div>
     </Layout>
