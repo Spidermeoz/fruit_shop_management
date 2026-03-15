@@ -60,9 +60,9 @@ const ProductCreatePage: React.FC = () => {
     product_category_id: "", // Start with empty
     title: "",
     description: "",
-    price: "",
+    price: "0",
     discount_percentage: 0,
-    stock: "",
+    stock: "0",
     thumbnail: "",
     status: "active",
     featured: 0,
@@ -107,13 +107,46 @@ const ProductCreatePage: React.FC = () => {
     }
   };
 
-  // ✅ Khi chọn ảnh → chỉ hiển thị preview local, chưa upload
+  // Khi chọn ảnh → chỉ hiển thị preview local, chưa upload
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // chỉ cho phép image
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        thumbnail: "File tải lên phải là ảnh (jpg, png, webp, gif).",
+      }));
+
+      // reset input
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage("");
+      return;
+    }
+
+    // giới hạn kích thước (ví dụ 5MB)
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setErrors((prev) => ({
+        ...prev,
+        thumbnail: "Ảnh không được lớn hơn 5MB.",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage("");
+      return;
+    }
+
+    // hợp lệ
     setSelectedFile(file);
-    setPreviewImage(URL.createObjectURL(file)); // hiển thị ảnh tạm
-    // Clear error on change
+    setPreviewImage(URL.createObjectURL(file));
+
     if (errors.thumbnail) {
       setErrors((prev) => ({ ...prev, thumbnail: undefined }));
     }
@@ -139,7 +172,7 @@ const ProductCreatePage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Khi nhấn Lưu → mới upload ảnh thật và ảnh trong nội dung
+  // Khi nhấn Lưu → mới upload ảnh thật và ảnh trong nội dung
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -208,7 +241,7 @@ const ProductCreatePage: React.FC = () => {
       });
 
       if (json.success) {
-        alert("🎉 Thêm sản phẩm thành công!");
+        alert("Thêm sản phẩm thành công!");
         navigate("/admin/products");
       } else {
         // Handle potential API-side validation errors
@@ -218,9 +251,14 @@ const ProductCreatePage: React.FC = () => {
           alert(json.message || "Không thể thêm sản phẩm!");
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Create product error:", err);
-      alert("Lỗi kết nối server!");
+
+      if (err?.message) {
+        alert(err.message);
+      } else {
+        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+      }
     } finally {
       setLoading(false);
     }
