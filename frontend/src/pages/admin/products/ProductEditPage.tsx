@@ -132,8 +132,41 @@ const ProductEditPage: React.FC = () => {
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    // Sai định dạng
+    if (!allowedTypes.includes(file.type)) {
+      setFormErrors((prev) => ({
+        ...prev,
+        thumbnail: "File tải lên phải là ảnh (jpg, png, webp, gif).",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(product?.thumbnail || "");
+      return;
+    }
+
+    // Quá dung lượng
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setFormErrors((prev) => ({
+        ...prev,
+        thumbnail: "Ảnh không được lớn hơn 5MB.",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(product?.thumbnail || "");
+      return;
+    }
+
+    // hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+
     if (formErrors.thumbnail) {
       setFormErrors((prev) => ({ ...prev, thumbnail: undefined }));
     }
@@ -233,7 +266,7 @@ const ProductEditPage: React.FC = () => {
       );
 
       if (json.success) {
-        alert("✅ Cập nhật sản phẩm thành công!");
+        alert("Cập nhật sản phẩm thành công!");
         // navigate(`/admin/products/edit/${id}`);
         fetchProduct(); // Re-fetch to get latest data
       } else {
@@ -243,9 +276,14 @@ const ProductEditPage: React.FC = () => {
           alert(json.message || "Cập nhật thất bại.");
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Không thể kết nối server.");
+
+      if (err?.message) {
+        alert(err.message);
+      } else {
+        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+      }
     } finally {
       setSaving(false);
     }

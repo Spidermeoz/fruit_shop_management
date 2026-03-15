@@ -33,7 +33,7 @@ const ProductCategoryCreatePage: React.FC = () => {
     Partial<Record<keyof CategoryFormData, string>>
   >({});
 
-  // ✅ Preview thumbnail & file
+  // Preview thumbnail & file
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
@@ -53,7 +53,7 @@ const ProductCategoryCreatePage: React.FC = () => {
     [],
   );
 
-  // ✅ Gọi API lấy danh sách danh mục cha (dùng http)
+  // Gọi API lấy danh sách danh mục cha (dùng http)
   const fetchParentCategories = async () => {
     try {
       const res = await http<ApiList<ParentCategory>>(
@@ -72,7 +72,7 @@ const ProductCategoryCreatePage: React.FC = () => {
     fetchParentCategories();
   }, []);
 
-  // ✅ Xử lý input
+  // Xử lý input
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -86,12 +86,45 @@ const ProductCategoryCreatePage: React.FC = () => {
     }
   };
 
-  // ✅ Khi chọn ảnh → chỉ hiển thị preview local
+  // Khi chọn ảnh → chỉ hiển thị preview local
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    // Sai định dạng file
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        thumbnail: "File tải lên phải là ảnh (jpg, png, webp, gif).",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage("");
+      return;
+    }
+
+    // File quá lớn
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setErrors((prev) => ({
+        ...prev,
+        thumbnail: "Ảnh không được lớn hơn 5MB.",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage("");
+      return;
+    }
+
+    // File hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+
     if (errors.thumbnail) {
       setErrors((prev) => ({ ...prev, thumbnail: undefined }));
     }
@@ -106,7 +139,7 @@ const ProductCategoryCreatePage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Submit form
+  // Submit form
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -165,7 +198,7 @@ const ProductCategoryCreatePage: React.FC = () => {
       );
 
       if (createRes.success) {
-        alert("🎉 Thêm danh mục mới thành công!");
+        alert("Thêm danh mục mới thành công!");
         navigate("/admin/product-category");
       } else {
         if (createRes.errors) {
@@ -176,9 +209,12 @@ const ProductCategoryCreatePage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("Create category error:", err);
-      const errorMessage =
-        err?.data?.message || err?.message || "Lỗi kết nối server!";
-      alert(errorMessage);
+
+      if (err?.message) {
+        alert(err.message);
+      } else {
+        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+      }
     } finally {
       setLoading(false);
     }

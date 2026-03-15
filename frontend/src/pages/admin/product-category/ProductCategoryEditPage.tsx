@@ -48,7 +48,7 @@ const ProductCategoryEditPage: React.FC = () => {
   );
   const [imageUrl, setImageUrl] = useState<string>("");
 
-  // ✅ Lấy dữ liệu danh mục cần chỉnh sửa
+  // Lấy dữ liệu danh mục cần chỉnh sửa
   const fetchCategory = async () => {
     try {
       setLoading(true);
@@ -68,7 +68,7 @@ const ProductCategoryEditPage: React.FC = () => {
     }
   };
 
-  // ✅ Lấy danh sách tất cả danh mục để chọn parent
+  // Lấy danh sách tất cả danh mục để chọn parent
   const fetchCategories = async () => {
     try {
       const res = await http<ApiList<Category>>(
@@ -89,18 +89,51 @@ const ProductCategoryEditPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ✅ Khi chọn file ảnh → chỉ hiển thị preview, chưa upload
+  // Khi chọn file ảnh → chỉ hiển thị preview, chưa upload
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    // Sai định dạng file
+    if (!allowedTypes.includes(file.type)) {
+      setFormErrors((prev) => ({
+        ...prev,
+        thumbnail: "File tải lên phải là ảnh (jpg, png, webp, gif).",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(category?.thumbnail || null);
+      return;
+    }
+
+    // File quá lớn
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setFormErrors((prev) => ({
+        ...prev,
+        thumbnail: "Ảnh không được lớn hơn 5MB.",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(category?.thumbnail || null);
+      return;
+    }
+
+    // File hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+
     if (formErrors.thumbnail) {
       setFormErrors((prev) => ({ ...prev, thumbnail: undefined }));
     }
   };
 
-  // ✅ Xử lý input
+  // Xử lý input
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -111,7 +144,7 @@ const ProductCategoryEditPage: React.FC = () => {
     }
   };
 
-  // ✅ Xử lý RichTextEditor
+  // Xử lý RichTextEditor
   const handleDescriptionChange = (content: string) => {
     setCategory((prev) => (prev ? { ...prev, description: content } : prev));
   };
@@ -126,7 +159,7 @@ const ProductCategoryEditPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Gửi API cập nhật
+  // Gửi API cập nhật
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!category) return;
@@ -189,7 +222,7 @@ const ProductCategoryEditPage: React.FC = () => {
       );
 
       if (res.success) {
-        alert("✅ Cập nhật danh mục thành công!");
+        alert("Cập nhật danh mục thành công!");
         await Promise.all([fetchCategory(), fetchCategories()]);
       } else {
         if (res.errors) {

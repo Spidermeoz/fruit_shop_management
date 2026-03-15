@@ -112,8 +112,44 @@ const UserEditPage: React.FC = () => {
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+    // Sai định dạng
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        avatar: "File tải lên phải là ảnh (jpg, png, webp, gif).",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(user?.avatar || "");
+      return;
+    }
+
+    // Quá dung lượng
+    const maxSize = 5 * 1024 * 1024;
+
+    if (file.size > maxSize) {
+      setErrors((prev) => ({
+        ...prev,
+        avatar: "Ảnh không được lớn hơn 5MB.",
+      }));
+
+      e.target.value = "";
+      setSelectedFile(null);
+      setPreviewImage(user?.avatar || "");
+      return;
+    }
+
+    // File hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
+
+    if (errors.avatar) {
+      setErrors((prev) => ({ ...prev, avatar: undefined }));
+    }
   };
 
   // 🔹 Validate form
