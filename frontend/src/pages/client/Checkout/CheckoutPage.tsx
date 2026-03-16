@@ -27,6 +27,11 @@ import {
 } from "lucide-react";
 import Footer from "../../../components/client/layout/Footer";
 
+interface Location {
+  name: string;
+  code: number;
+}
+
 interface OrderInfo {
   name: string;
   phone: string;
@@ -69,9 +74,9 @@ const CheckoutPage: React.FC = () => {
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
   // location 
-  const [cities, setCities] = useState<string[]>([])
-  const [districts, setDistricts] = useState<string[]>([])
-  const [wards, setWards] = useState<string[]>([])
+  const [cities, setCities] = useState<Location[]>([])
+  const [districts, setDistricts] = useState<Location[]>([])
+  const [wards, setWards] = useState<Location[]>([])
 
   const [cityLoaded, setCityLoaded] = useState(false)
 
@@ -116,7 +121,7 @@ const CheckoutPage: React.FC = () => {
     selectedItems.includes(i.productId)
   );
 
-  // ✅ Thêm hàm tính giá hiệu quả (sau khi giảm giá)
+  // Thêm hàm tính giá hiệu quả (sau khi giảm giá)
   const getEffectivePrice = (product: any) => {
     if (!product) return 0;
     if (product.discountPercentage && product.discountPercentage > 0) {
@@ -125,7 +130,7 @@ const CheckoutPage: React.FC = () => {
     return product.price;
   };
 
-  // ✅ Cập nhật cách tính tổng tiền
+  // Cập nhật cách tính tổng tiền
   const subtotal = checkoutItems.reduce(
     (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
     0
@@ -221,11 +226,11 @@ const CheckoutPage: React.FC = () => {
   // Submit order → gọi API thật
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const check = true;
-    if(check) {
-      console.log(orderInfo)
-      return
-    }
+    // const check = true;
+    // if(check) {
+    //   console.log(orderInfo)
+    //   return
+    // }
 
     if (!checkoutItems.length) {
       alert("Không có sản phẩm hợp lệ để thanh toán");
@@ -497,19 +502,19 @@ const CheckoutPage: React.FC = () => {
                         value={orderInfo.city}
                         onFocus={loadCities}
                         onChange={(e) => {
-
-                          const cityName = e.target.value
-                          const city = cities.find(c => c.name === cityName)
+                          const cityName = e.target.value;
+                          const city = cities.find((c) => c.name === cityName);
 
                           setOrderInfo({
                             ...orderInfo,
                             city: cityName,
                             district: "",
-                            ward: ""
-                          })
+                            ward: "",
+                          });
 
-                          loadDistricts(city.code)
-
+                          if (city) {
+                            loadDistricts(city.code);
+                          }
                         }}
                         className="w-full border p-3 rounded-lg"
                       >
@@ -535,18 +540,20 @@ const CheckoutPage: React.FC = () => {
                       <select
                         value={orderInfo.district}
                         onChange={(e) => {
-
-                          const districtName = e.target.value
-                          const district = districts.find(d => d.name === districtName)
+                          const districtName = e.target.value;
+                          const district = districts.find(
+                            (d) => d.name === districtName
+                          );
 
                           setOrderInfo({
                             ...orderInfo,
                             district: districtName,
-                            ward: ""
-                          })
+                            ward: "",
+                          });
 
-                          loadWards(district.code)
-
+                          if (district) {
+                            loadWards(district.code);
+                          }
                         }}
                         className="w-full border p-3 rounded-lg"
                       >
