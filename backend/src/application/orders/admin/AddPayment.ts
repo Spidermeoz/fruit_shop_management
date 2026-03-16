@@ -1,4 +1,3 @@
-// src/application/orders/admin/AddPayment.ts
 import type { OrderRepository } from "../../../domain/orders/OrderRepository";
 
 export class AddPayment {
@@ -6,14 +5,25 @@ export class AddPayment {
 
   async execute(input: { orderId: number; amount: number }) {
     const order = await this.repo.findById(input.orderId);
+
     if (!order) throw new Error("Order not found");
 
-    // Chỉ cho admin xác nhận thanh toán COD đủ số tiền
+    // Không cho thanh toán nếu order đã bị hủy
+    if (order.status === "cancelled") {
+      throw new Error("Cannot add payment to a cancelled order");
+    }
+
+    // Không cho thanh toán nếu đã thanh toán
+    if (order.paymentStatus === "paid") {
+      throw new Error("Order already paid");
+    }
+
+    // Check đủ tiền
     if (input.amount < order.finalPrice) {
       throw new Error("Số tiền thanh toán chưa đủ tổng đơn hàng");
     }
 
-    // Ghi payment tối giản
+    // Tạo payment record
     await this.repo.addPayment({
       orderId: input.orderId,
       provider: "cod",
@@ -24,7 +34,7 @@ export class AddPayment {
       rawPayload: null,
     });
 
-    // Cập nhật trạng thái thanh toán
+    // Update payment status
     await this.repo.updatePaymentStatus(input.orderId, "paid");
 
     return { success: true };

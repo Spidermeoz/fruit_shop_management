@@ -74,11 +74,26 @@ const OrdersPage: React.FC = () => {
   // Modal Thanh toán COD
   // ============================
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [,setPaymentAmount] = useState("");
+  const [, setPaymentAmount] = useState("");
 
   const openPaymentModal = (order: OrderProps) => {
+    if (order.status === "cancelled") {
+      alert("Không thể thanh toán đơn hàng đã bị huỷ.");
+      return;
+    }
+
+    if (order.status === "completed") {
+      alert("Đơn hàng đã hoàn tất.");
+      return;
+    }
+
+    if (order.paymentStatus === "paid") {
+      alert("Đơn hàng đã thanh toán.");
+      return;
+    }
+
     setSelectedOrder(order);
-    setPaymentAmount(order.finalPrice.toString()); // gợi ý theo giá trị đơn
+    setPaymentAmount(order.finalPrice.toString());
     setShowPaymentModal(true);
   };
 
@@ -338,15 +353,21 @@ const OrdersPage: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-3">
-                      {order.paymentStatus === "paid" ? (
-                        <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 text-xs font-semibold">
-                          Đã thanh toán
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-semibold">
-                          Chưa thanh toán
-                        </span>
-                      )}
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          order.paymentStatus === "paid"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : order.status === "cancelled"
+                              ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
+                      >
+                        {order.paymentStatus === "paid"
+                          ? "Đã thanh toán"
+                          : order.status === "cancelled"
+                            ? "Đã hủy"
+                            : "Chưa thanh toán"}
+                      </span>
                     </td>
 
                     <td className="px-4 py-3 text-right">
@@ -384,19 +405,29 @@ const OrdersPage: React.FC = () => {
                         {/* Nút xác nhận thanh toán COD */}
                         <button
                           onClick={() => {
-                            if (order.paymentStatus !== "paid") {
+                            if (
+                              order.paymentStatus !== "paid" &&
+                              order.status !== "cancelled" &&
+                              order.status !== "completed"
+                            ) {
                               openPaymentModal(order);
                             }
                           }}
                           className={`${
-                            order.paymentStatus === "paid"
-                              ? "text-green-600 cursor-default"
+                            order.paymentStatus === "paid" ||
+                            order.status === "cancelled" ||
+                            order.status === "completed"
+                              ? "text-gray-400 cursor-not-allowed"
                               : "text-purple-600 hover:text-purple-800 dark:text-purple-400 dark:hover:text-purple-300"
                           }`}
                           title={
-                            order.paymentStatus === "paid"
-                              ? "Đơn hàng đã thanh toán"
-                              : "Xác nhận thanh toán COD"
+                            order.status === "cancelled"
+                              ? "Đơn hàng đã bị huỷ"
+                              : order.status === "completed"
+                                ? "Đơn hàng đã hoàn tất"
+                                : order.paymentStatus === "paid"
+                                  ? "Đơn hàng đã thanh toán"
+                                  : "Xác nhận thanh toán COD"
                           }
                         >
                           {order.paymentStatus === "paid" ? "✔️" : "💰"}
