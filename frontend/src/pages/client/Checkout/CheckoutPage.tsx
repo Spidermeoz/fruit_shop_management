@@ -68,6 +68,13 @@ const CheckoutPage: React.FC = () => {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
+  // location 
+  const [cities, setCities] = useState<string[]>([])
+  const [districts, setDistricts] = useState<string[]>([])
+  const [wards, setWards] = useState<string[]>([])
+
+  const [cityLoaded, setCityLoaded] = useState(false)
+
   // Nếu không có selected items → quay về giỏ hàng
   useEffect(() => {
     fetchCart();
@@ -181,9 +188,44 @@ const CheckoutPage: React.FC = () => {
   const nextStep = () => currentStep < 3 && setCurrentStep(currentStep + 1);
   const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
+  const loadCities = async () => {
+    if (cityLoaded) return
+
+    const res = await fetch("https://provinces.open-api.vn/api/p/")
+    const data = await res.json()
+
+    setCities(data)
+    setCityLoaded(true)
+  }
+
+  const loadDistricts = async (cityCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`
+    )
+
+    const data = await res.json()
+
+    setDistricts(data.districts)
+  }
+
+  const loadWards = async (districtCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`
+    )
+
+    const data = await res.json()
+
+    setWards(data.wards)
+  }
+
   // Submit order → gọi API thật
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const check = true;
+    if(check) {
+      console.log(orderInfo)
+      return
+    }
 
     if (!checkoutItems.length) {
       alert("Không có sản phẩm hợp lệ để thanh toán");
@@ -448,20 +490,38 @@ const CheckoutPage: React.FC = () => {
 
                   {/* City / District / Ward */}
                   <div className="grid md:grid-cols-3 gap-4 mb-4">
+
+                    {/* CITY */}
                     <div>
-                      <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        Thành phố *
-                      </label>
-                      <input
-                        name="city"
+                      <select
                         value={orderInfo.city}
-                        onChange={handleChange}
-                        className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
-                          errors.city ? "border-red-500" : ""
-                        }`}
-                        placeholder="VD: Hồ Chí Minh"
-                      />
+                        onFocus={loadCities}
+                        onChange={(e) => {
+
+                          const cityName = e.target.value
+                          const city = cities.find(c => c.name === cityName)
+
+                          setOrderInfo({
+                            ...orderInfo,
+                            city: cityName,
+                            district: "",
+                            ward: ""
+                          })
+
+                          loadDistricts(city.code)
+
+                        }}
+                        className="w-full border p-3 rounded-lg"
+                      >
+                        <option value="">Thành phố</option>
+
+                        {cities.map((city) => (
+                          <option key={city.code} value={city.name}>
+                            {city.name}
+                          </option>
+                        ))}
+                      </select>
+
                       {errors.city && (
                         <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
@@ -470,20 +530,35 @@ const CheckoutPage: React.FC = () => {
                       )}
                     </div>
 
+                    {/* DISTRICT */}
                     <div>
-                      <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        Quận / Huyện *
-                      </label>
-                      <input
-                        name="district"
+                      <select
                         value={orderInfo.district}
-                        onChange={handleChange}
-                        className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
-                          errors.district ? "border-red-500" : ""
-                        }`}
-                        placeholder="VD: Quận 1"
-                      />
+                        onChange={(e) => {
+
+                          const districtName = e.target.value
+                          const district = districts.find(d => d.name === districtName)
+
+                          setOrderInfo({
+                            ...orderInfo,
+                            district: districtName,
+                            ward: ""
+                          })
+
+                          loadWards(district.code)
+
+                        }}
+                        className="w-full border p-3 rounded-lg"
+                      >
+                        <option value="">Quận / Huyện</option>
+
+                        {districts.map((d) => (
+                          <option key={d.code} value={d.name}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+
                       {errors.district && (
                         <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
@@ -492,20 +567,31 @@ const CheckoutPage: React.FC = () => {
                       )}
                     </div>
 
+                    {/* WARD */}
                     <div>
-                      <label className="block mb-2 text-sm text-gray-700 flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
-                        Phường / Xã *
-                      </label>
-                      <input
-                        name="ward"
+                      <select
                         value={orderInfo.ward}
-                        onChange={handleChange}
-                        className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent transition ${
-                          errors.ward ? "border-red-500" : ""
-                        }`}
-                        placeholder="VD: Phường 5"
-                      />
+                        onChange={(e) => {
+
+                          const wardName = e.target.value
+
+                          setOrderInfo({
+                            ...orderInfo,
+                            ward: wardName
+                          })
+
+                        }}
+                        className="w-full border p-3 rounded-lg"
+                      >
+                        <option value="">Phường / Xã</option>
+
+                        {wards.map((w) => (
+                          <option key={w.code} value={w.name}>
+                            {w.name}
+                          </option>
+                        ))}
+                      </select>
+
                       {errors.ward && (
                         <p className="text-red-500 text-sm mt-1 flex items-center gap-1">
                           <AlertCircle className="w-4 h-4" />
@@ -513,6 +599,7 @@ const CheckoutPage: React.FC = () => {
                         </p>
                       )}
                     </div>
+
                   </div>
 
                   {/* Address */}
