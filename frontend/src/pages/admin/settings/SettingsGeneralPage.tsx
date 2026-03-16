@@ -22,6 +22,9 @@ const SettingsGeneralPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [settings, setSettings] = useState<SettingGeneral | null>(null);
+  const [initialSettings, setInitialSettings] = useState<SettingGeneral | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -34,14 +37,16 @@ const SettingsGeneralPage: React.FC = () => {
   >({});
 
   // ==========================
-  // 🔥 FETCH SETTINGS
+  // FETCH SETTINGS
   // ==========================
   const fetchSettings = async () => {
     try {
       const json = await http<any>("GET", "/api/v1/admin/settings/general");
       if (json.success) {
         setSettings(json.data);
+        setInitialSettings(json.data);
         setPreviewLogo(json.data.logo || "");
+        setSelectedFile(null);
       }
     } catch (e) {
       console.error("Fetch settings failed", e);
@@ -55,7 +60,7 @@ const SettingsGeneralPage: React.FC = () => {
   }, []);
 
   // ==========================
-  // 🧩 HANDLE CHANGE
+  // HANDLE CHANGE
   // ==========================
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -75,8 +80,23 @@ const SettingsGeneralPage: React.FC = () => {
     setPreviewLogo(URL.createObjectURL(file));
   };
 
+  const isDirty = React.useMemo(() => {
+    if (!settings || !initialSettings) return false;
+
+    const hasFieldChanges =
+      settings.website_name !== initialSettings.website_name ||
+      settings.phone !== initialSettings.phone ||
+      settings.email !== initialSettings.email ||
+      settings.address !== initialSettings.address ||
+      settings.copyright !== initialSettings.copyright;
+
+    const hasImageChanges = selectedFile !== null;
+
+    return hasFieldChanges || hasImageChanges;
+  }, [settings, initialSettings, selectedFile]);
+
   // ==========================
-  // 🧪 VALIDATE
+  // VALIDATE
   // ==========================
   const validateForm = () => {
     if (!settings) return false;
@@ -95,7 +115,7 @@ const SettingsGeneralPage: React.FC = () => {
   };
 
   // ==========================
-  // 💾 SAVE SETTINGS
+  // SAVE SETTINGS
   // ==========================
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
@@ -292,8 +312,9 @@ const SettingsGeneralPage: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:opacity-50 transition-colors"
+              // Disable khi đang lưu HOẶC khi không có thay đổi
+              disabled={saving || !isDirty}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (
                 <>

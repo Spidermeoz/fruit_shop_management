@@ -10,17 +10,19 @@ export type BulkEditInput =
 export class BulkEditUsers {
   constructor(private repo: UserRepository) {}
 
-  async execute(input: BulkEditInput) {
+  async execute(input: BulkEditInput, currentUserId?: number) {
     const { action, ids } = input;
-    if (!Array.isArray(ids) || ids.length === 0) {
-      throw new Error("ids must be a non-empty array");
+
+    if (currentUserId) {
+      if (ids.includes(currentUserId)) {
+        throw new Error("Bạn không thể thao tác trên chính tài khoản của mình");
+      }
     }
 
     let value: any = undefined;
-    if (action === "status") value = input.value;         // "active" | "inactive"
-    if (action === "role") value = input.value;           // number | null
+    if (action === "status") value = input.value;
+    if (action === "role") value = input.value;
 
-    const result = await this.repo.bulkEdit(ids, action, value);
-    return result; // { affected }
+    return this.repo.bulkEdit(ids, action, value);
   }
 }

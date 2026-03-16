@@ -40,6 +40,7 @@ const ProductCategoryEditPage: React.FC = () => {
   >({});
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
+  const [initialCategory, setInitialCategory] = useState<Category | null>(null);
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>("");
@@ -58,6 +59,7 @@ const ProductCategoryEditPage: React.FC = () => {
       );
       if (res.success && res.data) {
         setCategory(res.data);
+        setInitialCategory(res.data);
         if (res.data.thumbnail) setPreviewImage(res.data.thumbnail);
       }
     } catch (err: any) {
@@ -82,6 +84,22 @@ const ProductCategoryEditPage: React.FC = () => {
       console.error("fetchCategories error:", err);
     }
   };
+
+  const isDirty = React.useMemo(() => {
+    if (!category || !initialCategory) return false;
+
+    const hasFieldChanges =
+      category.title !== initialCategory.title ||
+      category.parent_id !== initialCategory.parent_id ||
+      (category.description || "") !== (initialCategory.description || "") ||
+      category.status !== initialCategory.status;
+
+    const hasImageChanges =
+      (imageMethod === "upload" && selectedFile !== null) ||
+      (imageMethod === "url" && imageUrl !== initialCategory.thumbnail);
+
+    return hasFieldChanges || hasImageChanges;
+  }, [category, initialCategory, selectedFile, imageMethod, imageUrl]);
 
   useEffect(() => {
     fetchCategory();
@@ -508,8 +526,8 @@ const ProductCategoryEditPage: React.FC = () => {
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50"
+              disabled={saving || !isDirty} // Cập nhật dòng này
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (
                 <>

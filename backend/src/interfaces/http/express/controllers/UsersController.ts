@@ -8,8 +8,7 @@ import type { SoftDeleteUser } from "../../../../application/users/usecases/Soft
 import type { BulkEditUsers } from "../../../../application/users/usecases/BulkEditUsers";
 import type { UserSort } from "../../../../domain/users/types";
 
-const toBool = (v: any) =>
-  v === true || v === "true" || v === 1 || v === "1";
+const toBool = (v: any) => v === true || v === "true" || v === 1 || v === "1";
 const toNum = (v: any) =>
   v === null || v === undefined || v === "" ? undefined : Number(v);
 
@@ -57,8 +56,16 @@ export const makeUsersController = (uc: {
     // GET /
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { page, limit, q, keyword, status, includeDeleted, sortBy, order } =
-          req.query as Record<string, string>;
+        const {
+          page,
+          limit,
+          q,
+          keyword,
+          status,
+          includeDeleted,
+          sortBy,
+          order,
+        } = req.query as Record<string, string>;
 
         const pg = toNum(page) ?? 1;
         const lm = toNum(limit) ?? 10;
@@ -88,9 +95,15 @@ export const makeUsersController = (uc: {
         const id = Number(req.params.id);
         const u = await uc.detail.execute(id);
         if (!u) {
-          return res.status(404).json({ success: false, message: "User not found" });
+          return res
+            .status(404)
+            .json({ success: false, message: "User not found" });
         }
-        res.json({ success: true, data: toLegacy(u), meta: { total: 0, page: 1, limit: 10 } });
+        res.json({
+          success: true,
+          data: toLegacy(u),
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -125,9 +138,15 @@ export const makeUsersController = (uc: {
         const id = Number(req.params.id);
         const u = await uc.detail.execute(id);
         if (!u) {
-          return res.status(404).json({ success: false, message: "User not found" });
+          return res
+            .status(404)
+            .json({ success: false, message: "User not found" });
         }
-        res.json({ success: true, data: toLegacy(u), meta: { total: 0, page: 1, limit: 10 } });
+        res.json({
+          success: true,
+          data: toLegacy(u),
+          meta: { total: 0, page: 1, limit: 10 },
+        });
       } catch (e) {
         next(e);
       }
@@ -142,12 +161,16 @@ export const makeUsersController = (uc: {
         const updated = await uc.edit.execute(id, {
           roleId:
             b.roleId !== undefined
-              ? toNum(b.roleId) ?? null
+              ? (toNum(b.roleId) ?? null)
               : b.role_id !== undefined
-              ? toNum(b.role_id) ?? null
-              : undefined,
+                ? (toNum(b.role_id) ?? null)
+                : undefined,
           fullName:
-            b.fullName !== undefined ? b.fullName : b.full_name !== undefined ? b.full_name : undefined,
+            b.fullName !== undefined
+              ? b.fullName
+              : b.full_name !== undefined
+                ? b.full_name
+                : undefined,
           email: b.email,
           password: b.password, // plain (optional)
           phone: b.phone,
@@ -171,9 +194,20 @@ export const makeUsersController = (uc: {
         const id = Number(req.params.id);
         const { status } = req.body as { status: "active" | "inactive" };
         if (!["active", "inactive"].includes(String(status))) {
-          return res.status(400).json({ success: false, message: "Invalid status" });
+          return res
+            .status(400)
+            .json({ success: false, message: "Invalid status" });
         }
-        const r = await uc.updateStatus.execute(id, status);
+        const currentUserId = req.user?.id;
+
+        if (!currentUserId) {
+          return res.status(401).json({
+            success: false,
+            message: "Unauthorized",
+          });
+        }
+
+        const r = await uc.updateStatus.execute(id, status, currentUserId);
         res.json({
           success: true,
           data: r,
@@ -207,36 +241,67 @@ export const makeUsersController = (uc: {
         const action = String(b.action || "");
 
         if (!ids.length) {
-          return res.status(400).json({ success: false, message: "Field 'ids' must be a non-empty array" });
+          return res.status(400).json({
+            success: false,
+            message: "Field 'ids' must be a non-empty array",
+          });
         }
 
         if (action === "status") {
           const value = String(b.value || "");
           if (!["active", "inactive"].includes(value)) {
-            return res.status(400).json({ success: false, message: "Invalid status value" });
+            return res
+              .status(400)
+              .json({ success: false, message: "Invalid status value" });
           }
-          const r = await uc.bulkEdit.execute({ action: "status", ids, value: value as "active" | "inactive" });
-          return res.json({ success: true, data: r, meta: { total: 0, page: 1, limit: 10 } });
+          const r = await uc.bulkEdit.execute({
+            action: "status",
+            ids,
+            value: value as "active" | "inactive",
+          });
+          return res.json({
+            success: true,
+            data: r,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
         if (action === "role") {
           const raw = b.value ?? b.roleId ?? b.role_id ?? null;
           const roleId = raw === "" ? null : raw === null ? null : Number(raw);
-          const r = await uc.bulkEdit.execute({ action: "role", ids, value: Number.isNaN(roleId) ? null : roleId });
-          return res.json({ success: true, data: r, meta: { total: 0, page: 1, limit: 10 } });
+          const r = await uc.bulkEdit.execute({
+            action: "role",
+            ids,
+            value: Number.isNaN(roleId) ? null : roleId,
+          });
+          return res.json({
+            success: true,
+            data: r,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
         if (action === "delete") {
           const r = await uc.bulkEdit.execute({ action: "delete", ids });
-          return res.json({ success: true, data: r, meta: { total: 0, page: 1, limit: 10 } });
+          return res.json({
+            success: true,
+            data: r,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
         if (action === "restore") {
           const r = await uc.bulkEdit.execute({ action: "restore", ids });
-          return res.json({ success: true, data: r, meta: { total: 0, page: 1, limit: 10 } });
+          return res.json({
+            success: true,
+            data: r,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
         }
 
-        return res.status(400).json({ success: false, message: `Unsupported action: ${action}` });
+        return res
+          .status(400)
+          .json({ success: false, message: `Unsupported action: ${action}` });
       } catch (e) {
         next(e);
       }

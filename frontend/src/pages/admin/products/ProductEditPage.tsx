@@ -40,6 +40,7 @@ const ProductEditPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [initialProduct, setInitialProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -62,6 +63,7 @@ const ProductEditPage: React.FC = () => {
       const json = await http<any>(`GET`, `/api/v1/admin/products/edit/${id}`);
       if (json.success && json.data) {
         setProduct(json.data as Product);
+        setInitialProduct(json.data as Product);
         setPreviewImage(json.data.thumbnail);
       } else {
         setFetchError(json.message || "Không tìm thấy sản phẩm.");
@@ -76,7 +78,32 @@ const ProductEditPage: React.FC = () => {
     }
   };
 
-  // ✅ Lấy danh sách danh mục từ backend
+  const isDirty = React.useMemo(() => {
+    if (!product || !initialProduct) return false;
+
+    const hasFieldChanges =
+      product.title !== initialProduct.title ||
+      product.description !== initialProduct.description ||
+      String(product.product_category_id) !==
+        String(initialProduct.product_category_id) ||
+      Number(product.price) !== Number(initialProduct.price) ||
+      Number(product.discount_percentage) !==
+        Number(initialProduct.discount_percentage) ||
+      Number(product.stock) !== Number(initialProduct.stock) ||
+      product.status !== initialProduct.status ||
+      Number(product.featured) !== Number(initialProduct.featured) ||
+      String(product.position) !== String(initialProduct.position);
+
+    const hasImageChanges =
+      (imageMethod === "upload" && selectedFile !== null) ||
+      (imageMethod === "url" &&
+        imageUrl !== "" &&
+        imageUrl !== initialProduct.thumbnail);
+
+    return hasFieldChanges || hasImageChanges;
+  }, [product, initialProduct, selectedFile, imageMethod, imageUrl]);
+
+  // Lấy danh sách danh mục từ backend
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -664,8 +691,8 @@ const ProductEditPage: React.FC = () => {
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50"
+              disabled={saving || !isDirty} // Cập nhật disable
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (
                 <>

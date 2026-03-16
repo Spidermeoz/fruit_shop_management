@@ -35,6 +35,7 @@ const RoleEditPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [role, setRole] = useState<Role | null>(null);
+  const [initialRole, setInitialRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -53,6 +54,7 @@ const RoleEditPage: React.FC = () => {
       );
       if (res?.success && res.data) {
         setRole(res.data);
+        setInitialRole(res.data);
       } else {
         setFetchError("Không tìm thấy vai trò.");
       }
@@ -63,6 +65,16 @@ const RoleEditPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  const isDirty = React.useMemo(() => {
+    if (!role || !initialRole) return false;
+
+    const hasTitleChange = role.title !== initialRole.title;
+    const hasDescriptionChange =
+      (role.description || "") !== (initialRole.description || "");
+
+    return hasTitleChange || hasDescriptionChange;
+  }, [role, initialRole]);
 
   useEffect(() => {
     fetchRole();
@@ -224,8 +236,9 @@ const RoleEditPage: React.FC = () => {
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50"
+              // Disable khi đang lưu HOẶC khi form chưa có thay đổi
+              disabled={saving || !isDirty}
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (
                 <>

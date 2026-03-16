@@ -14,6 +14,7 @@ import {
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/common/Pagination";
 import { http } from "../../../services/http";
+import { useAuth } from "../../../auth/AuthContext";
 
 interface User {
   id: number;
@@ -95,7 +96,7 @@ const UsersPage: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState<string>(
-    searchParams.get("keyword") || ""
+    searchParams.get("keyword") || "",
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -105,8 +106,10 @@ const UsersPage: React.FC = () => {
   const currentPage = Number(searchParams.get("page")) || 1;
   const navigate = useNavigate();
 
+  const { user: currentUser } = useAuth();
+
   const [sortOrder, setSortOrder] = useState<string>(
-    searchParams.get("sort") || ""
+    searchParams.get("sort") || "",
   );
 
   // 🔹 Gọi API danh sách users
@@ -170,7 +173,7 @@ const UsersPage: React.FC = () => {
     (u) =>
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.full_name || "")?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.role?.title || "")?.toLowerCase().includes(searchTerm.toLowerCase())
+      (u.role?.title || "")?.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   const handleAddUser = () => navigate("/admin/users/create");
@@ -203,12 +206,12 @@ const UsersPage: React.FC = () => {
       });
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u))
+        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u)),
       );
     } catch (err) {
       console.error(err);
       alert(
-        err instanceof Error ? err.message : "Không thể cập nhật trạng thái"
+        err instanceof Error ? err.message : "Không thể cập nhật trạng thái",
       );
     }
   };
@@ -236,6 +239,10 @@ const UsersPage: React.FC = () => {
       year: "numeric",
     });
   };
+
+  const selectableUsers = filteredUsers.filter((u) => u.id !== currentUser?.id);
+
+  const safeIds = selectedUsers.filter((id) => id !== currentUser?.id);
 
   return (
     <div>
@@ -371,21 +378,21 @@ const UsersPage: React.FC = () => {
 
                 if (
                   !window.confirm(
-                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedUsers.length} người dùng?`
+                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedUsers.length} người dùng?`,
                   )
                 )
                   return;
 
                 try {
                   const body = {
-                    ids: selectedUsers,
+                    ids: safeIds,
                     action: bulkAction === "delete" ? "delete" : "status",
                     value:
                       bulkAction === "delete"
                         ? undefined
                         : bulkAction === "activate"
-                        ? "active"
-                        : "inactive",
+                          ? "active"
+                          : "inactive",
                   };
 
                   await http("PATCH", "/api/v1/admin/users/bulk-edit", body);
@@ -395,7 +402,7 @@ const UsersPage: React.FC = () => {
                 } catch (err) {
                   console.error(err);
                   alert(
-                    err instanceof Error ? err.message : "Lỗi kết nối server!"
+                    err instanceof Error ? err.message : "Lỗi kết nối server!",
                   );
                 }
               }}
@@ -440,11 +447,11 @@ const UsersPage: React.FC = () => {
                       type="checkbox"
                       checked={
                         selectedUsers.length > 0 &&
-                        selectedUsers.length === filteredUsers.length
+                        selectedUsers.length === selectableUsers.length
                       }
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedUsers(filteredUsers.map((u) => u.id));
+                          setSelectedUsers(selectableUsers.map((u) => u.id));
                         } else {
                           setSelectedUsers([]);
                         }
@@ -484,13 +491,14 @@ const UsersPage: React.FC = () => {
                     <td className="px-4 py-4 text-center">
                       <input
                         type="checkbox"
+                        disabled={user.id === currentUser?.id}
                         checked={selectedUsers.includes(user.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
                             setSelectedUsers((prev) => [...prev, user.id]);
                           } else {
                             setSelectedUsers((prev) =>
-                              prev.filter((id) => id !== user.id)
+                              prev.filter((id) => id !== user.id),
                             );
                           }
                         }}
@@ -510,7 +518,7 @@ const UsersPage: React.FC = () => {
                           src={
                             user.avatar ||
                             `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              user.full_name || user.email
+                              user.full_name || user.email,
                             )}&background=random`
                           }
                           alt={user.full_name || "User Avatar"}
@@ -537,10 +545,17 @@ const UsersPage: React.FC = () => {
                     </td>
 
                     {/* Status */}
-                    <td className="px-6 py-4 whitespace-nowrap cursor-pointer">
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div
-                        onClick={() => handleToggleStatus(user)}
-                        title="Click để đổi trạng thái"
+                        onClick={() => {
+                          if (user.id === currentUser?.id) return;
+                          handleToggleStatus(user);
+                        }}
+                        className={
+                          user.id === currentUser?.id
+                            ? "opacity-50 cursor-not-allowed"
+                            : "cursor-pointer"
+                        }
                       >
                         <StatusBadge status={user.status} />
                       </div>
@@ -572,9 +587,13 @@ const UsersPage: React.FC = () => {
                           <Edit className="w-5 h-5" />
                         </button>
                         <button
+                          disabled={user.id === currentUser?.id}
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
-                          title="Xóa"
+                          className={`${
+                            user.id === currentUser?.id
+                              ? "text-gray-400 cursor-not-allowed"
+                              : "text-red-600 hover:text-red-900"
+                          }`}
                         >
                           <Trash2 className="w-5 h-5" />
                         </button>

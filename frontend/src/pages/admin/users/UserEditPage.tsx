@@ -9,6 +9,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { http } from "../../../services/http";
+import { useAuth } from "../../../auth/AuthContext";
 
 interface Role {
   id: number;
@@ -40,6 +41,7 @@ const UserEditPage: React.FC = () => {
   const navigate = useNavigate();
 
   const [user, setUser] = useState<User | null>(null);
+  const [initialUser, setInitialUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
@@ -57,6 +59,7 @@ const UserEditPage: React.FC = () => {
     "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
+  const { user: currentUser } = useAuth();
 
   // 🔹 Lấy dữ liệu user
   const fetchUser = async () => {
@@ -69,6 +72,7 @@ const UserEditPage: React.FC = () => {
       if (res.success && res.data) {
         const data = res.data as User;
         setUser(data);
+        setInitialUser(data);
         setPreviewImage(data.avatar || "");
       }
     } catch (err: any) {
@@ -91,18 +95,67 @@ const UserEditPage: React.FC = () => {
     }
   };
 
+  const isDirty = React.useMemo(() => {
+    if (!user || !initialUser) return false;
+
+    // 1. Kiểm tra thay đổi các trường cơ bản
+    const hasFieldChanges =
+      user.full_name !== initialUser.full_name ||
+      user.email !== initialUser.email ||
+      Number(user.role_id) !== Number(initialUser.role_id) ||
+      (user.phone || "") !== (initialUser.phone || "") ||
+      user.status !== initialUser.status;
+
+    // 2. Kiểm tra thay đổi ảnh đại diện
+    const hasImageChanges =
+      (imageMethod === "upload" && selectedFile !== null) ||
+      (imageMethod === "url" &&
+        imageUrl !== "" &&
+        imageUrl !== initialUser.avatar);
+
+    // 3. Kiểm tra nếu người dùng có nhập mật khẩu mới
+    const hasPasswordChanges =
+      newPassword.length > 0 || confirmPassword.length > 0;
+
+    return hasFieldChanges || hasImageChanges || hasPasswordChanges;
+  }, [
+    user,
+    initialUser,
+    imageMethod,
+    selectedFile,
+    imageUrl,
+    newPassword,
+    confirmPassword,
+  ]);
+
   useEffect(() => {
     fetchUser();
     fetchRoles();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  useEffect(() => {
+    return () => {
+      if (previewImage?.startsWith("blob:")) {
+        URL.revokeObjectURL(previewImage);
+      }
+    };
+  }, [previewImage]);
+
   // 🔹 Xử lý input
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-    setUser((prev) => (prev ? { ...prev, [name]: value } : prev));
+
+    let newValue: any = value;
+
+    if (name === "role_id") {
+      newValue = value === "" ? "" : Number(value);
+    }
+
+    setUser((prev) => (prev ? { ...prev, [name]: newValue } : prev));
+
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -188,6 +241,11 @@ const UserEditPage: React.FC = () => {
     e.preventDefault();
     if (!user) return;
 
+    if (isSelf && user.status === "inactive") {
+      alert("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.");
+      return;
+    }
+
     if (!validateForm()) return;
 
     try {
@@ -237,7 +295,7 @@ const UserEditPage: React.FC = () => {
       );
 
       if (resp.success) {
-        alert("✅ Cập nhật người dùng thành công!");
+        alert("Cập nhật người dùng thành công!");
         navigate("/admin/users");
       } else if (resp.errors) {
         setErrors(resp.errors);
@@ -264,6 +322,8 @@ const UserEditPage: React.FC = () => {
   }
 
   if (!user) return null;
+
+  const isSelf = currentUser?.id === user.id;
 
   return (
     <div>
@@ -530,6 +590,7 @@ const UserEditPage: React.FC = () => {
                   value="active"
                   checked={user.status === "active"}
                   onChange={handleChange}
+                  disabled={isSelf}
                   className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
@@ -543,12 +604,18 @@ const UserEditPage: React.FC = () => {
                   value="inactive"
                   checked={user.status === "inactive"}
                   onChange={handleChange}
+                  disabled={isSelf}
                   className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
                 />
                 <span className="text-gray-800 dark:text-gray-200">
                   Tạm dừng
                 </span>
               </label>
+              {isSelf && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Bạn không thể thay đổi trạng thái tài khoản đang đăng nhập.
+                </p>
+              )}
             </div>
           </div>
 
@@ -556,8 +623,8 @@ const UserEditPage: React.FC = () => {
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50"
+              disabled={saving || !isDirty} // Vô hiệu hóa khi không có thay đổi
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (
                 <>
