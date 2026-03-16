@@ -193,6 +193,14 @@ const ProductEditPage: React.FC = () => {
     ) {
       newErrors.stock = "Vui lòng nhập số lượng tồn kho (không được âm).";
     }
+    const discount = Number(product.discount_percentage);
+    if (
+      product.discount_percentage !== "" &&
+      (discount < 0 || discount > 100)
+    ) {
+      newErrors.discount_percentage =
+        "Giảm giá phải nằm trong khoảng từ 0 đến 100%.";
+    }
 
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -416,10 +424,15 @@ const ProductEditPage: React.FC = () => {
               <input
                 type="number"
                 name="discount_percentage"
-                value={product.discount_percentage || ""}
+                value={product.discount_percentage || "0"}
                 onChange={handleChange}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
               />
+              {formErrors.discount_percentage && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {formErrors.discount_percentage}
+                </p>
+              )}
             </div>
           </div>
 
