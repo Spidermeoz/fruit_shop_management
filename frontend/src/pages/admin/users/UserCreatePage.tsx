@@ -134,14 +134,19 @@ const UserCreatePage: React.FC = () => {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "Địa chỉ email không hợp lệ.";
     }
+    if (!formData.phone.trim()) {
+      newErrors.phone = "Vui lòng nhập số điện thoại.";
+    } else if (!/^0\d{9}$/.test(formData.phone)) {
+      newErrors.phone = "Số điện thoại phải bắt đầu bằng số 0 và có 10 chữ số.";
+    }
     if (!formData.password) {
       newErrors.password = "Vui lòng nhập mật khẩu.";
     } else if (formData.password.length < 6) {
       newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
     }
-    if (!formData.role_id) {
-      newErrors.role_id = "Vui lòng chọn vai trò.";
-    }
+    // if (!formData.role_id) {
+    //   newErrors.role_id = "Vui lòng chọn vai trò.";
+    // }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -201,7 +206,7 @@ const UserCreatePage: React.FC = () => {
         payload,
       );
       if (res.success) {
-        alert("🎉 Tạo người dùng thành công!");
+        alert("Tạo người dùng thành công!");
         navigate("/admin/users");
       } else {
         if (res.errors) {
@@ -313,14 +318,15 @@ const UserCreatePage: React.FC = () => {
           {/* Số điện thoại */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Số điện thoại
+              Số điện thoại <span className="text-red-500">*</span>{" "}
+              {/* Thêm dấu * ở đây */}
             </label>
             <input
               type="text"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="Nhập số điện thoại..."
+              placeholder="Nhập số điện thoại (ví dụ: 0987654321)..."
               className={`w-full border ${
                 errors.phone
                   ? "border-red-500 dark:border-red-500"
@@ -337,19 +343,19 @@ const UserCreatePage: React.FC = () => {
           {/* Vai trò */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Vai trò <span className="text-red-500">*</span>
+              Vai trò
             </label>
             <select
               name="role_id"
               value={formData.role_id}
               onChange={handleChange}
               className={`w-full border ${
-                errors.role_id
+                errors.role_id // Vẫn giữ logic lỗi này để hiển thị lỗi từ Server nếu có
                   ? "border-red-500 dark:border-red-500"
                   : "border-gray-300 dark:border-gray-600"
               } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             >
-              <option value="">-- Chọn vai trò --</option>
+              <option value="">-- Chọn vai trò (Không bắt buộc) --</option>
               {roles.map((role) => (
                 <option key={role.id} value={role.id}>
                   {role.title}

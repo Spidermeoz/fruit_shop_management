@@ -61,7 +61,7 @@ const UserEditPage: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string>("");
   const { user: currentUser } = useAuth();
 
-  // 🔹 Lấy dữ liệu user
+  // Lấy dữ liệu user
   const fetchUser = async () => {
     try {
       setLoading(true);
@@ -83,7 +83,7 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // 🔹 Lấy danh sách roles
+  // Lấy danh sách roles
   const fetchRoles = async () => {
     try {
       const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
@@ -142,7 +142,7 @@ const UserEditPage: React.FC = () => {
     };
   }, [previewImage]);
 
-  // 🔹 Xử lý input
+  // Xử lý input
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -161,7 +161,7 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // 🔹 Chọn ảnh mới → preview
+  // Chọn ảnh mới → preview
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,7 +205,7 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // 🔹 Validate form
+  // Validate form
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
@@ -219,9 +219,15 @@ const UserEditPage: React.FC = () => {
       newErrors.email = "Địa chỉ email không hợp lệ.";
     }
 
-    if (!user?.role_id) {
-      newErrors.role_id = "Vui lòng chọn vai trò.";
+    if (!user?.phone?.trim()) {
+      newErrors.phone = "Vui lòng nhập số điện thoại.";
+    } else if (!/^0\d{9}$/.test(user.phone)) {
+      newErrors.phone = "Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số.";
     }
+
+    // if (!user?.role_id) {
+    //   newErrors.role_id = "Vui lòng chọn vai trò.";
+    // }
 
     if (newPassword || confirmPassword) {
       if (newPassword.length < 6) {
@@ -236,7 +242,7 @@ const UserEditPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🔹 Lưu thay đổi
+  // Lưu thay đổi
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
@@ -428,21 +434,28 @@ const UserEditPage: React.FC = () => {
           {/* Số điện thoại */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Số điện thoại
+              Số điện thoại <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               name="phone"
               value={user.phone || ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              className={`w-full border ${
+                errors.phone ? "border-red-500" : "border-gray-300"
+              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             />
+            {errors.phone && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {errors.phone}
+              </p>
+            )}
           </div>
 
           {/* Vai trò */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Vai trò <span className="text-red-500">*</span>
+              Vai trò
             </label>
             <select
               name="role_id"
@@ -452,7 +465,7 @@ const UserEditPage: React.FC = () => {
                 errors.role_id ? "border-red-500" : "border-gray-300"
               } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
             >
-              <option value="">-- Chọn vai trò --</option>
+              <option value="">-- Chọn vai trò (Không bắt buộc) --</option>
               {roles.map((role) => (
                 <option key={role.id} value={role.id}>
                   {role.title}
