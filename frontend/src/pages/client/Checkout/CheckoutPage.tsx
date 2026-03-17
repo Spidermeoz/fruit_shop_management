@@ -23,7 +23,6 @@ import {
   Smartphone,
   RefreshCw,
   Save,
-  Edit,
 } from "lucide-react";
 import Footer from "../../../components/client/layout/Footer";
 
@@ -73,6 +72,8 @@ const CheckoutPage: React.FC = () => {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
+
   // location
   const [cities, setCities] = useState<Location[]>([]);
   const [districts, setDistricts] = useState<Location[]>([]);
@@ -102,6 +103,10 @@ const CheckoutPage: React.FC = () => {
 
     fetchAddresses();
   }, []);
+
+  const visibleAddresses = showAllAddresses
+    ? savedAddresses
+    : savedAddresses.slice(0, 3);
 
   const applySavedAddress = async (addr: any) => {
     try {
@@ -149,12 +154,12 @@ const CheckoutPage: React.FC = () => {
         ...prev,
         name: addr.fullName || "",
         phone: addr.phone || "",
-        email: addr.email || prev.email || "", // giữ email người dùng đã nhập nếu địa chỉ lưu không có email
+        email: addr.email || prev.email || "",
         address: addr.addressLine1 || "",
         city: addr.province || "",
         district: addr.district || "",
         ward: addr.ward || "",
-        note: addr.notes || "",
+        note: prev.note || "",
       }));
     } catch (err) {
       console.error("Apply saved address failed", err);
@@ -211,9 +216,15 @@ const CheckoutPage: React.FC = () => {
     else if (!/^0\d{9}$/.test(orderInfo.phone))
       newErrors.phone = "Số điện thoại phải bắt đầu bằng 0 và có 10 số";
 
-    if (!orderInfo.email) newErrors.email = "Email là bắt buộc";
-    else if (!/^\S+@\S+\.\S+$/.test(orderInfo.email))
+    if (!orderInfo.email.trim()) {
+      newErrors.email = "Email là bắt buộc";
+    } else if (
+      !/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.(com|vn|edu|org|net)$/i.test(
+        orderInfo.email.trim(),
+      )
+    ) {
       newErrors.email = "Email không hợp lệ";
+    }
 
     if (!orderInfo.city) newErrors.city = "Thành phố là bắt buộc";
 
@@ -434,7 +445,7 @@ const CheckoutPage: React.FC = () => {
                       </h3>
 
                       <div className="space-y-3">
-                        {savedAddresses.map((addr, index) => (
+                        {visibleAddresses.map((addr, index) => (
                           <div
                             key={index}
                             className="p-3 bg-white rounded-lg border hover:border-green-500 cursor-pointer transition flex items-start gap-3"
@@ -451,18 +462,23 @@ const CheckoutPage: React.FC = () => {
                                 {addr.addressLine1}, {addr.ward},{" "}
                                 {addr.district}, {addr.province}
                               </p>
-                              {addr.notes && (
-                                <p className="text-gray-500 text-xs mt-1">
-                                  Ghi chú: {addr.notes}
-                                </p>
-                              )}
                             </div>
-                            <button className="text-green-600 hover:text-green-800">
-                              <Edit className="w-4 h-4" />
-                            </button>
                           </div>
                         ))}
                       </div>
+                      {savedAddresses.length > 3 && (
+                        <div className="mt-4 flex justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setShowAllAddresses((prev) => !prev)}
+                            className="text-sm text-green-700 hover:text-green-800 font-medium px-4 py-2 rounded-lg border border-green-300 bg-white hover:bg-green-50 transition"
+                          >
+                            {showAllAddresses
+                              ? "Thu gọn"
+                              : `Hiển thị thêm ${savedAddresses.length - 3} địa chỉ`}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
