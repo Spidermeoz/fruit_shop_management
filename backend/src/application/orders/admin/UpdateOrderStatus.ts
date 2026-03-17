@@ -19,6 +19,19 @@ export class UpdateOrderStatus {
 
     const currentStatus = order.status;
 
+    // Không cho hủy sau khi đã giao
+    if (
+      newStatus === "cancelled" &&
+      ["shipping", "delivered", "completed"].includes(currentStatus)
+    ) {
+      throw new Error("Không thể hủy đơn hàng sau khi đã giao hoặc hoàn thành");
+    }
+
+    // Không cho rollback về pending
+    if (newStatus === "pending" && currentStatus !== "pending") {
+      throw new Error("Không thể chuyển đơn hàng về trạng thái chờ duyệt");
+    }
+
     // Không cho sửa nếu đã cancelled hoặc completed
     if (["cancelled", "completed"].includes(currentStatus)) {
       throw new Error("Order is already finished and cannot be modified");

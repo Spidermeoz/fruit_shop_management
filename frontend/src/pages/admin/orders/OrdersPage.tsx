@@ -8,6 +8,16 @@ import { http } from "../../../services/http";
 // =======================
 // 🟦 Kiểu dữ liệu Order
 // =======================
+type OrderStatus =
+  | "pending"
+  | "processing"
+  | "shipping"
+  | "delivered"
+  | "completed"
+  | "cancelled";
+
+type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
+
 interface OrderItem {
   productId: number | null;
   productTitle: string;
@@ -19,8 +29,8 @@ interface OrderProps {
   id: number;
   userId: number;
   code: string;
-  status: string;
-  paymentStatus: string;
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
   shippingFee: number;
   discountAmount: number;
   totalPrice: number;
@@ -34,6 +44,66 @@ interface OrderProps {
 interface OrderWrapper {
   props: OrderProps;
 }
+
+const statusLabels: Record<OrderStatus, string> = {
+  pending: "Chờ duyệt",
+  processing: "Đang xử lý",
+  shipping: "Đang giao",
+  delivered: "Đã giao",
+  completed: "Hoàn thành",
+  cancelled: "Đã hủy",
+};
+
+const statusColors: Record<OrderStatus, string> = {
+  pending:
+    "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  processing:
+    "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  shipping:
+    "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  delivered:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  completed:
+    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+// FE nên phản ánh đúng rule backend nhưng vẫn giữ sự linh động mà bạn muốn
+const editableStatusMap: Record<OrderStatus, OrderStatus[]> = {
+  pending: ["processing", "cancelled"],
+  processing: ["pending", "shipping", "cancelled"],
+  shipping: ["processing", "delivered"],
+  delivered: ["completed"],
+  completed: [],
+  cancelled: [],
+};
+
+const isStatusOptionDisabled = (
+  order: OrderProps,
+  optionStatus: OrderStatus,
+) => {
+  // luôn cho phép giữ nguyên trạng thái hiện tại để select hiển thị bình thường
+  if (optionStatus === order.status) return false;
+
+  // completed và cancelled thì modal đã chặn mở từ trước,
+  // nhưng cứ chặn cứng thêm cho an toàn
+  if (order.status === "completed" || order.status === "cancelled") {
+    return true;
+  }
+
+  // Không cho hoàn thành nếu chưa thanh toán
+  if (optionStatus === "completed" && order.paymentStatus !== "paid") {
+    return true;
+  }
+
+  // Không cho hủy nếu đơn đã thanh toán
+  if (optionStatus === "cancelled" && order.paymentStatus === "paid") {
+    return true;
+  }
+
+  // Chỉ cho phép các trạng thái nằm trong map
+  return !editableStatusMap[order.status].includes(optionStatus);
+};
 
 const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<OrderProps[]>([]);
@@ -54,6 +124,15 @@ const OrdersPage: React.FC = () => {
   // ============================
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderProps | null>(null);
+  const [originalStatus, setOriginalStatus] = useState<OrderStatus | null>(
+    null,
+  );
+
+  const closeStatusModal = () => {
+    setShowStatusModal(false);
+    setSelectedOrder(null);
+    setOriginalStatus(null);
+  };
 
   const openUpdateStatusModal = (order: OrderProps) => {
     if (order.status === "cancelled") {
@@ -67,6 +146,7 @@ const OrdersPage: React.FC = () => {
     }
 
     setSelectedOrder(order);
+    setOriginalStatus(order.status);
     setShowStatusModal(true);
   };
 
@@ -75,6 +155,11 @@ const OrdersPage: React.FC = () => {
   // ============================
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [, setPaymentAmount] = useState("");
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedOrder(null);
+  };
 
   const openPaymentModal = (order: OrderProps) => {
     if (order.status === "cancelled") {
@@ -99,28 +184,35 @@ const OrdersPage: React.FC = () => {
 
   // Popup hỏi hoàn tất đơn hàng
   const [confirmCompleteModal, setConfirmCompleteModal] = useState(false);
-  const [, setPendingNewStatus] = useState<string | null>(null);
+
+  const closeConfirmCompleteModal = () => {
+    setConfirmCompleteModal(false);
+  };
 
   // Hàm gọi khi admin chọn "Đã giao"
-  const requestChangeToDelivered = (order: OrderProps, newStatus: string) => {
+  const requestChangeToDelivered = (
+    order: OrderProps,
+    newStatus: OrderStatus,
+  ) => {
     if (order.paymentStatus === "paid") {
-      setPendingNewStatus(newStatus); // = delivered
       setConfirmCompleteModal(true);
     } else {
-      // Nếu chưa thanh toán → cho đổi bình thường
       saveStatusChange(order, newStatus);
     }
   };
 
   // Hàm lưu thay đổi trạng thái
-  const saveStatusChange = async (order: OrderProps, status: string) => {
+  const saveStatusChange = async (order: OrderProps, status: OrderStatus) => {
     try {
       await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
         status,
       });
+
       alert("Cập nhật trạng thái thành công!");
       setShowStatusModal(false);
       setConfirmCompleteModal(false);
+      setSelectedOrder(null);
+      setOriginalStatus(null);
       fetchOrders();
     } catch (err: any) {
       alert(err?.message || "Không thể cập nhật trạng thái");
@@ -192,35 +284,8 @@ const OrdersPage: React.FC = () => {
     setSearchParams(params);
   };
 
-  const statusLabels: Record<string, string> = {
-    pending: "Chờ duyệt",
-    processing: "Đang xử lý",
-    shipping: "Đang giao",
-    delivered: "Đã giao",
-    completed: "Hoàn thành",
-    cancelled: "Đã hủy",
-  };
-
-  // Cập nhật Dark Mode cho các Badge trạng thái
-  const statusColors: Record<string, string> = {
-    pending:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    processing:
-      "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    shipping:
-      "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-    delivered:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    completed:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-  };
-
   return (
     <div>
-      {/* ====================== */}
-      {/* Header */}
-      {/* ====================== */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Orders
@@ -238,9 +303,6 @@ const OrdersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ====================== */}
-      {/* Filter Status */}
-      {/* ====================== */}
       <div className="flex flex-wrap gap-3 mb-4">
         {[
           ["all", "Tất cả"],
@@ -265,9 +327,6 @@ const OrdersPage: React.FC = () => {
         ))}
       </div>
 
-      {/* ====================== */}
-      {/* Table */}
-      {/* ====================== */}
       <Card>
         <div className="overflow-x-auto">
           {loading ? (
@@ -382,7 +441,6 @@ const OrdersPage: React.FC = () => {
                           <Eye className="w-5 h-5 inline-block" />
                         </button>
 
-                        {/* Nút cập nhật trạng thái */}
                         <button
                           onClick={() => openUpdateStatusModal(order)}
                           className={`${
@@ -402,7 +460,6 @@ const OrdersPage: React.FC = () => {
                           <Edit className="w-5 h-5 inline-block" />
                         </button>
 
-                        {/* Nút xác nhận thanh toán COD */}
                         <button
                           onClick={() => {
                             if (
@@ -442,9 +499,6 @@ const OrdersPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* ====================== */}
-      {/* Modal Cập nhật trạng thái */}
-      {/* ====================== */}
       {showStatusModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -456,20 +510,14 @@ const OrdersPage: React.FC = () => {
               className="w-full border dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
               value={selectedOrder.status}
               onChange={(e) => {
-                const newStatus = e.target.value;
+                const newStatus = e.target.value as OrderStatus;
 
-                // Không cho hoàn thành nếu chưa thanh toán
-                if (
-                  newStatus === "completed" &&
-                  selectedOrder.paymentStatus !== "paid"
-                ) {
-                  alert(
-                    "Đơn hàng chưa được thanh toán nên không thể chuyển sang trạng thái 'Hoàn thành'.",
-                  );
+                if (newStatus === selectedOrder.status) return;
+
+                if (isStatusOptionDisabled(selectedOrder, newStatus)) {
                   return;
                 }
 
-                // xác nhận khi chuyển sang hoàn thành
                 if (newStatus === "completed") {
                   const ok = window.confirm(
                     "Bạn có chắc muốn đánh dấu đơn hàng này là HOÀN THÀNH không?",
@@ -477,7 +525,6 @@ const OrdersPage: React.FC = () => {
                   if (!ok) return;
                 }
 
-                // xác nhận khi hủy đơn
                 if (newStatus === "cancelled") {
                   const ok = window.confirm(
                     "Bạn có chắc muốn HỦY đơn hàng này không?",
@@ -485,20 +532,8 @@ const OrdersPage: React.FC = () => {
                   if (!ok) return;
                 }
 
-                // Nếu chọn delivered và đã thanh toán → hỏi hoàn tất
                 if (newStatus === "delivered") {
                   requestChangeToDelivered(selectedOrder, newStatus);
-                  return;
-                }
-
-                // Không cho hủy đơn đã thanh toán
-                if (
-                  newStatus === "cancelled" &&
-                  selectedOrder.paymentStatus === "paid"
-                ) {
-                  alert(
-                    "Đơn hàng đã được thanh toán, không thể chuyển sang trạng thái 'Đã hủy'.",
-                  );
                   return;
                 }
 
@@ -508,33 +543,52 @@ const OrdersPage: React.FC = () => {
                 });
               }}
             >
-              <option value="pending">Chờ duyệt</option>
-              <option value="processing">Đang xử lý</option>
-              <option value="shipping">Đang giao</option>
-              <option value="delivered">Đã giao</option>
-              <option
-                value="completed"
-                disabled={selectedOrder.paymentStatus !== "paid"}
-              >
-                Hoàn tất{" "}
-                {selectedOrder.paymentStatus !== "paid"
-                  ? "(Chưa thanh toán)"
-                  : ""}
-              </option>
-              <option value="cancelled">Đã hủy</option>
+              {(
+                [
+                  "pending",
+                  "processing",
+                  "shipping",
+                  "delivered",
+                  "completed",
+                  "cancelled",
+                ] as OrderStatus[]
+              ).map((status) => (
+                <option
+                  key={status}
+                  value={status}
+                  disabled={isStatusOptionDisabled(selectedOrder, status)}
+                >
+                  {statusLabels[status]}
+                  {status === "completed" &&
+                  selectedOrder.paymentStatus !== "paid"
+                    ? " (Chưa thanh toán)"
+                    : ""}
+                  {status === "cancelled" &&
+                  selectedOrder.paymentStatus === "paid"
+                    ? " (Đã thanh toán)"
+                    : ""}
+                </option>
+              ))}
             </select>
 
             <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={() => setShowStatusModal(false)}
+                onClick={closeStatusModal}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
               >
                 Đóng
               </button>
 
               <button
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={
+                  !selectedOrder ||
+                  !originalStatus ||
+                  selectedOrder.status === originalStatus
+                }
                 onClick={async () => {
+                  if (!selectedOrder) return;
+
                   try {
                     await http(
                       "PATCH",
@@ -546,6 +600,8 @@ const OrdersPage: React.FC = () => {
 
                     alert("Cập nhật trạng thái thành công!");
                     setShowStatusModal(false);
+                    setSelectedOrder(null);
+                    setOriginalStatus(null);
                     fetchOrders();
                   } catch (err: any) {
                     alert(err?.message || "Không thể cập nhật trạng thái");
@@ -559,9 +615,6 @@ const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      {/* ====================== */}
-      {/* Modal Thanh toán COD */}
-      {/* ====================== */}
       {showPaymentModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -569,7 +622,6 @@ const OrdersPage: React.FC = () => {
               Xác nhận thanh toán COD
             </h2>
 
-            {/* Order Info */}
             <div className="space-y-3 mb-5 text-sm">
               <div className="flex justify-between">
                 <span className="text-gray-500 dark:text-gray-400">
@@ -604,7 +656,6 @@ const OrdersPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Payment Box */}
             <div className="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-4 mb-4 text-center">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 Số tiền cần thu
@@ -615,16 +666,14 @@ const OrdersPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Warning */}
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-300 mb-5">
               ⚠️ Hãy chắc chắn rằng khách hàng đã thanh toán{" "}
               <b>đầy đủ số tiền</b> trước khi xác nhận.
             </div>
 
-            {/* Buttons */}
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowPaymentModal(false)}
+                onClick={closePaymentModal}
                 className="px-4 py-2 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
               >
                 Đóng
@@ -643,8 +692,8 @@ const OrdersPage: React.FC = () => {
                     );
 
                     alert("Xác nhận thanh toán thành công!");
-
                     setShowPaymentModal(false);
+                    setSelectedOrder(null);
                     fetchOrders();
                   } catch (err: any) {
                     alert(err?.message || "Không thể xác nhận thanh toán");
@@ -658,9 +707,6 @@ const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      {/* ====================== */}
-      {/* Modal Xác nhận hoàn tất */}
-      {/* ====================== */}
       {confirmCompleteModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-xl w-full max-w-md text-center">
@@ -675,7 +721,6 @@ const OrdersPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row justify-center gap-3">
               <button
                 onClick={() => {
-                  // Hoàn tất luôn
                   saveStatusChange(selectedOrder, "completed");
                 }}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded transition-colors"
@@ -685,7 +730,6 @@ const OrdersPage: React.FC = () => {
 
               <button
                 onClick={() => {
-                  // Giữ trạng thái delivered
                   saveStatusChange(selectedOrder, "delivered");
                 }}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
@@ -694,7 +738,7 @@ const OrdersPage: React.FC = () => {
               </button>
 
               <button
-                onClick={() => setConfirmCompleteModal(false)}
+                onClick={closeConfirmCompleteModal}
                 className="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 rounded transition-colors"
               >
                 Hủy
