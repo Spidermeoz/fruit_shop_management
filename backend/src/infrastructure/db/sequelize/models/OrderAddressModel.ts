@@ -22,6 +22,10 @@ OrderAddressModel.init(
       type: DataTypes.STRING(20),
       allowNull: false,
     },
+    email: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     address_line1: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -63,7 +67,7 @@ OrderAddressModel.init(
     sequelize,
     tableName: "order_addresses",
     timestamps: false,
-  }
+  },
 );
 
 export default OrderAddressModel;

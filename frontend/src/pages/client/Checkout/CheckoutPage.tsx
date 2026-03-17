@@ -73,12 +73,12 @@ const CheckoutPage: React.FC = () => {
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [loadingAddresses, setLoadingAddresses] = useState(true);
 
-  // location 
-  const [cities, setCities] = useState<Location[]>([])
-  const [districts, setDistricts] = useState<Location[]>([])
-  const [wards, setWards] = useState<Location[]>([])
+  // location
+  const [cities, setCities] = useState<Location[]>([]);
+  const [districts, setDistricts] = useState<Location[]>([]);
+  const [wards, setWards] = useState<Location[]>([]);
 
-  const [cityLoaded, setCityLoaded] = useState(false)
+  const [cityLoaded, setCityLoaded] = useState(false);
 
   // Nếu không có selected items → quay về giỏ hàng
   useEffect(() => {
@@ -103,22 +103,67 @@ const CheckoutPage: React.FC = () => {
     fetchAddresses();
   }, []);
 
-  const applySavedAddress = (addr: any) => {
-    setOrderInfo((prev) => ({
-      ...prev,
-      name: addr.fullName,
-      phone: addr.phone,
-      address: addr.addressLine1,
-      ward: addr.ward,
-      district: addr.district,
-      city: addr.province,
-      note: addr.notes || "",
-    }));
+  const applySavedAddress = async (addr: any) => {
+    try {
+      let cityList = cities;
+
+      // Nếu chưa có list thành phố thì load trước
+      if (!cityList.length) {
+        const res = await fetch("https://provinces.open-api.vn/api/p/");
+        cityList = await res.json();
+        setCities(cityList);
+        setCityLoaded(true);
+      }
+
+      const city = cityList.find((c) => c.name === addr.province);
+
+      let districtList: Location[] = [];
+      let wardList: Location[] = [];
+
+      if (city) {
+        const districtRes = await fetch(
+          `https://provinces.open-api.vn/api/p/${city.code}?depth=2`,
+        );
+        const districtData = await districtRes.json();
+        districtList = districtData.districts || [];
+        setDistricts(districtList);
+
+        const district = districtList.find((d) => d.name === addr.district);
+
+        if (district) {
+          const wardRes = await fetch(
+            `https://provinces.open-api.vn/api/d/${district.code}?depth=2`,
+          );
+          const wardData = await wardRes.json();
+          wardList = wardData.wards || [];
+          setWards(wardList);
+        } else {
+          setWards([]);
+        }
+      } else {
+        setDistricts([]);
+        setWards([]);
+      }
+
+      setOrderInfo((prev) => ({
+        ...prev,
+        name: addr.fullName || "",
+        phone: addr.phone || "",
+        email: addr.email || prev.email || "", // giữ email người dùng đã nhập nếu địa chỉ lưu không có email
+        address: addr.addressLine1 || "",
+        city: addr.province || "",
+        district: addr.district || "",
+        ward: addr.ward || "",
+        note: addr.notes || "",
+      }));
+    } catch (err) {
+      console.error("Apply saved address failed", err);
+    }
   };
 
   // Lọc item được chọn từ giỏ hàng thực
   const checkoutItems = cartItems.filter((i) =>
-    selectedItems.includes(i.productId)
+    selectedItems.includes(i.productId),
   );
 
   // Thêm hàm tính giá hiệu quả (sau khi giảm giá)
@@ -133,7 +178,7 @@ const CheckoutPage: React.FC = () => {
   // Cập nhật cách tính tổng tiền
   const subtotal = checkoutItems.reduce(
     (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
-    0
+    0,
   );
 
   const shippingFee = selectedItems.length > 0 ? 20000 : 0;
@@ -143,7 +188,7 @@ const CheckoutPage: React.FC = () => {
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value, type } = e.target;
     if (type === "checkbox") {
@@ -194,34 +239,34 @@ const CheckoutPage: React.FC = () => {
   const prevStep = () => currentStep > 1 && setCurrentStep(currentStep - 1);
 
   const loadCities = async () => {
-    if (cityLoaded) return
+    if (cityLoaded) return;
 
-    const res = await fetch("https://provinces.open-api.vn/api/p/")
-    const data = await res.json()
+    const res = await fetch("https://provinces.open-api.vn/api/p/");
+    const data = await res.json();
 
-    setCities(data)
-    setCityLoaded(true)
-  }
+    setCities(data);
+    setCityLoaded(true);
+  };
 
   const loadDistricts = async (cityCode: number) => {
     const res = await fetch(
-      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`
-    )
+      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`,
+    );
 
-    const data = await res.json()
+    const data = await res.json();
 
-    setDistricts(data.districts)
-  }
+    setDistricts(data.districts);
+  };
 
   const loadWards = async (districtCode: number) => {
     const res = await fetch(
-      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`
-    )
+      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`,
+    );
 
-    const data = await res.json()
+    const data = await res.json();
 
-    setWards(data.wards)
-  }
+    setWards(data.wards);
+  };
 
   // Submit order → gọi API thật
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,6 +290,7 @@ const CheckoutPage: React.FC = () => {
         address: {
           fullName: orderInfo.name,
           phone: orderInfo.phone,
+          email: orderInfo.email,
           addressLine1: orderInfo.address,
           addressLine2: "",
           ward: orderInfo.ward,
@@ -495,7 +541,6 @@ const CheckoutPage: React.FC = () => {
 
                   {/* City / District / Ward */}
                   <div className="grid md:grid-cols-3 gap-4 mb-4">
-
                     {/* CITY */}
                     <div>
                       <select
@@ -505,12 +550,15 @@ const CheckoutPage: React.FC = () => {
                           const cityName = e.target.value;
                           const city = cities.find((c) => c.name === cityName);
 
-                          setOrderInfo({
-                            ...orderInfo,
+                          setOrderInfo((prev) => ({
+                            ...prev,
                             city: cityName,
                             district: "",
                             ward: "",
-                          });
+                          }));
+
+                          setDistricts([]);
+                          setWards([]);
 
                           if (city) {
                             loadDistricts(city.code);
@@ -542,14 +590,16 @@ const CheckoutPage: React.FC = () => {
                         onChange={(e) => {
                           const districtName = e.target.value;
                           const district = districts.find(
-                            (d) => d.name === districtName
+                            (d) => d.name === districtName,
                           );
 
-                          setOrderInfo({
-                            ...orderInfo,
+                          setOrderInfo((prev) => ({
+                            ...prev,
                             district: districtName,
                             ward: "",
-                          });
+                          }));
+
+                          setWards([]);
 
                           if (district) {
                             loadWards(district.code);
@@ -579,14 +629,12 @@ const CheckoutPage: React.FC = () => {
                       <select
                         value={orderInfo.ward}
                         onChange={(e) => {
+                          const wardName = e.target.value;
 
-                          const wardName = e.target.value
-
-                          setOrderInfo({
-                            ...orderInfo,
-                            ward: wardName
-                          })
-
+                          setOrderInfo((prev) => ({
+                            ...prev,
+                            ward: wardName,
+                          }));
                         }}
                         className="w-full border p-3 rounded-lg"
                       >
@@ -606,7 +654,6 @@ const CheckoutPage: React.FC = () => {
                         </p>
                       )}
                     </div>
-
                   </div>
 
                   {/* Address */}
@@ -707,7 +754,7 @@ const CheckoutPage: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           alert(
-                            "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD."
+                            "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD.",
                           );
                         }}
                       />
@@ -740,7 +787,7 @@ const CheckoutPage: React.FC = () => {
                         onClick={(e) => {
                           e.preventDefault();
                           alert(
-                            "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD."
+                            "Phương thức thanh toán này đang được cập nhật, vui lòng chọn phương thức COD.",
                           );
                         }}
                       />

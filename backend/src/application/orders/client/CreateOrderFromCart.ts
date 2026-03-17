@@ -4,11 +4,27 @@ export class CreateOrderFromCart {
   constructor(
     private orderRepo: any,
     private cartRepo: any,
-    private productRepo: any
+    private productRepo: any,
   ) {}
 
   async execute(userId: number, payload: any) {
-    const { productIds } = payload;
+    const { productIds, address } = payload;
+
+    if (!address?.fullName?.trim()) {
+      throw new Error("Họ tên người nhận là bắt buộc");
+    }
+
+    if (!address?.phone?.trim()) {
+      throw new Error("Số điện thoại người nhận là bắt buộc");
+    }
+
+    if (!address?.email?.trim()) {
+      throw new Error("Email là bắt buộc");
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(address.email)) {
+      throw new Error("Email không hợp lệ");
+    }
 
     if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
       throw new Error("Bạn chưa chọn sản phẩm để thanh toán");
@@ -35,7 +51,7 @@ export class CreateOrderFromCart {
 
         if (product.stock < item.quantity) {
           throw new Error(
-            `Sản phẩm "${product.title}" không đủ tồn kho (còn ${product.stock})`
+            `Sản phẩm "${product.title}" không đủ tồn kho (còn ${product.stock})`,
           );
         }
       }
@@ -49,7 +65,7 @@ export class CreateOrderFromCart {
         const effectivePrice =
           item.product?.discountPercentage > 0
             ? item.product.price * (1 - item.product.discountPercentage / 100)
-            : item.product?.price ?? 0;
+            : (item.product?.price ?? 0);
 
         return sum + item.quantity * effectivePrice;
       }, 0);
@@ -74,7 +90,7 @@ export class CreateOrderFromCart {
             const effectivePrice =
               i.product?.discountPercentage > 0
                 ? i.product.price * (1 - i.product.discountPercentage / 100)
-                : i.product?.price ?? 0;
+                : (i.product?.price ?? 0);
 
             return {
               productId: i.productId,
@@ -95,7 +111,7 @@ export class CreateOrderFromCart {
 
           userInfo: payload.userInfo ?? null,
         },
-        transaction
+        transaction,
       );
 
       // 6) Giảm tồn kho
@@ -103,7 +119,7 @@ export class CreateOrderFromCart {
         await this.productRepo.decreaseStock(
           item.productId,
           item.quantity,
-          transaction
+          transaction,
         );
       }
 

@@ -17,6 +17,7 @@ export type PaymentStatus =
 export interface OrderAddressProps {
   fullName: string;
   phone: string;
+  email?: string | null;
   addressLine1: string;
   addressLine2?: string | null;
   ward?: string | null;

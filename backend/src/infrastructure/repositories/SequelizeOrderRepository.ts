@@ -40,6 +40,7 @@ export class SequelizeOrderRepository implements OrderRepository {
         ? {
             fullName: row.address.full_name,
             phone: row.address.phone,
+            email: row.address.email,
             addressLine1: row.address.address_line1,
             addressLine2: row.address.address_line2,
             ward: row.address.ward,
@@ -109,6 +110,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             order_id: order.id,
             full_name: data.address.fullName,
             phone: data.address.phone,
+            email: data.address.email ?? null,
             address_line1: data.address.addressLine1,
             address_line2: data.address.addressLine2 ?? "",
             ward: data.address.ward ?? "",
@@ -262,6 +264,7 @@ export class SequelizeOrderRepository implements OrderRepository {
       const key = [
         r.full_name,
         r.phone,
+        r.email,
         r.address_line1,
         r.ward,
         r.district,
@@ -272,6 +275,7 @@ export class SequelizeOrderRepository implements OrderRepository {
         unique.set(key, {
           fullName: r.full_name,
           phone: r.phone,
+          email: r.email,
           addressLine1: r.address_line1,
           addressLine2: r.address_line2,
           ward: r.ward,
