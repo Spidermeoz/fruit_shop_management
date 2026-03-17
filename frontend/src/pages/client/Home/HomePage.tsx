@@ -271,6 +271,7 @@ const HomePage: React.FC = () => {
             <Link
               to="/about"
               className="inline-block bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition"
+              onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             >
               Tìm hiểu thêm
             </Link>
