@@ -16,6 +16,7 @@ import {
   FileText,
   ArrowLeft,
   HelpCircle,
+  Mail,
 } from "lucide-react";
 
 // ==========================
@@ -47,6 +48,7 @@ interface OrderDetail {
   address: {
     fullName: string;
     phone: string;
+    email?: string;
     addressLine1: string;
     ward: string;
     district: string;
@@ -408,6 +410,13 @@ const OrderDetailPage: React.FC = () => {
                           <Phone className="w-4 h-4 mt-0.5 text-gray-500" />
                           <p>
                             <strong>SĐT:</strong> {order.address.phone}
+                          </p>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <Mail className="w-4 h-4 mt-0.5 text-gray-500" />
+                          <p>
+                            <strong>Email:</strong>{" "}
+                            {order.address.email || "Không có"}
                           </p>
                         </div>
                         <div className="flex items-start gap-2">
