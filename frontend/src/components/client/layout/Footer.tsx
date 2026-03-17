@@ -54,17 +54,17 @@ const Footer: React.FC = () => {
           <h4 className="text-lg font-semibold mb-3">Liên kết nhanh</h4>
           <ul className="space-y-2 text-gray-300">
             <li>
-              <Link to="/" className="hover:text-yellow-300">
+              <Link to="/" className="hover:text-yellow-300" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
                 Trang chủ
               </Link>
             </li>
             <li>
-              <Link to="/products" className="hover:text-yellow-300">
+              <Link to="/products" className="hover:text-yellow-300" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
                 Sản phẩm
               </Link>
             </li>
             <li>
-              <Link to="/cart" className="hover:text-yellow-300">
+              <Link to="/cart" className="hover:text-yellow-300" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
                 Giỏ hàng
               </Link>
             </li>
