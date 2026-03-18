@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
 

@@ -7,8 +7,8 @@ import {
 } from "../../services/api/dashboardOrdersService";
 import { summarizeOrders } from "../../utils/orderSummary";
 
-import OrdersSummaryCards from "../../components/dashboard/OrdersSummaryCards";
-import RecentOrders from "../../components/dashboard/RecentOrders";
+import OrdersSummaryCards from "../../components/admin/dashboard/OrdersSummaryCards";
+import RecentOrders from "../../components/admin/dashboard/RecentOrders";
 import { useEffect, useState } from "react";
 import type { Order, OrdersSummary } from "../../types/orders";
 
@@ -16,8 +16,8 @@ import { getAllProducts } from "../../services/api/dashboardProductService";
 import { summarizeProducts } from "../../utils/productSummary";
 import type { ProductSummary } from "../../types/products";
 
-import ProductsOverview from "../../components/dashboard/ProductsOverview";
-import UsersOverview from "../../components/dashboard/UsersOverview";
+import ProductsOverview from "../../components/admin/dashboard/ProductsOverview";
+import UsersOverview from "../../components/admin/dashboard/UsersOverview";
 
 export default function DashboardPage() {
   const { hasPermission } = useAuth();
@@ -25,9 +25,7 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<OrdersSummary | null>(null);
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
 
-  const [, setProductSummary] = useState<ProductSummary | null>(
-    null
-  );
+  const [, setProductSummary] = useState<ProductSummary | null>(null);
 
   // ===== Products =====
   useEffect(() => {
@@ -54,7 +52,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-12">
-
       {/* ================== ORDERS ================== */}
       <Can module="order" action="view">
         {summary && <OrdersSummaryCards summary={summary} />}
@@ -72,7 +69,6 @@ export default function DashboardPage() {
       <Can module="user" action="view">
         <UsersOverview />
       </Can>
-
     </div>
   );
 }

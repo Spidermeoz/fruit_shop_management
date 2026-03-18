@@ -2,8 +2,8 @@
 import React, { useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Card from "../../../components/layouts/Card";
-import RichTextEditor from "../../../components/common/RichTextEditor";
+import Card from "../../../components/admin/layouts/Card";
+import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 

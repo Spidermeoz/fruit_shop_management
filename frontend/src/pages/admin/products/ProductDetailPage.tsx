@@ -8,7 +8,7 @@ import {
   MessageCircle,
   ChevronDown,
 } from "lucide-react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 
 // ===== PRODUCT TYPE =====

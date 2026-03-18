@@ -12,7 +12,7 @@ import {
   type LucideIcon,
   Settings,
 } from "lucide-react";
-import Can from "../../auth/Can";
+import Can from "../../../auth/Can";
 
 // 🔹 Update interface to include permission
 interface SidebarItem {

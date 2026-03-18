@@ -5,8 +5,8 @@ import { AuthProvider } from "./context/AuthContext";
 import { CartProvider } from "./context/CartContext";
 
 // Admin Layout & Pages
-import Sidebar from "./components/layouts/Sidebar";
-import DashboardHeader from "./components/layouts/DashboardHeader";
+import Sidebar from "./components/admin/layouts/Sidebar";
+import DashboardHeader from "./components/admin/layouts/DashboardHeader";
 import DashboardPage from "./pages/admin/DashboardPage";
 import ProductsPage from "./pages/admin/products/ProductsPage";
 import ProductEditPage from "./pages/admin/products/ProductEditPage";
@@ -33,7 +33,7 @@ import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
 import ProductClientDetailPage from "./pages/client/Product/ProductDetailPage";
-import Header from "./components/client/layout/Header";
+import Header from "./components/client/layouts/Header";
 import CartPage from "./pages/client/Cart/CartPage";
 import CheckoutPage from "./pages/client/Checkout/CheckoutPage";
 import LoginPage from "./pages/client/Auth/LoginPage";
@@ -47,7 +47,6 @@ import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
 import AboutPage from "./pages/client/Other/AboutPage";
 import ContactPage from "./pages/client/Other/ContactPage";
-import ReviewPage from "./pages/client/Other/ReviewPage";
 // import Footer from "./components/client/layout/Footer"; // Nếu cần dùng
 
 const App: React.FC = () => {
@@ -183,7 +182,6 @@ const App: React.FC = () => {
                       <Route path="/orders/:id" element={<OrderDetailPage />} />
                       <Route path="/about" element={<AboutPage />} />
                       <Route path="/contact" element={<ContactPage />} />
-                      <Route path="/review/:id" element={<ReviewPage />} />
                     </Routes>
                   </main>
                   {/* <Footer /> */}

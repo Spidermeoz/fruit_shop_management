@@ -1,7 +1,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// ✅ Định nghĩa kiểu props rõ ràng
+// Định nghĩa kiểu props rõ ràng
 interface PaginationProps {
   currentPage: number;
   totalPages: number;

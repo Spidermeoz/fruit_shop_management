@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { getAllProducts } from "../../services/api/dashboardProductService";
-import type { Product } from "../../types/products";
+import { getAllProducts } from "../../../services/api/dashboardProductService";
+import type { Product } from "../../../types/products";
 
 import {
   PieChart,

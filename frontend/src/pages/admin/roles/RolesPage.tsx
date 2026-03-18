@@ -1,7 +1,7 @@
 // src/pages/admin/roles/RolesPage.tsx
 import React, { useEffect, useState } from "react";
 import { Plus, Edit, Trash2, Eye, Loader2, ShieldCheck } from "lucide-react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 
@@ -54,7 +54,7 @@ const RolesPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiOk>(
         "DELETE",
-        `/api/v1/admin/roles/delete/${id}`
+        `/api/v1/admin/roles/delete/${id}`,
       );
       if (res.success) {
         setRoles((prev) => prev.filter((r) => r.id !== id));

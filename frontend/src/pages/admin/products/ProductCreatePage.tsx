@@ -3,8 +3,8 @@ import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import Card from "../../../components/layouts/Card";
-import RichTextEditor from "../../../components/common/RichTextEditor";
+import Card from "../../../components/admin/layouts/Card";
+import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 import {
   buildCategoryTree,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { http } from "../../services/http";
+import { http } from "../../../services/http";
 import {
   PieChart,
   Pie,

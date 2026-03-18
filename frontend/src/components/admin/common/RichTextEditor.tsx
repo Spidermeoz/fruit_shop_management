@@ -6,7 +6,7 @@ interface RichTextEditorProps {
   onChange?: (content: string) => void;
 }
 
-// ✅ Đọc API key từ .env
+// Đọc API key từ .env
 const apiKey = import.meta.env.VITE_TINYMCE_API_KEY || "";
 
 const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
@@ -29,7 +29,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({ value, onChange }) => {
         automatic_uploads: false,
         file_picker_types: "image",
 
-        // ✅ Chỉ tạo preview local, không upload lên server
+        // Chỉ tạo preview local, không upload lên server
         file_picker_callback: (callback, _value, meta) => {
           if (meta.filetype === "image") {
             const input = document.createElement("input");

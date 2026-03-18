@@ -1,6 +1,6 @@
 // src/pages/admin/product-category/ProductCategoryPage.tsx
 import React, { useEffect, useState } from "react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { Plus, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -48,7 +48,7 @@ const ProductCategoryPage: React.FC = () => {
       // gọi 1 lần lấy “đủ lớn” để gom hết danh mục
       const res = await http<ApiList<any>>(
         "GET",
-        `/api/v1/admin/product-category?limit=1000`
+        `/api/v1/admin/product-category?limit=1000`,
       );
 
       const raw = Array.isArray(res.data) ? res.data : [];
@@ -60,8 +60,8 @@ const ProductCategoryPage: React.FC = () => {
           c.parent_id !== undefined
             ? c.parent_id
             : c.parentId !== undefined
-            ? c.parentId
-            : null,
+              ? c.parentId
+              : null,
       }));
 
       setCategories(data);
@@ -84,7 +84,7 @@ const ProductCategoryPage: React.FC = () => {
       setLoading(true);
       await http<ApiOk>(
         "DELETE",
-        `/api/v1/admin/product-category/delete/${id}`
+        `/api/v1/admin/product-category/delete/${id}`,
       );
       alert("Đã xóa danh mục thành công!");
       setCategories((prev) => prev.filter((c) => c.id !== id));
@@ -106,12 +106,12 @@ const ProductCategoryPage: React.FC = () => {
       await http<ApiOk>(
         "PATCH",
         `/api/v1/admin/product-category/${category.id}/status`,
-        { status: newStatus }
+        { status: newStatus },
       );
       setCategories((prev) =>
         prev.map((c) =>
-          c.id === category.id ? { ...c, status: newStatus } : c
-        )
+          c.id === category.id ? { ...c, status: newStatus } : c,
+        ),
       );
     } catch (err: any) {
       console.error(err);
@@ -132,7 +132,7 @@ const ProductCategoryPage: React.FC = () => {
 
     if (
       !window.confirm(
-        `Xác nhận thực hiện '${bulkAction}' cho ${selectedCategories.length} danh mục?`
+        `Xác nhận thực hiện '${bulkAction}' cho ${selectedCategories.length} danh mục?`,
       )
     )
       return;
@@ -172,7 +172,7 @@ const ProductCategoryPage: React.FC = () => {
       await http<ApiOk>(
         "PATCH",
         "/api/v1/admin/product-category/bulk-edit",
-        body
+        body,
       );
       alert("Cập nhật thành công!");
       setSelectedCategories([]);
@@ -284,9 +284,7 @@ const ProductCategoryPage: React.FC = () => {
                       }}
                     />
                   </th>
-                  <th className="w-[80px] px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
-                    
-                  </th>
+                  <th className="w-[80px] px-3 py-3 text-center text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider"></th>
                   <th className="text-left px-6 py-3 text-xs font-medium text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     TITLE
                   </th>

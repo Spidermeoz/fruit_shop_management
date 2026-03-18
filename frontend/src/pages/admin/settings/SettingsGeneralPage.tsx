@@ -6,7 +6,7 @@ import React, {
 } from "react";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 
 interface SettingGeneral {

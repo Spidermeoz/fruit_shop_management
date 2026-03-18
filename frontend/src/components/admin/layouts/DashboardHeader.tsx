@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Moon, Sun, Bell, LogOut } from "lucide-react";
-import { useTheme } from "../../context/ThemeContext";
-import { http } from "../../services/http";
+import { useTheme } from "../../../context/ThemeContext";
+import { http } from "../../../services/http";
 
 const DashboardHeader: React.FC = () => {
   const { theme, toggleTheme } = useTheme();

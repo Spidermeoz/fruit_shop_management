@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import {
   Search,
   Plus,
@@ -12,7 +12,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import Pagination from "../../../components/common/Pagination";
+import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
 

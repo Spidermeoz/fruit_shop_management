@@ -1,7 +1,7 @@
 // src/pages/admin/roles/PermissionsPage.tsx
 import React, { useEffect, useState } from "react";
 import { Shield, Loader2, Save, ArrowLeft } from "lucide-react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 

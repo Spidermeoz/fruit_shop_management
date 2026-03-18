@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import Layout from "../../../components/client/layout/Layout";
+import Layout from "../../../components/client/layouts/Layout";
 import { http } from "../../../services/http";
+import Footer from "../../../components/client/layouts/Footer";
 
 type Step = "request" | "verify" | "reset" | "success";
 
@@ -60,7 +61,10 @@ const ForgotPasswordPage: React.FC = () => {
     if (value && index < 5) otpRefs.current[index + 1]?.focus(); // tự chuyển ô
   };
 
-  const handleOtpKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, index: number) => {
+  const handleOtpKeyDown = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    index: number,
+  ) => {
     if (e.key === "Backspace" && !otp[index] && index > 0) {
       otpRefs.current[index - 1]?.focus();
     }
@@ -87,7 +91,7 @@ const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  // 🔁 Gửi lại OTP
+  // Gửi lại OTP
   const handleResendOtp = async () => {
     setError("");
     setIsLoading(true);
@@ -132,9 +136,31 @@ const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  // ===================== UI =====================
+  // ===================== UI COMPONENTS =====================
+  const renderSpinner = () => (
+    <svg
+      className="animate-spin h-5 w-5 text-white"
+      fill="none"
+      viewBox="0 0 24 24"
+    >
+      <circle
+        className="opacity-25"
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="4"
+      ></circle>
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      ></path>
+    </svg>
+  );
+
   const renderOtpInputs = () => (
-    <div className="flex justify-center space-x-3 mb-4">
+    <div className="flex justify-center gap-2 md:gap-3 mb-6">
       {otp.map((digit, idx) => (
         <input
           key={idx}
@@ -147,7 +173,7 @@ const ForgotPasswordPage: React.FC = () => {
           value={digit}
           onChange={(e) => handleOtpChange(e.target.value, idx)}
           onKeyDown={(e) => handleOtpKeyDown(e, idx)}
-          className="w-12 h-12 text-center text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+          className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-bold bg-slate-50 text-slate-900 border border-slate-200 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 focus:bg-white transition-all shadow-sm"
         />
       ))}
     </div>
@@ -159,11 +185,11 @@ const ForgotPasswordPage: React.FC = () => {
       case "request":
         return (
           <>
-            <div className="text-center mb-6">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="text-center mb-10">
+              <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm border border-green-100">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-10 w-10 text-green-600"
+                  className="h-8 w-8"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -172,80 +198,113 @@ const ForgotPasswordPage: React.FC = () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                    d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
                   />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-green-800 mb-2">
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
                 Quên mật khẩu?
               </h2>
-              <p className="text-gray-600">
-                Nhập email của bạn để nhận mã OTP khôi phục mật khẩu
+              <p className="text-slate-500 font-medium text-sm md:text-base px-4">
+                Đừng lo lắng! Vui lòng nhập email liên kết với tài khoản của
+                bạn.
               </p>
             </div>
 
             <form onSubmit={handleSendOtp} className="space-y-6">
-              <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
-                  Email <span className="text-red-500">*</span>
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">
+                  Email của bạn
                 </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                    error ? "border-red-500" : "border-gray-300"
-                  }`}
-                  placeholder="Nhập email của bạn"
-                />
-                {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
+                <div className="relative group">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 group-focus-within:text-green-500 transition-colors">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={`w-full pl-11 pr-4 py-4 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 transition-all ${
+                      error
+                        ? "border-red-400 focus:border-red-400"
+                        : "border-slate-100 focus:border-green-500 focus:bg-white"
+                    }`}
+                    placeholder="name@example.com"
+                  />
+                </div>
+                {error && (
+                  <p className="mt-2 text-xs text-red-500 font-medium ml-1">
+                    {error}
+                  </p>
+                )}
               </div>
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] transition-all duration-300 transform active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2"
               >
-                {isLoading ? "Đang gửi..." : "Gửi mã OTP"}
+                {isLoading ? renderSpinner() : "Gửi mã xác nhận"}
               </button>
             </form>
           </>
         );
 
-      // STEP 2: NHẬP OTP (với 6 ô input + đếm ngược)
+      // STEP 2: NHẬP OTP
       case "verify":
         return (
           <>
-            <h2 className="text-2xl font-semibold text-green-800 mb-4 text-center">
-              Nhập mã OTP
-            </h2>
-            <p className="text-gray-600 text-center mb-6">
-              Mã OTP đã được gửi đến <span className="font-medium">{email}</span>
-            </p>
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Kiểm tra email
+              </h2>
+              <p className="text-slate-500 font-medium text-sm md:text-base">
+                Chúng tôi đã gửi mã gồm 6 chữ số đến <br />
+                <span className="text-slate-900 font-bold">{email}</span>
+              </p>
+            </div>
 
             <form onSubmit={handleVerifyOtp} className="space-y-6">
               {renderOtpInputs()}
-              {error && <p className="text-center text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="text-center text-sm font-medium text-red-500">
+                  {error}
+                </p>
+              )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300 flex items-center justify-center"
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] transition-all duration-300 transform active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2"
               >
-                {isLoading ? "Đang xác minh..." : "Xác minh OTP"}
+                {isLoading ? renderSpinner() : "Xác minh OTP"}
               </button>
             </form>
 
-            <div className="text-center mt-6">
+            <div className="text-center mt-8">
               {timer > 0 ? (
-                <p className="text-gray-500 text-sm">
-                  Gửi lại OTP sau <span className="font-medium">{timer}s</span>
+                <p className="text-slate-500 text-sm font-medium">
+                  Gửi lại mã sau{" "}
+                  <span className="text-green-600 font-bold">{timer}s</span>
                 </p>
               ) : (
                 <button
                   onClick={handleResendOtp}
                   disabled={isLoading}
-                  className="text-sm text-green-600 hover:text-green-700 font-medium transition"
+                  className="text-sm text-green-600 hover:text-green-700 font-bold underline-offset-4 hover:underline transition-all"
                 >
                   Gửi lại mã OTP
                 </button>
@@ -258,44 +317,89 @@ const ForgotPasswordPage: React.FC = () => {
       case "reset":
         return (
           <>
-            <h2 className="text-2xl font-semibold text-green-800 mb-4 text-center">
-              Tạo mật khẩu mới
-            </h2>
-            <form onSubmit={handleResetPassword} className="space-y-6">
-              <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">
+                Tạo mật khẩu mới
+              </h2>
+              <p className="text-slate-500 font-medium text-sm md:text-base">
+                Mật khẩu mới của bạn phải khác với các mật khẩu đã sử dụng trước
+                đó.
+              </p>
+            </div>
+
+            <form onSubmit={handleResetPassword} className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">
                   Mật khẩu mới
                 </label>
-                <input
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 border-gray-300"
-                  placeholder="Nhập mật khẩu mới"
-                />
+                <div className="relative group">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 group-focus-within:text-green-500 transition-colors">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 focus:bg-white transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-gray-700 text-sm font-medium mb-2">
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700 ml-1">
                   Xác nhận mật khẩu
                 </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 border-gray-300"
-                  placeholder="Nhập lại mật khẩu"
-                />
+                <div className="relative group">
+                  <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400 group-focus-within:text-green-500 transition-colors">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 focus:bg-white transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
               </div>
 
-              {error && <p className="text-sm text-red-500">{error}</p>}
+              {error && (
+                <p className="text-sm font-medium text-red-500 ml-1">{error}</p>
+              )}
 
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-lg font-medium hover:shadow-lg transition-all duration-300"
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] transition-all duration-300 transform active:scale-[0.98] disabled:opacity-70 disabled:pointer-events-none flex items-center justify-center gap-2 mt-4"
               >
-                {isLoading ? "Đang cập nhật..." : "Đặt lại mật khẩu"}
+                {isLoading ? renderSpinner() : "Lưu mật khẩu"}
               </button>
             </form>
           </>
@@ -304,34 +408,37 @@ const ForgotPasswordPage: React.FC = () => {
       // STEP 4: THÀNH CÔNG
       case "success":
         return (
-          <div className="text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-10 w-10 text-green-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+          <div className="text-center py-6">
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center shadow-lg shadow-green-200">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-8 w-8 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
             </div>
-            <h2 className="text-2xl font-semibold text-green-800 mb-2">
-              Đặt lại mật khẩu thành công!
+            <h2 className="text-3xl font-bold text-slate-900 mb-4">
+              Khôi phục thành công!
             </h2>
-            <p className="text-gray-600 mb-6">
-              Bạn có thể đăng nhập bằng mật khẩu mới.
+            <p className="text-slate-500 font-medium mb-10 px-4">
+              Mật khẩu của bạn đã được thay đổi an toàn. Bạn có thể sử dụng mật
+              khẩu mới để đăng nhập.
             </p>
             <Link
               to="/login"
-              className="inline-block bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transform hover:scale-105 transition-all duration-300"
+              className="w-full block bg-slate-900 text-white py-4 rounded-2xl font-bold text-lg hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] transition-all duration-300 transform active:scale-[0.98]"
             >
-              Đăng nhập ngay
+              Quay lại trang Đăng nhập
             </Link>
           </div>
         );
@@ -339,24 +446,63 @@ const ForgotPasswordPage: React.FC = () => {
   };
 
   return (
-    <Layout>
-      <section className="bg-gradient-to-r from-green-100 to-yellow-100 py-8 text-center relative overflow-hidden">
-        <div className="relative z-10">
-          <h1 className="text-4xl font-bold text-green-800 mb-2">
-            Quên mật khẩu
-          </h1>
-          <p className="text-gray-700">Khôi phục mật khẩu tài khoản của bạn</p>
-        </div>
-      </section>
-
-      <div className="container mx-auto px-6 py-10">
-        <div className="max-w-md mx-auto">
-          <div className="bg-white rounded-2xl shadow-md overflow-hidden">
-            <div className="p-8">{renderContent()}</div>
+    <div className="flex flex-col min-h-screen bg-[#fcfdfc]">
+      <Layout>
+        {/* Banner Section */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-green-100/50 to-transparent py-12 text-center">
+          <div className="container mx-auto relative z-10 px-4">
+            <h1 className="text-4xl md:text-5xl font-extrabold text-green-900 mb-4 tracking-tight">
+              Khôi phục tài khoản
+            </h1>
+            <div className="flex items-center justify-center text-slate-500 text-sm md:text-base font-medium">
+              <Link to="/" className="hover:text-green-600 transition-colors">
+                Trang chủ
+              </Link>
+              <span className="mx-3 opacity-30">/</span>
+              <span className="text-green-700">Quên mật khẩu</span>
+            </div>
           </div>
-        </div>
-      </div>
-    </Layout>
+        </section>
+
+        {/* Main Content */}
+        <section className="pb-20 pt-4">
+          <div className="container mx-auto px-4 lg:px-8">
+            <div className="max-w-xl mx-auto w-full">
+              <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-[0_30px_80px_rgba(0,0,0,0.06)] border border-slate-50 relative overflow-hidden">
+                {renderContent()}
+
+                {/* Return Link (Chỉ hiển thị nếu không phải bước Success) */}
+                {step !== "success" && (
+                  <div className="mt-8 text-center pt-8 border-t border-slate-50">
+                    <Link
+                      to="/login"
+                      className="inline-flex items-center justify-center gap-2 text-slate-500 hover:text-slate-900 font-bold transition-colors"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                        />
+                      </svg>
+                      Quay lại Đăng nhập
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+      </Layout>
+      <Footer />
+    </div>
   );
 };
 

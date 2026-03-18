@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Edit, Shield } from "lucide-react";
-import Card from "../../../components/layouts/Card";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 
 interface Role {
@@ -32,7 +32,7 @@ const RoleDetailPage: React.FC = () => {
 
       const res = await http<ApiDetail<Role> | ApiErr>(
         "GET",
-        `/api/v1/admin/roles/detail/${id}`
+        `/api/v1/admin/roles/detail/${id}`,
       );
 
       if ("success" in res && res.success && res.data) {

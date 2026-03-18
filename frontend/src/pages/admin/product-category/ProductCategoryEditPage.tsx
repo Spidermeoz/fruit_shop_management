@@ -7,8 +7,8 @@ import React, {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Save, ArrowLeft } from "lucide-react";
-import Card from "../../../components/layouts/Card";
-import RichTextEditor from "../../../components/common/RichTextEditor";
+import Card from "../../../components/admin/layouts/Card";
+import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 
