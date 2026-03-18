@@ -120,7 +120,7 @@ const AboutPage: React.FC = () => {
             </div>
             <div className="md:w-1/2">
               <img
-                src="https://i.imgur.com/5Y2n5xR.jpg"
+                src="https://res.cloudinary.com/dgqzcdtbx/image/upload/v1773817053/fruitshop/uploads/file_tjpsrn.jpg"
                 alt="FreshFruits Team"
                 className="rounded-2xl shadow-lg w-full h-auto object-cover"
               />
