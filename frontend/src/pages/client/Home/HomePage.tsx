@@ -4,23 +4,38 @@ import Layout from "../../../components/client/layout/Layout";
 import { http } from "../../../services/http";
 import Footer from "../../../components/client/layout/Footer";
 
+interface Product {
+  id: number;
+  title: string;
+  slug?: string;
+  price: number;
+  discountPercentage?: number;
+  effectivePrice?: number;
+  thumbnail?: string;
+  stock?: number;
+  category?: {
+    id: number;
+    title: string;
+    slug?: string;
+  } | null;
+}
+
 const HomePage: React.FC = () => {
   const [, setIsVisible] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
-  // ✅ Gọi API thật lấy sản phẩm (đồng bộ style admin)
   const fetchProducts = async () => {
     try {
       setLoading(true);
       setError("");
 
-      let url = `/api/v1/client/products?page=1&limit=8&sortBy=position&order=ASC`;
-
+      const url = `/api/v1/client/products?page=1&limit=8&sortBy=position&order=ASC`;
       const json = await http<any>("GET", url);
+
       if (json?.success && Array.isArray(json.data)) {
         setProducts(json.data);
       } else {
@@ -38,7 +53,6 @@ const HomePage: React.FC = () => {
     fetchProducts();
   }, []);
 
-  // Hiệu ứng hiển thị và auto slide
   useEffect(() => {
     setIsVisible(true);
 
@@ -56,7 +70,6 @@ const HomePage: React.FC = () => {
     };
   }, []);
 
-  // Dữ liệu slide banner
   const slides = [
     {
       id: 1,
@@ -116,6 +129,34 @@ const HomePage: React.FC = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   const goToSlide = (index: number) => setCurrentSlide(index);
 
+  const getFinalPrice = (product: Product) => {
+    if (
+      typeof product.effectivePrice === "number" &&
+      !Number.isNaN(product.effectivePrice)
+    ) {
+      return product.effectivePrice;
+    }
+
+    if (
+      typeof product.price === "number" &&
+      typeof product.discountPercentage === "number" &&
+      product.discountPercentage > 0
+    ) {
+      return Math.round(product.price * (1 - product.discountPercentage / 100));
+    }
+
+    return product.price;
+  };
+
+  const getDiscountAmount = (product: Product) => {
+    const finalPrice = getFinalPrice(product);
+    return Math.max(0, product.price - finalPrice);
+  };
+
+  const formatPrice = (value: number) => {
+    return value.toLocaleString("vi-VN") + " ₫";
+  };
+
   return (
     <Layout>
       {/* ================== HERO SLIDER ================== */}
@@ -168,7 +209,6 @@ const HomePage: React.FC = () => {
           ))}
         </div>
 
-        {/* Slider Controls */}
         <button
           onClick={prevSlide}
           className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 rounded-full transition"
@@ -182,7 +222,6 @@ const HomePage: React.FC = () => {
           ❯
         </button>
 
-        {/* Indicators */}
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-2">
           {slides.map((_, i) => (
             <button
@@ -210,36 +249,119 @@ const HomePage: React.FC = () => {
           <p className="text-center text-gray-500">Chưa có sản phẩm nào.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {products.map((p) => (
-              <div
-                key={p.id}
-                className="group rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-2 bg-white"
-              >
-                <div className="overflow-hidden h-64">
-                  <img
-                    src={p.thumbnail || "https://via.placeholder.com/300"}
-                    alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
+            {products.map((p) => {
+              const hasDiscount =
+                typeof p.discountPercentage === "number" &&
+                p.discountPercentage > 0;
+
+              const finalPrice = getFinalPrice(p);
+              const discountAmount = getDiscountAmount(p);
+
+              return (
+                <div
+                  key={p.id}
+                  className="group rounded-2xl overflow-hidden border border-orange-100 bg-white shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-2"
+                >
+                  <div className="relative overflow-hidden h-64 bg-orange-50">
+                    <img
+                      src={p.thumbnail || "https://via.placeholder.com/300"}
+                      alt={p.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+
+                    {hasDiscount && (
+                      <>
+                        <div className="absolute top-3 left-3 z-10">
+                          <div className="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-1.5 rounded-full shadow-lg">
+                            <span className="text-sm font-bold">
+                              GIẢM {p.discountPercentage}%
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="absolute top-3 right-3 z-10">
+                          <div className="bg-white/95 backdrop-blur-sm text-red-600 px-3 py-1.5 rounded-xl shadow-md border border-red-100">
+                            <p className="text-[11px] leading-none font-medium text-gray-500 mb-1">
+                              Tiết kiệm
+                            </p>
+                            <p className="text-sm font-bold">
+                              {formatPrice(discountAmount)}
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {typeof p.stock === "number" && p.stock <= 0 && (
+                      <div className="absolute inset-0 bg-black/55 flex items-center justify-center">
+                        <span className="text-white font-semibold text-lg px-4 py-2 rounded-full bg-black/30">
+                          Hết hàng
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-5 flex flex-col min-h-[280px]">
+                    {p.category?.title && (
+                      <span className="inline-block mb-2 text-xs font-semibold uppercase tracking-wide text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full w-fit">
+                        {p.category.title}
+                      </span>
+                    )}
+
+                    <h3 className="text-lg font-semibold text-gray-800 mb-3 line-clamp-2 min-h-[56px]">
+                      {p.title}
+                    </h3>
+
+                    <div className="mb-4 h-[84px] flex flex-col justify-end">
+                      <div className="flex items-end gap-2 flex-wrap min-h-[40px]">
+                        <span
+                          className={`text-2xl font-extrabold tracking-tight ${
+                            hasDiscount ? "text-red-600" : "text-orange-500"
+                          }`}
+                        >
+                          {formatPrice(hasDiscount ? finalPrice : p.price)}
+                        </span>
+
+                        <span
+                          className={`text-sm line-through ${
+                            hasDiscount ? "text-gray-400 visible" : "invisible"
+                          }`}
+                        >
+                          {formatPrice(p.price)}
+                        </span>
+                      </div>
+
+                      <div className="mt-2 flex items-center gap-2 flex-wrap min-h-[28px]">
+                        <span
+                          className={`inline-flex items-center rounded-full text-xs font-bold px-2.5 py-1 border ${
+                            hasDiscount
+                              ? "bg-red-50 text-red-600 border-red-100 visible"
+                              : "invisible"
+                          }`}
+                        >
+                          -{p.discountPercentage ?? 0}%
+                        </span>
+
+                        <span
+                          className={`text-sm font-medium ${
+                            hasDiscount ? "text-green-600 visible" : "invisible"
+                          }`}
+                        >
+                          Bạn tiết kiệm {formatPrice(discountAmount)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <Link
+                      to={`/products/${p.id}`}
+                      className="mt-auto w-full block text-center rounded-xl bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 font-semibold shadow-sm hover:shadow-md hover:from-orange-600 hover:to-red-600 transition-all duration-300"
+                    >
+                      Xem chi tiết
+                    </Link>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="text-xl font-semibold text-green-700 mb-2">
-                    {p.title}
-                  </h3>
-                  <p className="text-lg text-orange-500 font-medium mb-4">
-                    {p.price
-                      ? p.price.toLocaleString("vi-VN") + " ₫"
-                      : "Liên hệ"}
-                  </p>
-                  <Link
-                    to={`/products/${p.id}`}
-                    className="w-full block text-center bg-green-600 text-white py-2 rounded-lg font-medium opacity-0 group-hover:opacity-100 transition"
-                  >
-                    Xem chi tiết
-                  </Link>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -330,10 +452,8 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* ================== FOOTER ================== */}
-      <Footer></Footer>
+      <Footer />
 
-      {/* ================== BACK TO TOP ================== */}
       <button
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         className="fixed bottom-8 right-8 bg-green-600 text-white p-3 rounded-full shadow-lg hover:bg-green-700 transition z-40"
