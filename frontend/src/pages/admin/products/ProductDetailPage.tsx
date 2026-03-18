@@ -1,7 +1,13 @@
 // src/pages/ProductDetailPage.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Edit } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Edit,
+  MessageCircle,
+  ChevronDown,
+} from "lucide-react";
 import Card from "../../../components/layouts/Card";
 import { http } from "../../../services/http";
 
@@ -25,6 +31,19 @@ interface Product {
   updated_at?: string;
 }
 
+// ===== REVIEW REPLY TYPE =====
+interface ReviewReply {
+  id: number;
+  content: string;
+  createdAt?: string;
+  created_at?: string;
+  user?: {
+    id: number;
+    name: string;
+    avatar?: string;
+  };
+}
+
 // ===== REVIEW TYPE =====
 interface Review {
   id: number;
@@ -37,34 +56,29 @@ interface Review {
     name: string;
     avatar?: string;
   };
-  replies?: {
-    id: number;
-    content: string;
-    createdAt?: string;
-    created_at?: string;
-    user?: {
-      id: number;
-      name: string;
-      avatar?: string;
-    };
-  }[];
+  replies?: ReviewReply[];
 }
 
 // ===== ADMIN REPLY FORM COMPONENT =====
 interface AdminReplyFormProps {
   reviewId: number;
   onSuccess: () => void;
+  onCancel: () => void;
 }
 
 const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
   reviewId,
   onSuccess,
+  onCancel,
 }) => {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleReply = async () => {
-    if (!content.trim()) return alert("Vui lòng nhập nội dung phản hồi.");
+    if (!content.trim()) {
+      alert("Vui lòng nhập nội dung phản hồi.");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -72,13 +86,13 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
         "POST",
         `/api/v1/admin/reviews/${reviewId}/reply`,
         {
-          content,
+          content: content.trim(),
         },
       );
 
       if (res.success) {
         setContent("");
-        onSuccess(); // ⭐ reload list
+        onSuccess();
       } else {
         alert(res.message || "Không thể gửi phản hồi.");
       }
@@ -90,29 +104,57 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
   };
 
   return (
-    // Thêm dark mode cho viền
-    <div className="mt-3 ml-10 border-l-4 border-gray-300 dark:border-gray-600 pl-4">
-      <p className="font-medium text-gray-700 dark:text-gray-300 mb-2">
-        Phản hồi đánh giá:
-      </p>
+    <div className="mt-4 ml-12 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 to-indigo-50 p-4 shadow-sm dark:border-blue-900/40 dark:from-blue-950/30 dark:to-indigo-950/20">
+      <div className="mb-3 flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm">
+          <MessageCircle className="h-4 w-4" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+            Phản hồi bình luận
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Bạn chỉ có thể phản hồi một lần cho bình luận này.
+          </p>
+        </div>
+      </div>
+
       <textarea
         value={content}
         onChange={(e) => setContent(e.target.value)}
-        rows={3}
-        // Thêm focus border cho textarea
-        className="w-full p-2 border dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+        rows={4}
+        className="w-full rounded-xl border border-gray-200 bg-white p-3 text-sm text-gray-800 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:border-blue-500 dark:focus:ring-blue-900/30"
         placeholder="Nhập nội dung phản hồi..."
       />
 
-      <button
-        onClick={handleReply}
-        disabled={loading}
-        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
-      >
-        {loading ? "Đang gửi..." : "Gửi phản hồi"}
-      </button>
+      <div className="mt-3 flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={loading}
+          className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          Hủy
+        </button>
+        <button
+          type="button"
+          onClick={handleReply}
+          disabled={loading}
+          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+        >
+          {loading ? "Đang gửi..." : "Gửi phản hồi"}
+        </button>
+      </div>
     </div>
   );
+};
+
+// ===== HELPER =====
+const formatDateTime = (date?: string) => {
+  if (!date) return "—";
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return "—";
+  return parsed.toLocaleString();
 };
 
 // ===== PRODUCT DETAIL PAGE COMPONENT =====
@@ -125,6 +167,19 @@ const ProductDetailPage: React.FC = () => {
   const [loadingProduct, setLoadingProduct] = useState<boolean>(true);
   const [loadingReviews, setLoadingReviews] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+
+  // Số comment hiển thị ban đầu = 2, mỗi lần xem thêm = +3
+  const [visibleReviewCount, setVisibleReviewCount] = useState<number>(2);
+
+  // reviewId nào đang mở ô reply
+  const [activeReplyReviewId, setActiveReplyReviewId] = useState<number | null>(
+    null,
+  );
+
+  // map số lượng replies đang hiển thị theo từng comment
+  const [visibleRepliesMap, setVisibleRepliesMap] = useState<
+    Record<number, number>
+  >({});
 
   // ===== FETCH PRODUCT =====
   const fetchProductDetail = async () => {
@@ -159,12 +214,29 @@ const ProductDetailPage: React.FC = () => {
 
       if (json.success && Array.isArray(json.data)) {
         setReviews(json.data);
+
+        // Reset hiển thị comment về mặc định 2 comment mới nhất sau khi reload
+        setVisibleReviewCount(2);
+
+        // Reset reply form đang mở
+        setActiveReplyReviewId(null);
+
+        // Khởi tạo mỗi comment có replies thì chỉ hiển thị 2 reply đầu
+        const initialRepliesMap: Record<number, number> = {};
+        json.data.forEach((review: Review) => {
+          if (Array.isArray(review.replies) && review.replies.length > 0) {
+            initialRepliesMap[review.id] = 2;
+          }
+        });
+        setVisibleRepliesMap(initialRepliesMap);
       } else {
         setReviews([]);
+        setVisibleRepliesMap({});
       }
     } catch (err) {
       console.error("fetchReviews error:", err);
       setReviews([]);
+      setVisibleRepliesMap({});
     } finally {
       setLoadingReviews(false);
     }
@@ -175,11 +247,33 @@ const ProductDetailPage: React.FC = () => {
     fetchReviews();
   }, [id]);
 
+  const sortedReviews = useMemo(() => {
+    return [...reviews].sort((a, b) => {
+      const timeA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const timeB = new Date(b.created_at || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+  }, [reviews]);
+
+  const visibleReviews = sortedReviews.slice(0, visibleReviewCount);
+  const hasMoreReviews = visibleReviewCount < sortedReviews.length;
+
+  const handleShowMoreReviews = () => {
+    setVisibleReviewCount((prev) => prev + 3);
+  };
+
+  const handleShowMoreReplies = (reviewId: number) => {
+    setVisibleRepliesMap((prev) => ({
+      ...prev,
+      [reviewId]: (prev[reviewId] || 2) + 3,
+    }));
+  };
+
   // ===== LOADING =====
   if (loadingProduct) {
     return (
-      <div className="flex justify-center items-center h-[70vh]">
-        <Loader2 className="w-6 h-6 text-gray-500 dark:text-gray-400 animate-spin" />
+      <div className="flex h-[70vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải...
         </span>
@@ -190,13 +284,13 @@ const ProductDetailPage: React.FC = () => {
   // ===== ERROR =====
   if (error || !product) {
     return (
-      <div className="flex flex-col justify-center items-center h-[70vh] text-center">
-        <p className="text-red-500 dark:text-red-400 font-medium">
+      <div className="flex h-[70vh] flex-col items-center justify-center text-center">
+        <p className="font-medium text-red-500 dark:text-red-400">
           {error || "Sản phẩm không tồn tại."}
         </p>
         <button
           onClick={() => navigate(-1)}
-          className="mt-4 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+          className="mt-4 rounded-md bg-gray-200 px-4 py-2 text-gray-800 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
         >
           Quay lại
         </button>
@@ -207,35 +301,35 @@ const ProductDetailPage: React.FC = () => {
   return (
     <div className="p-4">
       {/* HEADER */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Chi tiết sản phẩm
         </h1>
         <div className="flex gap-3">
           <button
             onClick={() => navigate(`/admin/products/edit/${id}`)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
+            className="flex items-center gap-2 rounded-md bg-blue-100 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
           >
-            <Edit className="w-4 h-4" /> Chỉnh sửa
+            <Edit className="h-4 w-4" /> Chỉnh sửa
           </button>
           <button
             onClick={() => navigate("/admin/products")}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+            className="flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
           >
-            <ArrowLeft className="w-4 h-4" /> Quay lại
+            <ArrowLeft className="h-4 w-4" /> Quay lại
           </button>
         </div>
       </div>
 
       <Card>
         {/* GRID PRODUCT INFO */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+        <div className="grid grid-cols-1 gap-6 p-2 md:grid-cols-2">
           {/* IMAGE */}
           <div className="flex justify-center md:justify-start">
             <img
               src={product.thumbnail || "https://via.placeholder.com/300"}
               alt={product.title}
-              className="w-64 h-64 object-cover rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+              className="h-64 w-64 rounded-lg border border-gray-200 object-cover shadow-sm dark:border-gray-700"
             />
           </div>
 
@@ -248,7 +342,7 @@ const ProductDetailPage: React.FC = () => {
               Mã sản phẩm: #{product.id}
             </p>
 
-            <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm mt-4">
+            <div className="mt-4 grid grid-cols-2 gap-x-2 gap-y-3 text-sm">
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">
                   Danh mục:
@@ -259,7 +353,7 @@ const ProductDetailPage: React.FC = () => {
                 <span className="font-medium text-gray-600 dark:text-gray-400">
                   Giá:
                 </span>{" "}
-                <span className="text-green-600 dark:text-green-400 font-semibold">
+                <span className="font-semibold text-green-600 dark:text-green-400">
                   {product.price.toLocaleString()}₫
                 </span>
               </p>
@@ -292,7 +386,7 @@ const ProductDetailPage: React.FC = () => {
                   Trạng thái:
                 </span>{" "}
                 <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                  className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
                     product.status === "active"
                       ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                       : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -318,18 +412,18 @@ const ProductDetailPage: React.FC = () => {
         </div>
 
         {/* DESCRIPTION */}
-        <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6 px-2">
-          <h2 className="text-lg font-semibold mb-4 dark:text-white">
+        <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
             Mô tả sản phẩm
           </h2>
           <div
-            className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300"
+            className="prose max-w-none text-gray-700 dark:prose-invert dark:text-gray-300"
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
         </div>
 
         {/* SYSTEM INFO */}
-        <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6 px-2 grid grid-cols-1 sm:grid-cols-2 text-sm gap-3 text-gray-700 dark:text-gray-400">
+        <div className="mt-8 grid grid-cols-1 gap-3 border-t border-gray-200 px-2 pt-6 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-400 sm:grid-cols-2">
           <p>
             <span className="font-medium text-gray-600 dark:text-gray-300">
               Ngày tạo:
@@ -350,7 +444,7 @@ const ProductDetailPage: React.FC = () => {
 
         {/* ====== REVIEWS SECTION ====== */}
         <div className="mt-10 px-2">
-          <h2 className="text-xl font-semibold mb-6 dark:text-white border-b pb-2 dark:border-gray-700">
+          <h2 className="mb-6 border-b pb-2 text-xl font-semibold dark:border-gray-700 dark:text-white">
             Đánh giá sản phẩm
           </h2>
 
@@ -364,84 +458,170 @@ const ProductDetailPage: React.FC = () => {
             </p>
           ) : (
             <div className="space-y-6">
-              {reviews.map((rv) => {
-                const replied = rv.replies && rv.replies.length > 0;
+              {visibleReviews.map((rv) => {
+                const allReplies = Array.isArray(rv.replies)
+                  ? [...rv.replies].sort((a, b) => {
+                      const timeA = new Date(
+                        a.created_at || a.createdAt || 0,
+                      ).getTime();
+                      const timeB = new Date(
+                        b.created_at || b.createdAt || 0,
+                      ).getTime();
+                      return timeB - timeA;
+                    })
+                  : [];
+
+                const replied = allReplies.length > 0;
+                const visibleReplyCount = visibleRepliesMap[rv.id] || 2;
+                const visibleReplies = allReplies.slice(0, visibleReplyCount);
+                const hasMoreReplies = visibleReplyCount < allReplies.length;
+                const isReplyFormOpen = activeReplyReviewId === rv.id;
 
                 return (
                   <div
                     key={rv.id}
-                    className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0"
+                    className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md dark:border-gray-700 dark:bg-gray-900/60"
                   >
                     {/* USER INFO */}
-                    <div className="flex items-center gap-3 mb-3">
+                    <div className="mb-3 flex items-start gap-3">
                       <img
                         src={
                           rv.user?.avatar ||
                           "https://ui-avatars.com/api/?name=U"
                         }
-                        className="w-10 h-10 rounded-full border dark:border-gray-600"
+                        alt={rv.user?.name || "Người dùng"}
+                        className="h-11 w-11 rounded-full border object-cover dark:border-gray-600"
                       />
-                      <div>
-                        <p className="font-semibold text-gray-800 dark:text-gray-100">
-                          {rv.user?.name || "Người dùng"}
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-400 text-xs">
-                          {new Date(
-                            rv.created_at || rv.createdAt!,
-                          ).toLocaleString()}
-                        </p>
-                      </div>
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <p className="font-semibold text-gray-800 dark:text-gray-100">
+                            {rv.user?.name || "Người dùng"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {formatDateTime(rv.created_at || rv.createdAt)}
+                          </p>
+                        </div>
 
-                    {/* RATING */}
-                    <div className="flex text-yellow-500 mb-3 text-sm">
-                      {Array.from({ length: rv.rating || 0 }).map((_, i) => (
-                        <span key={i}>★</span>
-                      ))}
-                      {Array.from({ length: 5 - (rv.rating || 0) }).map(
-                        (_, i) => (
-                          <span
-                            key={i}
-                            className="text-gray-300 dark:text-gray-600"
-                          >
-                            ★
-                          </span>
-                        ),
-                      )}
+                        {/* RATING */}
+                        <div className="mt-1 flex text-sm text-yellow-500">
+                          {Array.from({ length: rv.rating || 0 }).map(
+                            (_, i) => (
+                              <span key={i}>★</span>
+                            ),
+                          )}
+                          {Array.from({ length: 5 - (rv.rating || 0) }).map(
+                            (_, i) => (
+                              <span
+                                key={i}
+                                className="text-gray-300 dark:text-gray-600"
+                              >
+                                ★
+                              </span>
+                            ),
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     {/* CONTENT */}
-                    <p className="text-gray-800 dark:text-gray-300 text-sm leading-relaxed">
-                      {rv.content}
-                    </p>
+                    <div className="pl-14">
+                      <p className="text-sm leading-7 text-gray-800 dark:text-gray-300">
+                        {rv.content}
+                      </p>
 
-                    {/* EXISTING ADMIN REPLY */}
-                    {rv.replies && rv.replies.length > 0 && (
-                      <div className="mt-4 ml-10 border-l-4 border-blue-500 dark:border-blue-700 pl-4 bg-blue-50/50 dark:bg-blue-900/10 p-3 rounded-r-md">
-                        <p className="text-blue-700 dark:text-blue-400 font-semibold text-sm mb-1">
-                          Phản hồi của shop:
-                        </p>
-                        <p className="text-gray-700 dark:text-gray-300 text-sm">
-                          {rv.replies[0].content}
-                        </p>
-                        <p className="text-gray-500 dark:text-gray-500 text-xs mt-2">
-                          {new Date(rv.replies[0].created_at!).toLocaleString()}
-                        </p>
+                      {/* ACTIONS */}
+                      <div className="mt-3 flex items-center gap-4">
+                        {!replied && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveReplyReviewId((prev) =>
+                                prev === rv.id ? null : rv.id,
+                              )
+                            }
+                            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            {isReplyFormOpen ? "Ẩn phản hồi" : "Phản hồi"}
+                          </button>
+                        )}
                       </div>
-                    )}
 
-                    {/* ===========================
-                        FORM REPLY (CHỈ HIỆN NẾU CHƯA REPLY)
-                    ============================ */}
-                    {!replied && (
-                      <AdminReplyForm
-                        reviewId={rv.id}
-                        onSuccess={() => fetchReviews()} // ⭐ load lại review đúng cách
-                      />
-                    )}
+                      {/* REPLY FORM: chỉ hiện khi chưa replied và bấm nút phản hồi */}
+                      {!replied && isReplyFormOpen && (
+                        <AdminReplyForm
+                          reviewId={rv.id}
+                          onSuccess={() => fetchReviews()}
+                          onCancel={() => setActiveReplyReviewId(null)}
+                        />
+                      )}
+
+                      {/* EXISTING REPLIES */}
+                      {replied && (
+                        <div className="mt-4 space-y-3">
+                          {visibleReplies.map((reply) => (
+                            <div
+                              key={reply.id}
+                              className="ml-4 rounded-2xl border border-blue-100 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 shadow-sm dark:border-blue-900/30 dark:from-blue-950/20 dark:to-indigo-950/10"
+                            >
+                              <div className="flex items-start gap-3">
+                                <img
+                                  src={
+                                    reply.user?.avatar ||
+                                    "https://ui-avatars.com/api/?name=Shop"
+                                  }
+                                  alt={reply.user?.name || "Shop"}
+                                  className="h-9 w-9 rounded-full border object-cover dark:border-gray-600"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                      {reply.user?.name || "Phản hồi của shop"}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {formatDateTime(
+                                        reply.created_at || reply.createdAt,
+                                      )}
+                                    </p>
+                                  </div>
+                                  <p className="mt-1 text-sm leading-6 text-gray-700 dark:text-gray-300">
+                                    {reply.content}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+
+                          {hasMoreReplies && (
+                            <button
+                              type="button"
+                              onClick={() => handleShowMoreReplies(rv.id)}
+                              className="ml-4 inline-flex items-center gap-1 text-sm font-medium text-blue-600 transition hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                              Xem thêm phản hồi
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
+
+              {/* SHOW MORE REVIEWS */}
+              {hasMoreReviews && (
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={handleShowMoreReviews}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow-sm transition hover:border-blue-200 hover:text-blue-600 hover:shadow dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200 dark:hover:border-blue-800 dark:hover:text-blue-400"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                    Xem thêm
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

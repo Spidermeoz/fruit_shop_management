@@ -1,4 +1,4 @@
-import { fn, col, literal } from "sequelize";
+import { fn, col, literal, Op } from "sequelize";
 
 export class SequelizeReviewRepository {
   constructor(private models: any) {}
@@ -30,7 +30,7 @@ export class SequelizeReviewRepository {
 
   async reply(input: any) {
     const parentReview = await this.models.ProductReview.findByPk(
-      input.parentId
+      input.parentId,
     );
 
     if (!parentReview) {
@@ -70,13 +70,12 @@ export class SequelizeReviewRepository {
         },
       ],
       order: [
-        ["id", "DESC"], // Cha mới nhất trước
+        ["id", "DESC"],
         [{ model: this.models.ProductReview, as: "replies" }, "id", "ASC"],
       ],
     });
 
-    // Lọc chỉ review cha
-    return rows.filter((r: { parent_id: null; }) => r.parent_id === null);
+    return rows.filter((r: { parent_id: null }) => r.parent_id === null);
   }
 
   async listByUser(userId: number) {
@@ -97,31 +96,22 @@ export class SequelizeReviewRepository {
     const ProductReview = this.models.ProductReview;
 
     return await ProductReview.findAll({
-      attributes: [
-        "product_id",
-
-        // ⭐ Đếm review gốc theo alias đúng
-        [fn("COUNT", col("ProductReviewModel.id")), "pending_count"],
-      ],
-
+      attributes: ["product_id", [fn("COUNT", col("id")), "pending_count"]],
       where: {
         parent_id: null,
         status: "approved",
-      },
-
-      include: [
-        {
-          model: ProductReview,
-          as: "replies",
-          required: false,
-          attributes: [],
+        id: {
+          [Op.notIn]: literal(`
+            (
+              SELECT DISTINCT child.parent_id
+              FROM product_reviews AS child
+              WHERE child.parent_id IS NOT NULL
+            )
+          `),
         },
-      ],
-
+      },
       group: ["product_id"],
-
-      // ⭐ alias replies là "replies"
-      having: literal("COUNT(replies.id) = 0"),
+      raw: true,
     });
   }
 }

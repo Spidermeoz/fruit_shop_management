@@ -33,7 +33,7 @@ const ProductsPage: React.FC = () => {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState<string>(
-    searchParams.get("keyword") || ""
+    searchParams.get("keyword") || "",
   );
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
@@ -48,13 +48,28 @@ const ProductsPage: React.FC = () => {
   const [pendingMap, setPendingMap] = useState<Record<number, number>>({});
 
   const fetchPendingReviews = async () => {
-    const res = await http("GET", "/api/v1/admin/reviews/pending-summary");
-    if (res.success) {
-      const map: Record<number, number> = {};
-      res.data.forEach((row: any) => {
-        map[row.productId] = row.pending;
-      });
-      setPendingMap(map);
+    try {
+      const res = await http("GET", "/api/v1/admin/reviews/pending-summary");
+
+      if (res?.success && Array.isArray(res.data)) {
+        const map: Record<number, number> = {};
+
+        res.data.forEach((row: any) => {
+          const productId = Number(row.productId);
+          const pending = Number(row.pending || 0);
+
+          if (!Number.isNaN(productId)) {
+            map[productId] = pending;
+          }
+        });
+
+        setPendingMap(map);
+      } else {
+        setPendingMap({});
+      }
+    } catch (err) {
+      console.error("Fetch pending reviews error:", err);
+      setPendingMap({});
     }
   };
 
@@ -149,7 +164,7 @@ const ProductsPage: React.FC = () => {
     } catch (err) {
       console.error("Delete product error:", err);
       alert(
-        err instanceof Error ? err.message : "Không thể kết nối đến server!"
+        err instanceof Error ? err.message : "Không thể kết nối đến server!",
       );
     } finally {
       setLoading(false);
@@ -166,12 +181,14 @@ const ProductsPage: React.FC = () => {
       });
 
       setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? { ...p, status: newStatus } : p))
+        prev.map((p) =>
+          p.id === product.id ? { ...p, status: newStatus } : p,
+        ),
       );
     } catch (err) {
       console.error(err);
       alert(
-        err instanceof Error ? err.message : "Không thể cập nhật trạng thái"
+        err instanceof Error ? err.message : "Không thể cập nhật trạng thái",
       );
     }
   };
@@ -318,7 +335,7 @@ const ProductsPage: React.FC = () => {
 
                 if (
                   !window.confirm(
-                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedProducts.length} sản phẩm?`
+                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedProducts.length} sản phẩm?`,
                   )
                 )
                   return;
@@ -373,7 +390,7 @@ const ProductsPage: React.FC = () => {
                 } catch (err) {
                   console.error(err);
                   alert(
-                    err instanceof Error ? err.message : "Lỗi kết nối server!"
+                    err instanceof Error ? err.message : "Lỗi kết nối server!",
                   );
                 }
               }}
@@ -413,7 +430,7 @@ const ProductsPage: React.FC = () => {
                       onChange={(e) => {
                         if (e.target.checked) {
                           setSelectedProducts(
-                            filteredProducts.map((p) => p.id)
+                            filteredProducts.map((p) => p.id),
                           );
                         } else {
                           setSelectedProducts([]);
@@ -465,7 +482,7 @@ const ProductsPage: React.FC = () => {
                             ]);
                           } else {
                             setSelectedProducts((prev) =>
-                              prev.filter((id) => id !== product.id)
+                              prev.filter((id) => id !== product.id),
                             );
                           }
                         }}
@@ -516,8 +533,8 @@ const ProductsPage: React.FC = () => {
                             prev.map((p) =>
                               p.id === product.id
                                 ? { ...p, position: newPos }
-                                : p
-                            )
+                                : p,
+                            ),
                           );
                         }}
                         className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"

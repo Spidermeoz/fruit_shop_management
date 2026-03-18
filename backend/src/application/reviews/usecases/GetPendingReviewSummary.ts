@@ -7,8 +7,8 @@ export class GetPendingReviewSummary {
     const rows = await this.reviewRepo.countPendingReviewsByProduct();
 
     return rows.map((r: any) => ({
-      productId: r.product_id,
-      pending: Number(r.dataValues.pending_count || 0),
+      productId: Number(r.product_id),
+      pending: Number(r.pending_count || 0),
     }));
   }
 }

@@ -60,7 +60,9 @@ const OrderHistoryPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [reviewingOrderId, setReviewingOrderId] = useState<number | null>(null);
   const [reviewsData, setReviewsData] = useState<any>({});
-  const [submittingReview, setSubmittingReview] = useState(false);
+  const [submittingReviewId, setSubmittingReviewId] = useState<number | null>(
+    null,
+  );
 
   // =============================
   // LOAD ORDERS FROM API
@@ -77,14 +79,12 @@ const OrderHistoryPage: React.FC = () => {
           result = res.data.map((o: any) => o.props);
       }
 
-      // === CHECK REVIEW FOR EACH ORDER ITEM ===
       const extendedOrders = [];
 
       for (const ord of result) {
         const newItems = [];
 
         for (const item of ord.items) {
-          // gọi API check review
           const check = await http(
             "GET",
             `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`,
@@ -94,13 +94,13 @@ const OrderHistoryPage: React.FC = () => {
 
           newItems.push({
             ...item,
-            _reviewed: reviewed, // thêm flag đánh giá vào item
+            _reviewed: reviewed,
           });
         }
 
         extendedOrders.push({
           ...ord,
-          items: newItems, // gán lại list item có flag _reviewed
+          items: newItems,
         });
       }
 
@@ -131,8 +131,6 @@ const OrderHistoryPage: React.FC = () => {
 
       if (res.success) {
         alert("Hủy đơn hàng thành công!");
-
-        // Reload danh sách để cập nhật trạng thái
         await loadOrders();
       } else {
         alert(res.message || "Không thể hủy đơn hàng");
@@ -227,43 +225,47 @@ const OrderHistoryPage: React.FC = () => {
     }));
   };
 
-  const submitReviews = async (order: Order) => {
+  // =============================
+  // SUBMIT SINGLE REVIEW
+  // =============================
+  const submitSingleReview = async (orderId: number, productId: number) => {
     try {
-      setSubmittingReview(true);
+      const rd = reviewsData[productId];
 
-      let sent = false;
-
-      for (const p of order.items) {
-        const rd = reviewsData[p.productId];
-
-        // chỉ bỏ qua nếu KHÔNG có rating và KHÔNG có content
-        if (!rd || (!rd.rating && !rd.content?.trim())) continue;
-
-        await http("POST", "/api/v1/client/reviews", {
-          productId: p.productId,
-          orderId: order.id,
-          rating: rd.rating || null,
-          content: rd.content || null,
-        });
-
-        sent = true;
+      if (!rd || (!rd.rating && !rd.content?.trim())) {
+        alert("Vui lòng nhập nội dung hoặc chọn số sao.");
+        return;
       }
 
-      if (!sent) {
-        alert("Vui lòng nhập nội dung hoặc chọn số sao.");
+      setSubmittingReviewId(productId);
+
+      const res = await http("POST", "/api/v1/client/reviews", {
+        productId,
+        orderId,
+        rating: rd.rating || null,
+        content: rd.content?.trim() || null,
+      });
+
+      if (!res?.success) {
+        alert(res?.message || "Gửi đánh giá thất bại.");
         return;
       }
 
       alert("Đánh giá thành công!");
 
+      // Xóa dữ liệu tạm của đúng sản phẩm vừa gửi
+      setReviewsData((prev: any) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+
       await loadOrders();
-      setReviewingOrderId(null);
-      setReviewsData({});
     } catch (err) {
       console.error(err);
       alert("Lỗi khi gửi đánh giá.");
     } finally {
-      setSubmittingReview(false);
+      setSubmittingReviewId(null);
     }
   };
 
@@ -285,7 +287,6 @@ const OrderHistoryPage: React.FC = () => {
   // =============================
   return (
     <Layout>
-      {/* HEADER */}
       <section className="bg-gradient-to-r from-green-100 to-yellow-100 py-8 text-center relative overflow-hidden">
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-4 left-10 w-16 h-16 bg-yellow-300 rounded-full animate-pulse"></div>
@@ -301,7 +302,6 @@ const OrderHistoryPage: React.FC = () => {
       </section>
 
       <div className="container mx-auto px-6 py-10">
-        {/* FILTER */}
         <div className="bg-white rounded-2xl shadow-md p-6 mb-10">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
             <h2 className="text-xl font-semibold text-green-800 flex items-center gap-2">
@@ -364,7 +364,6 @@ const OrderHistoryPage: React.FC = () => {
           </div>
         </div>
 
-        {/* EMPTY */}
         {filteredOrders.length === 0 ? (
           <div className="text-center py-20 bg-white rounded-2xl shadow-md">
             <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
@@ -397,7 +396,6 @@ const OrderHistoryPage: React.FC = () => {
                   key={order.id}
                   className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-all duration-300"
                 >
-                  {/* TOP */}
                   <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6">
                     <div className="flex flex-col md:flex-row justify-between gap-4">
                       <div>
@@ -459,7 +457,6 @@ const OrderHistoryPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* ITEMS */}
                   <div className="p-6">
                     <h4 className="font-semibold text-gray-800 mb-3">
                       Sản phẩm trong đơn
@@ -499,7 +496,6 @@ const OrderHistoryPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* REVIEW FORM */}
                   {order.status === "completed" && (
                     <div className="border-t border-gray-200 pt-4 mt-4">
                       <button
@@ -517,7 +513,6 @@ const OrderHistoryPage: React.FC = () => {
                         <div className="mt-4 space-y-6 bg-gray-50 p-4 rounded-xl">
                           {order.items.map((item) =>
                             item._reviewed ? (
-                              // ===== SẢN PHẨM ĐÃ ĐƯỢC ĐÁNH GIÁ =====
                               <div
                                 key={item.productId}
                                 className="p-3 border rounded-lg bg-gray-100 text-gray-600 flex items-center gap-3"
@@ -537,12 +532,10 @@ const OrderHistoryPage: React.FC = () => {
                                 </div>
                               </div>
                             ) : (
-                              // ===== SẢN PHẨM CHƯA ĐƯỢC ĐÁNH GIÁ → FORM REVIEW =====
                               <div
                                 key={item.productId}
                                 className="border p-3 rounded-lg bg-white"
                               >
-                                {/* Tên + Ảnh */}
                                 <div className="flex items-center gap-3 mb-3">
                                   <Link
                                     to={`/products/${item.productId}`}
@@ -558,7 +551,6 @@ const OrderHistoryPage: React.FC = () => {
                                   </Link>
                                 </div>
 
-                                {/* Rating */}
                                 <div className="flex gap-1 mb-3">
                                   {[1, 2, 3, 4, 5].map((n) => (
                                     <Star
@@ -579,7 +571,6 @@ const OrderHistoryPage: React.FC = () => {
                                   ))}
                                 </div>
 
-                                {/* Nội dung */}
                                 <textarea
                                   rows={3}
                                   className="w-full border p-2 rounded-lg focus:ring-green-500 focus:border-green-500"
@@ -597,11 +588,15 @@ const OrderHistoryPage: React.FC = () => {
                                 />
 
                                 <button
-                                  disabled={submittingReview}
-                                  onClick={() => submitReviews(order)}
-                                  className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                                  disabled={
+                                    submittingReviewId === item.productId
+                                  }
+                                  onClick={() =>
+                                    submitSingleReview(order.id, item.productId)
+                                  }
+                                  className="mt-3 px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                                 >
-                                  {submittingReview
+                                  {submittingReviewId === item.productId
                                     ? "Đang gửi..."
                                     : "Gửi đánh giá"}
                                 </button>
@@ -613,7 +608,6 @@ const OrderHistoryPage: React.FC = () => {
                     </div>
                   )}
 
-                  {/* ACTIONS */}
                   <div className="bg-gray-50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <Link
                       to={`/orders/${order.id}`}
@@ -625,7 +619,6 @@ const OrderHistoryPage: React.FC = () => {
                     </Link>
 
                     <div className="flex gap-3">
-                      {/* CANCEL ORDER */}
                       {canCancel && (
                         <button
                           disabled={isCancelling === order.id}
@@ -646,7 +639,6 @@ const OrderHistoryPage: React.FC = () => {
                         </button>
                       )}
 
-                      {/* MUA LẠI */}
                       {order.items && order.items.length > 0 ? (
                         <Link
                           to={`/products/${order.items[0].productId}`}
