@@ -24,7 +24,6 @@ interface Address {
   district: string;
   province: string;
   postalCode: string;
-  notes: string;
 }
 
 interface OrderItem {
@@ -46,11 +45,10 @@ interface OrderItem {
 }
 
 type PasswordErrors = {
-  currentPassword?:string|null;
+  currentPassword?: string | null;
   newPassword?: string | null;
   confirmPassword?: string | null;
 };
-
 
 const ProfilePage: React.FC = () => {
   const navigate = useNavigate();
@@ -59,8 +57,9 @@ const ProfilePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [errors, setErrors] = useState<PasswordErrors>({
+    currentPassword: null,
     newPassword: null,
-    confirmPassword: null
+    confirmPassword: null,
   });
 
   const [profile, setProfile] = useState<UserProfile>({
@@ -124,7 +123,9 @@ const ProfilePage: React.FC = () => {
       if (err.response?.status === 401) {
         navigate("/login");
       } else {
-        setApiError("Không thể tải thông tin người dùng. Vui lòng thử lại sau.");
+        setApiError(
+          "Không thể tải thông tin người dùng. Vui lòng thử lại sau.",
+        );
       }
     }
   };
@@ -161,7 +162,7 @@ const ProfilePage: React.FC = () => {
   const confirmPhoneNumber = (phoneNumber: string) => {
     const phoneRegex = /^(0[3|5|7|8|9])[0-9]{8}$/;
     return phoneRegex.test(phoneNumber);
-  }
+  };
 
   // ==========================
   // 📌 SAVE PROFILE
@@ -169,8 +170,8 @@ const ProfilePage: React.FC = () => {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     const isPhoneNumber = confirmPhoneNumber(profile.phone);
-    if(!isPhoneNumber) {
-      alert('Số điện thoại sai định dạng');
+    if (!isPhoneNumber) {
+      alert("Số điện thoại sai định dạng");
 
       setIsLoading(false);
       return;
@@ -197,29 +198,27 @@ const ProfilePage: React.FC = () => {
     }
   };
 
-
   const validateNewPassword = (password: string) => {
-    return password.length >= 6
-  }
-
+    return password.length >= 6;
+  };
 
   const haveErrorPassword = () => {
-    const newErrors = {
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
+    const newErrors: PasswordErrors = {
+      currentPassword: null,
+      newPassword: null,
+      confirmPassword: null,
     };
 
-    if (!passwordData.currentPassword) {
-      newErrors.currentPassword = "Chưa nhập mật khẩu";
+    if (!passwordData.currentPassword.trim()) {
+      newErrors.currentPassword = "Chưa nhập mật khẩu hiện tại";
     }
 
-    if (!passwordData.newPassword) {
-      newErrors.newPassword = "Chưa nhập mật khẩu";
+    if (!passwordData.newPassword.trim()) {
+      newErrors.newPassword = "Chưa nhập mật khẩu mới";
     }
 
-    if (!passwordData.confirmPassword) {
-      newErrors.confirmPassword = "Chưa nhập mật khẩu";
+    if (!passwordData.confirmPassword.trim()) {
+      newErrors.confirmPassword = "Chưa nhập xác nhận mật khẩu";
     }
 
     if (
@@ -247,16 +246,16 @@ const ProfilePage: React.FC = () => {
 
     setErrors(newErrors);
 
-    return Object.keys(newErrors).length > 0;
+    return Object.values(newErrors).some((value) => value);
   };
 
   // ==========================
-  // 📌 CHANGE PASSWORD
+  // CHANGE PASSWORD
   // ==========================
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if(haveErrorPassword()) {
+    if (haveErrorPassword()) {
       return;
     }
 
@@ -353,7 +352,9 @@ const ProfilePage: React.FC = () => {
       setSelectedFile(null);
       setPreviewAvatar(null);
       // Reset input
-      const avatarInput = document.getElementById("avatarInput") as HTMLInputElement;
+      const avatarInput = document.getElementById(
+        "avatarInput",
+      ) as HTMLInputElement;
       if (avatarInput) avatarInput.value = "";
     }
   };
@@ -363,7 +364,9 @@ const ProfilePage: React.FC = () => {
     setSelectedFile(null);
     setPreviewAvatar(null);
     // Reset input
-    const avatarInput = document.getElementById("avatarInput") as HTMLInputElement;
+    const avatarInput = document.getElementById(
+      "avatarInput",
+    ) as HTMLInputElement;
     if (avatarInput) avatarInput.value = "";
   };
 
@@ -414,11 +417,11 @@ const ProfilePage: React.FC = () => {
           bgColor: "bg-gray-100",
           textColor: "text-gray-700",
         };
-    }         
+    }
   };
 
   const handleProfileChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setProfile((prev) => ({
@@ -429,14 +432,16 @@ const ProfilePage: React.FC = () => {
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+
     setPasswordData((prev) => ({
       ...prev,
       [name]: value,
     }));
-    setErrors({
-      newPassword: null,
-      confirmPassword: null
-    })
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: null,
+    }));
   };
 
   // Hàm xử lý avatar
@@ -726,7 +731,7 @@ const ProfilePage: React.FC = () => {
                                   <p className="text-sm text-gray-600">
                                     Ngày đặt:{" "}
                                     {new Date(
-                                      order.createdAt
+                                      order.createdAt,
                                     ).toLocaleDateString()}
                                   </p>
                                   <p className="text-sm text-gray-600">
@@ -802,11 +807,6 @@ const ProfilePage: React.FC = () => {
                               {address.postalCode && (
                                 <p className="text-sm text-gray-600">
                                   Mã bưu chính: {address.postalCode}
-                                </p>
-                              )}
-                              {address.notes && (
-                                <p className="text-sm text-gray-600">
-                                  Ghi chú: {address.notes}
                                 </p>
                               )}
                             </div>
@@ -901,12 +901,11 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    {
-                      errors.currentPassword && 
+                    {errors.currentPassword && (
                       <p className="mt-1 text-sm text-red-500">
                         {errors.currentPassword}
                       </p>
-                    }
+                    )}
                     <div>
                       <label className="block text-gray-700 text-sm font-medium mb-2">
                         Mật khẩu mới
@@ -970,12 +969,11 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    {
-                      errors.newPassword && 
+                    {errors.newPassword && (
                       <p className="mt-1 text-sm text-red-500">
                         {errors.newPassword}
                       </p>
-                    }
+                    )}
 
                     <div>
                       <label className="block text-gray-700 text-sm font-medium mb-2">
@@ -1040,12 +1038,11 @@ const ProfilePage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    {
-                      errors.confirmPassword && 
+                    {errors.confirmPassword && (
                       <p className="mt-1 text-sm text-red-500">
                         {errors.confirmPassword}
                       </p>
-                    }
+                    )}
 
                     <div className="flex justify-end">
                       <button
