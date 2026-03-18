@@ -28,6 +28,14 @@ const SettingGeneral = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
     },
+    facebook: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    zalo: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
     address: {
       type: DataTypes.TEXT,
       allowNull: true,
@@ -52,7 +60,7 @@ const SettingGeneral = sequelize.define(
     tableName: "settings_general",
     timestamps: true,
     underscored: true,
-  }
+  },
 );
 
 export default SettingGeneral;

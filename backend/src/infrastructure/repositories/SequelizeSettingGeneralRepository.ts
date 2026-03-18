@@ -6,9 +6,7 @@ import {
 } from "../../domain/settings/SettingGeneralRepository";
 import { SettingGeneral } from "../../domain/settings/SettingGeneral";
 
-export class SequelizeSettingGeneralRepository
-  implements SettingGeneralRepository
-{
+export class SequelizeSettingGeneralRepository implements SettingGeneralRepository {
   constructor(private models: { SettingGeneral: any }) {}
 
   async get(): Promise<SettingGeneral | null> {
@@ -22,6 +20,8 @@ export class SequelizeSettingGeneralRepository
       logo: row.logo,
       phone: row.phone,
       email: row.email,
+      facebook: row.facebook,
+      zalo: row.zalo,
       address: row.address,
       copyright: row.copyright,
       createdAt: row.created_at,
@@ -41,6 +41,8 @@ export class SequelizeSettingGeneralRepository
       logo: patch.logo,
       phone: patch.phone,
       email: patch.email,
+      facebook: patch.facebook,
+      zalo: patch.zalo,
       address: patch.address,
       copyright: patch.copyright,
     });
@@ -53,6 +55,8 @@ export class SequelizeSettingGeneralRepository
       logo: row.logo,
       phone: row.phone,
       email: row.email,
+      facebook: row.facebook,
+      zalo: row.zalo,
       address: row.address,
       copyright: row.copyright,
       createdAt: row.created_at,

@@ -18,6 +18,8 @@ export class GetGeneralSettings {
       logo: setting.props.logo ?? null,
       phone: setting.props.phone ?? null,
       email: setting.props.email ?? null,
+      facebook: setting.props.facebook ?? null,
+      zalo: setting.props.zalo ?? null,
       address: setting.props.address ?? null,
       copyright: setting.props.copyright ?? null,
       created_at: setting.props.createdAt ?? null,

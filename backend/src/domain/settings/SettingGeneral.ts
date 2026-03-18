@@ -6,9 +6,10 @@ export interface SettingGeneralProps {
   logo?: string | null;
   phone?: string | null;
   email?: string | null;
+  facebook?: string | null;
+  zalo?: string | null;
   address?: string | null;
   copyright?: string | null;
-
   createdAt?: Date;
   updatedAt?: Date;
 }

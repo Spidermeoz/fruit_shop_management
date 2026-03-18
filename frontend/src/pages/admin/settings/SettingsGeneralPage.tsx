@@ -14,6 +14,8 @@ interface SettingGeneral {
   logo: string | null;
   phone: string | null;
   email: string | null;
+  facebook: string | null;
+  zalo: string | null;
   address: string | null;
   copyright: string | null;
 }
@@ -87,7 +89,9 @@ const SettingsGeneralPage: React.FC = () => {
       settings.website_name !== initialSettings.website_name ||
       settings.phone !== initialSettings.phone ||
       settings.email !== initialSettings.email ||
-      settings.address !== initialSettings.address ||
+      settings.facebook !== initialSettings.facebook ||
+      settings.zalo !== initialSettings.zalo;
+    settings.address !== initialSettings.address ||
       settings.copyright !== initialSettings.copyright;
 
     const hasImageChanges = selectedFile !== null;
@@ -130,6 +134,8 @@ const SettingsGeneralPage: React.FC = () => {
       formData.append("website_name", settings.website_name || "");
       formData.append("phone", settings.phone || "");
       formData.append("email", settings.email || "");
+      formData.append("facebook", settings.facebook || "");
+      formData.append("zalo", settings.zalo || "");
       formData.append("address", settings.address || "");
       formData.append("copyright", settings.copyright || "");
 
@@ -279,6 +285,36 @@ const SettingsGeneralPage: React.FC = () => {
                 {formErrors.email}
               </p>
             )}
+          </div>
+
+          {/* Facebook */}
+          <div>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Facebook
+            </label>
+            <input
+              type="text"
+              name="facebook"
+              value={settings.facebook || ""}
+              onChange={handleChange}
+              placeholder="https://facebook.com/your-page hoặc link messenger"
+              className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Zalo */}
+          <div>
+            <label className="block font-medium mb-1 text-gray-800 dark:text-gray-200">
+              Zalo
+            </label>
+            <input
+              type="text"
+              name="zalo"
+              value={settings.zalo || ""}
+              onChange={handleChange}
+              placeholder="https://zalo.me/09xxxxxxxx"
+              className="w-full border border-gray-300 dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            />
           </div>
 
           {/* Address */}

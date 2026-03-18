@@ -17,6 +17,8 @@ export class UpdateGeneralSettings {
       logo: updated.props.logo ?? null,
       phone: updated.props.phone ?? null,
       email: updated.props.email ?? null,
+      facebook: updated.props.facebook ?? null,
+      zalo: updated.props.zalo ?? null,
       address: updated.props.address ?? null,
       copyright: updated.props.copyright ?? null,
       created_at: updated.props.createdAt ?? null,

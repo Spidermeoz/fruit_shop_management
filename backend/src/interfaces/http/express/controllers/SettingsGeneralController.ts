@@ -50,6 +50,8 @@ export const makeSettingsGeneralController = (uc: {
           websiteName: body.website_name ?? undefined,
           phone: body.phone ?? undefined,
           email: body.email ?? undefined,
+          facebook: body.facebook ?? undefined,
+          zalo: body.zalo ?? undefined,
           address: body.address ?? undefined,
           copyright: body.copyright ?? undefined,
           logo: newLogoUrl !== undefined ? newLogoUrl : undefined,
