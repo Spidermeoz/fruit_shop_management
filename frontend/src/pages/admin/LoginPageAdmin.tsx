@@ -35,35 +35,36 @@ const LoginPageAdmin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5fbf4] relative overflow-hidden">
-      {/* Background decorations */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-20 -left-20 h-72 w-72 rounded-full bg-green-200/40 blur-3xl" />
-        <div className="absolute top-1/3 -right-24 h-80 w-80 rounded-full bg-lime-200/40 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-80 w-80 rounded-full bg-emerald-200/40 blur-3xl" />
+    <div className="min-h-screen bg-[#fcfdfc] text-slate-800 font-sans selection:bg-blue-200 selection:text-blue-900 relative overflow-hidden">
+      {/* Background decorations - Chỉ hiển thị ở phần bên trái */}
+      <div className="absolute inset-0 pointer-events-none lg:w-[60%]">
+        <div className="absolute -top-20 -left-20 h-[500px] w-[500px] rounded-full bg-blue-200/30 blur-[100px]" />
+        <div className="absolute top-1/3 right-0 h-[600px] w-[600px] rounded-full bg-sky-100/30 blur-[120px]" />
+        <div className="absolute -bottom-24 left-1/4 h-[500px] w-[500px] rounded-full bg-cyan-100/40 blur-[100px]" />
 
         <div
-          className="absolute inset-0 opacity-[0.05]"
+          className="absolute inset-0 opacity-[0.03]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, #166534 1px, transparent 0)",
-            backgroundSize: "28px 28px",
+              "radial-gradient(circle at 1px 1px, #1d4ed8 1px, transparent 0)",
+            backgroundSize: "32px 32px",
           }}
         />
       </div>
 
-      <div className="relative z-10 min-h-screen grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr]">
-        {/* LEFT SHOWCASE */}
+      {/* Main Grid: Chia tỷ lệ 1.3fr (Trái) và 0.9fr (Phải) */}
+      <div className="relative z-10 min-h-screen grid grid-cols-1 lg:grid-cols-[1.3fr_0.9fr]">
+        {/* ================= LEFT SHOWCASE (Giữ nguyên) ================= */}
         <section className="relative hidden lg:flex flex-col justify-between px-10 xl:px-16 py-10">
           {/* Brand */}
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-600 to-emerald-500 text-white shadow-lg shadow-green-200">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] bg-gradient-to-br from-blue-500 to-sky-600 text-white shadow-lg shadow-blue-200/50">
               <svg
                 className="h-7 w-7"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="1.8"
+                strokeWidth="2"
               >
                 <path
                   strokeLinecap="round"
@@ -72,13 +73,12 @@ const LoginPageAdmin: React.FC = () => {
                 />
               </svg>
             </div>
-
             <div>
-              <h1 className="text-2xl font-extrabold tracking-tight text-green-900">
-                FreshFruits Admin
+              <h1 className="text-2xl font-black tracking-tight text-slate-900">
+                FreshFruits <span className="text-blue-600">Admin</span>
               </h1>
-              <p className="text-sm text-green-700/80">
-                Hệ thống quản lý cửa hàng hoa quả
+              <p className="text-sm font-medium text-slate-500">
+                Hệ thống quản lý cửa hàng
               </p>
             </div>
           </div>
@@ -87,42 +87,43 @@ const LoginPageAdmin: React.FC = () => {
           <div className="grid grid-cols-12 items-center gap-6 xl:gap-8">
             {/* Text block */}
             <div className="col-span-5 self-end pb-8">
-              <div className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-white/80 px-4 py-2 text-sm font-medium text-green-700 shadow-sm backdrop-blur">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-green-500" />
-                Quản trị thông minh cho FreshFruits
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/80 px-4 py-2 text-sm font-bold text-blue-700 shadow-sm backdrop-blur-md">
+                <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                Quản trị thông minh
               </div>
 
-              <h2 className="mt-6 text-5xl font-black leading-[1.05] tracking-tight text-slate-900 xl:text-6xl">
+              <h2 className="mt-6 text-5xl font-black leading-[1.1] tracking-tight text-slate-900 xl:text-6xl">
                 Quản lý
                 <br />
                 cửa hàng
                 <br />
-                <span className="text-green-600">hoa quả</span>
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-sky-500">
+                  hoa quả
+                </span>
                 <br />
-                thật trực quan.
+                trực quan.
               </h2>
 
-              <p className="mt-5 max-w-md text-base leading-7 text-slate-600">
+              <p className="mt-5 max-w-md text-[15px] font-medium leading-relaxed text-slate-500">
                 Theo dõi sản phẩm, đơn hàng và hoạt động kinh doanh trong một
                 không gian quản trị hiện đại, rõ ràng và đậm chất FreshFruits.
               </p>
 
-              <div className="mt-8 flex flex-wrap gap-3">
-                <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-md ring-1 ring-green-100 backdrop-blur">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <div className="mt-8 flex flex-wrap gap-4">
+                <div className="rounded-[1.5rem] bg-white/80 px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-50 backdrop-blur-md">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Sản phẩm
                   </div>
-                  <div className="mt-1 text-lg font-bold text-green-700">
+                  <div className="mt-1 text-lg font-black text-blue-700">
                     Tươi ngon mỗi ngày
                   </div>
                 </div>
-
-                <div className="rounded-2xl bg-white/85 px-4 py-3 shadow-md ring-1 ring-green-100 backdrop-blur">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Quản trị
+                <div className="rounded-[1.5rem] bg-white/80 px-5 py-4 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-50 backdrop-blur-md">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                    Hệ thống
                   </div>
-                  <div className="mt-1 text-lg font-bold text-green-700">
-                    Nhanh gọn, dễ dùng
+                  <div className="mt-1 text-lg font-black text-blue-700">
+                    Nhanh gọn, bảo mật
                   </div>
                 </div>
               </div>
@@ -131,78 +132,73 @@ const LoginPageAdmin: React.FC = () => {
             {/* Visual collage */}
             <div className="col-span-7 relative h-[620px]">
               {/* Main hero card */}
-              <div className="absolute left-24 top-4 h-[390px] w-[310px] overflow-hidden rounded-[32px] border border-white/70 bg-white shadow-2xl shadow-green-200/70">
+              <div className="absolute left-24 top-4 h-[390px] w-[310px] overflow-hidden rounded-[2.5rem] border border-white bg-white shadow-[0_20px_50px_rgba(59,130,246,0.15)]">
                 <img
                   src="https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=900&q=80"
                   alt="Trái cây tươi"
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10" />
-
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-white/10" />
                 <div className="absolute left-5 right-5 top-5 flex items-center justify-between">
-                  <div className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-green-700 shadow">
+                  <div className="rounded-full bg-white/95 px-4 py-1.5 text-xs font-bold text-blue-700 shadow-sm backdrop-blur">
                     Fresh Selection
                   </div>
-                  <div className="rounded-full bg-green-500/90 px-3 py-1 text-xs font-semibold text-white shadow">
+                  <div className="rounded-full bg-blue-500/95 px-4 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur">
                     24/7
                   </div>
                 </div>
-
-                <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-white/90 p-4 backdrop-blur">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <div className="absolute bottom-5 left-5 right-5 rounded-[1.5rem] bg-white/95 p-4 shadow-lg backdrop-blur">
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-400">
                     Danh mục nổi bật
                   </div>
-                  <div className="mt-1 text-lg font-bold text-slate-900">
-                    Táo, cam, kiwi, dâu, nho
+                  <div className="mt-1 text-lg font-black text-slate-900">
+                    Táo, cam, kiwi, dâu...
                   </div>
                 </div>
               </div>
 
               {/* Top left card */}
-              <div className="absolute left-0 top-120 top-[130px] h-[250px] w-[220px] overflow-hidden rounded-[28px] border border-white/80 bg-white shadow-xl shadow-green-100">
+              <div className="absolute left-0 top-[130px] h-[250px] w-[220px] overflow-hidden rounded-[2rem] border border-white bg-white shadow-[0_10px_40px_rgba(0,0,0,0.08)]">
                 <img
                   src="https://images.unsplash.com/photo-1571575173700-afb9492e6a50?auto=format&fit=crop&w=700&q=80"
-                  alt="Cam và trái cây họ cam quýt"
+                  alt="Cam"
                   className="h-full w-full object-cover"
                 />
-                <div className="absolute left-4 top-4 rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold text-green-700 shadow">
+                <div className="absolute left-4 top-4 rounded-xl bg-white/95 px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm backdrop-blur">
                   Cam tươi
                 </div>
               </div>
 
               {/* Bottom center card */}
-              <div className="absolute bottom-10 left-14 w-[280px] rounded-[28px] border border-white/80 bg-white p-4 shadow-2xl shadow-green-100">
-                <div className="overflow-hidden rounded-2xl">
+              <div className="absolute bottom-10 left-14 w-[280px] rounded-[2rem] border border-white bg-white p-4 shadow-[0_20px_50px_rgba(0,0,0,0.08)]">
+                <div className="overflow-hidden rounded-[1.5rem]">
                   <img
                     src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&w=700&q=80"
-                    alt="Các loại quả mọng"
+                    alt="Quả mọng"
                     className="h-[170px] w-full object-cover"
                   />
                 </div>
-
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 space-y-3 px-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-800">
+                    <span className="text-[15px] font-bold text-slate-800">
                       Kho hàng hôm nay
                     </span>
-                    <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-bold text-green-700">
+                    <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-700">
                       Ổn định
                     </span>
                   </div>
-
-                  <div className="h-2 rounded-full bg-slate-100">
-                    <div className="h-2 w-[72%] rounded-full bg-gradient-to-r from-green-500 to-emerald-400" />
+                  <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-blue-500 to-sky-400" />
                   </div>
-
-                  <div className="flex items-center justify-between text-sm text-slate-500">
+                  <div className="flex items-center justify-between text-sm font-medium text-slate-500">
                     <span>Trạng thái sản phẩm</span>
-                    <span className="font-semibold text-slate-700">72%</span>
+                    <span className="font-bold text-slate-700">72%</span>
                   </div>
                 </div>
               </div>
 
               {/* Floating circular image */}
-              <div className="absolute bottom-0 right-10 h-[150px] w-[150px] overflow-hidden rounded-full border-4 border-white bg-white shadow-2xl shadow-green-200">
+              <div className="absolute bottom-0 right-10 h-[150px] w-[150px] overflow-hidden rounded-full border-[6px] border-white bg-white shadow-[0_15px_35px_rgba(59,130,246,0.2)]">
                 <img
                   src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce?auto=format&fit=crop&w=500&q=80"
                   alt="Táo xanh"
@@ -211,18 +207,17 @@ const LoginPageAdmin: React.FC = () => {
               </div>
 
               {/* Floating badges */}
-              <div className="absolute left-10 top-16 rounded-2xl bg-white px-4 py-3 shadow-xl">
+              <div className="absolute left-10 top-16 rounded-[1.5rem] bg-white p-4 shadow-xl border border-slate-50">
                 <div className="text-3xl">🍊</div>
               </div>
-
-              <div className="absolute right-6 top-28 rounded-2xl bg-green-500 px-4 py-3 text-white shadow-xl">
+              <div className="absolute right-6 top-28 rounded-[1.5rem] bg-blue-500 px-4 py-3 text-white shadow-xl shadow-blue-500/30">
                 <div className="flex items-center gap-2">
                   <svg
                     className="h-4 w-4"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
+                    strokeWidth="2.5"
                   >
                     <path
                       strokeLinecap="round"
@@ -231,316 +226,280 @@ const LoginPageAdmin: React.FC = () => {
                     />
                     <circle cx="12" cy="12" r="9" />
                   </svg>
-                  <span className="text-sm font-semibold">Fresh every day</span>
+                  <span className="text-sm font-bold">Fresh every day</span>
                 </div>
               </div>
-
-              <div className="absolute right-0 bottom-36 rounded-full bg-white px-5 py-4 shadow-xl">
+              <div className="absolute right-0 bottom-36 rounded-full bg-white p-5 shadow-xl border border-slate-50">
                 <div className="text-4xl">🍓</div>
               </div>
             </div>
           </div>
 
           {/* Bottom helper row */}
-          <div className="flex items-center gap-3 text-sm text-slate-500">
-            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
-            Giao diện quản trị dành riêng cho cửa hàng hoa quả FreshFruits
+          <div className="flex items-center gap-3 text-sm font-medium text-slate-500">
+            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-blue-500" />
+            Giao diện quản trị đồng bộ, bảo mật và thân thiện.
           </div>
         </section>
 
-        {/* RIGHT FORM */}
-        <section className="flex items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
-          <div className="w-full max-w-md">
-            {/* Mobile brand / hero */}
-            <div className="mb-6 lg:hidden">
-              <div className="rounded-[28px] border border-green-100 bg-white/90 p-5 shadow-xl shadow-green-100 backdrop-blur">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-green-600 to-emerald-500 text-white shadow-md">
-                    <svg
-                      className="h-7 w-7"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M7 11c0-2.761 2.239-5 5-5 1.58 0 2.988.733 3.904 1.876M7 11c0 3.866 2.91 7 6.5 7S20 14.866 20 11c0-1.898-.702-3.62-1.86-4.93M7 11H4m16 0h-3M12 6V3"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-extrabold text-green-900">
-                      FreshFruits Admin
-                    </h1>
-                    <p className="text-sm text-slate-600">
-                      Đăng nhập hệ thống quản trị
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 overflow-hidden rounded-2xl">
-                  <img
-                    src="https://images.unsplash.com/photo-1619566636858-adf3ef46400b?auto=format&fit=crop&w=1200&q=80"
-                    alt="Fresh fruits"
-                    className="h-40 w-full object-cover"
+        {/* ================= RIGHT FORM ================= */}
+        <section className="flex flex-col justify-center bg-white lg:border-l lg:border-slate-200 z-20 shadow-[-10px_0_30px_rgba(0,0,0,0.02)] px-6 py-10 sm:px-10 lg:px-14 xl:px-20 min-h-screen">
+          <div className="w-full max-w-[420px] mx-auto">
+            {/* Mobile brand */}
+            <div className="mb-10 flex flex-col items-center text-center lg:hidden">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-sky-600 text-white shadow-lg shadow-blue-200 mb-4">
+                <svg
+                  className="h-8 w-8"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M7 11c0-2.761 2.239-5 5-5 1.58 0 2.988.733 3.904 1.876M7 11c0 3.866 2.91 7 6.5 7S20 14.866 20 11c0-1.898-.702-3.62-1.86-4.93M7 11H4m16 0h-3M12 6V3"
                   />
-                </div>
+                </svg>
               </div>
+              <h1 className="text-2xl font-black text-slate-900">
+                FreshFruits Admin
+              </h1>
             </div>
 
-            <div className="overflow-hidden rounded-[32px] border border-green-100 bg-white/92 shadow-2xl shadow-green-100 backdrop-blur-xl">
-              {/* Header */}
-              <div className="border-b border-green-50 bg-gradient-to-r from-green-700 via-green-600 to-emerald-500 px-7 py-7 text-white sm:px-8">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-green-50/90">
-                      Chào mừng trở lại
-                    </p>
-                    <h2 className="mt-1 text-3xl font-extrabold tracking-tight">
-                      Đăng nhập Admin
-                    </h2>
-                    <p className="mt-2 text-sm text-green-50/90">
-                      Truy cập khu vực quản lý đơn hàng, sản phẩm và khách hàng.
-                    </p>
-                  </div>
+            {/* Tiêu đề Form */}
+            <div className="mb-8">
+              <h2 className="text-3xl font-black tracking-tight text-slate-900">
+                Đăng nhập
+              </h2>
+              <p className="mt-2 text-[15px] font-medium text-slate-500">
+                Vui lòng nhập email và mật khẩu để vào khu vực quản trị.
+              </p>
+            </div>
 
-                  <div className="hidden sm:flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-                    <svg
-                      className="h-7 w-7"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4 7h16M7 4v6m10-6v6M6 11h12l-1 8H7l-1-8z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-
-              {/* Form */}
-              <form onSubmit={onSubmit} className="px-7 py-7 sm:px-8 sm:py-8">
-                {error && (
-                  <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                    {error}
-                  </div>
-                )}
-
-                <div className="space-y-5">
-                  <div className="group">
-                    <label
-                      htmlFor="email"
-                      className="mb-2 block text-sm font-semibold text-slate-700"
-                    >
-                      Email quản trị
-                    </label>
-
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <svg
-                          className="h-5 w-5 text-slate-400 transition-colors group-focus-within:text-green-600"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4 6h16v12H4z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4 8l8 6 8-6"
-                          />
-                        </svg>
-                      </div>
-
-                      <input
-                        id="email"
-                        type="email"
-                        value={form.email}
-                        onChange={(e) =>
-                          setForm((s) => ({ ...s, email: e.target.value }))
-                        }
-                        required
-                        placeholder="admin@freshfruits.com"
-                        className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50/80 pl-12 pr-4 text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="group">
-                    <label
-                      htmlFor="password"
-                      className="mb-2 block text-sm font-semibold text-slate-700"
-                    >
-                      Mật khẩu
-                    </label>
-
-                    <div className="relative">
-                      <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-                        <svg
-                          className="h-5 w-5 text-slate-400 transition-colors group-focus-within:text-green-600"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <rect
-                            x="4"
-                            y="11"
-                            width="16"
-                            height="9"
-                            rx="2"
-                            ry="2"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M8 11V8a4 4 0 118 0v3"
-                          />
-                        </svg>
-                      </div>
-
-                      <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={form.password}
-                        onChange={(e) =>
-                          setForm((s) => ({ ...s, password: e.target.value }))
-                        }
-                        required
-                        placeholder="••••••••"
-                        className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50/80 pl-12 pr-14 text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={
-                          showPassword ? "Ẩn mật khẩu" : "Hiển thị mật khẩu"
-                        }
-                        className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition hover:text-slate-600"
-                      >
-                        {showPassword ? (
-                          <svg
-                            className="h-5 w-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M3 3l18 18"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M10.58 10.58a2 2 0 102.83 2.83"
-                            />
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M9.88 5.09A9.77 9.77 0 0112 4.8c5 0 9.27 3.11 11 7.2a11.83 11.83 0 01-4.04 4.97M6.61 6.61A11.84 11.84 0 001 12c1.73 4.09 6 7.2 11 7.2 1.67 0 3.25-.35 4.68-.98"
-                            />
-                          </svg>
-                        ) : (
-                          <svg
-                            className="h-5 w-5"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"
-                            />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-                    <span className="text-sm">🥝</span>
-                    Khu vực quản trị nội bộ
-                  </div>
-
-                  <button
-                    type="button"
-                    className="text-sm font-semibold text-green-700 transition hover:text-green-800"
+            {/* Form */}
+            <form onSubmit={onSubmit}>
+              {error && (
+                <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 flex items-start gap-2">
+                  <svg
+                    className="w-5 h-5 shrink-0 mt-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
                   >
-                    Quên mật khẩu?
-                  </button>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  {error}
                 </div>
+              )}
 
-                <button
-                  disabled={loading}
-                  className="mt-6 flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-green-700 to-emerald-500 px-4 text-base font-bold text-white shadow-lg shadow-green-200 transition hover:scale-[1.01] hover:from-green-800 hover:to-emerald-600 focus:outline-none focus:ring-4 focus:ring-green-200 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
-                >
-                  {loading ? (
-                    <span className="flex items-center gap-3">
+              <div className="space-y-4">
+                {/* Input Email */}
+                <div className="group">
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
                       <svg
-                        className="h-5 w-5 animate-spin"
+                        className="h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500"
                         viewBox="0 0 24 24"
                         fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
                       >
-                        <circle
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          className="opacity-25"
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4 6h16v12H4z"
                         />
                         <path
-                          d="M22 12a10 10 0 00-10-10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          className="opacity-90"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M4 8l8 6 8-6"
                         />
                       </svg>
-                      Đang đăng nhập...
-                    </span>
-                  ) : (
-                    "Đăng nhập vào hệ thống"
-                  )}
-                </button>
-
-                <div className="mt-6 rounded-2xl border border-green-100 bg-green-50/70 p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 text-lg">🍏</div>
-                    <div>
-                      <p className="text-sm font-semibold text-green-800">
-                        FreshFruits Management
-                      </p>
-                      <p className="mt-1 text-sm leading-6 text-green-700/80">
-                        Giao diện được thiết kế để gợi rõ tinh thần tươi mới,
-                        sạch sẽ và chuyên nghiệp của một thương hiệu hoa quả.
-                      </p>
                     </div>
+                    <input
+                      id="email"
+                      type="email"
+                      value={form.email}
+                      onChange={(e) =>
+                        setForm((s) => ({ ...s, email: e.target.value }))
+                      }
+                      required
+                      placeholder="Email quản trị"
+                      className="h-14 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 text-slate-800 font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal focus:border-blue-500 focus:ring-4 focus:ring-blue-50 hover:border-slate-400"
+                    />
                   </div>
                 </div>
-              </form>
 
-              <div className="border-t border-slate-100 px-7 py-5 text-center text-xs text-slate-500 sm:px-8">
-                © 2025 FreshFruits Admin. Bảo lưu mọi quyền.
+                {/* Input Password */}
+                <div className="group">
+                  <div className="relative">
+                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                      <svg
+                        className="h-5 w-5 text-slate-400 transition-colors group-focus-within:text-blue-500"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <rect
+                          x="4"
+                          y="11"
+                          width="16"
+                          height="9"
+                          rx="2"
+                          ry="2"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M8 11V8a4 4 0 118 0v3"
+                        />
+                      </svg>
+                    </div>
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      value={form.password}
+                      onChange={(e) =>
+                        setForm((s) => ({ ...s, password: e.target.value }))
+                      }
+                      required
+                      placeholder="Mật khẩu"
+                      className="h-14 w-full rounded-xl border border-slate-300 bg-white pl-12 pr-12 text-slate-800 font-medium outline-none transition-all placeholder:text-slate-400 placeholder:font-normal focus:border-blue-500 focus:ring-4 focus:ring-blue-50 hover:border-slate-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400 transition hover:text-blue-600 focus:outline-none"
+                    >
+                      {showPassword ? (
+                        <svg
+                          className="h-5 w-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 3l18 18"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M10.58 10.58a2 2 0 102.83 2.83"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9.88 5.09A9.77 9.77 0 0112 4.8c5 0 9.27 3.11 11 7.2a11.83 11.83 0 01-4.04 4.97M6.61 6.61A11.84 11.84 0 001 12c1.73 4.09 6 7.2 11 7.2 1.67 0 3.25-.35 4.68-.98"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          className="h-5 w-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"
+                          />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
+
+              {/* Tùy chọn nhớ mật khẩu & Quên mật khẩu */}
+              <div className="mt-5 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="remember"
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <label
+                    htmlFor="remember"
+                    className="text-sm font-medium text-slate-600 cursor-pointer"
+                  >
+                    Ghi nhớ tôi
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="text-sm font-bold text-blue-600 hover:text-blue-700 hover:underline transition"
+                >
+                  Quên mật khẩu?
+                </button>
+              </div>
+
+              {/* Nút Đăng nhập */}
+              <button
+                disabled={loading}
+                className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 px-4 text-[16px] font-bold text-white shadow-[0_8px_20px_rgba(59,130,246,0.2)] transition-all hover:from-blue-700 hover:to-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:scale-100"
+              >
+                {loading ? (
+                  <span className="flex items-center gap-2">
+                    <svg
+                      className="h-5 w-5 animate-spin"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        className="opacity-25"
+                      />
+                      <path
+                        d="M22 12a10 10 0 00-10-10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        className="opacity-90"
+                      />
+                    </svg>
+                    Đang đăng nhập...
+                  </span>
+                ) : (
+                  "Đăng nhập"
+                )}
+              </button>
+
+              {/* Divider */}
+              <div className="my-8 flex items-center justify-center gap-4">
+                <div className="h-px flex-1 bg-slate-200"></div>
+                <span className="text-[13px] font-semibold text-slate-400 uppercase tracking-wide">
+                  Hỗ trợ
+                </span>
+                <div className="h-px flex-1 bg-slate-200"></div>
+              </div>
+
+              {/* Nút Phụ */}
+              <button
+                type="button"
+                className="flex h-14 w-full items-center justify-center rounded-xl border-2 border-slate-200 bg-white px-4 text-[15px] font-bold text-slate-600 transition-all hover:border-blue-500 hover:text-blue-600 active:scale-[0.98]"
+              >
+                Liên hệ kỹ thuật viên
+              </button>
+            </form>
+
+            <div className="mt-10 text-center text-xs font-medium text-slate-400">
+              © {new Date().getFullYear()} FreshFruits Admin. Bảo mật nội bộ.
             </div>
           </div>
         </section>

@@ -491,7 +491,12 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       │   └── 📄 OrderHistoryPage.tsx
 │   │   │       ├── 📁 Other
 │   │   │       │   ├── 📄 AboutPage.tsx
-│   │   │       │   └── 📄 ContactPage.tsx
+│   │   │       │   ├── 📄 ContactPage.tsx
+│   │   │       │   ├── 📄 FAQPage.tsx
+│   │   │       │   ├── 📄 PrivacyPolicyPage.tsx
+│   │   │       │   ├── 📄 ReturnPolicyPage.tsx
+│   │   │       │   ├── 📄 ShippingPolicyPage.tsx
+│   │   │       │   └── 📄 TermsOfUsePage.tsx
 │   │   │       ├── 📁 Product
 │   │   │       │   ├── 📄 ProductDetailPage.tsx
 │   │   │       │   └── 📄 Products.tsx
