@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { useAuth } from "../../../context/AuthContext";
+import { useToast } from "../../../context/ToastContext";
 import Footer from "../../../components/client/layouts/Footer";
 
 interface LoginFormData {
@@ -23,6 +24,8 @@ const LoginPage: React.FC = () => {
   const [errors, setErrors] = useState<Partial<LoginFormData>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const { showSuccessToast, showErrorToast } = useToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -57,10 +60,13 @@ const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       await login(formData.email, formData.password, formData.rememberMe);
-      alert("Đăng nhập thành công!");
+      showSuccessToast({
+        title: "Thành công",
+        message: "Đăng nhập thành công!",
+      });
       navigate("/");
     } catch (err: any) {
-      alert(err.message || "Đăng nhập thất bại!");
+      showErrorToast(err.message || "Đăng nhập thất bại!");
     } finally {
       setIsLoading(false);
     }

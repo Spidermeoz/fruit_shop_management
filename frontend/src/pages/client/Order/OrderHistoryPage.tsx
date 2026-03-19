@@ -18,6 +18,7 @@ import {
   Home,
 } from "lucide-react";
 import Footer from "../../../components/client/layouts/Footer";
+import { useToast } from "../../../context/ToastContext";
 
 // =============================
 // TYPE MAPPING TỪ BACKEND
@@ -62,6 +63,9 @@ const OrderHistoryPage: React.FC = () => {
   const [submittingReviewId, setSubmittingReviewId] = useState<number | null>(
     null,
   );
+
+  // SỬ DỤNG TOAST
+  const { showSuccessToast, showErrorToast } = useToast();
 
   // =============================
   // LOAD ORDERS FROM API
@@ -116,14 +120,17 @@ const OrderHistoryPage: React.FC = () => {
     try {
       const res = await http("POST", `/api/v1/client/orders/${orderId}/cancel`);
       if (res.success) {
-        alert("Hủy đơn hàng thành công!");
+        showSuccessToast({
+          title: "Thành công",
+          message: "Hủy đơn hàng thành công!",
+        });
         await loadOrders();
       } else {
-        alert(res.message || "Không thể hủy đơn hàng");
+        showErrorToast(res.message || "Không thể hủy đơn hàng");
       }
     } catch (err) {
       console.error("Cancel error:", err);
-      alert("Đã xảy ra lỗi khi hủy đơn hàng");
+      showErrorToast("Đã xảy ra lỗi khi hủy đơn hàng");
     } finally {
       setIsCancelling(null);
     }
@@ -223,7 +230,7 @@ const OrderHistoryPage: React.FC = () => {
       const rd = reviewsData[productId];
 
       if (!rd || (!rd.rating && !rd.content?.trim())) {
-        alert("Vui lòng nhập nội dung hoặc chọn số sao.");
+        showErrorToast("Vui lòng nhập nội dung hoặc chọn số sao.");
         return;
       }
 
@@ -237,11 +244,14 @@ const OrderHistoryPage: React.FC = () => {
       });
 
       if (!res?.success) {
-        alert(res?.message || "Gửi đánh giá thất bại.");
+        showErrorToast(res?.message || "Gửi đánh giá thất bại.");
         return;
       }
 
-      alert("Đánh giá thành công!");
+      showSuccessToast({
+        title: "Thành công",
+        message: "Đánh giá thành công!",
+      });
 
       setReviewsData((prev: any) => {
         const next = { ...prev };
@@ -252,7 +262,7 @@ const OrderHistoryPage: React.FC = () => {
       await loadOrders();
     } catch (err) {
       console.error(err);
-      alert("Lỗi khi gửi đánh giá.");
+      showErrorToast("Lỗi khi gửi đánh giá.");
     } finally {
       setSubmittingReviewId(null);
     }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { http } from "../../../services/http";
+import { useToast } from "../../../context/ToastContext";
 
 // --- GIỮ NGUYÊN INTERFACES ---
 interface UserProfile {
@@ -58,6 +59,7 @@ const ProfilePage: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+  const { showSuccessToast, showErrorToast } = useToast();
   const [errors, setErrors] = useState<PasswordErrors>({
     currentPassword: null,
     newPassword: null,
@@ -91,6 +93,7 @@ const ProfilePage: React.FC = () => {
   const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
 
   useEffect(() => {
     loadProfile();
@@ -159,7 +162,7 @@ const ProfilePage: React.FC = () => {
     e.preventDefault();
     const isPhoneNumber = confirmPhoneNumber(profile.phone);
     if (!isPhoneNumber) {
-      alert("Số điện thoại sai định dạng");
+      showErrorToast("Số điện thoại sai định dạng");
       setIsLoading(false);
       return;
     }
@@ -173,13 +176,16 @@ const ProfilePage: React.FC = () => {
       });
 
       if (res.success) {
-        alert("Cập nhật thông tin thành công!");
+        showSuccessToast({
+          title: "Thành công",
+          message: "Cập nhật thông tin thành công!",
+        });
         setIsEditing(false);
       } else {
-        alert(res.message || "Cập nhật thất bại");
+        showErrorToast(res.message || "Cập nhật thất bại");
       }
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Có lỗi xảy ra");
+      showErrorToast(err?.response?.data?.message || "Có lỗi xảy ra");
     } finally {
       setIsLoading(false);
     }
@@ -242,18 +248,21 @@ const ProfilePage: React.FC = () => {
       });
 
       if (!res.success) {
-        alert(res.message || "Đổi mật khẩu thất bại");
+        showErrorToast(res.message || "Đổi mật khẩu thất bại");
         return;
       }
 
-      alert("Đổi mật khẩu thành công!");
+      showSuccessToast({
+          title: "Thành công",
+          message: "Đổi mật khẩu thành công!",
+        });
       setPasswordData({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
     } catch (err: any) {
-      alert(err?.response?.data?.message || "Lỗi khi đổi mật khẩu");
+      showErrorToast(err?.response?.data?.message || "Lỗi khi đổi mật khẩu");
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +273,7 @@ const ProfilePage: React.FC = () => {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert("Ảnh phải nhỏ hơn 2MB!");
+      showErrorToast("Ảnh phải nhỏ hơn 2MB!");
       return;
     }
 
@@ -289,7 +298,7 @@ const ProfilePage: React.FC = () => {
       const uploadRes = await http("POST", "/api/v1/client/upload", formData);
       const imageUrl = uploadRes.url || uploadRes.data?.url;
       if (!imageUrl) {
-        alert("Upload ảnh thất bại!");
+        showErrorToast("Upload ảnh thất bại!");
         return;
       }
 
@@ -297,15 +306,18 @@ const ProfilePage: React.FC = () => {
         avatar: imageUrl,
       });
       if (!updateRes.success) {
-        alert(updateRes.message || "Không thể cập nhật avatar");
+        showErrorToast(updateRes.message || "Không thể cập nhật avatar");
         return;
       }
 
       setProfile((prev) => ({ ...prev, avatar: imageUrl }));
-      alert("Cập nhật ảnh đại diện thành công!");
+      showSuccessToast({
+          title: "Thành công",
+          message: "Cập nhật ảnh đại diện thành công!",
+        });
     } catch (err: any) {
       console.error(err);
-      alert(err?.response?.data?.message || "Lỗi upload avatar");
+      showErrorToast(err?.response?.data?.message || "Lỗi upload avatar");
     } finally {
       setIsLoading(false);
       cancelUploadAvatar();

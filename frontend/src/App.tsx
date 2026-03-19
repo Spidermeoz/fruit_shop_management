@@ -52,6 +52,7 @@ import TermsOfUsePage from "./pages/client/Other/TermsOfUsePage";
 import FAQPage from "./pages/client/Other/FAQPage";
 import ReturnPolicyPage from "./pages/client/Other/ReturnPolicyPage";
 import ShippingPolicyPage from "./pages/client/Other/ShippingPolicyPage";
+import { ToastProvider } from "./context/ToastContext";
 // import Footer from "./components/client/layout/Footer"; //
 
 const App: React.FC = () => {
@@ -59,146 +60,163 @@ const App: React.FC = () => {
     <ThemeProvider>
       <AuthProvider>
         <CartProvider>
-          <Routes>
-            {/* ================= ADMIN ================= */}
-            <Route
-              path="/admin/*"
-              element={
-                <RequireAuth>
-                  <div className="flex h-screen bg-gray-100 dark:bg-gray-900 font-roboto">
-                    <Sidebar />
-                    <div className="flex-1 flex flex-col overflow-hidden">
-                      <DashboardHeader />
-                      <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
-                        <Routes>
-                          <Route path="dashboard" element={<DashboardPage />} />
-                          <Route path="products" element={<ProductsPage />} />
-                          <Route
-                            path="products/create"
-                            element={<ProductCreatePage />}
-                          />
-                          <Route
-                            path="products/edit/:id"
-                            element={<ProductEditPage />}
-                          />
-                          <Route
-                            path="products/:id"
-                            element={<ProductDetailPage />}
-                          />
+          <ToastProvider>
+            <Routes>
+              {/* ================= ADMIN ================= */}
+              <Route
+                path="/admin/*"
+                element={
+                  <RequireAuth>
+                    <div className="flex h-screen bg-gray-100 dark:bg-gray-900 font-roboto">
+                      <Sidebar />
+                      <div className="flex-1 flex flex-col overflow-hidden">
+                        <DashboardHeader />
+                        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 dark:bg-gray-900 p-6">
+                          <Routes>
+                            <Route
+                              path="dashboard"
+                              element={<DashboardPage />}
+                            />
+                            <Route path="products" element={<ProductsPage />} />
+                            <Route
+                              path="products/create"
+                              element={<ProductCreatePage />}
+                            />
+                            <Route
+                              path="products/edit/:id"
+                              element={<ProductEditPage />}
+                            />
+                            <Route
+                              path="products/:id"
+                              element={<ProductDetailPage />}
+                            />
 
-                          <Route
-                            path="product-category"
-                            element={<ProductCategoryPage />}
-                          />
-                          <Route
-                            path="product-category/create"
-                            element={<ProductCategoryCreatePage />}
-                          />
-                          <Route
-                            path="product-category/detail/:id"
-                            element={<ProductCategoryDetailPage />}
-                          />
-                          <Route
-                            path="product-category/edit/:id"
-                            element={<ProductCategoryEditPage />}
-                          />
+                            <Route
+                              path="product-category"
+                              element={<ProductCategoryPage />}
+                            />
+                            <Route
+                              path="product-category/create"
+                              element={<ProductCategoryCreatePage />}
+                            />
+                            <Route
+                              path="product-category/detail/:id"
+                              element={<ProductCategoryDetailPage />}
+                            />
+                            <Route
+                              path="product-category/edit/:id"
+                              element={<ProductCategoryEditPage />}
+                            />
 
-                          <Route path="roles" element={<RolesPage />} />
-                          <Route
-                            path="roles/create"
-                            element={<RoleCreatePage />}
-                          />
-                          <Route
-                            path="roles/edit/:id"
-                            element={<RoleEditPage />}
-                          />
-                          <Route
-                            path="roles/detail/:id"
-                            element={<RoleDetailPage />}
-                          />
-                          <Route
-                            path="roles/permissions"
-                            element={<PermissionsPage />}
-                          />
+                            <Route path="roles" element={<RolesPage />} />
+                            <Route
+                              path="roles/create"
+                              element={<RoleCreatePage />}
+                            />
+                            <Route
+                              path="roles/edit/:id"
+                              element={<RoleEditPage />}
+                            />
+                            <Route
+                              path="roles/detail/:id"
+                              element={<RoleDetailPage />}
+                            />
+                            <Route
+                              path="roles/permissions"
+                              element={<PermissionsPage />}
+                            />
 
-                          <Route path="users" element={<UsersPage />} />
-                          <Route
-                            path="users/create"
-                            element={<UserCreatePage />}
-                          />
-                          <Route
-                            path="users/edit/:id"
-                            element={<UserEditPage />}
-                          />
-                          <Route
-                            path="users/detail/:id"
-                            element={<UserDetailPage />}
-                          />
+                            <Route path="users" element={<UsersPage />} />
+                            <Route
+                              path="users/create"
+                              element={<UserCreatePage />}
+                            />
+                            <Route
+                              path="users/edit/:id"
+                              element={<UserEditPage />}
+                            />
+                            <Route
+                              path="users/detail/:id"
+                              element={<UserDetailPage />}
+                            />
 
-                          <Route path="orders" element={<OrdersPage />} />
-                          <Route
-                            path="orders/detail/:id"
-                            element={<OrdersDetailPageAdmin />}
-                          />
-                          <Route
-                            path="orders/:id/timeline"
-                            element={<OrderDeliveryTimelinePage />}
-                          />
+                            <Route path="orders" element={<OrdersPage />} />
+                            <Route
+                              path="orders/detail/:id"
+                              element={<OrdersDetailPageAdmin />}
+                            />
+                            <Route
+                              path="orders/:id/timeline"
+                              element={<OrderDeliveryTimelinePage />}
+                            />
 
-                          <Route
-                            path="settings/general"
-                            element={<SettingsGeneralPage />}
-                          />
-                        </Routes>
-                      </main>
+                            <Route
+                              path="settings/general"
+                              element={<SettingsGeneralPage />}
+                            />
+                          </Routes>
+                        </main>
+                      </div>
                     </div>
-                  </div>
-                </RequireAuth>
-              }
-            />
+                  </RequireAuth>
+                }
+              />
 
-            {/* === Admin Login (Public) === */}
-            <Route path="/admin/auth/login" element={<LoginPageAdmin />} />
+              {/* === Admin Login (Public) === */}
+              <Route path="/admin/auth/login" element={<LoginPageAdmin />} />
 
-            {/* ================= CLIENT ================= */}
-            <Route
-              path="/*"
-              element={
-                <>
-                  <Header />
-                  <main className="min-h-screen bg-white text-gray-800">
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/products" element={<ProductListPage />} />
-                      <Route
-                        path="/products/:id"
-                        element={<ProductClientDetailPage />}
-                      />
-                      <Route path="/cart" element={<CartPage />} />
-                      <Route path="/checkout" element={<CheckoutPage />} />
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/register" element={<RegisterPage />} />
-                      <Route
-                        path="/forgot-password"
-                        element={<ForgotPasswordPage />}
-                      />
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="/orders" element={<OrderHistoryPage />} />
-                      <Route path="/orders/:id" element={<OrderDetailPage />} />
-                      <Route path="/about" element={<AboutPage />} />
-                      <Route path="/contact" element={<ContactPage />} />
-                      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                      <Route path="/terms" element={<TermsOfUsePage />} />
-                      <Route path="/faq" element={<FAQPage />} />
-                      <Route path="/return-policy" element={<ReturnPolicyPage />} />
-                      <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
-                    </Routes>
-                  </main>
-                  {/* <Footer /> */}
-                </>
-              }
-            />
-          </Routes>
+              {/* ================= CLIENT ================= */}
+              <Route
+                path="/*"
+                element={
+                  <>
+                    <Header />
+                    <main className="min-h-screen bg-white text-gray-800">
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/products" element={<ProductListPage />} />
+                        <Route
+                          path="/products/:id"
+                          element={<ProductClientDetailPage />}
+                        />
+                        <Route path="/cart" element={<CartPage />} />
+                        <Route path="/checkout" element={<CheckoutPage />} />
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
+                        <Route
+                          path="/forgot-password"
+                          element={<ForgotPasswordPage />}
+                        />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/orders" element={<OrderHistoryPage />} />
+                        <Route
+                          path="/orders/:id"
+                          element={<OrderDetailPage />}
+                        />
+                        <Route path="/about" element={<AboutPage />} />
+                        <Route path="/contact" element={<ContactPage />} />
+                        <Route
+                          path="/privacy-policy"
+                          element={<PrivacyPolicyPage />}
+                        />
+                        <Route path="/terms" element={<TermsOfUsePage />} />
+                        <Route path="/faq" element={<FAQPage />} />
+                        <Route
+                          path="/return-policy"
+                          element={<ReturnPolicyPage />}
+                        />
+                        <Route
+                          path="/shipping-policy"
+                          element={<ShippingPolicyPage />}
+                        />
+                      </Routes>
+                    </main>
+                    {/* <Footer /> */}
+                  </>
+                }
+              />
+            </Routes>
+          </ToastProvider>
         </CartProvider>
       </AuthProvider>
     </ThemeProvider>

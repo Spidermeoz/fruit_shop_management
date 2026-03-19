@@ -5,6 +5,7 @@ import { http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
 import { useCart } from "../../../context/CartContext";
 import { useAuth } from "../../../context/AuthContext";
+import { useToast } from "../../../context/ToastContext"; // Đã import useToast chuẩn
 import {
   Star,
   Home,
@@ -125,9 +126,8 @@ const ProductDetailPage: React.FC = () => {
   const productImageRef = useRef<HTMLImageElement | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
-  const [showKiwiToast, setShowKiwiToast] = useState(false);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [kiwiToastVisible, setKiwiToastVisible] = useState(false);
+  // SỬ DỤNG GLOBAL TOAST TẠI ĐÂY
+  const { showSuccessToast, showErrorToast } = useToast();
 
   useEffect(() => {
     const fetchProductDetail = async () => {
@@ -291,28 +291,6 @@ const ProductDetailPage: React.FC = () => {
     });
   };
 
-  const showSuccessKiwiToast = () => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-
-    setShowKiwiToast(true);
-
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setKiwiToastVisible(true);
-      });
-    });
-
-    toastTimerRef.current = setTimeout(() => {
-      setKiwiToastVisible(false);
-
-      setTimeout(() => {
-        setShowKiwiToast(false);
-      }, 300);
-    }, 2000);
-  };
-
   // ==========================
   // XỬ LÝ CHUNG GIỎ HÀNG
   // ==========================
@@ -325,7 +303,7 @@ const ProductDetailPage: React.FC = () => {
     }
 
     if (quantity > remainingStock) {
-      alert(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
+      showErrorToast(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
       return;
     }
 
@@ -345,10 +323,21 @@ const ProductDetailPage: React.FC = () => {
 
       await animationPromise;
 
-      showSuccessKiwiToast();
+      // THÔNG BÁO THÀNH CÔNG BẰNG GLOBAL TOAST
+      showSuccessToast({
+        title: "Thêm vào giỏ hàng thành công",
+        message: (
+          <p>
+            Bạn đã thêm{" "}
+            <span className="font-bold text-slate-900">{quantity}</span> ×{" "}
+            <span className="font-bold text-green-700">{product?.title}</span>{" "}
+            vào giỏ hàng.
+          </p>
+        ),
+      });
     } catch (err) {
       console.error(err);
-      alert("Có lỗi xảy ra khi thêm vào giỏ hàng, vui lòng thử lại!");
+      showErrorToast("Có lỗi xảy ra khi thêm vào giỏ hàng, vui lòng thử lại!");
     } finally {
       setIsAddingToCart(false);
     }
@@ -384,14 +373,6 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     setVisibleReviewCount(2);
   }, [ratingFilter]);
-
-  useEffect(() => {
-    return () => {
-      if (toastTimerRef.current) {
-        clearTimeout(toastTimerRef.current);
-      }
-    };
-  }, []);
 
   if (isLoading) {
     return (
@@ -602,7 +583,7 @@ const ProductDetailPage: React.FC = () => {
                         let qty = Number(e.target.value);
                         if (!qty || qty <= 0) qty = 1;
                         if (qty > remainingStock) {
-                          alert(
+                          showErrorToast(
                             `Chỉ còn ${remainingStock} sản phẩm có thể thêm`,
                           );
                           qty = remainingStock;
@@ -1014,62 +995,6 @@ const ProductDetailPage: React.FC = () => {
           </section>
         )}
       </Layout>
-      {showKiwiToast && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-green-900/10 backdrop-blur-[3px] px-4">
-          <div
-            className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-green-200/70 bg-gradient-to-br from-white via-green-50 to-emerald-50 shadow-[0_24px_70px_rgba(34,197,94,0.18)]"
-            style={{
-              opacity: kiwiToastVisible ? 1 : 0,
-              transform: kiwiToastVisible
-                ? "scale(1) translateY(0)"
-                : "scale(0.92) translateY(18px)",
-              transition: "all 0.3s ease",
-            }}
-          >
-            {/* Glow nền */}
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-green-300/20 blur-3xl"></div>
-              <div className="absolute -bottom-10 -right-10 h-36 w-36 rounded-full bg-emerald-300/20 blur-3xl"></div>
-            </div>
-
-            {/* Background trái cây mờ */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              <div className="absolute -top-4 -left-4 text-7xl opacity-[0.08] rotate-[-12deg]">
-                🍊
-              </div>
-              <div className="absolute top-3 right-5 text-6xl opacity-[0.08] rotate-[8deg]">
-                🍎
-              </div>
-              <div className="absolute bottom-2 left-6 text-6xl opacity-[0.08] rotate-[10deg]">
-                🍐
-              </div>
-              <div className="absolute bottom-2 right-3 text-7xl opacity-[0.08] rotate-[-8deg]">
-                🥝
-              </div>
-            </div>
-
-            {/* Nội dung */}
-            <div className="relative z-10 px-8 py-8 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-emerald-100 text-3xl shadow-[0_8px_20px_rgba(34,197,94,0.15)] ring-1 ring-green-200/60">
-                🛒
-              </div>
-
-              <h3 className="text-2xl font-black text-slate-900 leading-tight">
-                Thêm vào giỏ hàng thành công
-              </h3>
-
-              <p className="mt-3 text-sm sm:text-base font-medium text-slate-600 leading-relaxed">
-                Bạn đã thêm{" "}
-                <span className="font-bold text-slate-900">{quantity}</span> ×{" "}
-                <span className="font-bold text-green-700">
-                  {product?.title}
-                </span>{" "}
-                vào giỏ hàng.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
       <Footer />
     </div>
   );

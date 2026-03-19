@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { useCart } from "../../../context/CartContext";
 import { http } from "../../../services/http";
+import { useToast } from "../../../context/ToastContext"; // Import Global Toast
 import {
   User,
   Phone,
@@ -48,6 +49,7 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items: cartItems, fetchCart } = useCart();
+  const { showErrorToast } = useToast(); // Gọi hook UseToast
 
   // List productId được chọn từ CartPage
   const selectedItems: number[] = location.state?.selectedItems || [];
@@ -82,11 +84,36 @@ const CheckoutPage: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
+  const handleClearForm = () => {
+    setOrderInfo({
+      name: "",
+      phone: "",
+      email: "",
+      address: "",
+      city: "",
+      district: "",
+      ward: "",
+      note: "",
+      payment: "cod",
+      saveInfo: false,
+    });
+    setErrors({}); // Xóa toàn bộ báo lỗi đỏ
+    setDistricts([]); // Làm trống danh sách quận/huyện
+    setWards([]); // Làm trống danh sách phường/xã
+  };
+
   // Nếu không có selected items → quay về giỏ hàng
   useEffect(() => {
     fetchCart();
     if (!selectedItems.length) navigate("/cart");
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [currentStep]);
 
   useEffect(() => {
     const fetchAddresses = async () => {
@@ -159,6 +186,8 @@ const CheckoutPage: React.FC = () => {
         ward: addr.ward || "",
         note: prev.note || "",
       }));
+
+      setErrors({});
     } catch (err) {
       console.error("Apply saved address failed", err);
     }
@@ -266,7 +295,7 @@ const CheckoutPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutItems.length) {
-      alert("Không có sản phẩm hợp lệ để thanh toán");
+      showErrorToast("Không có sản phẩm hợp lệ để thanh toán");
       return;
     }
     setIsProcessing(true);
@@ -298,10 +327,10 @@ const CheckoutPage: React.FC = () => {
         setNewOrderId(res.data.id);
         setShowSuccessModal(true);
       } else {
-        alert(res?.message || "Lỗi đặt hàng");
+        showErrorToast(res?.message || "Lỗi đặt hàng");
       }
     } catch (err: any) {
-      alert(err.message || "Lỗi không xác định");
+      showErrorToast(err.message || "Lỗi không xác định");
     } finally {
       setIsProcessing(false);
     }
@@ -411,17 +440,31 @@ const CheckoutPage: React.FC = () => {
                           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
                             <Save className="w-4 h-4" /> Chọn địa chỉ đã lưu
                           </h3>
-                          {savedAddresses.length > 3 && (
+
+                          {/* Nút thao tác bên phải */}
+                          <div className="flex items-center gap-4">
                             <button
                               type="button"
-                              onClick={() =>
-                                setShowAllAddresses(!showAllAddresses)
-                              }
-                              className="text-sm font-bold text-green-600 hover:text-green-700 transition-colors"
+                              onClick={handleClearForm}
+                              className="text-sm font-bold text-slate-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                              title="Xóa trắng form để nhập lại"
                             >
-                              {showAllAddresses ? "Thu gọn" : "Xem tất cả"}
+                              <RefreshCw className="w-3.5 h-3.5" /> Hủy tự động
+                              điền
                             </button>
-                          )}
+
+                            {savedAddresses.length > 3 && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowAllAddresses(!showAllAddresses)
+                                }
+                                className="text-sm font-bold text-green-600 hover:text-green-700 transition-colors border-l border-slate-200 pl-4"
+                              >
+                                {showAllAddresses ? "Thu gọn" : "Xem tất cả"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {visibleAddresses.map((addr, index) => (

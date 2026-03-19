@@ -13,6 +13,7 @@ import {
   Check,
   ChevronLeft,
 } from "lucide-react";
+import { useToast } from "../../../context/ToastContext";
 import Footer from "../../../components/client/layouts/Footer";
 
 const CartPage: React.FC = () => {
@@ -23,6 +24,8 @@ const CartPage: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [qtyInputs, setQtyInputs] = useState<Record<number, number>>({});
+
+  const { showErrorToast } = useToast();
 
   useEffect(() => {
     fetchCart();
@@ -97,7 +100,7 @@ const CartPage: React.FC = () => {
 
     if (newQty < 1) newQty = 1;
     if (newQty > stock) {
-      alert(`Chỉ còn ${stock} sản phẩm`);
+      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
       newQty = stock;
     }
 
@@ -118,7 +121,7 @@ const CartPage: React.FC = () => {
   // Điều hướng checkout
   const handleCheckout = () => {
     if (selectedItems.length === 0) {
-      alert("Vui lòng chọn ít nhất một sản phẩm trước khi thanh toán.");
+      showErrorToast("Vui lòng chọn ít nhất một sản phẩm trước khi thanh toán.");
       return;
     }
     navigate("/checkout", { state: { selectedItems } });
@@ -323,7 +326,7 @@ const CartPage: React.FC = () => {
                                     if (!qty || qty <= 0) qty = 1;
                                     const stock = item.product?.stock || 9999;
                                     if (qty > stock) {
-                                      alert(`Chỉ còn ${stock} sản phẩm`);
+                                      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
                                       qty = stock;
                                     }
                                     setQtyInputs((prev) => ({
@@ -397,7 +400,7 @@ const CartPage: React.FC = () => {
                                     if (!qty || qty <= 0) qty = 1;
                                     const stock = item.product?.stock || 9999;
                                     if (qty > stock) {
-                                      alert(`Chỉ còn ${stock} sản phẩm`);
+                                      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
                                       qty = stock;
                                     }
                                     setQtyInputs((prev) => ({
@@ -453,116 +456,119 @@ const CartPage: React.FC = () => {
                 </div>
 
                 {/* CỘT PHẢI: TỔNG THANH TOÁN */}
-                <div className="lg:col-span-4">
-                  <div className="bg-white rounded-[2.5rem] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.06)] border border-slate-50 sticky top-24">
-                    <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                      <span className="bg-green-50 text-green-600 p-2.5 rounded-xl">
-                        <ShoppingBag className="w-5 h-5" />
-                      </span>
-                      Tóm tắt đơn hàng
-                    </h3>
+                <div className="lg:col-span-4 relative h-full">
+                  {/* ĐÂY LÀ THẺ SẼ DÍNH LẠI KHI CUỘN: top-[100px] để chừa khoảng trống cho header */}
+                  <div className="sticky top-[100px] z-10 self-start h-fit pb-10">
+                    <div className="bg-white rounded-[2.5rem] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.06)] border border-slate-50">
+                      <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+                        <span className="bg-green-50 text-green-600 p-2.5 rounded-xl">
+                          <ShoppingBag className="w-5 h-5" />
+                        </span>
+                        Tóm tắt đơn hàng
+                      </h3>
 
-                    {selectedItems.length === 0 ? (
-                      <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 border-dashed mb-6">
-                        <p className="text-slate-500 font-medium text-sm">
-                          Vui lòng check chọn sản phẩm bên trái để xem tổng tiền
-                          và thanh toán.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4 mb-8">
-                        <div className="flex justify-between items-center text-slate-600 font-medium">
-                          <span>Sản phẩm ({selectedItems.length})</span>
-                          <span className="font-bold text-slate-900">
-                            {subtotal.toLocaleString()} đ
-                          </span>
+                      {selectedItems.length === 0 ? (
+                        <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 border-dashed mb-6">
+                          <p className="text-slate-500 font-medium text-sm">
+                            Vui lòng check chọn sản phẩm bên trái để xem tổng
+                            tiền và thanh toán.
+                          </p>
                         </div>
-
-                        <div className="flex justify-between items-center text-slate-600 font-medium">
-                          <span>Phí giao hàng dự kiến</span>
-                          <span className="font-bold text-slate-900">
-                            {shippingFee.toLocaleString()} đ
-                          </span>
-                        </div>
-
-                        <div className="border-t border-slate-100 pt-4">
-                          <div className="flex justify-between items-end">
-                            <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">
-                              Tổng cộng
+                      ) : (
+                        <div className="space-y-4 mb-8">
+                          <div className="flex justify-between items-center text-slate-600 font-medium">
+                            <span>Sản phẩm ({selectedItems.length})</span>
+                            <span className="font-bold text-slate-900">
+                              {subtotal.toLocaleString()} đ
                             </span>
-                            <div className="text-right">
-                              <span className="block text-3xl font-black text-green-600 leading-none">
-                                {total.toLocaleString()} đ
+                          </div>
+
+                          <div className="flex justify-between items-center text-slate-600 font-medium">
+                            <span>Phí giao hàng dự kiến</span>
+                            <span className="font-bold text-slate-900">
+                              {shippingFee.toLocaleString()} đ
+                            </span>
+                          </div>
+
+                          <div className="border-t border-slate-100 pt-4">
+                            <div className="flex justify-between items-end">
+                              <span className="text-sm font-bold text-slate-400 uppercase tracking-wider">
+                                Tổng cộng
                               </span>
-                              <span className="text-[10px] text-slate-400 font-bold uppercase">
-                                (Đã bao gồm VAT)
-                              </span>
+                              <div className="text-right">
+                                <span className="block text-3xl font-black text-green-600 leading-none">
+                                  {total.toLocaleString()} đ
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-bold uppercase">
+                                  (Đã bao gồm VAT)
+                                </span>
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {/* Nút checkout */}
-                    <div className="space-y-3">
-                      <button
-                        onClick={handleCheckout}
-                        disabled={selectedItems.length === 0}
-                        className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2
-                          ${
-                            selectedItems.length === 0
-                              ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                              : "bg-slate-900 text-white hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] active:scale-95"
-                          }`}
-                      >
-                        Thanh toán ngay
-                        {selectedItems.length > 0 && (
-                          <ArrowRight className="w-5 h-5 stroke-[3]" />
-                        )}
-                      </button>
-
-                      <Link
-                        to="/orders"
-                        className="w-full py-4 rounded-2xl font-bold text-slate-700 bg-white border-2 border-slate-100 hover:border-blue-500 hover:text-blue-600 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
-                      >
-                        <Package className="w-5 h-5" />
-                        Lịch sử đơn hàng
-                      </Link>
-                    </div>
-
-                    {/* Trust Badges */}
-                    <div className="mt-8 flex justify-center gap-4 border-t border-slate-100 pt-6">
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
-                        <svg
-                          className="w-4 h-4 text-green-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                      {/* Nút checkout */}
+                      <div className="space-y-3">
+                        <button
+                          onClick={handleCheckout}
+                          disabled={selectedItems.length === 0}
+                          className={`w-full py-4 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center gap-2
+            ${
+              selectedItems.length === 0
+                ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                : "bg-slate-900 text-white hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] active:scale-95"
+            }`}
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                          />
-                        </svg>
-                        Bảo mật 100%
-                      </div>
-                      <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
-                        <svg
-                          className="w-4 h-4 text-green-500"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
+                          Thanh toán ngay
+                          {selectedItems.length > 0 && (
+                            <ArrowRight className="w-5 h-5 stroke-[3]" />
+                          )}
+                        </button>
+
+                        <Link
+                          to="/orders"
+                          className="w-full py-4 rounded-2xl font-bold text-slate-700 bg-white border-2 border-slate-100 hover:border-blue-500 hover:text-blue-600 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                          />
-                        </svg>
-                        Đổi trả dễ dàng
+                          <Package className="w-5 h-5" />
+                          Lịch sử đơn hàng
+                        </Link>
+                      </div>
+
+                      {/* Trust Badges */}
+                      <div className="mt-8 flex justify-center gap-4 border-t border-slate-100 pt-6">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                          <svg
+                            className="w-4 h-4 text-green-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                            />
+                          </svg>
+                          Bảo mật 100%
+                        </div>
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                          <svg
+                            className="w-4 h-4 text-green-500"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                            />
+                          </svg>
+                          Đổi trả dễ dàng
+                        </div>
                       </div>
                     </div>
                   </div>

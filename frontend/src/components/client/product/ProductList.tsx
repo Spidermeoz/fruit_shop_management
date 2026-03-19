@@ -108,6 +108,13 @@ const ProductListPage: React.FC = () => {
     }
   }, [searchTerm, categorySlug, priceRange, sortBy]);
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  }, [categorySlug, currentPage, searchTerm, priceRange, sortBy]);
+
   const totalPages = Math.ceil(total / productsPerPage);
 
   // --- GIỮ NGUYÊN HANDLERS ---

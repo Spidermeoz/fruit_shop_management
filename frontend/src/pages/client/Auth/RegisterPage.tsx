@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { useAuth } from "../../../context/AuthContext";
+import { useToast } from "../../../context/ToastContext";
 import Footer from "../../../components/client/layouts/Footer";
 
 interface RegisterFormData {
@@ -16,7 +17,7 @@ interface RegisterFormData {
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
-  const { register } = useAuth(); // ✅ Dùng useAuth để gọi API
+  const { register } = useAuth(); // Dùng useAuth để gọi API
   const [formData, setFormData] = useState<RegisterFormData>({
     firstName: "",
     lastName: "",
@@ -32,6 +33,7 @@ const RegisterPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { showSuccessToast, showErrorToast } = useToast();
 
   // Xử lý thay đổi input
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,10 +94,13 @@ const RegisterPage: React.FC = () => {
         phone: formData.phone,
       });
 
-      alert("Đăng ký thành công! Bạn đã được đăng nhập tự động.");
+      showSuccessToast({
+        title: "Thành công",
+        message: "Đăng ký thành công! Bạn đã được đăng nhập tự động.",
+      });
       navigate("/");
     } catch (err: any) {
-      alert(err.message || "Đăng ký thất bại, vui lòng thử lại!");
+      showErrorToast(err.message || "Đăng ký thất bại, vui lòng thử lại!");
     } finally {
       setIsLoading(false);
     }
@@ -516,7 +521,7 @@ const RegisterPage: React.FC = () => {
                         </Link>{" "}
                         và{" "}
                         <Link
-                          to="/privacy"
+                          to="/privacy-policy"
                           className="text-green-600 hover:text-green-700 hover:underline underline-offset-4"
                         >
                           chính sách bảo mật
