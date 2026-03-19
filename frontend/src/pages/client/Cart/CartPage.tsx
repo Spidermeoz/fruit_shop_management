@@ -129,15 +129,22 @@ const CartPage: React.FC = () => {
       <Layout>
         {/* Banner Section */}
         <section className="relative overflow-hidden bg-gradient-to-b from-green-100/50 to-transparent py-12 text-center">
+          <div className="flex items-center justify-center text-slate-500 text-sm font-medium mb-6">
+            <Link to="/" className="hover:text-green-600 transition-colors">
+              Trang chủ
+            </Link>
+            <span className="mx-3 opacity-40">/</span>
+            <span className="text-green-700">Giỏ hàng</span>
+          </div>
           <div className="container mx-auto relative z-10 px-4">
-            <div className="flex items-center justify-center mb-4">
+            <div className="flex items-center justify-center gap-4 mb-4">
               <div className="bg-white p-3 rounded-2xl shadow-sm border border-green-50 text-green-600">
                 <ShoppingCart className="w-8 h-8" />
               </div>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight">
+                Giỏ hàng của bạn
+              </h1>
             </div>
-            <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">
-              Giỏ hàng của bạn
-            </h1>
             <p className="text-slate-500 font-medium text-sm md:text-base">
               Kiểm tra kỹ các sản phẩm tươi ngon trước khi đặt hàng nhé!
             </p>

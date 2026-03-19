@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { http } from "../../../services/http";
@@ -116,15 +116,19 @@ const ProductDetailPage: React.FC = () => {
 
   const [ratingFilter, setRatingFilter] = useState<number | "all">("all");
 
-  // Hiển thị comments: mặc định 2, mỗi lần thêm 3
   const [visibleReviewCount, setVisibleReviewCount] = useState(2);
 
-  // Hiển thị replies theo từng review: mặc định 2, mỗi lần thêm 3
   const [visibleReplyCounts, setVisibleReplyCounts] = useState<
     Record<number, number>
   >({});
 
-  // Fetch sản phẩm thật
+  const productImageRef = useRef<HTMLImageElement | null>(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+
+  const [showKiwiToast, setShowKiwiToast] = useState(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [kiwiToastVisible, setKiwiToastVisible] = useState(false);
+
   useEffect(() => {
     const fetchProductDetail = async () => {
       try {
@@ -161,7 +165,6 @@ const ProductDetailPage: React.FC = () => {
     fetchProductDetail();
   }, [id]);
 
-  // Fetch reviews
   const fetchReviews = async (productId: number) => {
     try {
       const res = await http(
@@ -204,7 +207,6 @@ const ProductDetailPage: React.FC = () => {
     }
   };
 
-  // Đếm số lượng đánh giá theo sao
   const ratingCounts = useMemo(() => {
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     reviews.forEach((review) => {
@@ -229,8 +231,93 @@ const ProductDetailPage: React.FC = () => {
     return Math.max(0, product.stock - quantityInCart);
   }, [product, quantityInCart]);
 
-  const handleAddToCart = async () => {
-    if (!product) return;
+  const animateFlyToCart = () => {
+    return new Promise<void>((resolve) => {
+      const sourceEl = productImageRef.current;
+      const cartEl = document.getElementById("header-cart-button");
+
+      if (!sourceEl || !cartEl) {
+        resolve();
+        return;
+      }
+
+      const sourceRect = sourceEl.getBoundingClientRect();
+      const cartRect = cartEl.getBoundingClientRect();
+
+      const flyingImg = document.createElement("img");
+      flyingImg.src =
+        product?.thumbnail ||
+        "https://via.placeholder.com/600x600?text=No+Image";
+      flyingImg.alt = product?.title || "Product";
+      flyingImg.style.position = "fixed";
+      flyingImg.style.left = `${sourceRect.left + sourceRect.width / 2 - 35}px`;
+      flyingImg.style.top = `${sourceRect.top + sourceRect.height / 2 - 35}px`;
+      flyingImg.style.width = "70px";
+      flyingImg.style.height = "70px";
+      flyingImg.style.borderRadius = "16px";
+      flyingImg.style.objectFit = "cover";
+      flyingImg.style.zIndex = "9999";
+      flyingImg.style.pointerEvents = "none";
+      flyingImg.style.boxShadow = "0 10px 30px rgba(0,0,0,0.18)";
+      flyingImg.style.transition =
+        "transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.8s ease, width 0.8s ease, height 0.8s ease";
+
+      document.body.appendChild(flyingImg);
+
+      const deltaX =
+        cartRect.left +
+        cartRect.width / 2 -
+        (sourceRect.left + sourceRect.width / 2);
+      const deltaY =
+        cartRect.top +
+        cartRect.height / 2 -
+        (sourceRect.top + sourceRect.height / 2);
+
+      requestAnimationFrame(() => {
+        flyingImg.style.transform = `translate(${deltaX}px, ${deltaY}px) scale(0.2)`;
+        flyingImg.style.opacity = "0.3";
+        flyingImg.style.width = "36px";
+        flyingImg.style.height = "36px";
+      });
+
+      setTimeout(() => {
+        flyingImg.remove();
+        cartEl.classList.add("animate-cart-bump");
+        setTimeout(() => {
+          cartEl.classList.remove("animate-cart-bump");
+        }, 350);
+        resolve();
+      }, 850);
+    });
+  };
+
+  const showSuccessKiwiToast = () => {
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+
+    setShowKiwiToast(true);
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setKiwiToastVisible(true);
+      });
+    });
+
+    toastTimerRef.current = setTimeout(() => {
+      setKiwiToastVisible(false);
+
+      setTimeout(() => {
+        setShowKiwiToast(false);
+      }, 300);
+    }, 2000);
+  };
+
+  // ==========================
+  // XỬ LÝ CHUNG GIỎ HÀNG
+  // ==========================
+  const processCartAction = async (isBuyNow: boolean) => {
+    if (!product || isAddingToCart) return;
 
     if (!isAuthenticated) {
       navigate("/login");
@@ -243,14 +330,32 @@ const ProductDetailPage: React.FC = () => {
     }
 
     try {
+      setIsAddingToCart(true);
+
+      if (isBuyNow) {
+        await addToCart(product.id, quantity);
+        navigate("/cart");
+        return;
+      }
+
+      const animationPromise = animateFlyToCart();
+
+      await new Promise((resolve) => setTimeout(resolve, 650));
       await addToCart(product.id, quantity);
-      alert(`Đã thêm ${quantity} × ${product.title} vào giỏ hàng`);
-      navigate("/cart");
+
+      await animationPromise;
+
+      showSuccessKiwiToast();
     } catch (err) {
       console.error(err);
       alert("Có lỗi xảy ra khi thêm vào giỏ hàng, vui lòng thử lại!");
+    } finally {
+      setIsAddingToCart(false);
     }
   };
+
+  const handleAddToCart = () => processCartAction(false);
+  const handleBuyNow = () => processCartAction(true);
 
   const increaseQuantity = () => setQuantity((q) => q + 1);
   const decreaseQuantity = () => setQuantity((q) => (q > 1 ? q - 1 : 1));
@@ -280,9 +385,14 @@ const ProductDetailPage: React.FC = () => {
     setVisibleReviewCount(2);
   }, [ratingFilter]);
 
-  // ==========================
-  // RENDER LOADING / ERROR
-  // ==========================
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   if (isLoading) {
     return (
       <Layout>
@@ -320,9 +430,6 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  // ==========================
-  // RENDER MAIN CONTENT
-  // ==========================
   const isOutOfStock = product.stock <= 0 || remainingStock <= 0;
 
   return (
@@ -361,6 +468,7 @@ const ProductDetailPage: React.FC = () => {
               <div className="bg-white rounded-[2.5rem] p-4 shadow-[0_20px_60px_rgba(0,0,0,0.04)] border border-slate-50 sticky top-24">
                 <div className="relative aspect-square rounded-[2rem] overflow-hidden bg-slate-50 flex items-center justify-center group">
                   <img
+                    ref={productImageRef}
                     src={
                       product.thumbnail ||
                       "https://via.placeholder.com/600x600?text=No+Image"
@@ -513,19 +621,35 @@ const ProductDetailPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Add to Cart Button */}
-                  <button
-                    onClick={handleAddToCart}
-                    disabled={isOutOfStock}
-                    className={`flex-1 flex items-center justify-center gap-3 rounded-2xl h-[60px] font-bold text-lg transition-all duration-300 ${
-                      isOutOfStock
-                        ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                        : "bg-slate-900 text-white hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] active:scale-95"
-                    }`}
-                  >
-                    <ShoppingCart className="w-6 h-6" />
-                    Thêm vào giỏ hàng
-                  </button>
+                  {/* 2 Buttons Container: Thêm Giỏ Hàng & Mua Ngay */}
+                  <div className="flex-1 flex flex-col sm:flex-row gap-3">
+                    {/* Thêm vào giỏ hàng (chỉ update cart) */}
+                    <button
+                      onClick={handleAddToCart}
+                      disabled={isOutOfStock || isAddingToCart}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-2xl h-[60px] font-bold text-sm lg:text-base transition-all duration-300 border-2 ${
+                        isOutOfStock || isAddingToCart
+                          ? "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed"
+                          : "border-green-600 text-green-600 bg-white hover:bg-green-50 active:scale-95"
+                      }`}
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                      Thêm vào giỏ
+                    </button>
+
+                    {/* Mua ngay (update cart + navigate /cart) */}
+                    <button
+                      onClick={handleBuyNow}
+                      disabled={isOutOfStock}
+                      className={`flex-1 flex items-center justify-center gap-2 rounded-2xl h-[60px] font-bold text-sm lg:text-base transition-all duration-300 ${
+                        isOutOfStock
+                          ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                          : "bg-slate-900 text-white hover:bg-green-700 hover:shadow-[0_15px_30px_rgba(34,197,94,0.3)] active:scale-95"
+                      }`}
+                    >
+                      Mua ngay
+                    </button>
+                  </div>
                 </div>
 
                 {/* Warning Texts */}
@@ -890,6 +1014,62 @@ const ProductDetailPage: React.FC = () => {
           </section>
         )}
       </Layout>
+      {showKiwiToast && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-green-900/10 backdrop-blur-[3px] px-4">
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-[2rem] border border-green-200/70 bg-gradient-to-br from-white via-green-50 to-emerald-50 shadow-[0_24px_70px_rgba(34,197,94,0.18)]"
+            style={{
+              opacity: kiwiToastVisible ? 1 : 0,
+              transform: kiwiToastVisible
+                ? "scale(1) translateY(0)"
+                : "scale(0.92) translateY(18px)",
+              transition: "all 0.3s ease",
+            }}
+          >
+            {/* Glow nền */}
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -top-10 -left-10 h-32 w-32 rounded-full bg-green-300/20 blur-3xl"></div>
+              <div className="absolute -bottom-10 -right-10 h-36 w-36 rounded-full bg-emerald-300/20 blur-3xl"></div>
+            </div>
+
+            {/* Background trái cây mờ */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden">
+              <div className="absolute -top-4 -left-4 text-7xl opacity-[0.08] rotate-[-12deg]">
+                🍊
+              </div>
+              <div className="absolute top-3 right-5 text-6xl opacity-[0.08] rotate-[8deg]">
+                🍎
+              </div>
+              <div className="absolute bottom-2 left-6 text-6xl opacity-[0.08] rotate-[10deg]">
+                🍐
+              </div>
+              <div className="absolute bottom-2 right-3 text-7xl opacity-[0.08] rotate-[-8deg]">
+                🥝
+              </div>
+            </div>
+
+            {/* Nội dung */}
+            <div className="relative z-10 px-8 py-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-100 to-emerald-100 text-3xl shadow-[0_8px_20px_rgba(34,197,94,0.15)] ring-1 ring-green-200/60">
+                🛒
+              </div>
+
+              <h3 className="text-2xl font-black text-slate-900 leading-tight">
+                Thêm vào giỏ hàng thành công
+              </h3>
+
+              <p className="mt-3 text-sm sm:text-base font-medium text-slate-600 leading-relaxed">
+                Bạn đã thêm{" "}
+                <span className="font-bold text-slate-900">{quantity}</span> ×{" "}
+                <span className="font-bold text-green-700">
+                  {product?.title}
+                </span>{" "}
+                vào giỏ hàng.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </div>
   );

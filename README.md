@@ -5,20 +5,22 @@ Dự án này là một hệ thống quản lý bán hàng hoàn chỉnh dành c
 ## Tính năng chính
 
 ### Dành cho Khách hàng
--   **Duyệt sản phẩm:** Xem danh sách sản phẩm theo danh mục, tìm kiếm và lọc.
--   **Giỏ hàng:** Thêm, xóa, cập nhật số lượng sản phẩm trong giỏ hàng.
--   **Thanh toán:** Quy trình thanh toán an toàn và tiện lợi.
--   **Quản lý tài khoản:** Đăng ký, đăng nhập, xem lịch sử đơn hàng và cập nhật thông tin cá nhân.
--   **Đánh giá sản phẩm:** Để lại nhận xét và xếp hạng cho các sản phẩm đã mua.
+
+- **Duyệt sản phẩm:** Xem danh sách sản phẩm theo danh mục, tìm kiếm và lọc.
+- **Giỏ hàng:** Thêm, xóa, cập nhật số lượng sản phẩm trong giỏ hàng.
+- **Thanh toán:** Quy trình thanh toán an toàn và tiện lợi.
+- **Quản lý tài khoản:** Đăng ký, đăng nhập, xem lịch sử đơn hàng và cập nhật thông tin cá nhân.
+- **Đánh giá sản phẩm:** Để lại nhận xét và xếp hạng cho các sản phẩm đã mua.
 
 ### Dành cho Quản trị viên (Admin)
--   **Bảng điều khiển (Dashboard):** Giao diện tổng quan với các số liệu thống kê quan trọng (doanh thu, đơn hàng mới, khách hàng mới).
--   **Quản lý Sản phẩm:** Thêm, sửa, xóa sản phẩm và các thuộc tính liên quan.
--   **Quản lý Danh mục:** Tổ chức sản phẩm theo các danh mục phân cấp.
--   **Quản lý Đơn hàng:** Xem, cập nhật trạng thái và xử lý đơn hàng của khách.
--   **Quản lý Người dùng:** Quản lý tài khoản khách hàng và phân quyền cho nhân viên.
--   **Quản lý Vai trò & Phân quyền:** Tạo và gán vai trò (ví dụ: Admin, Staff) với các quyền hạn truy cập khác nhau.
--   **Cài đặt chung:** Tùy chỉnh các thông tin cơ bản của website.
+
+- **Bảng điều khiển (Dashboard):** Giao diện tổng quan với các số liệu thống kê quan trọng (doanh thu, đơn hàng mới, khách hàng mới).
+- **Quản lý Sản phẩm:** Thêm, sửa, xóa sản phẩm và các thuộc tính liên quan.
+- **Quản lý Danh mục:** Tổ chức sản phẩm theo các danh mục phân cấp.
+- **Quản lý Đơn hàng:** Xem, cập nhật trạng thái và xử lý đơn hàng của khách.
+- **Quản lý Người dùng:** Quản lý tài khoản khách hàng và phân quyền cho nhân viên.
+- **Quản lý Vai trò & Phân quyền:** Tạo và gán vai trò (ví dụ: Admin, Staff) với các quyền hạn truy cập khác nhau.
+- **Cài đặt chung:** Tùy chỉnh các thông tin cơ bản của website.
 
 ## Kiến trúc & Cây công nghệ
 
@@ -28,41 +30,42 @@ Dự án được xây dựng theo kiến trúc Monorepo, tách biệt rõ ràng
 
 Backend được phát triển bằng **Node.js** và **TypeScript**, tuân thủ theo nguyên tắc **Clean Architecture** và các mẫu thiết kế của **Domain-Driven Design (DDD)**.
 
--   **Framework:** Express.js
--   **Ngôn ngữ:** TypeScript
--   **ORM:** Sequelize (Hỗ trợ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL)
--   **Xác thực:** JWT (JSON Web Tokens)
--   **Lưu trữ file:** Cloudinary (dễ dàng thay thế)
--   **Kiến trúc:**
-    -   `src/domain`: Chứa các business logic cốt lõi, entities và repositories interfaces.
-    -   `src/application`: Chứa các use cases (kịch bản sử dụng) để điều phối domain logic.
-    -   `src/infrastructure`: Chứa các cài đặt cụ thể cho services bên ngoài (database, payment gateways, email services...).
-    -   `src/interfaces`: Chứa các lớp giao tiếp với bên ngoài (REST API controllers).
+- **Framework:** Express.js
+- **Ngôn ngữ:** TypeScript
+- **ORM:** Sequelize (Hỗ trợ PostgreSQL, MySQL, MariaDB, SQLite, MSSQL)
+- **Xác thực:** JWT (JSON Web Tokens)
+- **Lưu trữ file:** Cloudinary (dễ dàng thay thế)
+- **Kiến trúc:**
+  - `src/domain`: Chứa các business logic cốt lõi, entities và repositories interfaces.
+  - `src/application`: Chứa các use cases (kịch bản sử dụng) để điều phối domain logic.
+  - `src/infrastructure`: Chứa các cài đặt cụ thể cho services bên ngoài (database, payment gateways, email services...).
+  - `src/interfaces`: Chứa các lớp giao tiếp với bên ngoài (REST API controllers).
 
 ### Frontend
 
 Frontend là một ứng dụng **Single Page Application (SPA)** được xây dựng bằng **React**.
 
--   **Framework/Library:** React.js
--   **Ngôn ngữ:** TypeScript
--   **Build tool:** Vite
--   **Styling:** Tailwind CSS
--   **Quản lý state:** React Context API
--   **Routing:** React Router DOM
--   **Kiến trúc:**
-    -   `src/pages`: Chứa các trang chính của ứng dụng (e.g., Home, Product, Cart).
-    -   `src/components`: Chứa các UI components có thể tái sử dụng.
-    -   `src/services`: Chứa logic gọi API đến backend.
-    -   `src/context`: Quản lý state toàn cục (e.g., AuthContext, CartContext).
-    -   `src/hooks`: Chứa các custom hooks.
+- **Framework/Library:** React.js
+- **Ngôn ngữ:** TypeScript
+- **Build tool:** Vite
+- **Styling:** Tailwind CSS
+- **Quản lý state:** React Context API
+- **Routing:** React Router DOM
+- **Kiến trúc:**
+  - `src/pages`: Chứa các trang chính của ứng dụng (e.g., Home, Product, Cart).
+  - `src/components`: Chứa các UI components có thể tái sử dụng.
+  - `src/services`: Chứa logic gọi API đến backend.
+  - `src/context`: Quản lý state toàn cục (e.g., AuthContext, CartContext).
+  - `src/hooks`: Chứa các custom hooks.
 
 ## Cài đặt và Chạy dự án
 
 ### Yêu cầu
--   Node.js (phiên bản 18.x trở lên)
--   npm hoặc yarn
--   Một hệ quản trị CSDL SQL (ví dụ: PostgreSQL)
--   Tài khoản Cloudinary (cho việc upload ảnh)
+
+- Node.js (phiên bản 18.x trở lên)
+- npm hoặc yarn
+- Một hệ quản trị CSDL SQL (ví dụ: PostgreSQL)
+- Tài khoản Cloudinary (cho việc upload ảnh)
 
 ### 1. Cài đặt Backend
 
@@ -79,6 +82,7 @@ cp .env.example .env
 ```
 
 **Mẫu file `backend/.env` (Liên hệ: `0967004916` để yêu cầu file cấu hình chi tiết):**
+
 ```env
 # Server
 PORT=8000
@@ -128,6 +132,7 @@ cp .env.example .env.local
 ```
 
 **Mẫu file `frontend/.env.local`:**
+
 ```env
 # URL của backend API
 VITE_API_BASE_URL=http://localhost:8000/api
@@ -143,16 +148,18 @@ Trang web sẽ được mở tại `http://localhost:5173` (hoặc một port kh
 ## Các Scripts hữu ích
 
 ### Backend
--   `npm run dev`: Chạy server ở chế độ development (với hot-reload).
--   `npm run build`: Build code TypeScript sang JavaScript.
--   `npm start`: Chạy server ở chế độ production (sau khi build).
--   `npm run lint`: Kiểm tra lỗi code với ESLint.
+
+- `npm run dev`: Chạy server ở chế độ development (với hot-reload).
+- `npm run build`: Build code TypeScript sang JavaScript.
+- `npm start`: Chạy server ở chế độ production (sau khi build).
+- `npm run lint`: Kiểm tra lỗi code với ESLint.
 
 ### Frontend
--   `npm run dev`: Chạy server development.
--   `npm run build`: Build ứng dụng cho production.
--   `npm run preview`: Xem bản build production tại local.
--   `npm run lint`: Kiểm tra lỗi code với ESLint.
+
+- `npm run dev`: Chạy server development.
+- `npm run build`: Build ứng dụng cho production.
+- `npm run preview`: Xem bản build production tại local.
+- `npm run lint`: Kiểm tra lỗi code với ESLint.
 
 ## Đóng góp
 
@@ -161,7 +168,6 @@ Mọi sự đóng góp đều được chào đón! Vui lòng tạo Pull Request
 ## Giấy phép
 
 Dự án này được cấp phép theo [MIT License](./LICENSE).
-
 
 ## Cấu trúc thư mục
 
@@ -189,11 +195,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   └── 📄 VerifyResetOtp.ts
 │   │   │   │   └── 📄 index.ts
 │   │   │   ├── 📁 carts
-│   │   │   │   └── 📁 usecases
-│   │   │   │       ├── 📄 AddToCart.ts
-│   │   │   │       ├── 📄 ListCartItems.ts
-│   │   │   │       ├── 📄 RemoveFromCart.ts
-│   │   │   │       └── 📄 UpdateCartItem.ts
+│   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 AddToCart.ts
+│   │   │   │   │   ├── 📄 ListCartItems.ts
+│   │   │   │   │   ├── 📄 RemoveAllFromCart.ts
+│   │   │   │   │   ├── 📄 RemoveFromCart.ts
+│   │   │   │   │   ├── 📄 UpdateCartItem.ts
+│   │   │   │   │   └── 📄 index.ts
+│   │   │   │   └── 📄 index.ts
 │   │   │   ├── 📁 categories
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 BulkEditCategories.ts
@@ -408,31 +417,27 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📄 Can.tsx
 │   │   │   └── 📄 RequireAuth.tsx
 │   │   ├── 📁 components
-│   │   │   ├── 📁 client
-│   │   │   │   ├── 📁 layout
-│   │   │   │   │   ├── 📄 Footer.tsx
-│   │   │   │   │   ├── 📄 Header.tsx
-│   │   │   │   │   └── 📄 Layout.tsx
-│   │   │   │   └── 📁 product
-│   │   │   │       ├── 📄 ProductDetail.jsx
-│   │   │   │       └── 📄 ProductList.tsx
-│   │   │   ├── 📁 common
-│   │   │   │   ├── 📄 Pagination.tsx
-│   │   │   │   └── 📄 RichTextEditor.tsx
-│   │   │   ├── 📁 dashboard
-│   │   │   │   ├── 📄 OrdersSummaryCards.tsx
-│   │   │   │   ├── 📄 ProductsOverview.tsx
-│   │   │   │   ├── 📄 RecentOrders.tsx
-│   │   │   │   └── 📄 UsersOverview.tsx
-│   │   │   ├── 📁 layouts
-│   │   │   │   ├── 📄 Card.tsx
-│   │   │   │   ├── 📄 DashboardHeader.tsx
-│   │   │   │   ├── 📄 RecentTransactions.tsx
-│   │   │   │   └── 📄 Sidebar.tsx
-│   │   │   └── 📁 ui
-│   │   │       ├── 📄 Button.jsx
-│   │   │       ├── 📄 Input.jsx
-│   │   │       └── 📄 Select.jsx
+│   │   │   ├── 📁 admin
+│   │   │   │   ├── 📁 common
+│   │   │   │   │   ├── 📄 Pagination.tsx
+│   │   │   │   │   └── 📄 RichTextEditor.tsx
+│   │   │   │   ├── 📁 dashboard
+│   │   │   │   │   ├── 📄 OrdersSummaryCards.tsx
+│   │   │   │   │   ├── 📄 ProductsOverview.tsx
+│   │   │   │   │   ├── 📄 RecentOrders.tsx
+│   │   │   │   │   └── 📄 UsersOverview.tsx
+│   │   │   │   └── 📁 layouts
+│   │   │   │       ├── 📄 Card.tsx
+│   │   │   │       ├── 📄 DashboardHeader.tsx
+│   │   │   │       ├── 📄 RecentTransactions.tsx
+│   │   │   │       └── 📄 Sidebar.tsx
+│   │   │   └── 📁 client
+│   │   │       ├── 📁 layouts
+│   │   │       │   ├── 📄 Footer.tsx
+│   │   │       │   ├── 📄 Header.tsx
+│   │   │       │   └── 📄 Layout.tsx
+│   │   │       └── 📁 product
+│   │   │           └── 📄 ProductList.tsx
 │   │   ├── 📁 context
 │   │   │   ├── 📄 AuthContext.tsx
 │   │   │   ├── 📄 CartContext.tsx
@@ -486,11 +491,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       │   └── 📄 OrderHistoryPage.tsx
 │   │   │       ├── 📁 Other
 │   │   │       │   ├── 📄 AboutPage.tsx
-│   │   │       │   ├── 📄 ContactPage.tsx
-│   │   │       │   └── 📄 ReviewPage.tsx
+│   │   │       │   └── 📄 ContactPage.tsx
 │   │   │       ├── 📁 Product
 │   │   │       │   ├── 📄 ProductDetailPage.tsx
-│   │   │       │   └── 📄 Products.jsx
+│   │   │       │   └── 📄 Products.tsx
 │   │   │       └── 📁 Profile
 │   │   │           └── 📄 ProfilePage.tsx
 │   │   ├── 📁 services

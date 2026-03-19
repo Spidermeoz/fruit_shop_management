@@ -304,6 +304,7 @@ const Header: React.FC = () => {
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Cart Button */}
             <button
+              id="header-cart-button"
               onClick={() => {
                 if (!isAuthenticated) return navigate("/login");
                 navigate("/cart");

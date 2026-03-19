@@ -47,7 +47,12 @@ import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
 import AboutPage from "./pages/client/Other/AboutPage";
 import ContactPage from "./pages/client/Other/ContactPage";
-// import Footer from "./components/client/layout/Footer"; // Nếu cần dùng
+import PrivacyPolicyPage from "./pages/client/Other/PrivacyPolicyPage";
+import TermsOfUsePage from "./pages/client/Other/TermsOfUsePage";
+import FAQPage from "./pages/client/Other/FAQPage";
+import ReturnPolicyPage from "./pages/client/Other/ReturnPolicyPage";
+import ShippingPolicyPage from "./pages/client/Other/ShippingPolicyPage";
+// import Footer from "./components/client/layout/Footer"; //
 
 const App: React.FC = () => {
   return (
@@ -182,6 +187,11 @@ const App: React.FC = () => {
                       <Route path="/orders/:id" element={<OrderDetailPage />} />
                       <Route path="/about" element={<AboutPage />} />
                       <Route path="/contact" element={<ContactPage />} />
+                      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+                      <Route path="/terms" element={<TermsOfUsePage />} />
+                      <Route path="/faq" element={<FAQPage />} />
+                      <Route path="/return-policy" element={<ReturnPolicyPage />} />
+                      <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
                     </Routes>
                   </main>
                   {/* <Footer /> */}

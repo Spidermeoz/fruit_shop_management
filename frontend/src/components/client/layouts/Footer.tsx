@@ -143,7 +143,9 @@ const Footer: React.FC = () => {
             <ul className="space-y-4">
               {[
                 { name: "Liên hệ", path: "/contact" },
-                { name: "Chính sách bảo mật", path: "/privacy" },
+                { name: "Chính sách bảo mật", path: "/privacy-policy" },
+                { name: "Chính sách đổi trả", path: "/return-policy" },
+                { name: "Chính sách giao hàng", path: "/shipping-policy" },
                 { name: "Điều khoản sử dụng", path: "/terms" },
                 { name: "Câu hỏi thường gặp", path: "/faq" },
               ].map((link) => (
