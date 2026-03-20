@@ -11,6 +11,7 @@ import {
   renderCategoryOptions,
 } from "../../../utils/categoryTree";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface ProductCategory {
   id: number;
@@ -47,14 +48,16 @@ const ProductCreatePage: React.FC = () => {
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
 
-  // ✅ file ảnh gốc (để upload sau)
+  // file ảnh gốc (để upload sau)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // ✅ preview ảnh local
+  // preview ảnh local
   const [previewImage, setPreviewImage] = useState<string>("");
 
   const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
   const [imageUrl, setImageUrl] = useState<string>("");
+
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
   const [formData, setFormData] = useState<ProductFormData>({
     product_category_id: "", // Start with empty
@@ -73,7 +76,7 @@ const ProductCreatePage: React.FC = () => {
     created_by_id: 1,
   });
 
-  // ✅ Lấy danh sách danh mục từ backend
+  // Lấy danh sách danh mục từ backend
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -82,7 +85,7 @@ const ProductCreatePage: React.FC = () => {
           "/api/v1/admin/product-category?limit=100",
         );
         if (json.success && Array.isArray(json.data)) {
-          // ✅ normalize để buildCategoryTree dùng parent_id như kỳ vọng
+          // normalize để buildCategoryTree dùng parent_id như kỳ vọng
           const normalized = json.data.map((c: any) => ({
             ...c,
             parent_id: c.parentId,
@@ -241,23 +244,23 @@ const ProductCreatePage: React.FC = () => {
       });
 
       if (json.success) {
-        alert("Thêm sản phẩm thành công!");
+        showSuccessToast({ message: "Thêm sản phẩm thành công!" });
         navigate("/admin/products");
       } else {
         // Handle potential API-side validation errors
         if (json.errors) {
           setErrors(json.errors);
         } else {
-          alert(json.message || "Không thể thêm sản phẩm!");
+          showErrorToast(json.message || "Không thể thêm sản phẩm!");
         }
       }
     } catch (err: any) {
       console.error("Create product error:", err);
 
       if (err?.message) {
-        alert(err.message);
+        showErrorToast(err.message);
       } else {
-        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+        showErrorToast("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
       }
     } finally {
       setLoading(false);

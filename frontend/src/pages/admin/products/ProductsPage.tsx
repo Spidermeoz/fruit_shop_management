@@ -4,6 +4,7 @@ import { Search, Plus, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 // 🔹 Kiểu dữ liệu sản phẩm
 interface Product {
@@ -30,6 +31,8 @@ const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
   const [bulkAction, setBulkAction] = useState<string>("");
+
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState<string>(
@@ -160,10 +163,10 @@ const ProductsPage: React.FC = () => {
 
       await http("DELETE", `/api/v1/admin/products/delete/${id}`);
       setProducts((prev) => prev.filter((p) => p.id !== id));
-      alert("Đã xóa sản phẩm thành công!");
+      showSuccessToast({ message: "Đã xóa sản phẩm thành công!" });
     } catch (err) {
       console.error("Delete product error:", err);
-      alert(
+      showErrorToast(
         err instanceof Error ? err.message : "Không thể kết nối đến server!",
       );
     } finally {
@@ -187,7 +190,7 @@ const ProductsPage: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      alert(
+      showErrorToast(
         err instanceof Error ? err.message : "Không thể cập nhật trạng thái",
       );
     }
@@ -306,7 +309,7 @@ const ProductsPage: React.FC = () => {
         </select>
       </div>
 
-      {/* ✅ Thanh chọn hành động khi có sản phẩm được chọn */}
+      {/* Thanh chọn hành động khi có sản phẩm được chọn */}
       {selectedProducts.length > 0 && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
           <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -329,7 +332,7 @@ const ProductsPage: React.FC = () => {
             <button
               onClick={async () => {
                 if (!bulkAction) {
-                  alert("Vui lòng chọn hành động!");
+                  showErrorToast("Vui lòng chọn hành động!");
                   return;
                 }
 
@@ -351,7 +354,7 @@ const ProductsPage: React.FC = () => {
                     updated_by_id: 1,
                   };
 
-                  // ✅ Gửi đúng định dạng theo action
+                  // Gửi đúng định dạng theo action
                   switch (bulkAction) {
                     case "activate":
                       body.action = "status";
@@ -379,17 +382,17 @@ const ProductsPage: React.FC = () => {
                       break;
 
                     default:
-                      alert("Hành động không hợp lệ!");
+                      showErrorToast("Hành động không hợp lệ!");
                       return;
                   }
 
                   await http("PATCH", "/api/v1/admin/products/bulk-edit", body);
-                  alert("Cập nhật thành công!");
+                  showSuccessToast({ message: "Cập nhật thành công!" });
                   setSelectedProducts([]);
                   fetchProducts();
                 } catch (err) {
                   console.error(err);
-                  alert(
+                  showErrorToast(
                     err instanceof Error ? err.message : "Lỗi kết nối server!",
                   );
                 }

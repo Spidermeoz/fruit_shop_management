@@ -11,6 +11,7 @@ import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Role {
   id: number;
@@ -42,8 +43,9 @@ const RoleEditPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof Role, string>>
   >({});
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // 🔹 Lấy thông tin vai trò
+  // Lấy thông tin vai trò
   const fetchRole = async () => {
     try {
       setLoading(true);
@@ -81,7 +83,7 @@ const RoleEditPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // 🔹 Xử lý input
+  // Xử lý input
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setRole((prev) => (prev ? { ...prev, [name]: value } : prev));
@@ -90,7 +92,7 @@ const RoleEditPage: React.FC = () => {
     }
   };
 
-  // 🔹 Xử lý mô tả TinyMCE
+  // Xử lý mô tả TinyMCE
   const handleDescriptionChange = (content: string) => {
     setRole((prev) => (prev ? { ...prev, description: content } : prev));
     if (formErrors.description) {
@@ -108,7 +110,7 @@ const RoleEditPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🔹 Lưu thay đổi
+  // Lưu thay đổi
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!role) return;
@@ -131,13 +133,13 @@ const RoleEditPage: React.FC = () => {
       });
 
       if (res?.success) {
-        alert("✅ Cập nhật vai trò thành công!");
+        showSuccessToast({ message: "Cập nhật vai trò thành công!" });
         fetchRole(); // Re-fetch data
       } else {
         if (res.errors) {
           setFormErrors(res.errors);
         } else {
-          alert(res?.message || "Cập nhật thất bại.");
+          showErrorToast(res?.message || "Cập nhật thất bại.");
         }
       }
     } catch (err: any) {
@@ -147,7 +149,7 @@ const RoleEditPage: React.FC = () => {
       if (err?.data?.errors) {
         setFormErrors(err.data.errors);
       } else {
-        alert(message);
+        showErrorToast(message);
       }
     } finally {
       setSaving(false);

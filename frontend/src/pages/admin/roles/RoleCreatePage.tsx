@@ -6,6 +6,7 @@ import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface RoleFormData {
   title: string;
@@ -21,6 +22,7 @@ const RoleCreatePage: React.FC = () => {
   const [errors, setErrors] = useState<
     Partial<Record<keyof RoleFormData | "general", string>>
   >({});
+  const { showSuccessToast } = useAdminToast();
 
   const [formData, setFormData] = useState<RoleFormData>({
     title: "",
@@ -78,7 +80,7 @@ const RoleCreatePage: React.FC = () => {
       );
 
       if (res.success) {
-        alert("🎉 Thêm vai trò thành công!");
+        showSuccessToast({ message: "Thêm vai trò thành công!" });
         navigate("/admin/roles");
       } else {
         if (res.errors) {

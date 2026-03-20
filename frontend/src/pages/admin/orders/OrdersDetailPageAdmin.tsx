@@ -6,6 +6,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Printer } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 // ====================================
 // 🔹 Kiểu dữ liệu Order
@@ -52,6 +53,8 @@ const OrdersDetailPageAdmin: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const { showErrorToast } = useAdminToast();
+
   // ====================================
   // 🔥 NEW: Trạng thái modal preview
   // ====================================
@@ -74,7 +77,7 @@ const OrdersDetailPageAdmin: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Lỗi tải dữ liệu đơn hàng!");
+      showErrorToast(err.message || "Lỗi tải dữ liệu đơn hàng!");
     } finally {
       setLoading(false);
     }

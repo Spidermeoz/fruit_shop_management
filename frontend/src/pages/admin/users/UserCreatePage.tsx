@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Role {
   id: number;
@@ -56,8 +57,9 @@ const UserCreatePage: React.FC = () => {
   >({});
   const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
   const [imageUrl, setImageUrl] = useState<string>("");
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // 🔹 Lấy danh sách roles (dùng http)
+  // Lấy danh sách roles (dùng http)
   useEffect(() => {
     (async () => {
       try {
@@ -69,7 +71,7 @@ const UserCreatePage: React.FC = () => {
     })();
   }, []);
 
-  // 🔹 Xử lý input
+  // Xử lý input
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
@@ -80,7 +82,7 @@ const UserCreatePage: React.FC = () => {
     }
   };
 
-  // 🔹 Chọn file avatar → preview
+  // Chọn file avatar → preview
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -152,7 +154,7 @@ const UserCreatePage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // 🔹 Submit form
+  // Submit form
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
@@ -166,7 +168,7 @@ const UserCreatePage: React.FC = () => {
 
       let uploadedAvatarUrl = formData.avatar;
 
-      // 🖼 Upload avatar (dùng http + FormData) nếu chọn phương thức upload
+      // Upload avatar (dùng http + FormData) nếu chọn phương thức upload
       if (imageMethod === "upload" && selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
@@ -184,7 +186,7 @@ const UserCreatePage: React.FC = () => {
           return;
         }
       }
-      // 🖼 Sử dụng URL trực tiếp nếu chọn phương thức URL
+      // Sử dụng URL trực tiếp nếu chọn phương thức URL
       else if (imageMethod === "url" && imageUrl) {
         uploadedAvatarUrl = imageUrl;
       }
@@ -206,13 +208,13 @@ const UserCreatePage: React.FC = () => {
         payload,
       );
       if (res.success) {
-        alert("Tạo người dùng thành công!");
+        showSuccessToast({ message: "Tạo người dùng thành công!" });
         navigate("/admin/users");
       } else {
         if (res.errors) {
           setErrors(res.errors);
         } else {
-          alert((res as any).message || "Tạo người dùng thất bại.");
+          showErrorToast((res as any).message || "Tạo người dùng thất bại.");
         }
       }
     } catch (err: any) {
@@ -220,7 +222,7 @@ const UserCreatePage: React.FC = () => {
       if (err?.data?.errors) {
         setErrors(err.data.errors);
       } else {
-        alert(err?.data?.message || err?.message || "Lỗi kết nối server!");
+        showErrorToast(err?.data?.message || err?.message || "Lỗi kết nối server!");
       }
     } finally {
       setLoading(false);

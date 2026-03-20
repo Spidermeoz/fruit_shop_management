@@ -4,6 +4,7 @@ import { Shield, Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Role {
   id: number;
@@ -35,6 +36,7 @@ const PermissionsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
   // 🔹 Fetch dữ liệu phân quyền (dùng http)
   const fetchPermissions = async () => {
@@ -68,11 +70,11 @@ const PermissionsPage: React.FC = () => {
         setPermissionGroups(groups);
         setRoles(parsedRoles);
       } else {
-        alert((res as ApiErr).message || "Không thể tải dữ liệu phân quyền!");
+        showErrorToast((res as ApiErr).message || "Không thể tải dữ liệu phân quyền!");
       }
     } catch (err: any) {
       console.error("fetchPermissions error:", err);
-      alert(err?.message || "Lỗi kết nối server!");
+      showErrorToast(err?.message || "Lỗi kết nối server!");
     } finally {
       setLoading(false);
     }
@@ -125,7 +127,7 @@ const PermissionsPage: React.FC = () => {
     );
   };
 
-  // ✅ Gửi cập nhật (dùng http)
+  // Gửi cập nhật (dùng http)
   const handleSave = async () => {
     try {
       setSaving(true);
@@ -135,13 +137,13 @@ const PermissionsPage: React.FC = () => {
         { roles },
       );
       if ("success" in res && res.success) {
-        alert("✅ Cập nhật phân quyền thành công!");
+        showSuccessToast({ message: "Cập nhật phân quyền thành công!" });
       } else {
-        alert((res as ApiErr).message || "Không thể lưu thay đổi!");
+        showErrorToast((res as ApiErr).message || "Không thể lưu thay đổi!");
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Lỗi kết nối server!");
+      showErrorToast(err?.message || "Lỗi kết nối server!");
     } finally {
       setSaving(false);
     }

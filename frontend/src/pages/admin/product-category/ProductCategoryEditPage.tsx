@@ -11,6 +11,7 @@ import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Category {
   id: number;
@@ -38,6 +39,7 @@ const ProductCategoryEditPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof Category, string>>
   >({});
+  const { showSuccessToast, showErrorToast } = useAdminToast();
   const [categories, setCategories] = useState<Category[]>([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [initialCategory, setInitialCategory] = useState<Category | null>(null);
@@ -240,18 +242,18 @@ const ProductCategoryEditPage: React.FC = () => {
       );
 
       if (res.success) {
-        alert("Cập nhật danh mục thành công!");
+        showSuccessToast({ message: "Cập nhật danh mục thành công!" });
         await Promise.all([fetchCategory(), fetchCategories()]);
       } else {
         if (res.errors) {
           setFormErrors(res.errors);
         } else {
-          alert((res as any).message || "Cập nhật danh mục thất bại.");
+          showErrorToast((res as any).message || "Cập nhật danh mục thất bại.");
         }
       }
     } catch (err: any) {
       console.error("saveCategory error:", err);
-      alert(err?.data?.message || err?.message || "Lỗi kết nối server.");
+      showErrorToast(err?.data?.message || err?.message || "Lỗi kết nối server.");
     } finally {
       setSaving(false);
     }

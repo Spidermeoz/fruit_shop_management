@@ -4,6 +4,7 @@ import { Search, Eye, Loader2, Edit } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 // =======================
 // 🟦 Kiểu dữ liệu Order
@@ -119,6 +120,8 @@ const OrdersPage: React.FC = () => {
   const currentPage = Number(searchParams.get("page") || 1);
   const [totalPages, setTotalPages] = useState(1);
 
+  const { showSuccessToast, showErrorToast } = useAdminToast();
+
   // ============================
   // Modal cập nhật trạng thái
   // ============================
@@ -136,12 +139,12 @@ const OrdersPage: React.FC = () => {
 
   const openUpdateStatusModal = (order: OrderProps) => {
     if (order.status === "cancelled") {
-      alert("Đơn hàng đã bị hủy nên không thể chỉnh sửa.");
+      showErrorToast("Đơn hàng đã bị hủy nên không thể chỉnh sửa.");
       return;
     }
 
     if (order.status === "completed") {
-      alert("Đơn hàng đã hoàn thành nên không thể chỉnh sửa.");
+      showErrorToast("Đơn hàng đã hoàn thành nên không thể chỉnh sửa.");
       return;
     }
 
@@ -163,17 +166,17 @@ const OrdersPage: React.FC = () => {
 
   const openPaymentModal = (order: OrderProps) => {
     if (order.status === "cancelled") {
-      alert("Không thể thanh toán đơn hàng đã bị huỷ.");
+      showErrorToast("Không thể thanh toán đơn hàng đã bị huỷ.");
       return;
     }
 
     if (order.status === "completed") {
-      alert("Đơn hàng đã hoàn tất.");
+      showErrorToast("Đơn hàng đã hoàn tất.");
       return;
     }
 
     if (order.paymentStatus === "paid") {
-      alert("Đơn hàng đã thanh toán.");
+      showErrorToast("Đơn hàng đã thanh toán.");
       return;
     }
 
@@ -208,14 +211,14 @@ const OrdersPage: React.FC = () => {
         status,
       });
 
-      alert("Cập nhật trạng thái thành công!");
+      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
       setShowStatusModal(false);
       setConfirmCompleteModal(false);
       setSelectedOrder(null);
       setOriginalStatus(null);
       fetchOrders();
     } catch (err: any) {
-      alert(err?.message || "Không thể cập nhật trạng thái");
+      showErrorToast(err?.message || "Không thể cập nhật trạng thái");
     }
   };
 
@@ -598,13 +601,13 @@ const OrdersPage: React.FC = () => {
                       },
                     );
 
-                    alert("Cập nhật trạng thái thành công!");
+                    showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
                     setShowStatusModal(false);
                     setSelectedOrder(null);
                     setOriginalStatus(null);
                     fetchOrders();
                   } catch (err: any) {
-                    alert(err?.message || "Không thể cập nhật trạng thái");
+                    showErrorToast(err?.message || "Không thể cập nhật trạng thái");
                   }
                 }}
               >
@@ -691,12 +694,12 @@ const OrdersPage: React.FC = () => {
                       },
                     );
 
-                    alert("Xác nhận thanh toán thành công!");
+                    showSuccessToast({ message: "Xác nhận thanh toán thành công!" });
                     setShowPaymentModal(false);
                     setSelectedOrder(null);
                     fetchOrders();
                   } catch (err: any) {
-                    alert(err?.message || "Không thể xác nhận thanh toán");
+                    showErrorToast(err?.message || "Không thể xác nhận thanh toán");
                   }
                 }}
               >

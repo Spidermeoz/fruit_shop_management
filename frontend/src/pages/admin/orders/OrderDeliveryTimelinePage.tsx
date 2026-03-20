@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, CheckCircle, Clock } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
-
+import { useAdminToast } from "../../../context/AdminToastContext";
 interface DeliveryItem {
   id: number;
   status: string;
@@ -43,6 +43,7 @@ const OrderDeliveryTimelinePage: React.FC = () => {
 
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const { showErrorToast } = useAdminToast();
 
   const fetchDetail = async () => {
     try {
@@ -54,7 +55,7 @@ const OrderDeliveryTimelinePage: React.FC = () => {
       }
     } catch (err) {
       console.error(err);
-      alert("Không thể tải lịch sử giao hàng!");
+      showErrorToast("Không thể tải lịch sử giao hàng!");
     } finally {
       setLoading(false);
     }

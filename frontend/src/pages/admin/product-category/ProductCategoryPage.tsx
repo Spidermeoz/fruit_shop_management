@@ -8,6 +8,7 @@ import {
   CategoryTreeTableBody,
 } from "../../../utils/categoryTree";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface ProductCategory {
   id: number;
@@ -38,8 +39,9 @@ const ProductCategoryPage: React.FC = () => {
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // ✅ Fetch tất cả danh mục (bỏ phân trang)
+  // Fetch tất cả danh mục (bỏ phân trang)
   const fetchCategories = async () => {
     try {
       setLoading(true);
@@ -77,7 +79,7 @@ const ProductCategoryPage: React.FC = () => {
     fetchCategories();
   }, []);
 
-  // ✅ Xóa danh mục
+  // Xóa danh mục
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa danh mục này không?")) return;
     try {
@@ -86,18 +88,18 @@ const ProductCategoryPage: React.FC = () => {
         "DELETE",
         `/api/v1/admin/product-category/delete/${id}`,
       );
-      alert("Đã xóa danh mục thành công!");
+      showSuccessToast({ message: "Đã xóa danh mục thành công!" });
       setCategories((prev) => prev.filter((c) => c.id !== id));
       setSelectedCategories((prev) => prev.filter((x) => x !== id));
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Không thể kết nối đến server!");
+      showErrorToast(err?.message || "Không thể kết nối đến server!");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Toggle trạng thái
+  // Toggle trạng thái
   const handleToggleStatus = async (category: ProductCategory) => {
     const newStatus =
       category.status.toLowerCase() === "active" ? "inactive" : "active";
@@ -115,18 +117,18 @@ const ProductCategoryPage: React.FC = () => {
       );
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Cập nhật trạng thái thất bại");
+      showErrorToast(err?.message || "Cập nhật trạng thái thất bại");
     }
   };
 
-  // ✅ Bulk Action
+  // Bulk Action
   const handleBulkAction = async () => {
     if (!bulkAction) {
-      alert("Vui lòng chọn hành động!");
+      showErrorToast("Vui lòng chọn hành động!");
       return;
     }
     if (selectedCategories.length === 0) {
-      alert("Chưa chọn danh mục nào!");
+      showErrorToast("Chưa chọn danh mục nào!");
       return;
     }
 
@@ -165,7 +167,7 @@ const ProductCategoryPage: React.FC = () => {
             });
           break;
         default:
-          alert("Hành động không hợp lệ!");
+          showErrorToast("Hành động không hợp lệ!");
           return;
       }
 
@@ -174,12 +176,12 @@ const ProductCategoryPage: React.FC = () => {
         "/api/v1/admin/product-category/bulk-edit",
         body,
       );
-      alert("Cập nhật thành công!");
+      showSuccessToast({ message: "Cập nhật thành công!" });
       setSelectedCategories([]);
       fetchCategories();
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Lỗi kết nối server!");
+      showErrorToast(err?.message || "Lỗi kết nối server!");
     }
   };
 

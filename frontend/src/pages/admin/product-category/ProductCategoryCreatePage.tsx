@@ -7,6 +7,7 @@ import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface CategoryFormData {
   parent_id: number | null;
@@ -38,6 +39,8 @@ const ProductCategoryCreatePage: React.FC = () => {
   const [previewImage, setPreviewImage] = useState<string>("");
   const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
   const [imageUrl, setImageUrl] = useState<string>("");
+  const { showSuccessToast, showErrorToast } = useAdminToast();
+
 
   const [formData, setFormData] = useState<CategoryFormData>({
     parent_id: null,
@@ -198,22 +201,22 @@ const ProductCategoryCreatePage: React.FC = () => {
       );
 
       if (createRes.success) {
-        alert("Thêm danh mục mới thành công!");
+        showSuccessToast({ message: "Thêm mới danh mục thành công!" });
         navigate("/admin/product-category");
       } else {
         if (createRes.errors) {
           setErrors(createRes.errors);
         } else {
-          alert((createRes as any).message || "Thêm mới danh mục thất bại.");
+          showErrorToast((createRes as any).message || "Thêm mới danh mục thất bại.");
         }
       }
     } catch (err: any) {
       console.error("Create category error:", err);
 
       if (err?.message) {
-        alert(err.message);
+        showErrorToast(err.message);
       } else {
-        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+        showErrorToast("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
       }
     } finally {
       setLoading(false);

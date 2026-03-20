@@ -165,7 +165,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({
                     : "bg-gradient-to-br from-red-100 to-rose-100 shadow-red-500/15 ring-red-200/60"
                 }`}
               >
-                {type === "success" ? "🛒" : "⚠️"}
+                {type === "success" ? "🥝" : "⚠️"}
               </div>
 
               <h3 className="text-2xl font-black text-slate-900 leading-tight">

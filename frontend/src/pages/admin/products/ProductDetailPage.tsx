@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 // ===== PRODUCT TYPE =====
 interface Product {
@@ -73,10 +74,11 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
 }) => {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const { showErrorToast } = useAdminToast();
 
   const handleReply = async () => {
     if (!content.trim()) {
-      alert("Vui lòng nhập nội dung phản hồi.");
+      showErrorToast("Vui lòng nhập nội dung phản hồi.");
       return;
     }
 
@@ -94,10 +96,10 @@ const AdminReplyForm: React.FC<AdminReplyFormProps> = ({
         setContent("");
         onSuccess();
       } else {
-        alert(res.message || "Không thể gửi phản hồi.");
+        showErrorToast(res.message || "Không thể gửi phản hồi.");
       }
     } catch (err) {
-      alert("Lỗi khi gửi phản hồi.");
+      showErrorToast("Lỗi khi gửi phản hồi.");
     } finally {
       setLoading(false);
     }

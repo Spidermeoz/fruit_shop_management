@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface SettingGeneral {
   website_name: string | null;
@@ -37,6 +38,8 @@ const SettingsGeneralPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof SettingGeneral, string>>
   >({});
+
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
   // ==========================
   // FETCH SETTINGS
@@ -150,14 +153,14 @@ const SettingsGeneralPage: React.FC = () => {
       );
 
       if (json.success) {
-        alert("✔ Cập nhật thành công!");
+        showSuccessToast({ message: "Cập nhật thành công!" });
         fetchSettings();
       } else {
-        alert(json.message || "Có lỗi xảy ra.");
+        showErrorToast(json.message || "Có lỗi xảy ra.");
       }
     } catch (e) {
       console.error(e);
-      alert("Không thể kết nối server.");
+      showErrorToast("Không thể kết nối server.");
     } finally {
       setSaving(false);
     }

@@ -10,7 +10,8 @@ import {
   buildCategoryTree,
   renderCategoryOptions,
 } from "../../../utils/categoryTree";
-import { http } from "../../../services/http"; // chỉnh path cho đúng
+import { http } from "../../../services/http";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface ProductCategory {
   id: number;
@@ -49,14 +50,16 @@ const ProductEditPage: React.FC = () => {
     Partial<Record<keyof Product, string>>
   >({});
 
-  // ✅ file ảnh mới (chưa upload)
+  // file ảnh mới (chưa upload)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
     "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
-  // 🔹 Lấy dữ liệu sản phẩm
+  const { showSuccessToast, showErrorToast } = useAdminToast();
+
+  // Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
     try {
       setLoading(true);
@@ -301,23 +304,23 @@ const ProductEditPage: React.FC = () => {
       );
 
       if (json.success) {
-        alert("Cập nhật sản phẩm thành công!");
+        showSuccessToast({ message: "Cập nhật sản phẩm thành công!" });
         // navigate(`/admin/products/edit/${id}`);
         fetchProduct(); // Re-fetch to get latest data
       } else {
         if (json.errors) {
           setFormErrors(json.errors);
         } else {
-          alert(json.message || "Cập nhật thất bại.");
+          showErrorToast(json.message || "Cập nhật thất bại.");
         }
       }
     } catch (err: any) {
       console.error(err);
 
       if (err?.message) {
-        alert(err.message);
+        showErrorToast(err.message);
       } else {
-        alert("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+        showErrorToast("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
       }
     } finally {
       setSaving(false);

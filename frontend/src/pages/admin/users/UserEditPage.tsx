@@ -10,6 +10,7 @@ import { Loader2, Save, ArrowLeft } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Role {
   id: number;
@@ -60,6 +61,7 @@ const UserEditPage: React.FC = () => {
   );
   const [imageUrl, setImageUrl] = useState<string>("");
   const { user: currentUser } = useAuth();
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
   // Lấy dữ liệu user
   const fetchUser = async () => {
@@ -248,7 +250,7 @@ const UserEditPage: React.FC = () => {
     if (!user) return;
 
     if (isSelf && user.status === "inactive") {
-      alert("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.");
+      showErrorToast("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.");
       return;
     }
 
@@ -301,16 +303,16 @@ const UserEditPage: React.FC = () => {
       );
 
       if (resp.success) {
-        alert("Cập nhật người dùng thành công!");
+        showSuccessToast({ message: "Cập nhật người dùng thành công!" });
         navigate("/admin/users");
       } else if (resp.errors) {
         setErrors(resp.errors);
       } else {
-        alert((resp as any).message || "Cập nhật thất bại.");
+        showErrorToast((resp as any).message || "Cập nhật thất bại.");
       }
     } catch (err: any) {
       console.error(err);
-      alert(err?.message || "Không thể kết nối server.");
+      showErrorToast(err?.message || "Không thể kết nối server.");
     } finally {
       setSaving(false);
     }

@@ -15,6 +15,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface User {
   id: number;
@@ -111,8 +112,10 @@ const UsersPage: React.FC = () => {
   const [sortOrder, setSortOrder] = useState<string>(
     searchParams.get("sort") || "",
   );
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // 🔹 Gọi API danh sách users
+
+  // Gọi API danh sách users
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -156,7 +159,7 @@ const UsersPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, currentPage, sortOrder, searchTerm]);
 
-  // 🔹 Tự động cập nhật URL khi tìm kiếm
+  // Tự động cập nhật URL khi tìm kiếm
   useEffect(() => {
     const delay = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
@@ -168,7 +171,7 @@ const UsersPage: React.FC = () => {
     return () => clearTimeout(delay);
   }, [searchTerm]);
 
-  // 🔹 Lọc client theo keyword (phụ – vẫn ưu tiên filter từ API)
+  // Lọc client theo keyword (phụ – vẫn ưu tiên filter từ API)
   const filteredUsers = users.filter(
     (u) =>
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -187,10 +190,10 @@ const UsersPage: React.FC = () => {
       setLoading(true);
       await http("DELETE", `/api/v1/admin/users/delete/${id}`);
       setUsers((prev) => prev.filter((u) => u.id !== id));
-      alert("Đã xóa người dùng thành công!");
+      showSuccessToast({ message: "Đã xóa người dùng thành công!" });
     } catch (err) {
       console.error("Delete user error:", err);
-      alert(err instanceof Error ? err.message : "Không thể xóa người dùng!");
+      showErrorToast(err instanceof Error ? err.message : "Không thể xóa người dùng!");
     } finally {
       setLoading(false);
     }
@@ -210,7 +213,7 @@ const UsersPage: React.FC = () => {
       );
     } catch (err) {
       console.error(err);
-      alert(
+      showErrorToast(
         err instanceof Error ? err.message : "Không thể cập nhật trạng thái",
       );
     }
@@ -372,7 +375,7 @@ const UsersPage: React.FC = () => {
             <button
               onClick={async () => {
                 if (!bulkAction) {
-                  alert("Vui lòng chọn hành động!");
+                  showErrorToast("Vui lòng chọn hành động!");
                   return;
                 }
 
@@ -396,12 +399,12 @@ const UsersPage: React.FC = () => {
                   };
 
                   await http("PATCH", "/api/v1/admin/users/bulk-edit", body);
-                  alert("Cập nhật thành công!");
+                  showSuccessToast({ message: "Cập nhật thành công!" });
                   setSelectedUsers([]);
                   fetchUsers();
                 } catch (err) {
                   console.error(err);
-                  alert(
+                  showErrorToast(
                     err instanceof Error ? err.message : "Lỗi kết nối server!",
                   );
                 }
