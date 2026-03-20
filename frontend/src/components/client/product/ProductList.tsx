@@ -36,6 +36,9 @@ const ProductListPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const productsPerPage = 12;
 
+  // State mới để quản lý số lượng danh mục hiển thị
+  const [visibleCategoriesCount, setVisibleCategoriesCount] = useState(5);
+
   const categorySlug = searchParams.get("category");
   const activeCategory = categories.find((cat) => cat.slug === categorySlug);
 
@@ -140,6 +143,11 @@ const ProductListPage: React.FC = () => {
     setSearchTerm("");
     setSortBy("default");
     setPriceRange([0, 1000000]);
+    setVisibleCategoriesCount(5); // Xóa bộ lọc thì reset lại số danh mục hiển thị
+  };
+
+  const handleLoadMoreCategories = () => {
+    setVisibleCategoriesCount((prev) => prev + 6);
   };
 
   const formatPrice = (value: number) => {
@@ -271,7 +279,7 @@ const ProductListPage: React.FC = () => {
                     >
                       Tất cả sản phẩm
                     </button>
-                    {categories.map((cat) => (
+                    {categories.slice(0, visibleCategoriesCount).map((cat) => (
                       <button
                         key={cat.id}
                         onClick={() => handleCategoryClick(cat.slug)}
@@ -284,6 +292,30 @@ const ProductListPage: React.FC = () => {
                         {cat.title}
                       </button>
                     ))}
+
+                    {/* Nút Xem thêm danh mục */}
+                    {visibleCategoriesCount < categories.length && (
+                      <button
+                        onClick={handleLoadMoreCategories}
+                        className="flex items-center justify-center w-full px-4 py-2.5 mt-1 rounded-xl text-sm font-bold text-green-600 border border-dashed border-green-300 bg-green-50/50 hover:bg-green-100 hover:border-green-400 transition-all"
+                      >
+                        Xem thêm ({categories.length - visibleCategoriesCount})
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 ml-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -341,7 +373,7 @@ const ProductListPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 3.4. Sắp xếp (Chuyển thành dropdown đẹp hơn) */}
+                {/* 3.4. Sắp xếp */}
                 <div className="mb-8">
                   <label className="block text-slate-800 text-sm font-bold mb-3">
                     Sắp xếp theo
@@ -422,7 +454,7 @@ const ProductListPage: React.FC = () => {
                     "Đang làm mới danh sách..."
                   )}
                 </div>
-                {/* Active Filter Tags (Visual only, based on states) */}
+                {/* Active Filter Tags */}
                 <div className="flex flex-wrap gap-2">
                   {searchTerm && (
                     <span className="text-xs font-bold px-3 py-1 bg-green-50 text-green-700 rounded-full">
@@ -439,9 +471,9 @@ const ProductListPage: React.FC = () => {
 
               {/* Trạng thái Loading / Error / Data */}
               {isLoading ? (
-                // 5. Loading Skeleton State
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[...Array(6)].map((_, idx) => (
+                // 5. Loading Skeleton State (Điều chỉnh lg:grid-cols-4 và mảng thành 8 để lấp đầy 2 hàng)
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {[...Array(8)].map((_, idx) => (
                     <div
                       key={idx}
                       className="bg-white rounded-[2rem] p-4 border border-slate-100 shadow-sm animate-pulse"
@@ -478,9 +510,9 @@ const ProductListPage: React.FC = () => {
                   <p className="text-slate-500 font-medium">{error}</p>
                 </div>
               ) : products.length > 0 ? (
-                // 4.1. Product Grid
+                // 4.1. Product Grid (Điều chỉnh thành lg:grid-cols-4)
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {products.map((product) => {
                       const hasDiscount =
                         typeof product.discountPercentage === "number" &&
@@ -542,11 +574,11 @@ const ProductListPage: React.FC = () => {
                             {/* Vùng Giá */}
                             <div className="mt-auto flex flex-col gap-1 mb-5">
                               <div className="flex items-center gap-2">
-                                <span className="text-2xl font-black text-green-700">
+                                <span className="text-xl font-black text-green-700">
                                   {formatPrice(finalPrice)}
                                 </span>
                                 {hasDiscount && (
-                                  <span className="text-sm font-medium text-slate-400 line-through decoration-slate-300">
+                                  <span className="text-xs font-medium text-slate-400 line-through decoration-slate-300">
                                     {formatPrice(product.price)}
                                   </span>
                                 )}
