@@ -28,8 +28,10 @@ const Header: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [settings, setSettings] = useState<SettingGeneral | null>(null);
 
+  
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   // Auth + Cart
@@ -78,15 +80,45 @@ const Header: React.FC = () => {
 
   // Đóng menu khi click ra ngoài
   useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setIsProductMenuOpen(false);
-        setExpandedIds([]);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userRef.current && !userRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
       }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+
+    const handleEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("keydown", handleEsc);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [isUserMenuOpen, setIsUserMenuOpen]);
+
+  // đóng dropdwon của user khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    if (isUserMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isUserMenuOpen]);
 
   // Logout
   const handleLogout = async () => {
@@ -375,11 +407,8 @@ const Header: React.FC = () => {
                 {/* User Dropdown */}
                 {isUserMenuOpen && (
                   <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setIsUserMenuOpen(false)}
-                    ></div>
-                    <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-50 py-2 z-50">
+                   
+                    <div ref={userRef} className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-50 py-2 z-50">
                       <div className="px-4 py-3 border-b border-slate-50 mb-2">
                         <p className="text-sm font-bold text-slate-900 truncate">
                           {user.fullName}
