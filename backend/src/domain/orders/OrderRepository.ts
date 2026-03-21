@@ -9,16 +9,22 @@ export interface OrderListFilter {
   q?: string;
 }
 
+export interface OrderCreateItemInput {
+  productId: number | null;
+  productVariantId: number | null;
+  quantity: number;
+  price: number;
+  title: string;
+  variantTitle?: string | null;
+  variantSku?: string | null;
+}
+
 export interface OrderRepository {
-  updatePaymentStatus(orderId: number, arg1: string): unknown;
+  updatePaymentStatus(orderId: number, status: string): unknown;
+
   create(data: {
     userId: number;
-    items: {
-      productId: number;
-      quantity: number;
-      price: number;
-      title: string;
-    }[];
+    items: OrderCreateItemInput[];
     address: any;
     shippingFee: number;
     discountAmount: number;
@@ -27,9 +33,10 @@ export interface OrderRepository {
   }): Promise<Order>;
 
   findById(id: number): Promise<Order | null>;
+
   findByUser(
     id: number,
-    filter: OrderListFilter
+    filter: OrderListFilter,
   ): Promise<{ rows: Order[]; count: number }>;
 
   updateStatus(id: number, status: OrderStatus): Promise<void>;
@@ -38,7 +45,7 @@ export interface OrderRepository {
     orderId: number,
     status: string,
     location?: string,
-    note?: string
+    note?: string,
   ): Promise<void>;
 
   addPayment(data: {

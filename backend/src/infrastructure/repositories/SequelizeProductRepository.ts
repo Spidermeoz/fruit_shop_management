@@ -211,7 +211,7 @@ export class SequelizeProductRepository implements ProductRepository {
   async softDelete(id: number) {
     await this.models.Product.update(
       { deleted: 1, deleted_at: new Date() },
-      { where: { id } }
+      { where: { id } },
     );
   }
 
@@ -242,7 +242,7 @@ export class SequelizeProductRepository implements ProductRepository {
 
   async reorderPositions(
     pairs: { id: number; position: number }[],
-    updatedById?: number
+    updatedById?: number,
   ) {
     const ids = pairs.map((p) => Number(p.id));
     // CASE WHEN nhanh & 1 câu UPDATE
@@ -284,7 +284,7 @@ export class SequelizeProductRepository implements ProductRepository {
 
     if (currentStock < quantity) {
       throw new Error(
-        `Không đủ tồn kho cho sản phẩm "${product.title}". Còn lại: ${currentStock}`
+        `Không đủ tồn kho cho sản phẩm "${product.title}". Còn lại: ${currentStock}`,
       );
     }
 
@@ -311,5 +311,78 @@ export class SequelizeProductRepository implements ProductRepository {
     product.stock = Number(product.stock ?? 0) + quantity;
 
     await product.save({ transaction });
+  }
+  async findVariantById(variantId: number) {
+    const Variant = (this.models as any).ProductVariant;
+
+    if (!Variant) {
+      throw new Error("ProductVariant model not provided");
+    }
+
+    const v = await Variant.findOne({
+      where: { id: variantId },
+    });
+
+    if (!v) return null;
+
+    return {
+      id: Number(v.id),
+      productId: Number(v.product_id),
+      title: v.title ?? null,
+      sku: v.sku ?? null,
+      price: Number(v.price),
+      stock: Number(v.stock ?? 0),
+      status: v.status ?? "active",
+    };
+  }
+
+  async decreaseVariantStock(
+    variantId: number,
+    quantity: number,
+    transaction?: any,
+  ) {
+    const Variant = (this.models as any).ProductVariant;
+
+    const variant = await Variant.findOne({
+      where: { id: variantId },
+      transaction,
+      lock: transaction ? transaction.LOCK.UPDATE : undefined,
+    });
+
+    if (!variant) {
+      throw new Error(`Variant không tồn tại (ID ${variantId})`);
+    }
+
+    const stock = Number(variant.stock ?? 0);
+
+    if (stock < quantity) {
+      throw new Error(`Không đủ tồn kho variant`);
+    }
+
+    variant.stock = stock - quantity;
+
+    await variant.save({ transaction });
+
+    return variant;
+  }
+
+  async increaseVariantStock(
+    variantId: number,
+    quantity: number,
+    transaction?: any,
+  ) {
+    const Variant = (this.models as any).ProductVariant;
+
+    const variant = await Variant.findOne({
+      where: { id: variantId },
+      transaction,
+      lock: transaction ? transaction.LOCK.UPDATE : undefined,
+    });
+
+    if (!variant) return;
+
+    variant.stock = Number(variant.stock ?? 0) + quantity;
+
+    await variant.save({ transaction });
   }
 }

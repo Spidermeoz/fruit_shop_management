@@ -20,7 +20,6 @@ export class Order {
     return this.props.userId;
   }
 
-  // ⭐ Thêm các getter quan trọng
   get status() {
     return this.props.status;
   }

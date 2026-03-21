@@ -29,7 +29,10 @@ export interface OrderAddressProps {
 
 export interface OrderItemProps {
   productId: number | null;
+  productVariantId: number | null;
   productTitle: string;
+  variantTitle?: string | null;
+  variantSku?: string | null;
   price: number;
   quantity: number;
 }

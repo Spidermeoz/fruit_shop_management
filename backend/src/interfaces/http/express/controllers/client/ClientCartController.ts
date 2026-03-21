@@ -1,5 +1,13 @@
+// src/interfaces/http/express/controllers/client/ClientCartController.ts
+
 import { Request, Response, NextFunction } from "express";
-import { AddToCart, ListCartItems, RemoveAllFromCart, RemoveFromCart, UpdateCartItem } from "../../../../../application/carts";
+import {
+  AddToCart,
+  ListCartItems,
+  RemoveAllFromCart,
+  RemoveFromCart,
+  UpdateCartItem,
+} from "../../../../../application/carts";
 
 export const makeClientCartController = (uc: {
   addToCart: AddToCart;
@@ -9,7 +17,7 @@ export const makeClientCartController = (uc: {
   removeAllItems: RemoveAllFromCart;
 }) => {
   return {
-    // GET /api/v1/client/cart
+    // GET /cart
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = Number((req as any).user?.id);
@@ -24,16 +32,16 @@ export const makeClientCartController = (uc: {
       }
     },
 
-    // POST /api/v1/client/cart/items
+    // POST /cart/items
     add: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = Number((req as any).user?.id);
-        const { productId, quantity } = req.body;
+        const { productVariantId, quantity } = req.body;
 
         const item = await uc.addToCart.execute({
           userId,
-          productId: Number(productId),
-          quantity: quantity !== undefined ? Number(quantity) : 1,
+          productVariantId: Number(productVariantId),
+          quantity: quantity ? Number(quantity) : 1,
         });
 
         res.status(201).json({
@@ -45,16 +53,16 @@ export const makeClientCartController = (uc: {
       }
     },
 
-    // PATCH /api/v1/client/cart/items/:productId
+    // PATCH /cart/items/:variantId
     update: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = Number((req as any).user?.id);
-        const productId = Number(req.params.productId);
+        const productVariantId = Number(req.params.variantId);
         const { quantity } = req.body;
 
         const item = await uc.updateItem.execute({
           userId,
-          productId,
+          productVariantId,
           quantity: Number(quantity),
         });
 
@@ -67,13 +75,16 @@ export const makeClientCartController = (uc: {
       }
     },
 
-    // DELETE /api/v1/client/cart/items/:productId
+    // DELETE /cart/items/:variantId
     remove: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = Number((req as any).user?.id);
-        const productId = Number(req.params.productId);
+        const productVariantId = Number(req.params.variantId);
 
-        await uc.removeItem.execute({ userId, productId });
+        await uc.removeItem.execute({
+          userId,
+          productVariantId,
+        });
 
         res.json({
           success: true,
@@ -84,20 +95,19 @@ export const makeClientCartController = (uc: {
       }
     },
 
-    // DELETE ALL /api/v1/client/cart/all-items
     removeAllItems: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = Number((req as any).user?.id);
-        await uc.removeAllItems.execute( userId );
+        await uc.removeAllItems.execute(userId);
+
         res.json({
           success: true,
           data: true,
         });
-      }
-      catch (err) {
+      } catch (err) {
         next(err);
       }
-    }
+    },
   };
 };
 

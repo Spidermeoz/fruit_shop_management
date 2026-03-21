@@ -1,177 +1,168 @@
 // src/config/di/container.ts
+
+// ===== Sequelize models =====
+import CartItemModel from "../../infrastructure/db/sequelize/models/CartItemModel";
+import CartModel from "../../infrastructure/db/sequelize/models/CartModel";
+import DeliveryStatusHistoryModel from "../../infrastructure/db/sequelize/models/DeliveryStatusHistoryModel";
+import OrderAddressModel from "../../infrastructure/db/sequelize/models/OrderAddressModel";
+import OrderItemModel from "../../infrastructure/db/sequelize/models/OrderItemModel";
+import OrderModel from "../../infrastructure/db/sequelize/models/OrderModel";
+import PaymentModel from "../../infrastructure/db/sequelize/models/PaymentModel";
+import ProductCategoryModel from "../../infrastructure/db/sequelize/models/ProductCategoryModel";
 import ProductModel from "../../infrastructure/db/sequelize/models/ProductModel";
-import { SequelizeProductRepository } from "../../infrastructure/repositories/SequelizeProductRepository";
-
-// Roles
+import ProductOptionModel from "../../infrastructure/db/sequelize/models/ProductOptionModel";
+import ProductOptionValueModel from "../../infrastructure/db/sequelize/models/ProductOptionValueModel";
+import ProductReviewModel from "../../infrastructure/db/sequelize/models/ProductReviewModel";
+import ProductVariantModel from "../../infrastructure/db/sequelize/models/ProductVariantModel";
+import ProductVariantValueModel from "../../infrastructure/db/sequelize/models/ProductVariantValueModel";
 import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
-import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
-
-// Users
+import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
 import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
+
+// ===== Repositories =====
+import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
+import { SequelizeOrderRepository } from "../../infrastructure/repositories/SequelizeOrderRepository";
+import { SequelizeProductCategoryRepository } from "../../infrastructure/repositories/SequelizeProductCategoryRepository";
+import { SequelizeProductRepository } from "../../infrastructure/repositories/SequelizeProductRepository";
+import { SequelizeReviewRepository } from "../../infrastructure/repositories/SequelizeReviewRepository";
+import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
+import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
 
-// Cart models & repo
-import CartModel from "../../infrastructure/db/sequelize/models/CartModel";
-import CartItemModel from "../../infrastructure/db/sequelize/models/CartItemModel";
-import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
-
-// Orders
-import OrderModel from "../../infrastructure/db/sequelize/models/OrderModel";
-import OrderItemModel from "../../infrastructure/db/sequelize/models/OrderItemModel";
-import OrderAddressModel from "../../infrastructure/db/sequelize/models/OrderAddressModel";
-import PaymentModel from "../../infrastructure/db/sequelize/models/PaymentModel";
-import DeliveryStatusHistoryModel from "../../infrastructure/db/sequelize/models/DeliveryStatusHistoryModel";
-
-import { SequelizeOrderRepository } from "../../infrastructure/repositories/SequelizeOrderRepository";
-
-import ProductReviewModel from "../../infrastructure/db/sequelize/models/ProductReviewModel";
-import { SequelizeReviewRepository } from "../../infrastructure/repositories/SequelizeReviewRepository";
-
-import { CreateReview } from "../../application/reviews/usecases/CreateReview";
-import { ReplyReview } from "../../application/reviews/usecases/ReplyReview";
-import { ListReviewsByProduct } from "../../application/reviews/usecases/ListReviewsByProduct";
-import { ListMyReviews } from "../../application/reviews/usecases/ListMyReviews";
-
-import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
-import {
-  AdminReviewsController,
-  makeAdminReviewsController,
-} from "../../interfaces/http/express/controllers/AdminReviewsController";
-
-import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
-import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
-
-// Products usecases
-import { ListProducts } from "../../application/products/usecases/ListProducts";
-import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
-import { CreateProduct } from "../../application/products/usecases/CreateProduct";
-import { EditProduct } from "../../application/products/usecases/EditProduct";
-import { ChangeProductStatus } from "../../application/products/usecases/ChangeProductStatus";
-import { SoftDeleteProduct } from "../../application/products/usecases/SoftDeleteProduct";
-import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
-import { BulkReorderProducts } from "../../application/products/usecases/BulkReorderProducts";
-
-// Cart usecases
-import { AddToCart } from "../../application/carts/usecases/AddToCart";
-import { ListCartItems } from "../../application/carts/usecases/ListCartItems";
-import { UpdateCartItem } from "../../application/carts/usecases/UpdateCartItem";
-import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart";
-import { RemoveAllFromCart } from "../../application/carts";
-
-import { GetPendingReviewSummary } from "../../application/reviews/usecases/GetPendingReviewSummary";
-
-import { GetGeneralSettings } from "../../application/settings/usecases/GetGeneralSettings";
-import { UpdateGeneralSettings } from "../../application/settings/usecases/UpdateGeneralSettings";
-
-// Controllers
-import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
-import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
-import { RequestPasswordReset } from "../../application/auth/usecases/RequestPasswordReset";
-import { ClientForgotPasswordController } from "../../interfaces/http/express/controllers/client/ClientForgotPasswordController";
-import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
-import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
-import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
-import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
-import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
-import { UpdateMyProfile } from "../../application/auth/usecases/UpdateMyProfile";
-
-// Client Cart controller
-import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
-import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
-import { makeClientOrdersController } from "../../interfaces/http/express/controllers/client/ClientOrdersController";
-
-import {
-  makeSettingsGeneralController,
-  SettingsGeneralController,
-} from "../../interfaces/http/express/controllers/SettingsGeneralController";
-
-// Upload DI
+// ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
-import { UploadImage } from "../../application/uploads/usecases/UploadImage";
-import { makeUploadController } from "../../interfaces/http/express/controllers/UploadController";
-import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
 
 // ===== Auth services =====
-import { JwtTokenService } from "../../infrastructure/auth/JwtTokenService";
-import { CryptoRefreshTokenService } from "../../infrastructure/auth/CryptoRefreshTokenService";
 import { BcryptPasswordService } from "../../infrastructure/auth/BcryptPasswordService";
+import { CryptoRefreshTokenService } from "../../infrastructure/auth/CryptoRefreshTokenService";
+import { JwtTokenService } from "../../infrastructure/auth/JwtTokenService";
 
-// ===== Category imports =====
-import ProductCategoryModel from "../../infrastructure/db/sequelize/models/ProductCategoryModel";
-import { SequelizeProductCategoryRepository } from "../../infrastructure/repositories/SequelizeProductCategoryRepository";
+// ===== Product usecases =====
+import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
+import { BulkReorderProducts } from "../../application/products/usecases/BulkReorderProducts";
+import { ChangeProductStatus } from "../../application/products/usecases/ChangeProductStatus";
+import { CreateProduct } from "../../application/products/usecases/CreateProduct";
+import { EditProduct } from "../../application/products/usecases/EditProduct";
+import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
+import { ListProducts } from "../../application/products/usecases/ListProducts";
+import { SoftDeleteProduct } from "../../application/products/usecases/SoftDeleteProduct";
 
-import { ListCategories } from "../../application/categories/usecases/ListCategories";
-import { GetCategoryDetail } from "../../application/categories/usecases/GetCategoryDetail";
+// ===== Category usecases =====
+import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
+import { ChangeCategoryStatus } from "../../application/categories/usecases/ChangeCategoryStatus";
 import { CreateCategory } from "../../application/categories/usecases/CreateCategory";
 import { EditCategory } from "../../application/categories/usecases/EditCategory";
-import { ChangeCategoryStatus } from "../../application/categories/usecases/ChangeCategoryStatus";
-import { SoftDeleteCategory } from "../../application/categories/usecases/SoftDeleteCategory";
-import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
+import { GetCategoryDetail } from "../../application/categories/usecases/GetCategoryDetail";
+import { ListCategories } from "../../application/categories/usecases/ListCategories";
 import { ReorderCategoryPositions } from "../../application/categories/usecases/ReorderCategoryPositions";
+import { SoftDeleteCategory } from "../../application/categories/usecases/SoftDeleteCategory";
 
-// ===== Roles usecases =====
-import { ListRoles } from "../../application/roles/usecases/ListRoles";
-import { GetRoleDetail } from "../../application/roles/usecases/GetRoleDetail";
-import { CreateRole } from "../../application/roles/usecases/CreateRole";
-import { UpdateRole } from "../../application/roles/usecases/UpdateRole";
-import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole";
-import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
-import { UpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
-import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
-import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+// ===== Cart usecases =====
+import { AddToCart } from "../../application/carts/usecases/AddToCart";
+import { ListCartItems } from "../../application/carts/usecases/ListCartItems";
+import { RemoveFromCart } from "../../application/carts/usecases/RemoveFromCart";
+import { UpdateCartItem } from "../../application/carts/usecases/UpdateCartItem";
+import { RemoveAllFromCart } from "../../application/carts";
 
-import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
-import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
-
-import { makeRolesController } from "../../interfaces/http/express/controllers/RolesController";
-import type { RolesController } from "../../interfaces/http/express/controllers/RolesController";
-
-// ===== Users usecases =====
-import { ListUsers } from "../../application/users/usecases/ListUsers";
-import { GetUserDetail } from "../../application/users/usecases/GetUserDetail";
-import { CreateUser } from "../../application/users/usecases/CreateUser";
-import { EditUser } from "../../application/users/usecases/EditUser";
-import { UpdateUserStatus } from "../../application/users/usecases/UpdateUserStatus";
-import { SoftDeleteUser } from "../../application/users/usecases/SoftDeleteUser";
-import { BulkEditUsers } from "../../application/users/usecases/BulkEditUsers";
-
-// ===== Auth usecases =====
-import { Login } from "../../application/auth/usecases/Login";
-import { Logout } from "../../application/auth/usecases/Logout";
-import { RefreshToken } from "../../application/auth/usecases/RefreshToken";
-import { GetMe } from "../../application/auth/usecases/GetMe";
-
-import { makeUsersController } from "../../interfaces/http/express/controllers/UsersController";
-import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
-
-import { makeAuthController } from "../../interfaces/http/express/controllers/AuthController";
-import type { AuthController } from "../../interfaces/http/express/controllers/AuthController";
-
-import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
-import type { ClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
-
-import { makeClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
-// import type { ClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
-
-import { RegisterClient } from "../../application/auth/usecases/RegisterClient";
-import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
-import { CreateOrderFromCart } from "../../application/orders/client/CreateOrderFromCart";
-import { GetMyOrders } from "../../application/orders/client/GetMyOrders";
+// ===== Order usecases =====
 import { AddDeliveryHistory } from "../../application/orders/admin/AddDeliveryHistory";
 import { AddPayment } from "../../application/orders/admin/AddPayment";
 import { GetOrderDetailAdmin } from "../../application/orders/admin/GetOrderDetailAdmin";
 import { ListOrders } from "../../application/orders/admin/ListOrders";
 import { UpdateOrderStatus } from "../../application/orders/admin/UpdateOrderStatus";
 import { CancelMyOrder } from "../../application/orders/client/CancelMyOrder";
+import { CreateOrderFromCart } from "../../application/orders/client/CreateOrderFromCart";
 import { GetMyOrderDetail } from "../../application/orders/client/GetMyOrderDetail";
+import { GetMyOrders } from "../../application/orders/client/GetMyOrders";
+import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
+
+// ===== Review usecases =====
+import { CheckReviewed } from "../../application/reviews/usecases/CheckReviewed";
+import { CreateReview } from "../../application/reviews/usecases/CreateReview";
+import { GetPendingReviewSummary } from "../../application/reviews/usecases/GetPendingReviewSummary";
+import { ListMyReviews } from "../../application/reviews/usecases/ListMyReviews";
+import { ListReviewsByProduct } from "../../application/reviews/usecases/ListReviewsByProduct";
+import { ReplyReview } from "../../application/reviews/usecases/ReplyReview";
+
+// ===== Setting usecases =====
+import { GetGeneralSettings } from "../../application/settings/usecases/GetGeneralSettings";
+import { UpdateGeneralSettings } from "../../application/settings/usecases/UpdateGeneralSettings";
+
+// ===== Upload usecases =====
+import { UploadImage } from "../../application/uploads/usecases/UploadImage";
+
+// ===== Role usecases =====
+import { CreateRole } from "../../application/roles/usecases/CreateRole";
+import { GetRoleDetail } from "../../application/roles/usecases/GetRoleDetail";
+import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
+import { ListRoles } from "../../application/roles/usecases/ListRoles";
+import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
+import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole";
+import { UpdateRole } from "../../application/roles/usecases/UpdateRole";
+import { UpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+import { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../application/roles/usecases/UpdateRolePermissions";
+
+// ===== User usecases =====
+import { BulkEditUsers } from "../../application/users/usecases/BulkEditUsers";
+import { CreateUser } from "../../application/users/usecases/CreateUser";
+import { EditUser } from "../../application/users/usecases/EditUser";
+import { GetUserDetail } from "../../application/users/usecases/GetUserDetail";
+import { ListUsers } from "../../application/users/usecases/ListUsers";
+import { SoftDeleteUser } from "../../application/users/usecases/SoftDeleteUser";
+import { UpdateUserStatus } from "../../application/users/usecases/UpdateUserStatus";
+
+// ===== Auth usecases =====
+import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
+import { GetMe } from "../../application/auth/usecases/GetMe";
+import { Login } from "../../application/auth/usecases/Login";
+import { Logout } from "../../application/auth/usecases/Logout";
+import { RefreshToken } from "../../application/auth/usecases/RefreshToken";
+import { RegisterClient } from "../../application/auth/usecases/RegisterClient";
+import { RequestPasswordReset } from "../../application/auth/usecases/RequestPasswordReset";
+import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
+import { UpdateMyProfile } from "../../application/auth/usecases/UpdateMyProfile";
+import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
+
+// ===== Controllers =====
+import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
+import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
+import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
+import { makeClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
+import { ClientForgotPasswordController } from "../../interfaces/http/express/controllers/client/ClientForgotPasswordController";
+import { makeClientOrdersController } from "../../interfaces/http/express/controllers/client/ClientOrdersController";
+import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
+import type { ClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
+import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
+import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
+import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
+
+import {
+  AdminReviewsController,
+  makeAdminReviewsController,
+} from "../../interfaces/http/express/controllers/AdminReviewsController";
+import { makeAuthController } from "../../interfaces/http/express/controllers/AuthController";
+import type { AuthController } from "../../interfaces/http/express/controllers/AuthController";
 import {
   makeOrdersController,
   OrdersController,
 } from "../../interfaces/http/express/controllers/OrdersController";
-import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
-import { CheckReviewed } from "../../application/reviews/usecases/CheckReviewed";
+import { makeProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+import type { ProductCategoriesController } from "../../interfaces/http/express/controllers/ProductCategoriesController";
+import { makeProductsController } from "../../interfaces/http/express/controllers/ProductsController";
+import type { ProductsController } from "../../interfaces/http/express/controllers/ProductsController";
+import { makeRolesController } from "../../interfaces/http/express/controllers/RolesController";
+import type { RolesController } from "../../interfaces/http/express/controllers/RolesController";
+import {
+  makeSettingsGeneralController,
+  SettingsGeneralController,
+} from "../../interfaces/http/express/controllers/SettingsGeneralController";
+import { makeUploadController } from "../../interfaces/http/express/controllers/UploadController";
+import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
+import { makeUsersController } from "../../interfaces/http/express/controllers/UsersController";
+import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
+
+// ===== Domain =====
 import { SettingGeneral } from "../../domain/settings/SettingGeneral";
-// import clientAuthRoutes from "../../interfaces/http/express/routes/client/clientAuth.routes";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -181,6 +172,8 @@ export const authServices = {
 } as const;
 
 // ===== Associations =====
+
+// Product -> Category
 ProductModel.belongsTo(ProductCategoryModel, {
   as: "category",
   foreignKey: "product_category_id",
@@ -190,9 +183,17 @@ ProductCategoryModel.hasMany(ProductModel, {
   foreignKey: "product_category_id",
 });
 
-UserModel.belongsTo(RoleModel, { as: "role", foreignKey: "role_id" });
-RoleModel.hasMany(UserModel, { as: "users", foreignKey: "role_id" });
+// User -> Role
+UserModel.belongsTo(RoleModel, {
+  as: "role",
+  foreignKey: "role_id",
+});
+RoleModel.hasMany(UserModel, {
+  as: "users",
+  foreignKey: "role_id",
+});
 
+// User -> Cart
 CartModel.belongsTo(UserModel, {
   as: "user",
   foreignKey: "user_id",
@@ -202,6 +203,7 @@ UserModel.hasOne(CartModel, {
   foreignKey: "user_id",
 });
 
+// Cart -> Cart items
 CartModel.hasMany(CartItemModel, {
   as: "items",
   foreignKey: "cart_id",
@@ -211,12 +213,67 @@ CartItemModel.belongsTo(CartModel, {
   foreignKey: "cart_id",
 });
 
+// Cart item -> Product / Variant
 CartItemModel.belongsTo(ProductModel, {
   as: "product",
   foreignKey: "product_id",
 });
+CartItemModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
 
-// Order → User
+// Product -> Variants
+ProductModel.hasMany(ProductVariantModel, {
+  as: "variants",
+  foreignKey: "product_id",
+});
+ProductVariantModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+
+// Product -> Options
+ProductModel.hasMany(ProductOptionModel, {
+  as: "options",
+  foreignKey: "product_id",
+});
+ProductOptionModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+
+// Option -> Option values
+ProductOptionModel.hasMany(ProductOptionValueModel, {
+  as: "values",
+  foreignKey: "product_option_id",
+});
+ProductOptionValueModel.belongsTo(ProductOptionModel, {
+  as: "option",
+  foreignKey: "product_option_id",
+});
+
+// Variant -> Variant values
+ProductVariantModel.hasMany(ProductVariantValueModel, {
+  as: "variantValues",
+  foreignKey: "product_variant_id",
+});
+ProductVariantValueModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
+
+// Option value -> Variant values
+ProductOptionValueModel.hasMany(ProductVariantValueModel, {
+  as: "variantLinks",
+  foreignKey: "product_option_value_id",
+});
+ProductVariantValueModel.belongsTo(ProductOptionValueModel, {
+  as: "optionValue",
+  foreignKey: "product_option_value_id",
+});
+
+// Order -> User
 OrderModel.belongsTo(UserModel, {
   as: "user",
   foreignKey: "user_id",
@@ -226,7 +283,7 @@ UserModel.hasMany(OrderModel, {
   foreignKey: "user_id",
 });
 
-// Order → Items
+// Order -> Items
 OrderModel.hasMany(OrderItemModel, {
   as: "items",
   foreignKey: "order_id",
@@ -236,13 +293,17 @@ OrderItemModel.belongsTo(OrderModel, {
   foreignKey: "order_id",
 });
 
-// OrderItem → Product (nullable)
+// Order item -> Product / Variant
 OrderItemModel.belongsTo(ProductModel, {
   as: "product",
   foreignKey: "product_id",
 });
+OrderItemModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
 
-// Order → Address (1-1)
+// Order -> Address
 OrderModel.hasOne(OrderAddressModel, {
   as: "address",
   foreignKey: "order_id",
@@ -252,7 +313,7 @@ OrderAddressModel.belongsTo(OrderModel, {
   foreignKey: "order_id",
 });
 
-// Order → Payments
+// Order -> Payments
 OrderModel.hasMany(PaymentModel, {
   as: "payments",
   foreignKey: "order_id",
@@ -262,7 +323,7 @@ PaymentModel.belongsTo(OrderModel, {
   foreignKey: "order_id",
 });
 
-// Order → Delivery History
+// Order -> Delivery history
 OrderModel.hasMany(DeliveryStatusHistoryModel, {
   as: "deliveryHistory",
   foreignKey: "order_id",
@@ -272,27 +333,27 @@ DeliveryStatusHistoryModel.belongsTo(OrderModel, {
   foreignKey: "order_id",
 });
 
-// ===== Reviews =====
+// Reviews
 ProductReviewModel.belongsTo(ProductModel, {
   as: "product",
   foreignKey: "product_id",
 });
-
+ProductReviewModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
 ProductReviewModel.belongsTo(UserModel, {
   as: "user",
   foreignKey: "user_id",
 });
-
 ProductReviewModel.belongsTo(OrderModel, {
   as: "order",
   foreignKey: "order_id",
 });
-
 ProductReviewModel.belongsTo(ProductReviewModel, {
   as: "parent",
   foreignKey: "parent_id",
 });
-
 ProductReviewModel.hasMany(ProductReviewModel, {
   as: "replies",
   foreignKey: "parent_id",
@@ -301,50 +362,69 @@ ProductReviewModel.hasMany(ProductReviewModel, {
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
+  ProductVariant: ProductVariantModel,
+  ProductOption: ProductOptionModel,
+  ProductOptionValue: ProductOptionValueModel,
+  ProductVariantValue: ProductVariantValueModel,
   ProductCategory: ProductCategoryModel,
 };
 const productRepo = new SequelizeProductRepository(productModels);
 
 // Category
-const categoryModels = { ProductCategory: ProductCategoryModel };
+const categoryModels = {
+  ProductCategory: ProductCategoryModel,
+};
 const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
 
 // Roles (export để dùng ở main.ts/middlewares)
-const roleModels = { Role: RoleModel };
+const roleModels = {
+  Role: RoleModel,
+};
 export const rolesRepo = new SequelizeRoleRepository(roleModels);
 
 // Users (export để dùng ở main.ts/middlewares)
-const userModels = { User: UserModel, Role: RoleModel };
+const userModels = {
+  User: UserModel,
+  Role: RoleModel,
+};
 export const userRepo = new SequelizeUserRepository(userModels);
 
+// Cart
 const cartModels = {
   Cart: CartModel,
   CartItem: CartItemModel,
   Product: ProductModel,
+  ProductVariant: ProductVariantModel,
 };
 const cartRepo = new SequelizeCartRepository(cartModels);
 
+// Orders
 const orderModels = {
   Order: OrderModel,
   OrderItem: OrderItemModel,
   OrderAddress: OrderAddressModel,
   Payment: PaymentModel,
   DeliveryStatusHistory: DeliveryStatusHistoryModel,
-  Product: ProductModel, // để check lại product info trong repo
+  Product: ProductModel,
+  ProductVariant: ProductVariantModel,
 };
-
 const orderRepo = new SequelizeOrderRepository(orderModels);
 
+// Reviews
 const reviewModels = {
   ProductReview: ProductReviewModel,
   Product: ProductModel,
+  ProductVariant: ProductVariantModel,
   Order: OrderModel,
   User: UserModel,
   OrderItem: OrderItemModel,
 };
 const reviewRepo = new SequelizeReviewRepository(reviewModels);
 
-const settingModels = { SettingGeneral: SettingGeneralModel };
+// Settings
+const settingModels = {
+  SettingGeneral: SettingGeneralModel,
+};
 const settingsRepo = new SequelizeSettingGeneralRepository(settingModels);
 
 // ===== Usecases =====
@@ -359,9 +439,11 @@ export const usecases = {
     bulkEdit: new BulkEditProducts(productRepo),
     reorder: new BulkReorderProducts(productRepo),
   },
+
   upload: {
     upload: new UploadImage(new CloudinaryStorage()),
   },
+
   categories: {
     list: new ListCategories(categoryRepo),
     detail: new GetCategoryDetail(categoryRepo),
@@ -372,6 +454,7 @@ export const usecases = {
     bulkEdit: new BulkEditCategories(categoryRepo),
     reorder: new ReorderCategoryPositions(categoryRepo),
   },
+
   roles: {
     list: new ListRoles(rolesRepo),
     detail: new GetRoleDetail(rolesRepo),
@@ -383,6 +466,7 @@ export const usecases = {
     listForPermissions: new ListRolesForPermissions(rolesRepo),
     bulkUpdatePermissions: new BulkUpdateRolePermissions(rolesRepo),
   },
+
   users: {
     list: new ListUsers(userRepo),
     detail: new GetUserDetail(userRepo),
@@ -392,6 +476,7 @@ export const usecases = {
     softDelete: new SoftDeleteUser(userRepo),
     bulkEdit: new BulkEditUsers(userRepo),
   },
+
   auth: {
     login: new Login(
       userRepo,
@@ -413,8 +498,9 @@ export const usecases = {
     changePassword: new ChangePassword(userRepo, authServices.password),
     updateMyProfile: new UpdateMyProfile(userRepo),
   },
-  // tham chiếu lại services đã export ở trên (tránh tạo instance mới)
+
   authServices,
+
   carts: {
     addToCart: new AddToCart(cartRepo, productRepo),
     listItems: new ListCartItems(cartRepo),
@@ -422,6 +508,7 @@ export const usecases = {
     removeItem: new RemoveFromCart(cartRepo),
     removeAllItems: new RemoveAllFromCart(cartRepo),
   },
+
   orders: {
     createFromCart: new CreateOrderFromCart(orderRepo, cartRepo, productRepo),
     myOrders: new GetMyOrders(orderRepo),
@@ -435,6 +522,7 @@ export const usecases = {
     addPayment: new AddPayment(orderRepo),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
   },
+
   reviews: {
     create: new CreateReview(reviewRepo),
     reply: new ReplyReview(reviewRepo),
@@ -443,6 +531,7 @@ export const usecases = {
     checkReviewed: new CheckReviewed(reviewRepo),
     getPendingReviewSummary: new GetPendingReviewSummary(reviewRepo),
   },
+
   settings: {
     get: new GetGeneralSettings(settingsRepo),
     update: new UpdateGeneralSettings(settingsRepo),
@@ -473,9 +562,11 @@ export const controllers: Controllers = {
     bulkEdit: usecases.products.bulkEdit,
     reorder: usecases.products.reorder,
   }),
+
   upload: makeUploadController({
     upload: usecases.upload.upload,
   }),
+
   categories: makeProductCategoriesController({
     list: usecases.categories.list,
     detail: usecases.categories.detail,
@@ -486,6 +577,7 @@ export const controllers: Controllers = {
     bulkEdit: usecases.categories.bulkEdit,
     reorder: usecases.categories.reorder,
   }),
+
   roles: makeRolesController({
     list: usecases.roles.list,
     detail: usecases.roles.detail,
@@ -497,6 +589,7 @@ export const controllers: Controllers = {
     listForPermissions: usecases.roles.listForPermissions,
     bulkUpdatePermissions: usecases.roles.bulkUpdatePermissions,
   }),
+
   users: makeUsersController({
     list: usecases.users.list,
     detail: usecases.users.detail,
@@ -506,12 +599,14 @@ export const controllers: Controllers = {
     softDelete: usecases.users.softDelete,
     bulkEdit: usecases.users.bulkEdit,
   }),
+
   auth: makeAuthController({
     login: usecases.auth.login,
     logout: usecases.auth.logout,
     refresh: usecases.auth.refresh,
     me: usecases.auth.me,
   }),
+
   orders: makeOrdersController({
     list: usecases.orders.list,
     detail: usecases.orders.detail,
@@ -519,15 +614,17 @@ export const controllers: Controllers = {
     addDeliveryStatus: usecases.orders.addDeliveryStatus,
     addPayment: usecases.orders.addPayment,
   }),
+
   reviews: makeAdminReviewsController({
     replyReview: usecases.reviews.reply,
     listByProduct: usecases.reviews.listByProduct,
     getPendingReviewSummary: usecases.reviews.getPendingReviewSummary,
   }),
+
   settings: makeSettingsGeneralController({
     get: usecases.settings.get,
     update: usecases.settings.update,
-    upload: usecases.upload.upload, // tái sử dụng UploadImage có sẵn
+    upload: usecases.upload.upload,
   }),
 };
 
@@ -536,9 +633,11 @@ export const clientControllers = {
     list: usecases.products.list,
     detail: usecases.products.detail,
   }),
+
   categories: makeClientCategoriesController({
-    list: usecases.categories.list, // ✅ reuse usecase ListCategories
+    list: usecases.categories.list,
   }),
+
   auth: makeClientAuthController({
     register: new RegisterClient(
       userRepo,
@@ -553,15 +652,19 @@ export const clientControllers = {
     changePassword: usecases.auth.changePassword,
     updateMyProfile: usecases.auth.updateMyProfile,
   }),
+
   forgotPassword: new ClientForgotPasswordController({
     requestPasswordReset: usecases.auth.requestPasswordReset,
   }),
+
   verifyOtp: new ClientVerifyOtpController({
     verifyOtp: usecases.auth.verifyResetOtp,
   }),
+
   resetPassword: new ClientResetPasswordController({
     resetPassword: usecases.auth.resetPassword,
   }),
+
   cart: makeClientCartController({
     addToCart: usecases.carts.addToCart,
     listItems: usecases.carts.listItems,
@@ -569,6 +672,7 @@ export const clientControllers = {
     removeItem: usecases.carts.removeItem,
     removeAllItems: usecases.carts.removeAllItems,
   }),
+
   orders: makeClientOrdersController({
     createFromCart: usecases.orders.createFromCart,
     myOrders: usecases.orders.myOrders,
@@ -576,12 +680,14 @@ export const clientControllers = {
     cancelMyOrder: usecases.orders.cancelMyOrder,
     listMyOrderAddresses: usecases.orders.listMyOrderAddresses,
   }),
+
   reviews: makeClientReviewsController({
     createReview: usecases.reviews.create,
     listByProduct: usecases.reviews.listByProduct,
     listMyReviews: usecases.reviews.listMine,
     checkReviewed: usecases.reviews.checkReviewed,
   }),
+
   clientSettings: makeSettingsGeneralController({
     get: usecases.settings.get,
     update: usecases.settings.update,

@@ -5,36 +5,81 @@ type Models = {
   Cart: any;
   CartItem: any;
   Product: any;
+  ProductVariant: any;
 };
 
 export class SequelizeCartRepository implements CartRepository {
   constructor(private models: Models) {}
 
   private mapRow(row: any): CartItemDTO {
-    const p = row.product ?? row.Product ?? null;
+    const productRow =
+      row.product ??
+      row.Product ??
+      row.variant?.product ??
+      row.variant?.Product ??
+      null;
 
-    const product = p
+    const variantRow = row.variant ?? row.ProductVariant ?? null;
+
+    const product = productRow
       ? {
-          id: Number(p.id),
-          title: String(p.title),
-          price:
-            p.price !== null && p.price !== undefined ? Number(p.price) : null,
-          // Ánh xạ trường discount_percentage từ DB vào DTO
-          discountPercentage: Number(p.discount_percentage) || 0,
-          thumbnail: p.thumbnail ?? null,
-          slug: p.slug ?? null,
-          stock: Number(p.stock) || 0,
+          id: Number(productRow.id),
+          title: String(productRow.title),
+          thumbnail: productRow.thumbnail ?? null,
+          slug: productRow.slug ?? null,
+          discountPercentage:
+            productRow.discount_percentage !== null &&
+            productRow.discount_percentage !== undefined
+              ? Number(productRow.discount_percentage)
+              : null,
+        }
+      : null;
+
+    const variant = variantRow
+      ? {
+          id: Number(variantRow.id),
+          productId: Number(variantRow.product_id),
+          title: variantRow.title ?? null,
+          sku: variantRow.sku ?? null,
+          price: Number(variantRow.price),
+          compareAtPrice:
+            variantRow.compare_at_price !== null &&
+            variantRow.compare_at_price !== undefined
+              ? Number(variantRow.compare_at_price)
+              : null,
+          stock: Number(variantRow.stock ?? 0),
+          status: variantRow.status ?? "active",
+          optionValues: Array.isArray(variantRow.optionValues)
+            ? variantRow.optionValues.map((ov: any) => ({
+                id: Number(ov.id),
+                value: String(ov.value),
+                optionName: ov.option?.name ?? undefined,
+              }))
+            : [],
         }
       : null;
 
     return {
       id: Number(row.id),
       cartId: Number(row.cart_id),
-      productId: Number(row.product_id),
+      productId:
+        row.product_id !== null && row.product_id !== undefined
+          ? Number(row.product_id)
+          : product
+            ? Number(product.id)
+            : variant
+              ? Number(variant.productId)
+              : null,
+      productVariantId:
+        row.product_variant_id !== null && row.product_variant_id !== undefined
+          ? Number(row.product_variant_id)
+          : null,
       quantity: Number(row.quantity),
+      unitPrice: variant ? Number(variant.price) : null,
       createdAt: row.created_at ?? row.createdAt,
       updatedAt: row.updated_at ?? row.updatedAt,
       product,
+      variant,
     };
   }
 
@@ -46,201 +91,186 @@ export class SequelizeCartRepository implements CartRepository {
     return cart;
   }
 
-  // =====================================================
-  // ADD ITEM
-  // =====================================================
+  private buildVariantInclude() {
+    return [
+      {
+        model: this.models.ProductVariant,
+        as: "variant",
+        attributes: [
+          "id",
+          "product_id",
+          "sku",
+          "title",
+          "price",
+          "compare_at_price",
+          "stock",
+          "status",
+        ],
+        include: [
+          {
+            model: this.models.Product,
+            as: "product",
+            attributes: [
+              "id",
+              "title",
+              "thumbnail",
+              "slug",
+              "discount_percentage",
+            ],
+          },
+        ],
+      },
+    ];
+  }
+
   async addItem(
     userId: number,
-    productId: number,
-    quantity: number
+    productVariantId: number,
+    quantity: number,
   ): Promise<CartItemDTO> {
-    if (quantity <= 0) throw new Error("Quantity must be greater than 0");
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
 
     const cart = await this.getOrCreateCart(userId);
 
+    const variant = await this.models.ProductVariant.findByPk(
+      productVariantId,
+      {
+        include: [
+          {
+            model: this.models.Product,
+            as: "product",
+            attributes: ["id"],
+          },
+        ],
+      },
+    );
+
+    if (!variant) {
+      throw new Error("Product variant not found");
+    }
+
+    const productId =
+      variant.product_id !== undefined && variant.product_id !== null
+        ? Number(variant.product_id)
+        : Number(variant.product?.id);
+
     const [item, created] = await this.models.CartItem.findOrCreate({
-      where: { cart_id: cart.id, product_id: productId },
+      where: { cart_id: cart.id, product_variant_id: productVariantId },
       defaults: {
         cart_id: cart.id,
         product_id: productId,
+        product_variant_id: productVariantId,
         quantity,
       },
     });
 
     if (!created) {
       item.quantity = Number(item.quantity) + quantity;
+      if (!item.product_id) {
+        item.product_id = productId;
+      }
       await item.save();
     }
 
-    const withProduct = await this.models.CartItem.findByPk(item.id, {
-      include: [
-        {
-          model: this.models.Product,
-          as: "product",
-          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
-          attributes: [
-            "id",
-            "title",
-            "price",
-            "discount_percentage",
-            "thumbnail",
-            "slug",
-            "stock"
-          ],
-        },
-      ],
+    const withRelations = await this.models.CartItem.findByPk(item.id, {
+      include: this.buildVariantInclude(),
     });
 
-    return this.mapRow(withProduct ?? item);
+    return this.mapRow(withRelations ?? item);
   }
 
-  // =====================================================
-  // LIST ALL ITEMS
-  // =====================================================
   async listItems(userId: number): Promise<CartItemDTO[]> {
     const cart = await this.getOrCreateCart(userId);
 
     const rows = await this.models.CartItem.findAll({
       where: { cart_id: cart.id },
-      include: [
-        {
-          model: this.models.Product,
-          as: "product",
-          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
-          attributes: [
-            "id",
-            "title",
-            "price",
-            "discount_percentage",
-            "thumbnail",
-            "slug",
-            "stock"
-          ],
-        },
-      ],
+      include: this.buildVariantInclude(),
       order: [["created_at", "ASC"]],
     });
 
     return rows.map((r: any) => this.mapRow(r));
   }
 
-  // =====================================================
-  // UPDATE ITEM
-  // =====================================================
   async updateItem(
     userId: number,
-    productId: number,
-    quantity: number
+    productVariantId: number,
+    quantity: number,
   ): Promise<CartItemDTO> {
-    if (quantity <= 0) throw new Error("Quantity must be greater than 0");
+    if (quantity <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
 
     const cart = await this.getOrCreateCart(userId);
 
     const item = await this.models.CartItem.findOne({
-      where: { cart_id: cart.id, product_id: productId },
+      where: { cart_id: cart.id, product_variant_id: productVariantId },
     });
 
-    if (!item) throw new Error("Cart item not found");
+    if (!item) {
+      throw new Error("Cart item not found");
+    }
 
     item.quantity = quantity;
     await item.save();
 
-    const withProduct = await this.models.CartItem.findByPk(item.id, {
-      include: [
-        {
-          model: this.models.Product,
-          as: "product",
-          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
-          attributes: [
-            "id",
-            "title",
-            "price",
-            "discount_percentage",
-            "thumbnail",
-            "slug",
-            "stock"
-          ],
-        },
-      ],
+    const withRelations = await this.models.CartItem.findByPk(item.id, {
+      include: this.buildVariantInclude(),
     });
 
-    return this.mapRow(withProduct ?? item);
+    return this.mapRow(withRelations ?? item);
   }
 
-  // =====================================================
-  // REMOVE ITEM
-  // =====================================================
-  async removeItem(userId: number, productId: number): Promise<void> {
+  async removeItem(userId: number, productVariantId: number): Promise<void> {
     const cart = await this.getOrCreateCart(userId);
 
     await this.models.CartItem.destroy({
-      where: { cart_id: cart.id, product_id: productId },
+      where: { cart_id: cart.id, product_variant_id: productVariantId },
     });
   }
 
-
-  // remove all item
   async removeAllItems(userId: number): Promise<void> {
-      const cart = await this.getOrCreateCart(userId);
-      if(!cart) return;
-      await this.models.CartItem.destroy({
-        where: { cart_id: cart.id }
-      });
+    const cart = await this.getOrCreateCart(userId);
+    if (!cart) return;
+
+    await this.models.CartItem.destroy({
+      where: { cart_id: cart.id },
+    });
   }
 
-  // =====================================================
-  // LIST SELECTED ITEMS FOR CHECKOUT
-  // =====================================================
   async listSelectedItems(
     userId: number,
-    productIds: number[]
+    productVariantIds: number[],
   ): Promise<CartItemDTO[]> {
-    if (!productIds.length) return []; // ⚠ bảo vệ SQL IN ()
+    if (!productVariantIds.length) return [];
 
     const cart = await this.getOrCreateCart(userId);
 
     const rows = await this.models.CartItem.findAll({
       where: {
         cart_id: cart.id,
-        product_id: productIds,
+        product_variant_id: productVariantIds,
       },
-      include: [
-        {
-          model: this.models.Product,
-          as: "product",
-          // ✅ THÊM "discount_percentage" VÀO ATTRIBUTES
-          attributes: [
-            "id",
-            "title",
-            "price",
-            "discount_percentage",
-            "thumbnail",
-            "slug",
-            "stock"
-          ],
-        },
-      ],
+      include: this.buildVariantInclude(),
       order: [["created_at", "ASC"]],
     });
 
     return rows.map((r: any) => this.mapRow(r));
   }
 
-  // =====================================================
-  // CLEAR SELECTED ITEMS AFTER CHECKOUT
-  // =====================================================
   async clearSelectedItems(
     userId: number,
-    productIds: number[]
+    productVariantIds: number[],
   ): Promise<void> {
-    if (!productIds.length) return; // ⚠ tránh SQL lỗi
+    if (!productVariantIds.length) return;
 
     const cart = await this.getOrCreateCart(userId);
 
     await this.models.CartItem.destroy({
       where: {
         cart_id: cart.id,
-        product_id: productIds,
+        product_variant_id: productVariantIds,
       },
     });
   }

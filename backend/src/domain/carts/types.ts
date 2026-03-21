@@ -1,20 +1,38 @@
-// Thông tin sản phẩm nhúng trong item giỏ hàng (để FE render)
+// src/domain/carts/types.ts
+
 export type CartItemProduct = {
   id: number;
   title: string;
-  price: number | null;
-  discountPercentage: number; // Thêm trường này để lưu phần trăm giảm giá
   thumbnail: string | null;
   slug: string | null;
+  discountPercentage: number | null;
 };
 
-// Domain DTO cho 1 cart item
+export type CartItemVariant = {
+  id: number;
+  productId: number;
+  title: string | null;
+  sku: string | null;
+  price: number;
+  compareAtPrice?: number | null;
+  stock: number;
+  status?: string;
+  optionValues?: {
+    id: number;
+    value: string;
+    optionName?: string;
+  }[];
+};
+
 export type CartItemDTO = {
   id: number;
   cartId: number;
-  productId: number;
+  productId: number | null;
+  productVariantId: number | null;
   quantity: number;
+  unitPrice: number | null;
   createdAt: Date;
   updatedAt: Date;
   product: CartItemProduct | null;
+  variant: CartItemVariant | null;
 };

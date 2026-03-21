@@ -1,8 +1,9 @@
-import { DataTypes } from "sequelize";
+import { DataTypes, Model } from "sequelize";
 import sequelize from "..";
 
-const CartItemModel = sequelize.define(
-  "CartItem",
+class ProductOptionModel extends Model {}
+
+ProductOptionModel.init(
   {
     id: {
       type: DataTypes.BIGINT.UNSIGNED,
@@ -10,22 +11,18 @@ const CartItemModel = sequelize.define(
       autoIncrement: true,
       primaryKey: true,
     },
-    cart_id: {
-      type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: false,
-    },
     product_id: {
       type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: true,
-    },
-    product_variant_id: {
-      type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: true,
-    },
-    quantity: {
-      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
-      defaultValue: 1,
+    },
+    name: {
+      type: DataTypes.STRING(100),
+      allowNull: false,
+    },
+    position: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
     created_at: {
       type: DataTypes.DATE,
@@ -39,10 +36,11 @@ const CartItemModel = sequelize.define(
     },
   },
   {
-    tableName: "cart_items",
+    sequelize,
+    tableName: "product_options",
     timestamps: true,
     underscored: true,
   },
 );
 
-export default CartItemModel;
+export default ProductOptionModel;

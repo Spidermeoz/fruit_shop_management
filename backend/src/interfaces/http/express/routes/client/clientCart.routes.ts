@@ -1,25 +1,23 @@
+// src/interfaces/http/express/routes/client/clientCart.routes.ts
+
 import { Router } from "express";
 import type { ClientCartController } from "../../controllers/client/ClientCartController";
 
 export const clientCartRoutes = (
   controller: ClientCartController,
-  authMiddleware: any
+  authMiddleware: any,
 ) => {
   const r = Router();
 
-  // Lấy danh sách item trong giỏ
   r.get("/", authMiddleware, controller.list);
 
-  // Thêm sản phẩm vào giỏ
   r.post("/items", authMiddleware, controller.add);
 
   r.delete("/all-items", authMiddleware, controller.removeAllItems);
-  
-  // Cập nhật số lượng
-  r.patch("/items/:productId", authMiddleware, controller.update);
 
-  // Xoá khỏi giỏ
-  r.delete("/items/:productId", authMiddleware, controller.remove);
+  r.patch("/items/:variantId", authMiddleware, controller.update);
+
+  r.delete("/items/:variantId", authMiddleware, controller.remove);
 
   return r;
 };

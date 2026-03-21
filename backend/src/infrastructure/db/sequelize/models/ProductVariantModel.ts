@@ -1,46 +1,51 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../index";
 
-class OrderItemModel extends Model {}
+class ProductVariantModel extends Model {}
 
-OrderItemModel.init(
+ProductVariantModel.init(
   {
     id: {
       type: DataTypes.BIGINT.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
-    },
-    order_id: {
-      type: DataTypes.BIGINT.UNSIGNED,
       allowNull: false,
     },
     product_id: {
       type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: true,
-    },
-    product_variant_id: {
-      type: DataTypes.BIGINT.UNSIGNED,
-      allowNull: true,
-    },
-    quantity: {
-      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
+    },
+    sku: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      unique: true,
+    },
+    title: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
     },
     price: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
     },
-    product_title: {
-      type: DataTypes.STRING(255),
+    compare_at_price: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+    },
+    stock: {
+      type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,
+      defaultValue: 0,
     },
-    variant_title: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
+    status: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: "active",
     },
-    variant_sku: {
-      type: DataTypes.STRING(100),
-      allowNull: true,
+    sort_order: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
     created_at: {
       type: DataTypes.DATE,
@@ -55,10 +60,10 @@ OrderItemModel.init(
   },
   {
     sequelize,
-    tableName: "order_items",
-    timestamps: false,
+    tableName: "product_variants",
+    timestamps: true,
     underscored: true,
-  },
+  }
 );
 
-export default OrderItemModel;
+export default ProductVariantModel;

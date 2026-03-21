@@ -16,6 +16,11 @@ ProductReviewModel.init(
       allowNull: false,
     },
 
+    product_variant_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+    },
+
     user_id: {
       type: DataTypes.BIGINT.UNSIGNED,
       allowNull: false,
@@ -44,7 +49,7 @@ ProductReviewModel.init(
     status: {
       type: DataTypes.STRING(50),
       allowNull: false,
-      defaultValue: "approved", // ⚡ auto-approve theo lựa chọn của bạn
+      defaultValue: "approved",
     },
 
     created_at: {
@@ -61,7 +66,8 @@ ProductReviewModel.init(
     sequelize,
     tableName: "product_reviews",
     timestamps: false,
-  }
+    underscored: true,
+  },
 );
 
 export default ProductReviewModel;

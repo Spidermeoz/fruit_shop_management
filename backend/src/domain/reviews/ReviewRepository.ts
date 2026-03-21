@@ -1,5 +1,6 @@
 export interface ReviewCreateInput {
   productId: number;
+  productVariantId?: number | null;
   orderId: number;
   userId: number;
   rating: number | null;
@@ -8,7 +9,7 @@ export interface ReviewCreateInput {
 
 export interface ReviewReplyInput {
   parentId: number;
-  userId: number; // admin
+  userId: number;
   content: string;
 }
 
@@ -19,10 +20,19 @@ export interface ReviewRepository {
   listByProduct(productId: number): Promise<any[]>;
   listByUser(userId: number): Promise<any[]>;
 
-  userCanReview(userId: number, productId: number, orderId: number): Promise<boolean>;
+  userCanReview(
+    userId: number,
+    productId: number,
+    orderId: number,
+    productVariantId?: number | null,
+  ): Promise<boolean>;
 
-  hasReviewed(userId: number, orderId: number, productId: number): Promise<boolean>;
+  hasReviewed(
+    userId: number,
+    orderId: number,
+    productId: number,
+    productVariantId?: number | null,
+  ): Promise<boolean>;
 
   countPendingReviewsByProduct(): Promise<any[]>;
-
 }
