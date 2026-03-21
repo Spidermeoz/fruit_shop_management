@@ -510,9 +510,9 @@ const ProductListPage: React.FC = () => {
                   <p className="text-slate-500 font-medium">{error}</p>
                 </div>
               ) : products.length > 0 ? (
-                // 4.1. Product Grid (Điều chỉnh thành lg:grid-cols-4)
+                // 4.1. Product Grid (Điều chỉnh thành lg:grid-cols-4) -> đổi thành tự co dãn layout (reponsive)
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(250px,1fr))]">
                     {products.map((product) => {
                       const hasDiscount =
                         typeof product.discountPercentage === "number" &&
