@@ -155,7 +155,7 @@ const ProductCategoryPage: React.FC = () => {
           body.value = "inactive";
           break;
         case "delete":
-          body.action = "delete";
+          body.patch = { deleted: true };
           break;
         case "update_position":
           body.action = "position";
