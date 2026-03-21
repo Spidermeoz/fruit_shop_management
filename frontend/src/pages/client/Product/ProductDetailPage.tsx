@@ -560,46 +560,75 @@ const ProductDetailPage: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                   {/* Stepper */}
                   <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl p-1 shrink-0 h-[60px]">
-                    <button
-                      onClick={decreaseQuantity}
-                      disabled={quantity <= 1 || isOutOfStock}
-                      className="w-12 h-full flex items-center justify-center text-slate-500 bg-white rounded-xl shadow-sm hover:text-green-600 disabled:opacity-50 disabled:shadow-none transition-colors"
-                    >
-                      <Minus className="w-5 h-5 stroke-[3]" />
-                    </button>
+                      <button
+                        onClick={decreaseQuantity}
+                        disabled={quantity <= 1 || isOutOfStock}
+                        className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
+                          ${
+                            quantity <= 1 || isOutOfStock
+                              ? " opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                              : "bg-white text-slate-500 hover:text-green-600"
+                          }`}
+                      >
+                        <Minus className="w-5 h-5 stroke-[3]" />
+                      </button>
+                      {/* 
+                        focus -> xoá nhập số
+                        blur -> xoá mà không nhập set về 1
+                      */}
+                      <input
+                        type="number" 
+                        min="1"
+                        max={remainingStock || 1}
+                        value={quantity}
+                        disabled={isOutOfStock}
+                        onChange={(e) => {
+                          const val = e.target.value;
 
-                    <input
-                      type="number"
-                      min="1"
-                      max={remainingStock || 1}
-                      value={quantity}
-                      disabled={isOutOfStock}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (!/^\d*$/.test(val)) return;
-                        setQuantity(val === "" ? ("" as any) : Number(val));
-                      }}
-                      onBlur={(e) => {
-                        let qty = Number(e.target.value);
-                        if (!qty || qty <= 0) qty = 1;
-                        if (qty > remainingStock) {
-                          showErrorToast(
-                            `Chỉ còn ${remainingStock} sản phẩm có thể thêm`,
-                          );
-                          qty = remainingStock;
-                        }
-                        setQuantity(qty);
-                      }}
-                      className="w-16 h-full text-center font-black text-xl text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                    />
+                          // chỉ cho nhập số
+                          if (!/^\d*$/.test(val)) return;
 
-                    <button
-                      onClick={increaseQuantity}
-                      disabled={quantity >= remainingStock || isOutOfStock}
-                      className="w-12 h-full flex items-center justify-center text-slate-500 bg-white rounded-xl shadow-sm hover:text-green-600 disabled:opacity-50 disabled:shadow-none transition-colors"
-                    >
-                      <Plus className="w-5 h-5 stroke-[3]" />
-                    </button>
+                          // nếu xoá hết → set rỗng thật
+                          if (val === "") {
+                            setQuantity(0);
+                            return;
+                          }
+                          setQuantity(Number(val));
+                        }}
+                        onBlur={(e) => {
+                          const val = e.target.value;
+
+                          // chỉ xử lý khi blur
+                          let qty = val === "" ? 1 : Number(val);
+
+                          if (qty <= 0) qty = 1;
+
+                          if (qty > remainingStock) {
+                            showErrorToast(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
+                            qty = remainingStock;
+                          }
+
+                          setQuantity(qty);
+                        }}
+                        onFocus={(e) => {
+                          // optional: select toàn bộ để nhập nhanh
+                          e.target.select();
+                        }}
+                        className="w-16 h-full text-center font-black text-xl text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+
+                      <button
+                        onClick={increaseQuantity}
+                        disabled={quantity >= remainingStock || isOutOfStock}
+                        className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
+                          ${
+                            quantity >= remainingStock || isOutOfStock
+                              ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                              : "bg-white text-slate-500 hover:text-green-600"
+                          }`}
+                      >
+                        <Plus className="w-5 h-5 stroke-[3]" />
+                      </button>
                   </div>
 
                   {/* 2 Buttons Container: Thêm Giỏ Hàng & Mua Ngay */}

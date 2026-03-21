@@ -293,66 +293,6 @@ const CartPage: React.FC = () => {
                                 Đơn vị: kg
                               </p>
                             </div>
-
-                            {/* Qty & Actions Mobile */}
-                            <div className="flex sm:hidden items-center justify-between mt-4 border-t border-slate-100 pt-4 w-full">
-                              {/* Group: Nút tăng giảm - tái sử dụng */}
-                              <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1">
-                                <button
-                                  onClick={() =>
-                                    handleUpdateQty(item.productId, -1)
-                                  }
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 bg-white rounded-lg shadow-sm hover:text-green-600 transition-colors active:scale-95"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max={item.product?.stock || 9999}
-                                  value={
-                                    qtyInputs[item.productId] ?? item.quantity
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (!/^\d*$/.test(val)) return;
-                                    setQtyInputs((prev) => ({
-                                      ...prev,
-                                      [item.productId]: Number(val),
-                                    }));
-                                  }}
-                                  onBlur={(e) => {
-                                    let qty = Number(e.target.value);
-                                    if (!qty || qty <= 0) qty = 1;
-                                    const stock = item.product?.stock || 9999;
-                                    if (qty > stock) {
-                                      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
-                                      qty = stock;
-                                    }
-                                    setQtyInputs((prev) => ({
-                                      ...prev,
-                                      [item.productId]: qty,
-                                    }));
-                                    updateItem(item.productId, qty);
-                                  }}
-                                  className="w-10 h-8 text-center font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleUpdateQty(item.productId, 1)
-                                  }
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 bg-white rounded-lg shadow-sm hover:text-green-600 transition-colors active:scale-95"
-                                >
-                                  <Plus className="w-4 h-4" />
-                                </button>
-                              </div>
-                              <button
-                                onClick={() => handleRemove(item.productId)}
-                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
-                            </div>
                           </div>
 
                           {/* Desktop Qty & Total */}
@@ -373,10 +313,17 @@ const CartPage: React.FC = () => {
                             <div className="flex items-center gap-3">
                               <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1">
                                 <button
+                                  disabled={item.quantity <= 1}
                                   onClick={() =>
                                     handleUpdateQty(item.productId, -1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 bg-white rounded-lg shadow-sm hover:text-green-600 transition-colors active:scale-95"
+                                  className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
+                                      ${
+                                        qtyInputs[item.quantity] || item.quantity <= 1 
+                                        ?  "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                                        : "bg-white text-slate-500 hover:text-green-600"
+                                      }
+                                    `}
                                 >
                                   <Minus className="w-4 h-4 stroke-[3]" />
                                 </button>
@@ -415,7 +362,13 @@ const CartPage: React.FC = () => {
                                   onClick={() =>
                                     handleUpdateQty(item.productId, 1)
                                   }
-                                  className="w-8 h-8 flex items-center justify-center text-slate-500 bg-white rounded-lg shadow-sm hover:text-green-600 transition-colors active:scale-95"
+                                  className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
+                                      ${
+                                        qtyInputs[item.quantity] || item.quantity >= Number(item.product?.stock)
+                                        ?  "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                                        : "bg-white text-slate-500 hover:text-green-600"
+                                      }
+                                    `}
                                 >
                                   <Plus className="w-4 h-4 stroke-[3]" />
                                 </button>
