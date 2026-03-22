@@ -21,6 +21,7 @@ import { authRoutes } from "./interfaces/http/express/routes/auth.routes";
 import { productsRoutes } from "./interfaces/http/express/routes/products.routes";
 import { productCategoriesRoutes } from "./interfaces/http/express/routes/productCategories.routes";
 import { rolesRoutes } from "./interfaces/http/express/routes/roles.routes";
+import { originsRoutes } from "./interfaces/http/express/routes/origins.routes";
 import { usersRoutes } from "./interfaces/http/express/routes/users.routes";
 import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
@@ -101,12 +102,13 @@ app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
 // ------------------------------------
 app.use(
   "/api/v1/admin/products",
-  productsRoutes(controllers.products, auth, can)
+  productsRoutes(controllers.products, auth, can),
 );
 app.use(
   "/api/v1/admin/product-category",
-  productCategoriesRoutes(controllers.categories, auth, can)
+  productCategoriesRoutes(controllers.categories, auth, can),
 );
+app.use("/api/v1/admin/origins", originsRoutes(controllers.origins, auth, can));
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
 app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
@@ -114,13 +116,11 @@ app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
 app.use("/api/v1/admin/orders", ordersRoutes(controllers.orders, auth, can));
 app.use(
   "/api/v1/admin/reviews",
-  adminReviewsRoutes(controllers.reviews, auth, can)
+  adminReviewsRoutes(controllers.reviews, auth, can),
 );
-
-// ⭐⭐⭐ NEW — ADMIN GENERAL SETTINGS ⭐⭐⭐
 app.use(
   "/api/v1/admin/settings",
-  adminSettingsRoutes(controllers.settings, auth, can)
+  adminSettingsRoutes(controllers.settings, auth, can),
 );
 
 // ------------------------------------
@@ -128,7 +128,7 @@ app.use(
 // ------------------------------------
 app.use(
   "/api/v1/client/products",
-  clientProductsRoutes(clientControllers.products)
+  clientProductsRoutes(clientControllers.products),
 );
 app.use("/api/v1/client/categories", clientCategoriesRoutes);
 app.use("/api/v1/client/auth", clientAuthRoutes(clientControllers.auth, auth));
@@ -138,20 +138,20 @@ app.use(
   clientForgotPasswordRoutes(
     clientControllers.forgotPassword,
     clientControllers.verifyOtp,
-    clientControllers.resetPassword
-  )
+    clientControllers.resetPassword,
+  ),
 );
 
 app.use("/api/v1/client/cart", clientCartRoutes(clientControllers.cart, auth));
 
 app.use(
   "/api/v1/client/orders",
-  clientOrdersRoutes(clientControllers.orders, auth)
+  clientOrdersRoutes(clientControllers.orders, auth),
 );
 
 app.use(
   "/api/v1/client/reviews",
-  clientReviewsRoutes(clientControllers.reviews, auth)
+  clientReviewsRoutes(clientControllers.reviews, auth),
 );
 
 app.use("/api/v1/client/upload", clientUploadRoutes(controllers.upload, auth));
@@ -159,7 +159,7 @@ app.use("/api/v1/client/upload", clientUploadRoutes(controllers.upload, auth));
 // ⭐⭐⭐ NEW — CLIENT GENERAL SETTINGS ⭐⭐⭐
 app.use(
   "/api/v1/client/settings",
-  clientSettingsRoutes(clientControllers.clientSettings)
+  clientSettingsRoutes(clientControllers.clientSettings),
 );
 
 // ------------------------------------
@@ -170,7 +170,7 @@ app.use(
     err: any,
     _req: express.Request,
     res: express.Response,
-    _next: express.NextFunction
+    _next: express.NextFunction,
   ) => {
     console.error(err);
 
@@ -180,7 +180,7 @@ app.use(
 
     const status = err.statusCode || 400;
     res.status(status).json({ error: err.message || "Unexpected error" });
-  }
+  },
 );
 
 // ------------------------------------

@@ -18,6 +18,7 @@ import ProductVariantValueModel from "../../infrastructure/db/sequelize/models/P
 import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
 import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
 import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
+import OriginModel from "../../infrastructure/db/sequelize/models/OriginModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -28,6 +29,7 @@ import { SequelizeReviewRepository } from "../../infrastructure/repositories/Seq
 import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
 import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
+import { SequelizeOriginRepository } from "../../infrastructure/repositories/SequelizeOriginRepository";
 
 // ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -123,6 +125,13 @@ import { ResetPassword } from "../../application/auth/usecases/ResetPassword";
 import { UpdateMyProfile } from "../../application/auth/usecases/UpdateMyProfile";
 import { VerifyResetOtp } from "../../application/auth/usecases/VerifyResetOtp";
 
+// ===== Origins usecases =====
+import { ChangeOriginStatus } from "../../application/origins/usecases/ChangeOriginStatus";
+import { CreateOrigin } from "../../application/origins/usecases/CreateOrigin";
+import { EditOrigin } from "../../application/origins/usecases/EditOrigin";
+import { GetOriginDetail } from "../../application/origins/usecases/GetOriginDetail";
+import { ListOrigins } from "../../application/origins/usecases/ListOrigins";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -160,9 +169,8 @@ import { makeUploadController } from "../../interfaces/http/express/controllers/
 import type { UploadController } from "../../interfaces/http/express/controllers/UploadController";
 import { makeUsersController } from "../../interfaces/http/express/controllers/UsersController";
 import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
-
-// ===== Domain =====
-import { SettingGeneral } from "../../domain/settings/SettingGeneral";
+import { makeOriginsController } from "../../interfaces/http/express/controllers/OriginsController";
+import type { OriginsController } from "../../interfaces/http/express/controllers/OriginsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -426,6 +434,7 @@ const settingModels = {
   SettingGeneral: SettingGeneralModel,
 };
 const settingsRepo = new SequelizeSettingGeneralRepository(settingModels);
+const originRepo = new SequelizeOriginRepository(OriginModel);
 
 // ===== Usecases =====
 export const usecases = {
@@ -536,6 +545,14 @@ export const usecases = {
     get: new GetGeneralSettings(settingsRepo),
     update: new UpdateGeneralSettings(settingsRepo),
   },
+
+  origins: {
+    list: new ListOrigins(originRepo),
+    detail: new GetOriginDetail(originRepo),
+    create: new CreateOrigin(originRepo),
+    edit: new EditOrigin(originRepo),
+    changeStatus: new ChangeOriginStatus(originRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -549,6 +566,7 @@ type Controllers = {
   orders: OrdersController;
   reviews: AdminReviewsController;
   settings: SettingsGeneralController;
+  origins: OriginsController;
 };
 
 export const controllers: Controllers = {
@@ -626,6 +644,8 @@ export const controllers: Controllers = {
     update: usecases.settings.update,
     upload: usecases.upload.upload,
   }),
+
+  origins: makeOriginsController(usecases.origins),
 };
 
 export const clientControllers = {
