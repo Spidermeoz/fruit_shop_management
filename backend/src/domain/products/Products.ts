@@ -62,6 +62,21 @@ export interface ProductProps {
   averageRating?: number;
   reviewCount?: number;
 
+  originId?: number | null;
+
+  shortDescription?: string | null;
+  storageGuide?: string | null;
+  usageSuggestions?: string | null;
+  nutritionNotes?: string | null;
+
+  origin?: { id: number; name: string; slug: string } | null;
+  tags?: {
+    id: number;
+    name: string;
+    slug: string;
+    tagGroup: "season" | "health" | "usage" | "audience";
+  }[];
+
   deleted?: boolean;
   deletedAt?: Date | null;
 

@@ -52,3 +52,25 @@ export type ProductPriceRange = {
   minPrice: number | null;
   maxPrice: number | null;
 };
+
+export type ProductTagGroup = "season" | "health" | "usage" | "audience";
+
+export type OriginRef = {
+  id: number;
+  name: string;
+  slug: string;
+};
+
+export type ProductTagGroups = {
+  season: ProductTagRef[];
+  health: ProductTagRef[];
+  usage: ProductTagRef[];
+  audience: ProductTagRef[];
+};
+
+export type ProductTagRef = {
+  id: number;
+  name: string;
+  slug: string;
+  tagGroup: ProductTagGroup;
+};

@@ -80,6 +80,26 @@ const Product = sequelize.define(
       allowNull: false,
       defaultValue: 0,
     },
+    origin_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+    },
+    short_description: {
+      type: DataTypes.STRING(500),
+      allowNull: true,
+    },
+    storage_guide: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    usage_suggestions: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    nutrition_notes: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
 
     // Auditing
     created_by_id: {
@@ -122,8 +142,8 @@ const Product = sequelize.define(
     tableName: "products",
     timestamps: true,
     underscored: true, // created_at, updated_at
-    paranoid: false,   // ta tự quản deleted/deleted_at
-  }
+    paranoid: false, // ta tự quản deleted/deleted_at
+  },
 );
 
 // === Helpers sinh/đảm bảo slug duy nhất ===

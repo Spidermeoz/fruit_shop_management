@@ -46,6 +46,12 @@ const normalizeProduct = (raw: any) => {
                   : undefined,
             }))
           : [],
+        origin: p.origin ?? null,
+        tags: p.tags ?? [],
+        shortDescription: p.shortDescription ?? null,
+        storageGuide: p.storageGuide ?? null,
+        usageSuggestions: p.usageSuggestions ?? null,
+        nutritionNotes: p.nutritionNotes ?? null,
       }))
     : [];
 

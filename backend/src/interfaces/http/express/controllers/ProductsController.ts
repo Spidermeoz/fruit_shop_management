@@ -92,8 +92,13 @@ export const makeProductsController = (uc: {
             review_count: dto.reviewCount,
             product_category_id: dto.categoryId,
             category: dto.category,
-
-            // ✨ các field bạn đang cần ở FE:
+            origin_id: dto.originId ?? null,
+            origin: dto.origin,
+            tags: dto.tags,
+            short_description: dto.shortDescription,
+            storage_guide: dto.storageGuide,
+            usage_suggestions: dto.usageSuggestions,
+            nutrition_notes: dto.nutritionNotes,
             created_by_id: dto.createdById ?? null,
             updated_by_id: dto.updatedById ?? null,
             created_at: dto.createdAt ?? null,
@@ -119,6 +124,12 @@ export const makeProductsController = (uc: {
           status?: ProductStatus;
           featured?: boolean;
           position?: number | null;
+          originId?: number | null;
+          shortDescription?: string | null;
+          storageGuide?: string | null;
+          usageSuggestions?: string | null;
+          nutritionNotes?: string | null;
+          tagIds?: number[];
         };
         const result = await uc.create.execute(payload);
         res.status(201).json({
@@ -153,6 +164,12 @@ export const makeProductsController = (uc: {
             slug: dto.slug ?? "",
             average_rating: dto.averageRating ?? 0,
             review_count: dto.reviewCount ?? 0,
+            origin_id: dto.originId ?? null,
+            tags: dto.tags ?? [],
+            short_description: dto.shortDescription ?? "",
+            storage_guide: dto.storageGuide ?? "",
+            usage_suggestions: dto.usageSuggestions ?? "",
+            nutrition_notes: dto.nutritionNotes ?? "",
             created_by_id: dto.createdById ?? null,
             updated_by_id: dto.updatedById ?? null,
             created_at: dto.createdAt ?? null,

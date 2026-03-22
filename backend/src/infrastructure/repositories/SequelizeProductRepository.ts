@@ -17,6 +17,9 @@ type Models = {
   ProductOptionValue?: any;
   ProductVariantValue?: any;
   ProductCategory?: any;
+  Origin?: any;
+  ProductTag?: any;
+  ProductTagMap?: any;
 };
 
 type OptionValueRef = {
@@ -161,6 +164,33 @@ export class SequelizeProductRepository implements ProductRepository {
       title: r.title,
       description: r.description ?? null,
 
+      // Origin & Tags additions
+      originId:
+        r.origin_id !== undefined && r.origin_id !== null
+          ? Number(r.origin_id)
+          : null,
+      shortDescription: r.short_description ?? null,
+      storageGuide: r.storage_guide ?? null,
+      usageSuggestions: r.usage_suggestions ?? null,
+      nutritionNotes: r.nutrition_notes ?? null,
+
+      origin: r.origin
+        ? {
+            id: Number(r.origin.id),
+            name: r.origin.name,
+            slug: r.origin.slug,
+          }
+        : null,
+
+      tags: Array.isArray(r.tags)
+        ? r.tags.map((t: any) => ({
+            id: Number(t.id),
+            name: t.name,
+            slug: t.slug,
+            tagGroup: t.tag_group,
+          }))
+        : [],
+
       // Transitional fallback fields
       price:
         r.price !== undefined && r.price !== null
@@ -300,6 +330,25 @@ export class SequelizeProductRepository implements ProductRepository {
       });
     }
 
+    // Origin & Tags includes
+    if (this.models.Origin) {
+      includes.push({
+        model: this.models.Origin,
+        as: "origin",
+        attributes: ["id", "name", "slug"],
+      });
+    }
+
+    if (this.models.ProductTag && this.models.ProductTagMap) {
+      includes.push({
+        model: this.models.ProductTag,
+        as: "tags",
+        attributes: ["id", "name", "slug", "tag_group"],
+        through: { attributes: [] },
+        required: false,
+      });
+    }
+
     return includes;
   }
 
@@ -380,6 +429,30 @@ export class SequelizeProductRepository implements ProductRepository {
     maxPos = Number(maxPos) || 0;
 
     return maxPos + 1;
+  }
+
+  private async syncProductTags(
+    productId: number,
+    tagIds: number[],
+    transaction?: any,
+  ) {
+    const ProductTagMap = this.models.ProductTagMap;
+    if (!ProductTagMap) return;
+
+    await ProductTagMap.destroy({
+      where: { product_id: productId },
+      transaction,
+    });
+
+    if (!tagIds.length) return;
+
+    await ProductTagMap.bulkCreate(
+      tagIds.map((tagId) => ({
+        product_id: productId,
+        product_tag_id: tagId,
+      })),
+      { transaction },
+    );
   }
 
   private async syncOptionsAndVariants(
@@ -646,7 +719,7 @@ export class SequelizeProductRepository implements ProductRepository {
     return row ? this.mapRow(row) : null;
   }
 
-  async create(input: CreateProductInput) {
+  async create(input: CreateProductInput & { tagIds?: number[] }) {
     const transaction = await this.models.Product.sequelize.transaction();
 
     try {
@@ -672,8 +745,22 @@ export class SequelizeProductRepository implements ProductRepository {
           position,
           deleted: 0,
           deleted_at: null,
+
+          // Origin & Details additions
+          origin_id: input.originId ?? null,
+          short_description: input.shortDescription ?? null,
+          storage_guide: input.storageGuide ?? null,
+          usage_suggestions: input.usageSuggestions ?? null,
+          nutrition_notes: input.nutritionNotes ?? null,
         },
         { transaction },
+      );
+
+      // Sync tags
+      await this.syncProductTags(
+        Number(row.id),
+        input.tagIds ?? [],
+        transaction,
       );
 
       await this.syncOptionsAndVariants(
@@ -696,7 +783,7 @@ export class SequelizeProductRepository implements ProductRepository {
     }
   }
 
-  async update(id: number, patch: UpdateProductPatch) {
+  async update(id: number, patch: UpdateProductPatch & { tagIds?: number[] }) {
     const existing = await this.findById(id);
     if (!existing) {
       throw new Error("Product not found");
@@ -746,10 +833,32 @@ export class SequelizeProductRepository implements ProductRepository {
         updateData.product_category_id = patch.categoryId;
       }
 
+      // Origin & Details additions
+      if (patch.originId !== undefined) {
+        updateData.origin_id = patch.originId;
+      }
+      if (patch.shortDescription !== undefined) {
+        updateData.short_description = patch.shortDescription;
+      }
+      if (patch.storageGuide !== undefined) {
+        updateData.storage_guide = patch.storageGuide;
+      }
+      if (patch.usageSuggestions !== undefined) {
+        updateData.usage_suggestions = patch.usageSuggestions;
+      }
+      if (patch.nutritionNotes !== undefined) {
+        updateData.nutrition_notes = patch.nutritionNotes;
+      }
+
       await this.models.Product.update(updateData, {
         where: { id },
         transaction,
       });
+
+      // Sync tags if defined in patch
+      if (patch.tagIds !== undefined) {
+        await this.syncProductTags(id, patch.tagIds ?? [], transaction);
+      }
 
       if (patch.options !== undefined || patch.variants !== undefined) {
         await this.syncOptionsAndVariants(

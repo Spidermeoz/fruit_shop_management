@@ -20,9 +20,14 @@ export type CreateProductInput = {
   featured?: boolean;
   position?: number | null;
   createdById?: number | null;
-
   options?: ProductOptionInput[];
   variants?: ProductVariantInput[];
+  originId?: number | null;
+  shortDescription?: string | null;
+  storageGuide?: string | null;
+  usageSuggestions?: string | null;
+  nutritionNotes?: string | null;
+  tagIds?: number[];
 };
 
 export type UpdateProductPatch = Partial<
@@ -32,9 +37,14 @@ export type UpdateProductPatch = Partial<
   deleted?: boolean;
   updatedById?: number | null;
   deletedById?: number | null;
-
   options?: ProductOptionInput[];
   variants?: ProductVariantInput[];
+  originId?: number | null;
+  shortDescription?: string | null;
+  storageGuide?: string | null;
+  usageSuggestions?: string | null;
+  nutritionNotes?: string | null;
+  tagIds?: number[];
 };
 
 export interface ProductVariantStockInfo {

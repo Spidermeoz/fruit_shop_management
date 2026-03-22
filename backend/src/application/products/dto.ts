@@ -27,6 +27,20 @@ export type ProductDTO = {
   // field suy diễn cho FE (tuỳ dùng)
   effectivePrice: number | null; // price sau khi áp discount
   category: { id: number; title: string } | null;
+  originId?: number | null;
+  origin: { id: number; name: string; slug: string } | null;
+
+  shortDescription: string | null;
+  storageGuide: string | null;
+  usageSuggestions: string | null;
+  nutritionNotes: string | null;
+
+  tags: {
+    id: number;
+    name: string;
+    slug: string;
+    tagGroup: string;
+  }[];
 };
 
 export const toDTO = (p: Product): ProductDTO => {
@@ -61,5 +75,14 @@ export const toDTO = (p: Product): ProductDTO => {
     updatedById: p.props.updatedById ?? null,
     effectivePrice,
     category: p.props.category ?? null,
+    originId: p.props.originId ?? null,
+    origin: p.props.origin ?? null,
+
+    shortDescription: p.props.shortDescription ?? null,
+    storageGuide: p.props.storageGuide ?? null,
+    usageSuggestions: p.props.usageSuggestions ?? null,
+    nutritionNotes: p.props.nutritionNotes ?? null,
+
+    tags: p.props.tags ?? [],
   };
 };
