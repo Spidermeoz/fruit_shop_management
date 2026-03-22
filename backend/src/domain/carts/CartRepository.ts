@@ -27,5 +27,6 @@ export interface CartRepository {
   clearSelectedItems(
     userId: number,
     productVariantIds: number[],
+    transaction?: any,
   ): Promise<void>;
 }

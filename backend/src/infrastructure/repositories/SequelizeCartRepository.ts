@@ -262,6 +262,7 @@ export class SequelizeCartRepository implements CartRepository {
   async clearSelectedItems(
     userId: number,
     productVariantIds: number[],
+    transaction?: any,
   ): Promise<void> {
     if (!productVariantIds.length) return;
 
@@ -272,6 +273,7 @@ export class SequelizeCartRepository implements CartRepository {
         cart_id: cart.id,
         product_variant_id: productVariantIds,
       },
+      transaction,
     });
   }
 }

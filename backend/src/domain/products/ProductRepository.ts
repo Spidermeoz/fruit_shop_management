@@ -50,7 +50,10 @@ export interface ProductVariantStockInfo {
 export interface ProductRepository {
   list(filter: ProductListFilter): Promise<{ rows: Product[]; count: number }>;
   findById(id: number): Promise<Product | null>;
-  findVariantById(variantId: number): Promise<ProductVariantStockInfo | null>;
+  findVariantById(
+    variantId: number,
+    transaction?: any,
+  ): Promise<ProductVariantStockInfo | null>;
 
   create(input: CreateProductInput): Promise<Product>;
   update(id: number, patch: UpdateProductPatch): Promise<Product>;
@@ -63,6 +66,14 @@ export interface ProductRepository {
     updatedById?: number,
   ): Promise<number>;
 
-  decreaseVariantStock(variantId: number, quantity: number): Promise<void>;
-  increaseVariantStock(variantId: number, quantity: number): Promise<void>;
+  decreaseVariantStock(
+    variantId: number,
+    quantity: number,
+    transaction?: any,
+  ): Promise<void>;
+  increaseVariantStock(
+    variantId: number,
+    quantity: number,
+    transaction?: any,
+  ): Promise<void>;
 }

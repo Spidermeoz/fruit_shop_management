@@ -1,4 +1,3 @@
-// src/infrastructure/repositories/SequelizeProductRepository.ts
 import { Op, WhereOptions, literal } from "sequelize";
 import { Product as DomainProduct } from "../../domain/products/Products";
 import type {
@@ -11,49 +10,552 @@ import type {
   ProductStatus,
 } from "../../domain/products/types";
 
-// Kiểu models được inject (đề phòng bạn gom models ở 1 chỗ)
 type Models = {
   Product: any;
+  ProductVariant?: any;
+  ProductOption?: any;
+  ProductOptionValue?: any;
+  ProductVariantValue?: any;
   ProductCategory?: any;
+};
+
+type OptionValueRef = {
+  id: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+  position?: number;
 };
 
 export class SequelizeProductRepository implements ProductRepository {
   constructor(private models: Models) {}
 
-  // Map Sequelize Row -> Domain
-  private mapRow = (r: any): DomainProduct => {
+  private toPlain(row: any) {
+    if (!row) return row;
+    return typeof row.get === "function" ? row.get({ plain: true }) : row;
+  }
+
+  private mapVariant = (row: any) => {
+    const r = this.toPlain(row);
+
+    const optionValues: OptionValueRef[] = Array.isArray(r.variantValues)
+      ? r.variantValues
+          .map((vv: any) => {
+            const ov = vv?.optionValue;
+            if (!ov) return null;
+
+            const option = ov.option ?? null;
+
+            return {
+              id: Number(ov.id),
+              value: String(ov.value ?? ""),
+              optionId:
+                ov.product_option_id !== undefined &&
+                ov.product_option_id !== null
+                  ? Number(ov.product_option_id)
+                  : option?.id != null
+                    ? Number(option.id)
+                    : undefined,
+              optionName: option?.name ?? option?.title ?? undefined,
+              position:
+                ov.position !== undefined && ov.position !== null
+                  ? Number(ov.position)
+                  : undefined,
+            };
+          })
+          .filter(Boolean)
+      : [];
+
+    return {
+      id: Number(r.id),
+      productId:
+        r.product_id !== undefined && r.product_id !== null
+          ? Number(r.product_id)
+          : undefined,
+      sku: r.sku ?? null,
+      title: r.title ?? null,
+      price: Number(r.price ?? 0),
+      compareAtPrice:
+        r.compare_at_price !== undefined && r.compare_at_price !== null
+          ? Number(r.compare_at_price)
+          : null,
+      stock: Number(r.stock ?? 0),
+      status: r.status ?? "active",
+      sortOrder: Number(r.sort_order ?? 0),
+      optionValueIds: optionValues.map((x) => x.id),
+      optionValues,
+      createdAt: r.created_at ?? r.createdAt,
+      updatedAt: r.updated_at ?? r.updatedAt,
+    };
+  };
+
+  private mapOption = (row: any) => {
+    const r = this.toPlain(row);
+
+    return {
+      id: Number(r.id),
+      name: r.name ?? r.title ?? "",
+      position: Number(r.position ?? 0),
+      values: Array.isArray(r.values)
+        ? r.values.map((v: any) => {
+            const vv = this.toPlain(v);
+            return {
+              id: Number(vv.id),
+              value: String(vv.value ?? ""),
+              position: Number(vv.position ?? 0),
+            };
+          })
+        : [],
+    };
+  };
+
+  private mapRow = (row: any): DomainProduct => {
+    const r = this.toPlain(row);
+
+    const variants = Array.isArray(r.variants)
+      ? r.variants.map(this.mapVariant)
+      : [];
+
+    const options = Array.isArray(r.options)
+      ? r.options.map(this.mapOption)
+      : [];
+
+    const activeVariants = variants.filter((v: any) => v.status === "active");
+    const priceSource = activeVariants.length ? activeVariants : variants;
+
+    const derivedMinPrice = priceSource.length
+      ? Math.min(...priceSource.map((v: any) => Number(v.price ?? 0)))
+      : null;
+
+    const derivedMaxPrice = priceSource.length
+      ? Math.max(...priceSource.map((v: any) => Number(v.price ?? 0)))
+      : null;
+
+    const derivedTotalStock = variants.reduce(
+      (sum: number, v: { stock?: number | null }) =>
+        sum + Number(v.stock ?? 0),
+      0,
+    );
+
+    const defaultVariantId =
+      variants.find((v: any) => v.status === "active")?.id ??
+      variants[0]?.id ??
+      null;
+
     return DomainProduct.create({
       id: Number(r.id),
-      categoryId: r.product_category_id ?? null,
+      categoryId:
+        r.product_category_id !== undefined && r.product_category_id !== null
+          ? Number(r.product_category_id)
+          : null,
       category: r.category
-        ? { id: Number(r.category.id), title: r.category.title }
+        ? {
+            id: Number(r.category.id),
+            title: r.category.title,
+          }
         : null,
       title: r.title,
       description: r.description ?? null,
-      price: r.price !== null && r.price !== undefined ? Number(r.price) : null,
+
+      // Transitional fallback fields
+      price:
+        r.price !== undefined && r.price !== null
+          ? Number(r.price)
+          : derivedMinPrice,
       discountPercentage:
-        r.discount_percentage !== null && r.discount_percentage !== undefined
+        r.discount_percentage !== undefined && r.discount_percentage !== null
           ? Number(r.discount_percentage)
           : null,
-      stock: Number(r.stock ?? 0),
+      stock:
+        r.stock !== undefined && r.stock !== null
+          ? Number(r.stock)
+          : derivedTotalStock,
+
       thumbnail: r.thumbnail ?? null,
       slug: r.slug ?? null,
       status: r.status as ProductStatus,
       featured: !!r.featured,
-      position: r.position ?? null,
+      position:
+        r.position !== undefined && r.position !== null
+          ? Number(r.position)
+          : null,
+
       averageRating:
-        r.average_rating !== null && r.average_rating !== undefined
+        r.average_rating !== undefined && r.average_rating !== null
           ? Number(r.average_rating)
           : 0,
       reviewCount: Number(r.review_count ?? 0),
+
       deleted: !!r.deleted,
       deletedAt: r.deleted_at ?? null,
+
       createdAt: r.created_at ?? r.createdAt,
       updatedAt: r.updated_at ?? r.updatedAt,
-      createdById: r.created_by_id ?? null,
-      updatedById: r.updated_by_id ?? null,
+      createdById:
+        r.created_by_id !== undefined && r.created_by_id !== null
+          ? Number(r.created_by_id)
+          : null,
+      updatedById:
+        r.updated_by_id !== undefined && r.updated_by_id !== null
+          ? Number(r.updated_by_id)
+          : null,
+
+      variants,
+      options,
+      defaultVariantId,
+      priceRange:
+        derivedMinPrice !== null && derivedMaxPrice !== null
+          ? {
+              minPrice: derivedMinPrice,
+              maxPrice: derivedMaxPrice,
+            }
+          : null,
+      totalStock: derivedTotalStock,
     });
   };
+
+  private buildIncludes(includeOptions = true) {
+    const includes: any[] = [];
+
+    if (this.models.ProductCategory) {
+      includes.push({
+        model: this.models.ProductCategory,
+        as: "category",
+        attributes: ["id", "title"],
+      });
+    }
+
+    if (this.models.ProductVariant) {
+      const variantInclude: any[] = [];
+
+      if (this.models.ProductVariantValue && this.models.ProductOptionValue) {
+        const optionValueInclude: any = {
+          model: this.models.ProductOptionValue,
+          as: "optionValue",
+          attributes: ["id", "product_option_id", "value", "position"],
+        };
+
+        if (this.models.ProductOption) {
+          optionValueInclude.include = [
+            {
+              model: this.models.ProductOption,
+              as: "option",
+              attributes: ["id", "name", "title", "position"],
+            },
+          ];
+        }
+
+        variantInclude.push({
+          model: this.models.ProductVariantValue,
+          as: "variantValues",
+          attributes: ["id", "product_variant_id", "product_option_value_id"],
+          include: [optionValueInclude],
+          required: false,
+        });
+      }
+
+      includes.push({
+        model: this.models.ProductVariant,
+        as: "variants",
+        attributes: [
+          "id",
+          "product_id",
+          "sku",
+          "title",
+          "price",
+          "compare_at_price",
+          "stock",
+          "status",
+          "sort_order",
+          "created_at",
+          "updated_at",
+        ],
+        required: false,
+        include: variantInclude,
+      });
+    }
+
+    if (
+      includeOptions &&
+      this.models.ProductOption &&
+      this.models.ProductOptionValue
+    ) {
+      includes.push({
+        model: this.models.ProductOption,
+        as: "options",
+        attributes: ["id", "product_id", "name", "title", "position"],
+        required: false,
+        include: [
+          {
+            model: this.models.ProductOptionValue,
+            as: "values",
+            attributes: ["id", "product_option_id", "value", "position"],
+            required: false,
+          },
+        ],
+      });
+    }
+
+    return includes;
+  }
+
+  private normalizeVariantInput(variant: any, index: number) {
+    return {
+      sku: variant?.sku ?? null,
+      title: variant?.title ?? null,
+      price: Number(variant?.price ?? 0),
+      compare_at_price:
+        variant?.compareAtPrice !== undefined &&
+        variant?.compareAtPrice !== null
+          ? Number(variant.compareAtPrice)
+          : variant?.compare_at_price !== undefined &&
+              variant?.compare_at_price !== null
+            ? Number(variant.compare_at_price)
+            : null,
+      stock: Number(variant?.stock ?? 0),
+      status: variant?.status ?? "active",
+      sort_order: Number(variant?.sortOrder ?? variant?.sort_order ?? index),
+      optionValueIds: Array.isArray(variant?.optionValueIds)
+        ? variant.optionValueIds.map((x: any) => Number(x))
+        : [],
+      optionValues: Array.isArray(variant?.optionValues)
+        ? variant.optionValues
+        : [],
+    };
+  }
+
+  private computeFallbackFields(input: {
+    price?: number | null;
+    stock?: number | null;
+    variants?: any[];
+  }) {
+    const variants = Array.isArray(input.variants)
+      ? input.variants.map((v, index) => this.normalizeVariantInput(v, index))
+      : [];
+
+    if (!variants.length) {
+      return {
+        price:
+          input.price !== undefined && input.price !== null
+            ? Number(input.price)
+            : null,
+        stock: Number(input.stock ?? 0),
+        normalizedVariants: variants,
+      };
+    }
+
+    return {
+      price: Math.min(...variants.map((v: any) => Number(v.price ?? 0))),
+      stock: variants.reduce(
+        (sum: number, v: any) => sum + Number(v.stock ?? 0),
+        0,
+      ),
+      normalizedVariants: variants,
+    };
+  }
+
+  private async resolvePosition(input: {
+    categoryId?: number | null;
+    position?: number | null;
+  }) {
+    let position = input.position ?? null;
+
+    if (position != null) return Number(position);
+
+    const normalizedCategoryId =
+      input.categoryId && Number(input.categoryId) > 0
+        ? Number(input.categoryId)
+        : null;
+
+    const where: any = {
+      product_category_id: normalizedCategoryId,
+      deleted: 0,
+    };
+
+    let maxPos = await this.models.Product.max("position", { where });
+    maxPos = Number(maxPos) || 0;
+
+    return maxPos + 1;
+  }
+
+  private async syncOptionsAndVariants(
+    productId: number,
+    payload: {
+      options?: any[];
+      variants?: any[];
+    },
+    transaction?: any,
+  ) {
+    const Option = this.models.ProductOption;
+    const OptionValue = this.models.ProductOptionValue;
+    const Variant = this.models.ProductVariant;
+    const VariantValue = this.models.ProductVariantValue;
+
+    const hasOptions = !!Option && !!OptionValue;
+    const hasVariants = !!Variant;
+    const hasVariantValues = !!VariantValue;
+
+    const optionsInput = Array.isArray(payload.options) ? payload.options : [];
+    const variantsInput = Array.isArray(payload.variants)
+      ? payload.variants
+      : [];
+
+    if (hasVariantValues && hasVariants) {
+      const oldVariants = await Variant.findAll({
+        where: { product_id: productId },
+        attributes: ["id"],
+        transaction,
+      });
+
+      const oldVariantIds = oldVariants.map((v: any) => Number(v.id));
+
+      if (oldVariantIds.length) {
+        await VariantValue.destroy({
+          where: { product_variant_id: { [Op.in]: oldVariantIds } },
+          transaction,
+        });
+      }
+    }
+
+    if (hasVariants) {
+      await Variant.destroy({
+        where: { product_id: productId },
+        transaction,
+      });
+    }
+
+    if (hasOptions) {
+      const oldOptions = await Option.findAll({
+        where: { product_id: productId },
+        attributes: ["id"],
+        transaction,
+      });
+
+      const oldOptionIds = oldOptions.map((o: any) => Number(o.id));
+
+      if (oldOptionIds.length) {
+        await OptionValue.destroy({
+          where: { product_option_id: { [Op.in]: oldOptionIds } },
+          transaction,
+        });
+      }
+
+      await Option.destroy({
+        where: { product_id: productId },
+        transaction,
+      });
+    }
+
+    const optionValueIdMap = new Map<string, number>();
+
+    if (hasOptions && optionsInput.length) {
+      for (
+        let optionIndex = 0;
+        optionIndex < optionsInput.length;
+        optionIndex += 1
+      ) {
+        const optionInput = optionsInput[optionIndex];
+
+        const optionRow = await Option.create(
+          {
+            product_id: productId,
+            name: optionInput?.name ?? optionInput?.title ?? "",
+            position: Number(optionInput?.position ?? optionIndex),
+          },
+          { transaction },
+        );
+
+        const optionId = Number(optionRow.id);
+        const values = Array.isArray(optionInput?.values)
+          ? optionInput.values
+          : [];
+
+        for (let valueIndex = 0; valueIndex < values.length; valueIndex += 1) {
+          const valueInput = values[valueIndex];
+
+          const valueRow = await OptionValue.create(
+            {
+              product_option_id: optionId,
+              value: valueInput?.value ?? "",
+              position: Number(valueInput?.position ?? valueIndex),
+            },
+            { transaction },
+          );
+
+          const createdValueId = Number(valueRow.id);
+
+          if (valueInput?.id !== undefined && valueInput?.id !== null) {
+            optionValueIdMap.set(
+              `legacy:${Number(valueInput.id)}`,
+              createdValueId,
+            );
+          }
+
+          optionValueIdMap.set(
+            `pair:${String(optionInput?.name ?? optionInput?.title ?? "")
+              .trim()
+              .toLowerCase()}::${String(valueInput?.value ?? "")
+              .trim()
+              .toLowerCase()}`,
+            createdValueId,
+          );
+        }
+      }
+    }
+
+    if (hasVariants && variantsInput.length) {
+      for (let index = 0; index < variantsInput.length; index += 1) {
+        const normalized = this.normalizeVariantInput(
+          variantsInput[index],
+          index,
+        );
+
+        const variantRow = await Variant.create(
+          {
+            product_id: productId,
+            sku: normalized.sku,
+            title: normalized.title,
+            price: normalized.price,
+            compare_at_price: normalized.compare_at_price,
+            stock: normalized.stock,
+            status: normalized.status,
+            sort_order: normalized.sort_order,
+          },
+          { transaction },
+        );
+
+        if (hasVariantValues) {
+          const resolvedValueIds = new Set<number>();
+
+          for (const id of normalized.optionValueIds) {
+            const mapped = optionValueIdMap.get(`legacy:${id}`);
+            resolvedValueIds.add(mapped ?? id);
+          }
+
+          for (const ov of normalized.optionValues) {
+            const key = `pair:${String(ov?.optionName ?? "")
+              .trim()
+              .toLowerCase()}::${String(ov?.value ?? "")
+              .trim()
+              .toLowerCase()}`;
+
+            const mapped = optionValueIdMap.get(key);
+            if (mapped) resolvedValueIds.add(mapped);
+          }
+
+          for (const optionValueId of resolvedValueIds) {
+            await VariantValue.create(
+              {
+                product_variant_id: variantRow.id,
+                product_option_value_id: optionValueId,
+              },
+              { transaction },
+            );
+          }
+        }
+      }
+    }
+  }
 
   async list(filter: ProductListFilter) {
     const {
@@ -78,25 +580,28 @@ export class SequelizeProductRepository implements ProductRepository {
         (where as any).product_category_id = categoryId;
       }
     }
+
     if (status !== "all") {
       (where as any).status = status;
     }
+
     if (typeof featured === "boolean") {
       (where as any).featured = featured ? 1 : 0;
     }
+
     if (q) {
       (where as any)[Op.or] = [
         { title: { [Op.like]: `%${q}%` } },
         { slug: { [Op.like]: `%${q}%` } },
       ];
     }
+
     if (minPrice != null || maxPrice != null) {
       (where as any).price = {};
-      if (minPrice != null) (where as any).price[Op.gte] = minPrice;
-      if (maxPrice != null) (where as any).price[Op.lte] = maxPrice;
+      if (minPrice != null) (where as any).price[Op.gte] = Number(minPrice);
+      if (maxPrice != null) (where as any).price[Op.lte] = Number(maxPrice);
     }
 
-    // Map sortBy (domain) -> column DB
     const sortColMap: Record<string, string> = {
       id: "id",
       title: "title",
@@ -109,99 +614,165 @@ export class SequelizeProductRepository implements ProductRepository {
       updatedAt: "updated_at",
       slug: "slug",
     };
+
     const col = sortColMap[sortBy] || "id";
     const orderBy: any[] = [[literal(col), order]];
-
     const offset = (page - 1) * limit;
 
     const { rows, count } = await this.models.Product.findAndCountAll({
       where,
       limit,
       offset,
+      distinct: true,
+      subQuery: false,
       order: orderBy,
-      // include category nếu bạn đã set association
-      include: this.models.ProductCategory
-        ? [
-            {
-              model: this.models.ProductCategory,
-              as: "category",
-              attributes: ["id", "title"],
-            },
-          ]
-        : undefined,
+      include: this.buildIncludes(false),
     });
 
     return { rows: rows.map(this.mapRow), count };
   }
 
   async findById(id: number) {
-    const r = await this.models.Product.findOne({
+    const row = await this.models.Product.findOne({
       where: { id, deleted: 0 },
-      include: this.models.ProductCategory
-        ? [
-            {
-              model: this.models.ProductCategory,
-              as: "category",
-              attributes: ["id", "title"],
-            },
-          ]
-        : undefined,
+      include: this.buildIncludes(true),
+      subQuery: false,
     });
-    return r ? this.mapRow(r) : null;
+
+    return row ? this.mapRow(row) : null;
   }
 
   async create(input: CreateProductInput) {
-    // ✅ Nếu position không truyền → tính tự động
-    let position = input.position ?? null;
+    const transaction = await this.models.Product.sequelize.transaction();
 
-    if (position == null) {
-      const normalizedCategoryId =
-        input.categoryId && Number(input.categoryId) > 0
-          ? Number(input.categoryId)
-          : null;
+    try {
+      const position = await this.resolvePosition(input);
+      const { price, stock, normalizedVariants } = this.computeFallbackFields({
+        price: input.price ?? null,
+        stock: input.stock ?? 0,
+        variants: input.variants,
+      });
 
-      const where: any = {
-        product_category_id: normalizedCategoryId,
-        deleted: 0,
-      };
+      const row = await this.models.Product.create(
+        {
+          product_category_id: input.categoryId ?? null,
+          title: input.title,
+          description: input.description ?? null,
+          price,
+          discount_percentage: input.discountPercentage ?? null,
+          stock,
+          thumbnail: input.thumbnail ?? null,
+          slug: input.slug ?? null,
+          status: input.status ?? "active",
+          featured: !!input.featured,
+          position,
+          deleted: 0,
+          deleted_at: null,
+        },
+        { transaction },
+      );
 
-      // Lấy vị trí cao nhất hiện có trong cùng category
-      let maxPos = await this.models.Product.max("position", { where });
-      maxPos = Number(maxPos) || 0;
-      position = maxPos + 1;
+      await this.syncOptionsAndVariants(
+        Number(row.id),
+        {
+          options: input.options,
+          variants: normalizedVariants,
+        },
+        transaction,
+      );
+
+      await transaction.commit();
+
+      const fresh = await this.findById(Number(row.id));
+      if (!fresh) throw new Error("Product not found after create");
+      return fresh;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
-
-    const r = await this.models.Product.create({
-      product_category_id: input.categoryId ?? null,
-      title: input.title,
-      description: input.description ?? null,
-      price: input.price ?? null,
-      discount_percentage: input.discountPercentage ?? null,
-      stock: input.stock ?? 0,
-      thumbnail: input.thumbnail ?? null,
-      slug: input.slug ?? null, // có thể tự sinh bằng hook nếu null
-      status: input.status ?? "active",
-      featured: !!input.featured,
-      position,
-      deleted: 0,
-      deleted_at: null,
-    });
-
-    // Trả về entity domain
-    return this.mapRow(r);
   }
 
   async update(id: number, patch: UpdateProductPatch) {
-    const updateData: any = { ...patch };
-    // Nếu có categoryId thì map sang product_category_id
-    if (patch.categoryId !== undefined) {
-      updateData.product_category_id = patch.categoryId;
-      delete updateData.categoryId;
+    const existing = await this.findById(id);
+    if (!existing) {
+      throw new Error("Product not found");
     }
-    await this.models.Product.update(updateData, { where: { id } });
-    const r = await this.models.Product.findByPk(id);
-    if (!r) throw new Error("Product not found after update");
-    return this.mapRow(r);
+
+    const transaction = await this.models.Product.sequelize.transaction();
+
+    try {
+      const merged = {
+        ...existing.props,
+        ...patch,
+      };
+
+      const nextVariants =
+        patch.variants !== undefined ? patch.variants : existing.props.variants;
+
+      const { price, stock, normalizedVariants } = this.computeFallbackFields({
+        price:
+          patch.price !== undefined
+            ? patch.price
+            : (existing.props.price ?? null),
+        stock:
+          patch.stock !== undefined ? patch.stock : (existing.props.stock ?? 0),
+        variants: nextVariants,
+      });
+
+      const updateData: any = {
+        title: merged.title,
+        description: merged.description ?? null,
+        price,
+        discount_percentage:
+          merged.discountPercentage !== undefined
+            ? merged.discountPercentage
+            : null,
+        stock,
+        thumbnail: merged.thumbnail ?? null,
+        slug: merged.slug ?? null,
+        status: merged.status,
+        featured: !!merged.featured,
+      };
+
+      if (patch.position !== undefined) {
+        updateData.position = patch.position;
+      }
+
+      if (patch.categoryId !== undefined) {
+        updateData.product_category_id = patch.categoryId;
+      }
+
+      await this.models.Product.update(updateData, {
+        where: { id },
+        transaction,
+      });
+
+      if (patch.options !== undefined || patch.variants !== undefined) {
+        await this.syncOptionsAndVariants(
+          id,
+          {
+            options:
+              patch.options !== undefined
+                ? patch.options
+                : existing.props.options,
+            variants:
+              patch.variants !== undefined
+                ? normalizedVariants
+                : existing.props.variants,
+          },
+          transaction,
+        );
+      }
+
+      await transaction.commit();
+
+      const fresh = await this.findById(id);
+      if (!fresh) throw new Error("Product not found after update");
+      return fresh;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   async changeStatus(id: number, status: ProductStatus) {
@@ -217,13 +788,16 @@ export class SequelizeProductRepository implements ProductRepository {
 
   async bulkEdit(ids: number[], patch: UpdateProductPatch) {
     const values: any = {};
-    if (patch.categoryId !== undefined)
+
+    if (patch.categoryId !== undefined) {
       values.product_category_id = patch.categoryId;
+    }
     if (patch.title !== undefined) values.title = patch.title;
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.price !== undefined) values.price = patch.price;
-    if (patch.discountPercentage !== undefined)
+    if (patch.discountPercentage !== undefined) {
       values.discount_percentage = patch.discountPercentage;
+    }
     if (patch.stock !== undefined) values.stock = patch.stock;
     if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;
     if (patch.slug !== undefined) values.slug = patch.slug;
@@ -237,6 +811,7 @@ export class SequelizeProductRepository implements ProductRepository {
     const [affected] = await this.models.Product.update(values, {
       where: { id: { [Op.in]: ids } },
     });
+
     return affected ?? 0;
   }
 
@@ -245,26 +820,25 @@ export class SequelizeProductRepository implements ProductRepository {
     updatedById?: number,
   ) {
     const ids = pairs.map((p) => Number(p.id));
-    // CASE WHEN nhanh & 1 câu UPDATE
+
     const whenClauses = pairs
       .map((p) => `WHEN ${Number(p.id)} THEN ${Number(p.position)}`)
       .join(" ");
+
     const setUpdated = "";
     const sql = `
-    UPDATE products
-    SET position = CASE id ${whenClauses} END
-    ${setUpdated}
-    WHERE id IN (:ids)
-  `;
+      UPDATE products
+      SET position = CASE id ${whenClauses} END
+      ${setUpdated}
+      WHERE id IN (:ids)
+    `;
 
-    // Lấy sequelize từ model
     const sequelize = this.models.Product.sequelize as any;
 
     const [result] = await sequelize.query(sql, {
       replacements: { ids, updatedById },
     });
 
-    // MySQL trả affectedRows tuỳ driver; fallback count từ ids
     const affected = result?.affectedRows ?? result ?? ids.length;
     return Number(affected);
   }
@@ -273,7 +847,7 @@ export class SequelizeProductRepository implements ProductRepository {
     const product = await this.models.Product.findOne({
       where: { id: productId, deleted: 0 },
       transaction,
-      lock: transaction ? transaction.LOCK.UPDATE : undefined, // tránh race-condition
+      lock: transaction ? transaction.LOCK.UPDATE : undefined,
     });
 
     if (!product) {
@@ -288,9 +862,7 @@ export class SequelizeProductRepository implements ProductRepository {
       );
     }
 
-    // trừ tồn kho
     product.stock = currentStock - quantity;
-
     await product.save({ transaction });
 
     return product;
@@ -303,27 +875,27 @@ export class SequelizeProductRepository implements ProductRepository {
       lock: transaction ? transaction.LOCK.UPDATE : undefined,
     });
 
-    if (!product) {
-      // không throw vì sản phẩm có thể đã bị xóa
-      return;
-    }
+    if (!product) return;
 
     product.stock = Number(product.stock ?? 0) + quantity;
-
     await product.save({ transaction });
   }
-  async findVariantById(variantId: number) {
-    const Variant = (this.models as any).ProductVariant;
+
+  async findVariantById(variantId: number, transaction?: any) {
+    const Variant = this.models.ProductVariant;
 
     if (!Variant) {
       throw new Error("ProductVariant model not provided");
     }
 
-    const v = await Variant.findOne({
+    const variant = await Variant.findOne({
       where: { id: variantId },
+      transaction,
     });
 
-    if (!v) return null;
+    if (!variant) return null;
+
+    const v = this.toPlain(variant);
 
     return {
       id: Number(v.id),
@@ -341,7 +913,11 @@ export class SequelizeProductRepository implements ProductRepository {
     quantity: number,
     transaction?: any,
   ) {
-    const Variant = (this.models as any).ProductVariant;
+    const Variant = this.models.ProductVariant;
+
+    if (!Variant) {
+      throw new Error("ProductVariant model not provided");
+    }
 
     const variant = await Variant.findOne({
       where: { id: variantId },
@@ -356,11 +932,10 @@ export class SequelizeProductRepository implements ProductRepository {
     const stock = Number(variant.stock ?? 0);
 
     if (stock < quantity) {
-      throw new Error(`Không đủ tồn kho variant`);
+      throw new Error("Không đủ tồn kho variant");
     }
 
     variant.stock = stock - quantity;
-
     await variant.save({ transaction });
 
     return variant;
@@ -371,7 +946,11 @@ export class SequelizeProductRepository implements ProductRepository {
     quantity: number,
     transaction?: any,
   ) {
-    const Variant = (this.models as any).ProductVariant;
+    const Variant = this.models.ProductVariant;
+
+    if (!Variant) {
+      throw new Error("ProductVariant model not provided");
+    }
 
     const variant = await Variant.findOne({
       where: { id: variantId },
@@ -382,7 +961,6 @@ export class SequelizeProductRepository implements ProductRepository {
     if (!variant) return;
 
     variant.stock = Number(variant.stock ?? 0) + quantity;
-
     await variant.save({ transaction });
   }
 }

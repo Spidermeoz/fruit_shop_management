@@ -3,16 +3,173 @@ import { ListProducts } from "../../../../../application/products/usecases/ListP
 import { GetProductDetail } from "../../../../../application/products/usecases/GetProductDetail";
 import { ProductListFilter } from "../../../../../domain/products/types";
 import ProductCategoryModel from "../../../../../infrastructure/db/sequelize/models/ProductCategoryModel";
-import { Op } from "sequelize";
 
 const toNum = (v: any) => (v === undefined ? undefined : Number(v));
+
+const normalizeProduct = (raw: any) => {
+  const p = raw?.props ?? raw;
+
+  const variants = Array.isArray(p?.variants)
+    ? p.variants.map((v: any) => ({
+        id: Number(v.id),
+        productId:
+          v.productId !== undefined && v.productId !== null
+            ? Number(v.productId)
+            : null,
+        sku: v.sku ?? null,
+        title: v.title ?? null,
+        price: Number(v.price ?? 0),
+        compareAtPrice:
+          v.compareAtPrice !== undefined && v.compareAtPrice !== null
+            ? Number(v.compareAtPrice)
+            : v.compare_at_price !== undefined && v.compare_at_price !== null
+              ? Number(v.compare_at_price)
+              : null,
+        stock: Number(v.stock ?? 0),
+        status: v.status ?? "active",
+        sortOrder: Number(v.sortOrder ?? v.sort_order ?? 0),
+        optionValueIds: Array.isArray(v.optionValueIds)
+          ? v.optionValueIds.map((x: any) => Number(x))
+          : [],
+        optionValues: Array.isArray(v.optionValues)
+          ? v.optionValues.map((ov: any) => ({
+              id: Number(ov.id),
+              value: ov.value,
+              optionId:
+                ov.optionId !== undefined && ov.optionId !== null
+                  ? Number(ov.optionId)
+                  : undefined,
+              optionName: ov.optionName ?? undefined,
+              position:
+                ov.position !== undefined && ov.position !== null
+                  ? Number(ov.position)
+                  : undefined,
+            }))
+          : [],
+      }))
+    : [];
+
+  const options = Array.isArray(p?.options)
+    ? p.options.map((o: any) => ({
+        id: Number(o.id),
+        name: o.name ?? o.title ?? "",
+        position: Number(o.position ?? 0),
+        values: Array.isArray(o.values)
+          ? o.values.map((value: any) => ({
+              id: Number(value.id),
+              value: value.value,
+              position: Number(value.position ?? 0),
+            }))
+          : [],
+      }))
+    : [];
+
+  const activeVariants = variants.filter((v: any) => v.status === "active");
+  const sourceVariants = activeVariants.length ? activeVariants : variants;
+
+  const minVariantPrice = sourceVariants.length
+    ? Math.min(...sourceVariants.map((v: any) => Number(v.price ?? 0)))
+    : null;
+
+  const maxVariantPrice = sourceVariants.length
+    ? Math.max(...sourceVariants.map((v: any) => Number(v.price ?? 0)))
+    : null;
+
+  const totalStock =
+    p?.totalStock !== undefined && p?.totalStock !== null
+      ? Number(p.totalStock)
+      : variants.reduce((sum: number, v: any) => sum + Number(v.stock ?? 0), 0);
+
+  const basePrice =
+    p?.price !== undefined && p?.price !== null
+      ? Number(p.price)
+      : minVariantPrice;
+
+  const discountPercentage =
+    p?.discountPercentage !== undefined && p?.discountPercentage !== null
+      ? Number(p.discountPercentage)
+      : null;
+
+  return {
+    id: Number(p.id),
+    categoryId:
+      p.categoryId !== undefined && p.categoryId !== null
+        ? Number(p.categoryId)
+        : p.product_category_id !== undefined && p.product_category_id !== null
+          ? Number(p.product_category_id)
+          : null,
+    product_category_id:
+      p.product_category_id !== undefined && p.product_category_id !== null
+        ? Number(p.product_category_id)
+        : p.categoryId !== undefined && p.categoryId !== null
+          ? Number(p.categoryId)
+          : null,
+    title: p.title,
+    description: p.description ?? null,
+    price: basePrice,
+    discountPercentage,
+    stock:
+      p.stock !== undefined && p.stock !== null ? Number(p.stock) : totalStock,
+    totalStock,
+    thumbnail: p.thumbnail ?? null,
+    slug: p.slug ?? null,
+    status: p.status,
+    featured: !!p.featured,
+    position:
+      p.position !== undefined && p.position !== null
+        ? Number(p.position)
+        : null,
+    averageRating: Number(p.averageRating ?? 0),
+    reviewCount: Number(p.reviewCount ?? 0),
+    deleted: !!p.deleted,
+    deletedAt: p.deletedAt ?? null,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    createdById:
+      p.createdById !== undefined && p.createdById !== null
+        ? Number(p.createdById)
+        : null,
+    updatedById:
+      p.updatedById !== undefined && p.updatedById !== null
+        ? Number(p.updatedById)
+        : null,
+    effectivePrice:
+      basePrice !== null &&
+      discountPercentage !== null &&
+      discountPercentage > 0
+        ? basePrice * (1 - discountPercentage / 100)
+        : basePrice,
+    category: p.category
+      ? {
+          id: Number(p.category.id),
+          title: p.category.title,
+        }
+      : null,
+    variants,
+    options,
+    defaultVariantId:
+      p.defaultVariantId !== undefined && p.defaultVariantId !== null
+        ? Number(p.defaultVariantId)
+        : (activeVariants[0]?.id ?? variants[0]?.id ?? null),
+    priceRange:
+      p.priceRange?.min !== undefined && p.priceRange?.max !== undefined
+        ? {
+            min: Number(p.priceRange.min),
+            max: Number(p.priceRange.max),
+          }
+        : minVariantPrice !== null && maxVariantPrice !== null
+          ? { min: minVariantPrice, max: maxVariantPrice }
+          : basePrice !== null
+            ? { min: basePrice, max: basePrice }
+            : null,
+  };
+};
 
 export const makeClientProductsController = (uc: {
   list: ListProducts;
   detail: GetProductDetail;
 }) => {
   return {
-    // ✅ GET /api/v1/client/products
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const {
@@ -30,7 +187,6 @@ export const makeClientProductsController = (uc: {
 
         let categoryIds: number[] | null = null;
 
-        // ✅ Nếu có slug danh mục → lấy tất cả id con cháu
         if (category && !categoryId) {
           const cat = await ProductCategoryModel.findOne({
             where: {
@@ -41,9 +197,8 @@ export const makeClientProductsController = (uc: {
           });
 
           if (cat) {
-            const rootId = cat.getDataValue("id");
+            const rootId = Number(cat.getDataValue("id"));
 
-            // 🧠 Lấy toàn bộ danh mục con (đệ quy)
             interface CategoryNode {
               id: number;
               parent_id: number | null;
@@ -59,9 +214,11 @@ export const makeClientProductsController = (uc: {
               const children = allCategories
                 .filter((c) => c.parent_id === parentId)
                 .map((c) => c.id);
+
               const deeper = children.flatMap((childId) =>
-                collectChildren(childId)
+                collectChildren(childId),
               );
+
               return [...children, ...deeper];
             };
 
@@ -75,7 +232,6 @@ export const makeClientProductsController = (uc: {
         const featuredAsBoolean =
           featured === "true" ? true : featured === "false" ? false : undefined;
 
-        // ✅ Giữ nguyên toàn bộ logic filter cũ
         const data = await uc.list.execute({
           page: toNum(page) ?? 1,
           limit: toNum(limit) ?? 12,
@@ -89,42 +245,9 @@ export const makeClientProductsController = (uc: {
           featured: featuredAsBoolean,
         });
 
-        // ✅ Không rút gọn result — trả nguyên data.rows với đầy đủ field
-        const result = data.rows.map((p) => ({
-          id: p.id,
-          categoryId: p.categoryId ?? p.product_category_id ?? null,
-          product_category_id: p.product_category_id ?? p.categoryId ?? null,
-          title: p.title,
-          description: p.description,
-          price: p.price,
-          discountPercentage: p.discountPercentage,
-          stock: p.stock,
-          thumbnail: p.thumbnail,
-          slug: p.slug,
-          status: p.status,
-          featured: p.featured,
-          position: p.position,
-          averageRating: p.averageRating ?? 0,
-          reviewCount: p.reviewCount ?? 0,
-          deleted: p.deleted,
-          deletedAt: p.deletedAt,
-          createdAt: p.createdAt,
-          updatedAt: p.updatedAt,
-          createdById: p.createdById ?? null,
-          updatedById: p.updatedById ?? null,
-          effectivePrice:
-            p.price && p.discountPercentage && p.discountPercentage > 0
-              ? p.price * (1 - p.discountPercentage / 100)
-              : p.price,
-          category: p.category
-            ? {
-                id: p.category.id,
-                title: p.category.title,
-              }
-            : null,
-        }));
+        const result = data.rows.map(normalizeProduct);
 
-        res.json({
+        return res.json({
           success: true,
           data: result,
           meta: {
@@ -138,35 +261,22 @@ export const makeClientProductsController = (uc: {
       }
     },
 
-    // ✅ GET /api/v1/client/products/:id
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
+        const normalized = normalizeProduct(dto);
 
-        if (!dto || dto.status !== "active") {
+        if (!normalized || normalized.status !== "active") {
           return res.status(404).json({
             success: false,
             message: "Product not found or inactive",
           });
         }
 
-        res.json({
+        return res.json({
           success: true,
-          data: {
-            id: dto.id,
-            title: dto.title,
-            description: dto.description,
-            price: dto.price,
-            discountPercentage: dto.discountPercentage,
-            stock: dto.stock,
-            thumbnail: dto.thumbnail,
-            slug: dto.slug,
-            featured: dto.featured,
-            category: dto.category
-              ? { id: dto.category.id, title: dto.category.title }
-              : null,
-          },
+          data: normalized,
         });
       } catch (err) {
         next(err);
