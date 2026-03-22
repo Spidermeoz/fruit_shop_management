@@ -8,14 +8,16 @@ export function summarizeOrders(orders: Order[]) {
   const totalOrders = orders.length;
 
   const totalRevenue = orders.reduce((sum: number, o: Order) => {
-    return sum + (o.final_price || 0);
+    return sum + Number(o.final_price ?? 0);
   }, 0);
 
   const totalDiscount = orders.reduce((sum: number, o: Order) => {
-    return sum + (o.discount_amount || 0);
+    return sum + Number(o.discount_amount ?? 0);
   }, 0);
 
-  const pendingOrders = orders.filter((o: Order) => o.status === "pending").length;
+  const pendingOrders = orders.filter(
+    (o: Order) => o.status === "pending",
+  ).length;
 
   return {
     totalOrders,
