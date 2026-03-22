@@ -51,7 +51,7 @@ const CheckoutPage: React.FC = () => {
   const { items: cartItems, fetchCart } = useCart();
   const { showErrorToast } = useToast(); // Gọi hook UseToast
 
-  // List productId được chọn từ CartPage
+  // List product variants được chọn từ CartPage
   const selectedItems: number[] = location.state?.selectedItems || [];
 
   const [currentStep, setCurrentStep] = useState(1);
@@ -106,7 +106,7 @@ const CheckoutPage: React.FC = () => {
   useEffect(() => {
     fetchCart();
     if (!selectedItems.length) navigate("/cart");
-  }, []);
+  }, [fetchCart, navigate, selectedItems.length]);
 
   useEffect(() => {
     window.scrollTo({
@@ -195,20 +195,18 @@ const CheckoutPage: React.FC = () => {
 
   // Lọc item được chọn từ giỏ hàng thực
   const checkoutItems = cartItems.filter((i) =>
-    selectedItems.includes(i.productId),
+    selectedItems.includes(i.productVariantId),
   );
 
   // Hàm tính giá hiệu quả (sau khi giảm giá)
-  const getEffectivePrice = (product: any) => {
-    if (!product) return 0;
-    if (product.discountPercentage && product.discountPercentage > 0) {
-      return product.price * (1 - product.discountPercentage / 100);
-    }
-    return product.price;
+  const getEffectivePrice = (item: any) => {
+    if (typeof item.unitPrice === "number") return item.unitPrice;
+    if (typeof item.variant?.price === "number") return item.variant.price;
+    return 0;
   };
 
   const subtotal = checkoutItems.reduce(
-    (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
+    (acc, item) => acc + getEffectivePrice(item) * item.quantity,
     0,
   );
 
@@ -302,7 +300,7 @@ const CheckoutPage: React.FC = () => {
 
     try {
       const payload = {
-        productIds: selectedItems,
+        productVariantIds: selectedItems,
         address: {
           fullName: orderInfo.name,
           phone: orderInfo.phone,
@@ -315,7 +313,7 @@ const CheckoutPage: React.FC = () => {
           postalCode: "",
           notes: orderInfo.note,
         },
-        shippingFee: shippingFee,
+        shippingFee,
         discountAmount: 0,
         paymentMethod: orderInfo.payment,
       };
@@ -962,13 +960,26 @@ const CheckoutPage: React.FC = () => {
                         <h4 className="font-bold text-slate-900 truncate text-sm mb-1">
                           {item.product?.title}
                         </h4>
+                        {item.variant?.title && (
+                          <p className="text-xs font-bold text-slate-500 mb-1">
+                            {item.variant.title}
+                          </p>
+                        )}
+                        {item.variant?.optionValues &&
+                          item.variant.optionValues.length > 0 && (
+                            <p className="text-[11px] text-slate-400 font-medium">
+                              {item.variant.optionValues
+                                .map((ov: any) => ov.value)
+                                .join(" / ")}
+                            </p>
+                          )}
                         <div className="flex justify-between items-end mt-2">
                           <p className="text-xs font-bold text-slate-500 bg-slate-200/50 px-2 py-1 rounded-md">
                             Số lượng: {item.quantity}
                           </p>
                           <p className="font-black text-green-700">
                             {(
-                              getEffectivePrice(item.product) * item.quantity
+                              getEffectivePrice(item) * item.quantity
                             ).toLocaleString()}{" "}
                             đ
                           </p>
@@ -981,7 +992,9 @@ const CheckoutPage: React.FC = () => {
                 {/* Subtotal & Total */}
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                   <div className="flex justify-between font-medium text-slate-500 text-sm">
-                    <span>Tạm tính ({selectedItems.length} sản phẩm):</span>
+                    <span>
+                      Tạm tính ({checkoutItems.length} dòng sản phẩm):
+                    </span>
                     <span className="font-bold text-slate-900">
                       {subtotal.toLocaleString()} đ
                     </span>

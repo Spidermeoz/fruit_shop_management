@@ -19,9 +19,13 @@ type OrderStatus =
 
 type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
 
+// Cập nhật type OrderItem theo Phase 1
 interface OrderItem {
   productId: number | null;
+  productVariantId?: number | null;
   productTitle: string;
+  variantTitle?: string | null;
+  variantSku?: string | null;
   price: number;
   quantity: number;
 }
@@ -38,12 +42,12 @@ interface OrderProps {
   finalPrice: number;
   trackingToken?: string;
   createdAt: string;
-  address: any;
+  // Cập nhật type address chặt chẽ hơn
+  address: {
+    fullName?: string | null;
+    phone?: string | null;
+  } | null;
   items: OrderItem[];
-}
-
-interface OrderWrapper {
-  props: OrderProps;
 }
 
 const statusLabels: Record<OrderStatus, string> = {
@@ -69,11 +73,11 @@ const statusColors: Record<OrderStatus, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
-// FE nên phản ánh đúng rule backend nhưng vẫn giữ sự linh động mà bạn muốn
+// Đã cập nhật lại luồng trạng thái chặt chẽ hơn theo Backend rule
 const editableStatusMap: Record<OrderStatus, OrderStatus[]> = {
   pending: ["processing", "cancelled"],
-  processing: ["pending", "shipping", "cancelled"],
-  shipping: ["processing", "delivered"],
+  processing: ["shipping", "cancelled"],
+  shipping: ["delivered"],
   delivered: ["completed"],
   completed: [],
   cancelled: [],
@@ -243,9 +247,10 @@ const OrdersPage: React.FC = () => {
       const json = await http<any>("GET", url);
 
       if (json.success) {
-        const mapped = json.data
-          .map((item: OrderWrapper) => item.props)
-          .filter(Boolean);
+        // Hỗ trợ cả trường hợp BE trả object hay OrderWrapper
+        const mapped = Array.isArray(json.data)
+          ? json.data.map((item: any) => item?.props ?? item).filter(Boolean)
+          : [];
 
         setOrders(mapped);
 
@@ -361,6 +366,9 @@ const OrdersPage: React.FC = () => {
                     Người nhận
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    SP
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     Giá trị
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -395,8 +403,13 @@ const OrdersPage: React.FC = () => {
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       <p>{order.address?.fullName || "—"}</p>
                       <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {order.address?.phone}
+                        {order.address?.phone || "—"}
                       </p>
+                    </td>
+
+                    {/* Cột SP mới */}
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      {order.items?.length ?? 0}
                     </td>
 
                     <td className="px-4 py-3 text-sm font-semibold text-green-700 dark:text-green-400">
@@ -601,13 +614,17 @@ const OrdersPage: React.FC = () => {
                       },
                     );
 
-                    showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
+                    showSuccessToast({
+                      message: "Cập nhật trạng thái thành công!",
+                    });
                     setShowStatusModal(false);
                     setSelectedOrder(null);
                     setOriginalStatus(null);
                     fetchOrders();
                   } catch (err: any) {
-                    showErrorToast(err?.message || "Không thể cập nhật trạng thái");
+                    showErrorToast(
+                      err?.message || "Không thể cập nhật trạng thái",
+                    );
                   }
                 }}
               >
@@ -694,12 +711,16 @@ const OrdersPage: React.FC = () => {
                       },
                     );
 
-                    showSuccessToast({ message: "Xác nhận thanh toán thành công!" });
+                    showSuccessToast({
+                      message: "Xác nhận thanh toán thành công!",
+                    });
                     setShowPaymentModal(false);
                     setSelectedOrder(null);
                     fetchOrders();
                   } catch (err: any) {
-                    showErrorToast(err?.message || "Không thể xác nhận thanh toán");
+                    showErrorToast(
+                      err?.message || "Không thể xác nhận thanh toán",
+                    );
                   }
                 }}
               >

@@ -131,11 +131,15 @@ export class SequelizeProductRepository implements ProductRepository {
       ? Math.max(...priceSource.map((v: any) => Number(v.price ?? 0)))
       : null;
 
-    const derivedTotalStock = variants.reduce(
-      (sum: number, v: { stock?: number | null }) =>
-        sum + Number(v.stock ?? 0),
-      0,
-    );
+    const hasVariants = variants.length > 0;
+
+    const derivedTotalStock = hasVariants
+      ? variants.reduce(
+          (sum: number, v: { stock?: number | null }) =>
+            sum + Number(v.stock ?? 0),
+          0,
+        )
+      : Number(r.stock ?? 0);
 
     const defaultVariantId =
       variants.find((v: any) => v.status === "active")?.id ??
@@ -240,7 +244,7 @@ export class SequelizeProductRepository implements ProductRepository {
             {
               model: this.models.ProductOption,
               as: "option",
-              attributes: ["id", "name", "title", "position"],
+              attributes: ["id", "name", "position"],
             },
           ];
         }
@@ -283,7 +287,7 @@ export class SequelizeProductRepository implements ProductRepository {
       includes.push({
         model: this.models.ProductOption,
         as: "options",
-        attributes: ["id", "product_id", "name", "title", "position"],
+        attributes: ["id", "product_id", "name", "position"],
         required: false,
         include: [
           {

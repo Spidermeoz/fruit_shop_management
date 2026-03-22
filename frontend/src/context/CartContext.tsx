@@ -8,23 +8,34 @@ import React, {
 import { http, tokenStore } from "../services/http";
 import { useAuth } from "./AuthContext";
 
-// =======================
-// TYPES
-// =======================
-
 export interface CartItem {
   id: number;
   cartId: number;
-  productId: number;
+  productId: number | null;
+  productVariantId: number;
   quantity: number;
+  unitPrice?: number;
+
   product?: {
     id: number;
     title: string;
-    price: number | null;
-    discountPercentage?: number; // Thêm trường này
     thumbnail: string | null;
     slug: string | null;
-    stock?: number;
+  } | null;
+
+  variant?: {
+    id: number;
+    title?: string | null;
+    sku?: string | null;
+    price: number;
+    stock: number;
+    status?: string;
+    optionValues?: Array<{
+      id: number;
+      value: string;
+      optionId?: number;
+      optionName?: string;
+    }>;
   } | null;
 }
 
@@ -34,15 +45,11 @@ interface CartContextValue {
   isLoading: boolean;
 
   fetchCart: () => Promise<void>;
-  addToCart: (productId: number, qty?: number) => Promise<void>;
-  updateItem: (productId: number, qty: number) => Promise<void>;
-  removeItem: (productId: number) => Promise<void>;
-  clearCart: () => void;
+  addToCart: (productVariantId: number, qty?: number) => Promise<void>;
+  updateItem: (productVariantId: number, qty: number) => Promise<void>;
+  removeItem: (productVariantId: number) => Promise<void>;
+  clearCart: () => Promise<void>;
 }
-
-// =======================
-// CONTEXT INIT
-// =======================
 
 const CartContext = createContext<CartContextValue | undefined>(undefined);
 
@@ -52,9 +59,53 @@ export const useCart = () => {
   return ctx;
 };
 
-// =======================
-// PROVIDER
-// =======================
+const mapCartItem = (raw: any): CartItem => ({
+  id: Number(raw.id),
+  cartId: Number(raw.cartId ?? raw.cart_id ?? 0),
+  productId:
+    raw.productId !== undefined && raw.productId !== null
+      ? Number(raw.productId)
+      : raw.product_id !== undefined && raw.product_id !== null
+        ? Number(raw.product_id)
+        : null,
+  productVariantId: Number(raw.productVariantId ?? raw.product_variant_id),
+  quantity: Number(raw.quantity ?? 0),
+  unitPrice:
+    raw.unitPrice !== undefined && raw.unitPrice !== null
+      ? Number(raw.unitPrice)
+      : raw.unit_price !== undefined && raw.unit_price !== null
+        ? Number(raw.unit_price)
+        : undefined,
+  product: raw.product
+    ? {
+        id: Number(raw.product.id),
+        title: raw.product.title,
+        thumbnail: raw.product.thumbnail ?? null,
+        slug: raw.product.slug ?? null,
+      }
+    : null,
+  variant: raw.variant
+    ? {
+        id: Number(raw.variant.id),
+        title: raw.variant.title ?? null,
+        sku: raw.variant.sku ?? null,
+        price: Number(raw.variant.price ?? 0),
+        stock: Number(raw.variant.stock ?? 0),
+        status: raw.variant.status ?? "active",
+        optionValues: Array.isArray(raw.variant.optionValues)
+          ? raw.variant.optionValues.map((ov: any) => ({
+              id: Number(ov.id),
+              value: ov.value,
+              optionId:
+                ov.optionId !== undefined && ov.optionId !== null
+                  ? Number(ov.optionId)
+                  : undefined,
+              optionName: ov.optionName ?? undefined,
+            }))
+          : [],
+      }
+    : null,
+});
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({
   children,
@@ -63,12 +114,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // =======================
-  // Fetch cart from backend
-  // =======================
   const fetchCart = async () => {
     if (!isAuthenticated) {
       setItems([]);
+      setIsLoading(false);
       return;
     }
 
@@ -76,100 +125,85 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       setIsLoading(true);
       const res = await http("GET", "/api/v1/client/cart");
       if (res?.success && Array.isArray(res.data)) {
-        setItems(res.data);
+        setItems(res.data.map(mapCartItem));
+      } else {
+        setItems([]);
       }
     } catch (err) {
       console.error("Lỗi load giỏ hàng:", err);
+      setItems([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // =======================
-  // Add to cart
-  // =======================
-  const addToCart = async (productId: number, qty: number = 1) => {
-    if (!isAuthenticated) {
-      // client chưa login → không dispatch, chỉ return
-      // header đã điều hướng login rồi
-      return;
-    }
+  const addToCart = async (productVariantId: number, qty: number = 1) => {
+    if (!isAuthenticated) return;
 
     try {
       const res = await http("POST", "/api/v1/client/cart/items", {
-        productId,
+        productVariantId,
         quantity: qty,
       });
 
-      if (res.success && res.data) {
-        // đồng bộ lại toàn cart
+      if (res?.success) {
         await fetchCart();
       }
     } catch (err) {
       console.error("Lỗi thêm vào giỏ hàng:", err);
+      throw err;
     }
   };
 
-  // =======================
-  // Update item quantity
-  // =======================
-  const updateItem = async (productId: number, qty: number) => {
+  const updateItem = async (productVariantId: number, qty: number) => {
     try {
       const res = await http(
         "PATCH",
-        `/api/v1/client/cart/items/${productId}`,
-        { quantity: qty }
+        `/api/v1/client/cart/items/${productVariantId}`,
+        { quantity: qty },
       );
 
-      if (res.success) {
+      if (res?.success) {
         await fetchCart();
       }
     } catch (err) {
       console.error("Lỗi cập nhật giỏ hàng:", err);
+      throw err;
     }
   };
 
-  // =======================
-  // Remove from cart
-  // =======================
-  const removeItem = async (productId: number) => {
+  const removeItem = async (productVariantId: number) => {
     try {
       const res = await http(
         "DELETE",
-        `/api/v1/client/cart/items/${productId}`
+        `/api/v1/client/cart/items/${productVariantId}`,
       );
 
-      if (res.success) {
+      if (res?.success) {
         await fetchCart();
       }
     } catch (err) {
       console.error("Lỗi xoá sản phẩm trong giỏ:", err);
+      throw err;
     }
   };
 
-  // =======================
-  // Clear cart on logout
-  // =======================
   const clearCart = async () => {
     try {
-      const res = await http("DELETE",'/api/v1/client/cart/all-items');
-      if(res.success) {
+      const res = await http("DELETE", "/api/v1/client/cart/all-items");
+      if (res?.success) {
         setItems([]);
       }
-    }
-    catch (err) {
+    } catch (err) {
       console.error("Lỗi xoá sản phẩm trong giỏ:", err);
+      throw err;
     }
   };
 
-  // =======================
-  // Auto-load cart khi:
-  // - user login xong
-  // - trang được reload và accessToken vẫn còn
-  // =======================
   useEffect(() => {
     if (!tokenStore.getAccess()) {
       setItems([]);
+      setIsLoading(false);
       return;
     }
     fetchCart();

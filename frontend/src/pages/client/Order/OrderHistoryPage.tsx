@@ -34,8 +34,11 @@ interface Order {
 
   items: {
     _reviewed: any;
-    productId: number;
+    productId: number | null;
+    productVariantId?: number | null;
     productTitle: string;
+    variantTitle?: string | null;
+    variantSku?: string | null;
     price: number;
     quantity: number;
     thumbnail?: string | null;
@@ -60,7 +63,9 @@ const OrderHistoryPage: React.FC = () => {
   const [isCancelling, setIsCancelling] = useState<number | null>(null);
   const [reviewingOrderId, setReviewingOrderId] = useState<number | null>(null);
   const [reviewsData, setReviewsData] = useState<any>({});
-  const [submittingReviewId, setSubmittingReviewId] = useState<number | null>(
+
+  // Đã sửa thành string | null theo yêu cầu 1.7
+  const [submittingReviewId, setSubmittingReviewId] = useState<string | null>(
     null,
   );
 
@@ -86,6 +91,11 @@ const OrderHistoryPage: React.FC = () => {
       for (const ord of result) {
         const newItems = [];
         for (const item of ord.items) {
+          if (!item.productId) {
+            newItems.push({ ...item, _reviewed: false });
+            continue;
+          }
+
           const check = await http(
             "GET",
             `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`,
@@ -212,11 +222,26 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
-  const updateReviewData = (productId: number, field: string, value: any) => {
+  // Thêm helper tạo key an toàn theo yêu cầu 1.1
+  const getReviewKey = (
+    orderId: number,
+    item: {
+      productId: number | null;
+      productVariantId?: number | null;
+    },
+    index: number,
+  ) => {
+    if (item.productId) return `p-${item.productId}`;
+    if (item.productVariantId) return `pv-${item.productVariantId}`;
+    return `o-${orderId}-${index}`;
+  };
+
+  // Sửa theo yêu cầu 1.2
+  const updateReviewData = (reviewKey: string, field: string, value: any) => {
     setReviewsData((prev: any) => ({
       ...prev,
-      [productId]: {
-        ...(prev[productId] || {}),
+      [reviewKey]: {
+        ...(prev[reviewKey] || {}),
         [field]: value,
       },
     }));
@@ -225,16 +250,25 @@ const OrderHistoryPage: React.FC = () => {
   // =============================
   // SUBMIT SINGLE REVIEW
   // =============================
-  const submitSingleReview = async (orderId: number, productId: number) => {
+  // Sửa signature và logic bên trong theo yêu cầu 1.3
+  const submitSingleReview = async (
+    orderId: number,
+    productId: number | null,
+    reviewKey: string,
+  ) => {
     try {
-      const rd = reviewsData[productId];
+      if (!productId) {
+        showErrorToast("Không xác định được sản phẩm để đánh giá.");
+        return;
+      }
+      const rd = reviewsData[reviewKey];
 
       if (!rd || (!rd.rating && !rd.content?.trim())) {
         showErrorToast("Vui lòng nhập nội dung hoặc chọn số sao.");
         return;
       }
 
-      setSubmittingReviewId(productId);
+      setSubmittingReviewId(reviewKey);
 
       const res = await http("POST", "/api/v1/client/reviews", {
         productId,
@@ -255,7 +289,7 @@ const OrderHistoryPage: React.FC = () => {
 
       setReviewsData((prev: any) => {
         const next = { ...prev };
-        delete next[productId];
+        delete next[reviewKey];
         return next;
       });
 
@@ -451,11 +485,15 @@ const OrderHistoryPage: React.FC = () => {
                       <div className="space-y-4">
                         {order.items.slice(0, 2).map((i) => (
                           <div
-                            key={i.productId}
+                            key={`${i.productId ?? "x"}-${i.productVariantId ?? "no-variant"}-${i.variantSku ?? i.productTitle}`}
                             className="flex items-center gap-4 p-3 rounded-2xl border border-slate-100 hover:border-green-200 transition-colors bg-white"
                           >
                             <Link
-                              to={`/products/${i.productId}`}
+                              to={
+                                i.productId
+                                  ? `/products/${i.productId}`
+                                  : "/products"
+                              }
                               className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-slate-50"
                             >
                               <img
@@ -466,10 +504,25 @@ const OrderHistoryPage: React.FC = () => {
                             </Link>
                             <div className="flex-1 min-w-0">
                               <Link
-                                to={`/products/${i.productId}`}
+                                to={
+                                  i.productId
+                                    ? `/products/${i.productId}`
+                                    : "/products"
+                                }
                                 className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
                               >
                                 {i.productTitle}
+                                {i.variantTitle && (
+                                  <p className="text-sm font-bold text-slate-500 mt-1">
+                                    {i.variantTitle}
+                                  </p>
+                                )}
+
+                                {i.variantSku && (
+                                  <p className="text-xs text-slate-400 font-medium mt-1">
+                                    SKU: {i.variantSku}
+                                  </p>
+                                )}
                               </Link>
                               <div className="flex flex-wrap items-center gap-3 mt-2">
                                 <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
@@ -522,10 +575,17 @@ const OrderHistoryPage: React.FC = () => {
                               <h4 className="font-bold text-slate-800 uppercase tracking-wider text-sm mb-4">
                                 Viết đánh giá của bạn
                               </h4>
-                              {order.items.map((item) =>
-                                item._reviewed ? (
+                              {/* Sửa lại map theo yêu cầu 1.4 */}
+                              {order.items.map((item, index) => {
+                                const reviewKey = getReviewKey(
+                                  order.id,
+                                  item,
+                                  index,
+                                );
+
+                                return item._reviewed ? (
                                   <div
-                                    key={item.productId}
+                                    key={reviewKey}
                                     className="p-4 border border-green-200 rounded-2xl bg-green-50/50 flex flex-col sm:flex-row items-start sm:items-center gap-4"
                                   >
                                     <img
@@ -545,7 +605,7 @@ const OrderHistoryPage: React.FC = () => {
                                   </div>
                                 ) : (
                                   <div
-                                    key={item.productId}
+                                    key={reviewKey}
                                     className="border border-slate-200 p-4 sm:p-6 rounded-2xl bg-white shadow-sm"
                                   >
                                     <div className="flex items-center gap-4 mb-4">
@@ -564,14 +624,13 @@ const OrderHistoryPage: React.FC = () => {
                                         <Star
                                           key={n}
                                           className={`w-8 h-8 cursor-pointer transition-colors ${
-                                            reviewsData[item.productId]
-                                              ?.rating >= n
+                                            reviewsData[reviewKey]?.rating >= n
                                               ? "text-yellow-500 fill-yellow-400"
                                               : "text-slate-200 hover:text-yellow-300"
                                           }`}
                                           onClick={() =>
                                             updateReviewData(
-                                              item.productId,
+                                              reviewKey,
                                               "rating",
                                               n,
                                             )
@@ -585,12 +644,11 @@ const OrderHistoryPage: React.FC = () => {
                                       className="w-full border border-slate-200 p-4 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-medium resize-none bg-slate-50 focus:bg-white"
                                       placeholder="Hãy chia sẻ cảm nhận của bạn về độ tươi ngon của sản phẩm nhé..."
                                       value={
-                                        reviewsData[item.productId]?.content ||
-                                        ""
+                                        reviewsData[reviewKey]?.content || ""
                                       }
                                       onChange={(e) =>
                                         updateReviewData(
-                                          item.productId,
+                                          reviewKey,
                                           "content",
                                           e.target.value,
                                         )
@@ -600,18 +658,18 @@ const OrderHistoryPage: React.FC = () => {
                                     <div className="mt-4 text-right">
                                       <button
                                         disabled={
-                                          submittingReviewId === item.productId
+                                          submittingReviewId === reviewKey
                                         }
                                         onClick={() =>
                                           submitSingleReview(
                                             order.id,
                                             item.productId,
+                                            reviewKey,
                                           )
                                         }
                                         className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all shadow-md active:scale-95"
                                       >
-                                        {submittingReviewId ===
-                                        item.productId ? (
+                                        {submittingReviewId === reviewKey ? (
                                           <span className="flex items-center gap-2">
                                             <RefreshCw className="w-4 h-4 animate-spin" />{" "}
                                             Đang gửi...
@@ -622,8 +680,8 @@ const OrderHistoryPage: React.FC = () => {
                                       </button>
                                     </div>
                                   </div>
-                                ),
-                              )}
+                                );
+                              })}
                             </div>
                           )}
                         </div>
@@ -659,9 +717,14 @@ const OrderHistoryPage: React.FC = () => {
                           </button>
                         )}
 
+                        {/* Sửa nút Mua lại theo yêu cầu 1.9 */}
                         {order.items && order.items.length > 0 ? (
                           <Link
-                            to={`/products/${order.items[0].productId}`}
+                            to={
+                              order.items[0]?.productId
+                                ? `/products/${order.items[0].productId}`
+                                : "/products"
+                            }
                             className="flex-1 sm:flex-none px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm"
                           >
                             <ShoppingBag className="w-4 h-4" /> Mua lại

@@ -331,7 +331,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 PaymentModel.ts
 │   │   │   │       │   ├── 📄 ProductCategoryModel.ts
 │   │   │   │       │   ├── 📄 ProductModel.ts
+│   │   │   │       │   ├── 📄 ProductOptionModel.ts
+│   │   │   │       │   ├── 📄 ProductOptionValueModel.ts
 │   │   │   │       │   ├── 📄 ProductReviewModel.ts
+│   │   │   │       │   ├── 📄 ProductVariantModel.ts
+│   │   │   │       │   ├── 📄 ProductVariantValueModel.ts
 │   │   │   │       │   ├── 📄 RoleModel.ts
 │   │   │   │       │   ├── 📄 SettingGeneralModel.ts
 │   │   │   │       │   └── 📄 UserModel.ts
@@ -439,9 +443,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       └── 📁 product
 │   │   │           └── 📄 ProductList.tsx
 │   │   ├── 📁 context
+│   │   │   ├── 📄 AdminToastContext.tsx
 │   │   │   ├── 📄 AuthContext.tsx
 │   │   │   ├── 📄 CartContext.tsx
-│   │   │   └── 📄 ThemeContext.tsx
+│   │   │   ├── 📄 ThemeContext.tsx
+│   │   │   └── 📄 ToastContext.tsx
 │   │   ├── 📁 hooks
 │   │   │   └── 📄 useTheme.ts
 │   │   ├── 📁 pages
@@ -485,7 +491,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       ├── 📁 Checkout
 │   │   │       │   └── 📄 CheckoutPage.tsx
 │   │   │       ├── 📁 Home
-│   │   │       │   └── 📄 HomePage.tsx
+│   │   │       │   ├── 📄 HomePage.tsx
+│   │   │       │   └── 📄 content.ts
 │   │   │       ├── 📁 Order
 │   │   │       │   ├── 📄 OrderDetailPage.tsx
 │   │   │       │   └── 📄 OrderHistoryPage.tsx

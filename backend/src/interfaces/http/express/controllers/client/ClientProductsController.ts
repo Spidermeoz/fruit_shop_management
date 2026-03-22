@@ -76,9 +76,14 @@ const normalizeProduct = (raw: any) => {
     : null;
 
   const totalStock =
-    p?.totalStock !== undefined && p?.totalStock !== null
+    p?.totalStock !== undefined && p?.totalStock !== null && p.totalStock > 0
       ? Number(p.totalStock)
-      : variants.reduce((sum: number, v: any) => sum + Number(v.stock ?? 0), 0);
+      : variants.length > 0
+        ? variants.reduce(
+            (sum: number, v: any) => sum + Number(v.stock ?? 0),
+            0,
+          )
+        : Number(p.stock ?? 0);
 
   const basePrice =
     p?.price !== undefined && p?.price !== null

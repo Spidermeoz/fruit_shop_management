@@ -32,11 +32,11 @@ const CartPage: React.FC = () => {
   }, []);
 
   // Toggle chọn sản phẩm
-  const toggleSelect = (productId: number) => {
+  const toggleSelect = (productVariantId: number) => {
     setSelectedItems((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId],
+      prev.includes(productVariantId)
+        ? prev.filter((id) => id !== productVariantId)
+        : [...prev, productVariantId],
     );
   };
 
@@ -53,7 +53,7 @@ const CartPage: React.FC = () => {
     if (selectAll) {
       setSelectedItems([]);
     } else {
-      setSelectedItems(items.map((item) => item.productId));
+      setSelectedItems(items.map((item) => item.productVariantId));
     }
     setSelectAll(!selectAll);
   };
@@ -61,27 +61,25 @@ const CartPage: React.FC = () => {
   useEffect(() => {
     const map: Record<number, number> = {};
     items.forEach((item) => {
-      map[item.productId] = item.quantity;
+      map[item.productVariantId] = item.quantity;
     });
     setQtyInputs(map);
   }, [items]);
 
   // Hàm tính giá hiệu quả (sau khi giảm giá)
-  const getEffectivePrice = (product: CartItem["product"]) => {
-    if (!product || product.price === null) return 0;
-    if (product.discountPercentage && product.discountPercentage > 0) {
-      return product.price * (1 - product.discountPercentage / 100);
-    }
-    return product.price;
+  const getEffectivePrice = (item: CartItem) => {
+    if (typeof item.unitPrice === "number") return item.unitPrice;
+    if (typeof item.variant?.price === "number") return item.variant.price;
+    return 0;
   };
 
   // NEW: Tính subtotal theo selected items
   const selectedProducts = items.filter((item) =>
-    selectedItems.includes(item.productId),
+    selectedItems.includes(item.productVariantId),
   );
 
   const subtotal = selectedProducts.reduce(
-    (acc, item) => acc + getEffectivePrice(item.product) * item.quantity,
+    (acc, item) => acc + getEffectivePrice(item) * item.quantity,
     0,
   );
 
@@ -89,13 +87,13 @@ const CartPage: React.FC = () => {
   const total = subtotal + shippingFee;
 
   // Tăng/giảm số lượng
-  const handleUpdateQty = (productId: number, delta: number) => {
-    const item = items.find((i) => i.productId === productId);
+  const handleUpdateQty = (productVariantId: number, delta: number) => {
+    const item = items.find((i) => i.productVariantId === productVariantId);
     if (!item) return;
 
-    const stock = item.product?.stock || 9999;
+    const stock = item.variant?.stock ?? 9999;
 
-    const current = qtyInputs[productId] ?? item.quantity;
+    const current = qtyInputs[productVariantId] ?? item.quantity;
     let newQty = current + delta;
 
     if (newQty < 1) newQty = 1;
@@ -106,22 +104,24 @@ const CartPage: React.FC = () => {
 
     setQtyInputs((prev) => ({
       ...prev,
-      [productId]: newQty,
+      [productVariantId]: newQty,
     }));
 
-    updateItem(productId, newQty);
+    updateItem(productVariantId, newQty);
   };
 
   // Xóa sản phẩm
-  const handleRemove = (productId: number) => {
-    removeItem(productId);
-    setSelectedItems((prev) => prev.filter((id) => id !== productId));
+  const handleRemove = (productVariantId: number) => {
+    removeItem(productVariantId);
+    setSelectedItems((prev) => prev.filter((id) => id !== productVariantId));
   };
 
   // Điều hướng checkout
   const handleCheckout = () => {
     if (selectedItems.length === 0) {
-      showErrorToast("Vui lòng chọn ít nhất một sản phẩm trước khi thanh toán.");
+      showErrorToast(
+        "Vui lòng chọn ít nhất một sản phẩm trước khi thanh toán.",
+      );
       return;
     }
     navigate("/checkout", { state: { selectedItems } });
@@ -228,13 +228,17 @@ const CartPage: React.FC = () => {
                           <div className="flex-shrink-0 pt-1 sm:pt-0">
                             <label
                               className="relative flex cursor-pointer items-center rounded-full p-1"
-                              htmlFor={`check-${item.productId}`}
+                              htmlFor={`check-${item.productVariantId}`}
                             >
                               <input
                                 type="checkbox"
-                                id={`check-${item.productId}`}
-                                checked={selectedItems.includes(item.productId)}
-                                onChange={() => toggleSelect(item.productId)}
+                                id={`check-${item.productVariantId}`}
+                                checked={selectedItems.includes(
+                                  item.productVariantId,
+                                )}
+                                onChange={() =>
+                                  toggleSelect(item.productVariantId)
+                                }
                                 className="peer h-6 w-6 cursor-pointer appearance-none rounded-md border-2 border-slate-300 checked:border-green-600 checked:bg-green-600 transition-all"
                               />
                               <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
@@ -245,7 +249,7 @@ const CartPage: React.FC = () => {
 
                           {/* Thumbnail */}
                           <Link
-                            to={`/products/${item.productId}`}
+                            to={item.product?.slug ? `/products/${item.product.slug}` : `/products/${item.productId ?? ""}`}
                             className="flex-shrink-0 relative overflow-hidden rounded-2xl w-24 h-24 sm:w-28 sm:h-28 border border-slate-100 bg-white"
                           >
                             <img
@@ -258,39 +262,40 @@ const CartPage: React.FC = () => {
                           {/* Info */}
                           <div className="flex-1 min-w-0 flex flex-col justify-between w-full">
                             <Link
-                              to={`/products/${item.productId}`}
+                              to={item.product?.slug ? `/products/${item.product.slug}` : `/products/${item.productId ?? ""}`}
                               className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors truncate block mb-1"
                             >
                               {item.product?.title}
                             </Link>
 
-                            <div className="mb-4 sm:mb-0">
-                              {item.product &&
-                              item.product.discountPercentage &&
-                              item.product.discountPercentage > 0 ? (
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-green-600 font-black text-lg">
-                                    {getEffectivePrice(
-                                      item.product,
-                                    ).toLocaleString()}{" "}
-                                    đ
-                                  </span>
-                                  <span className="text-slate-400 line-through text-sm font-medium">
-                                    {(item.product.price || 0).toLocaleString()}{" "}
-                                    đ
-                                  </span>
-                                  <span className="bg-red-500 text-white px-2 py-0.5 rounded-md text-xs font-bold">
-                                    -{item.product.discountPercentage}%
-                                  </span>
-                                </div>
-                              ) : (
-                                <p className="text-green-600 font-black text-lg">
-                                  {(item.product?.price || 0).toLocaleString()}{" "}
-                                  đ
+                            {item.variant?.title && (
+                              <p className="text-sm font-bold text-slate-500 mb-1">
+                                {item.variant.title}
+                              </p>
+                            )}
+
+                            {item.variant?.optionValues &&
+                              item.variant.optionValues.length > 0 && (
+                                <p className="text-xs text-slate-400 font-medium mb-2">
+                                  {item.variant.optionValues
+                                    .map((ov) => ov.value)
+                                    .join(" / ")}
                                 </p>
                               )}
+
+                            <div className="mb-4 sm:mb-0">
+                              <p className="text-green-600 font-black text-lg">
+                                {getEffectivePrice(item).toLocaleString()} đ
+                              </p>
+
+                              {item.variant?.sku && (
+                                <p className="text-xs text-slate-400 font-medium mt-1">
+                                  SKU: {item.variant.sku}
+                                </p>
+                              )}
+
                               <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                                Đơn vị: kg
+                                Quy cách: {item.variant?.title || "Mặc định"}
                               </p>
                             </div>
                           </div>
@@ -303,8 +308,7 @@ const CartPage: React.FC = () => {
                               </p>
                               <p className="font-black text-slate-900 text-lg">
                                 {(
-                                  getEffectivePrice(item.product) *
-                                  item.quantity
+                                  getEffectivePrice(item) * item.quantity
                                 ).toLocaleString()}{" "}
                                 đ
                               </p>
@@ -315,13 +319,13 @@ const CartPage: React.FC = () => {
                                 <button
                                   disabled={item.quantity <= 1}
                                   onClick={() =>
-                                    handleUpdateQty(item.productId, -1)
+                                    handleUpdateQty(item.productVariantId, -1)
                                   }
                                   className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
                                       ${
-                                        qtyInputs[item.quantity] || item.quantity <= 1 
-                                        ?  "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
-                                        : "bg-white text-slate-500 hover:text-green-600"
+                                        item.quantity <= 1
+                                          ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                                          : "bg-white text-slate-500 hover:text-green-600"
                                       }
                                     `}
                                 >
@@ -330,43 +334,47 @@ const CartPage: React.FC = () => {
                                 <input
                                   type="number"
                                   min="1"
-                                  max={item.product?.stock || 9999}
+                                  max={item.variant?.stock ?? 9999}
                                   value={
-                                    qtyInputs[item.productId] ?? item.quantity
+                                    qtyInputs[item.productVariantId] ??
+                                    item.quantity
                                   }
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     if (!/^\d*$/.test(val)) return;
                                     setQtyInputs((prev) => ({
                                       ...prev,
-                                      [item.productId]: Number(val),
+                                      [item.productVariantId]: Number(val),
                                     }));
                                   }}
                                   onBlur={(e) => {
                                     let qty = Number(e.target.value);
                                     if (!qty || qty <= 0) qty = 1;
-                                    const stock = item.product?.stock || 9999;
+                                    const stock = item.variant?.stock || 9999;
                                     if (qty > stock) {
-                                      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
+                                      showErrorToast(
+                                        `Chỉ còn ${stock} sản phẩm`,
+                                      );
                                       qty = stock;
                                     }
                                     setQtyInputs((prev) => ({
                                       ...prev,
-                                      [item.productId]: qty,
+                                      [item.productVariantId]: qty,
                                     }));
-                                    updateItem(item.productId, qty);
+                                    updateItem(item.productVariantId, qty);
                                   }}
                                   className="w-12 h-8 text-center font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                 />
                                 <button
                                   onClick={() =>
-                                    handleUpdateQty(item.productId, 1)
+                                    handleUpdateQty(item.productVariantId, 1)
                                   }
                                   className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
                                       ${
-                                        qtyInputs[item.quantity] || item.quantity >= Number(item.product?.stock)
-                                        ?  "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
-                                        : "bg-white text-slate-500 hover:text-green-600"
+                                        item.quantity >=
+                                        Number(item.variant?.stock ?? 0)
+                                          ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
+                                          : "bg-white text-slate-500 hover:text-green-600"
                                       }
                                     `}
                                 >
@@ -375,7 +383,9 @@ const CartPage: React.FC = () => {
                               </div>
 
                               <button
-                                onClick={() => handleRemove(item.productId)}
+                                onClick={() =>
+                                  handleRemove(item.productVariantId)
+                                }
                                 className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                                 title="Xoá sản phẩm"
                               >

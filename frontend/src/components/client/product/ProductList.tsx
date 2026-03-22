@@ -15,12 +15,20 @@ interface Product {
   title: string;
   slug: string;
   price: number;
-  discountPercentage: number;
+  effective_price?: number;
+  discount_percentage?: number;
   thumbnail: string;
   stock: number;
+  totalStock?: number;
   featured: boolean;
+  priceRange?: { min: number; max: number } | null;
+  variants?: Array<{
+    id: number;
+    title?: string | null;
+    stock: number;
+    price: number;
+  }>;
   category?: Category | null;
-  effectivePrice: number;
 }
 
 const ProductListPage: React.FC = () => {
@@ -75,10 +83,10 @@ const ProductListPage: React.FC = () => {
           params.set("maxPrice", priceRange[1].toString());
 
         if (sortBy === "price-asc") {
-          params.set("sortBy", "effectivePrice");
+          params.set("sortBy", "price");
           params.set("order", "ASC");
         } else if (sortBy === "price-desc") {
-          params.set("sortBy", "effectivePrice");
+          params.set("sortBy", "price");
           params.set("order", "DESC");
         } else if (sortBy === "name") {
           params.set("sortBy", "title");
@@ -154,14 +162,35 @@ const ProductListPage: React.FC = () => {
     return value.toLocaleString("vi-VN") + " đ";
   };
 
+  const getDisplayPrice = (product: Product) => {
+    if (product.priceRange?.min !== undefined) return product.priceRange.min;
+    if (typeof product.effective_price === "number")
+      return product.effective_price;
+    return product.price ?? 0;
+  };
+
+  const getDisplayComparePrice = (product: Product) => {
+    if (
+      product.priceRange?.max !== undefined &&
+      product.priceRange.max > getDisplayPrice(product)
+    ) {
+      return product.priceRange.max;
+    }
+    return product.price ?? 0;
+  };
+
+  const getDisplayStock = (product: Product) => {
+    if (typeof product.totalStock === "number") return product.totalStock;
+    return typeof product.stock === "number" ? product.stock : 0;
+  };
+
+  const hasMultipleVariants = (product: Product) =>
+    Array.isArray(product.variants) && product.variants.length > 1;
+
   const getDiscountAmount = (product: Product) => {
-    const finalPrice =
-      typeof product.effectivePrice === "number"
-        ? product.effectivePrice
-        : Math.round(
-            product.price * (1 - (product.discountPercentage || 0) / 100),
-          );
-    return Math.max(0, product.price - finalPrice);
+    const displayPrice = getDisplayPrice(product);
+    const comparePrice = getDisplayComparePrice(product);
+    return Math.max(0, comparePrice - displayPrice);
   };
 
   return (
@@ -514,13 +543,11 @@ const ProductListPage: React.FC = () => {
                 <>
                   <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(250px,1fr))]">
                     {products.map((product) => {
-                      const hasDiscount =
-                        typeof product.discountPercentage === "number" &&
-                        product.discountPercentage > 0;
-                      const finalPrice = hasDiscount
-                        ? product.effectivePrice
-                        : product.price;
+                      const displayPrice = getDisplayPrice(product);
+                      const comparePrice = getDisplayComparePrice(product);
+                      const hasDiscount = comparePrice > displayPrice;
                       const discountAmount = getDiscountAmount(product);
+                      const stock = getDisplayStock(product);
 
                       return (
                         <div
@@ -542,7 +569,7 @@ const ProductListPage: React.FC = () => {
                             <div className="absolute top-3 left-3 flex flex-col gap-2">
                               {hasDiscount && (
                                 <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-                                  -{product.discountPercentage}%
+                                  Giảm giá
                                 </span>
                               )}
                               {product.featured && (
@@ -553,7 +580,7 @@ const ProductListPage: React.FC = () => {
                             </div>
 
                             {/* Out of stock overlay */}
-                            {product.stock <= 0 && (
+                            {stock <= 0 && (
                               <div className="absolute inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center">
                                 <span className="bg-slate-900 text-white font-bold text-sm px-5 py-2 rounded-full shadow-lg">
                                   Tạm hết hàng
@@ -570,16 +597,21 @@ const ProductListPage: React.FC = () => {
                             <h3 className="text-lg font-bold text-slate-900 mb-3 line-clamp-2 leading-tight group-hover:text-green-700 transition-colors">
                               {product.title}
                             </h3>
+                            {hasMultipleVariants(product) && (
+                              <p className="text-xs font-bold text-slate-400 mb-2">
+                                Nhiều quy cách / size
+                              </p>
+                            )}
 
                             {/* Vùng Giá */}
                             <div className="mt-auto flex flex-col gap-1 mb-5">
                               <div className="flex items-center gap-2">
                                 <span className="text-xl font-black text-green-700">
-                                  {formatPrice(finalPrice)}
+                                  {formatPrice(displayPrice)}
                                 </span>
                                 {hasDiscount && (
                                   <span className="text-xs font-medium text-slate-400 line-through decoration-slate-300">
-                                    {formatPrice(product.price)}
+                                    {formatPrice(comparePrice)}
                                   </span>
                                 )}
                               </div>

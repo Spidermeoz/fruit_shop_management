@@ -24,16 +24,53 @@ import {
 // ==========================
 // TYPES
 // ==========================
+interface ProductOptionValue {
+  id: number;
+  value: string;
+  position?: number;
+}
+
+interface ProductOption {
+  id: number;
+  name: string;
+  position?: number;
+  values: ProductOptionValue[];
+}
+
+interface ProductVariantOptionValue {
+  id: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+}
+
+interface ProductVariant {
+  id: number;
+  title?: string | null;
+  sku?: string | null;
+  price: number;
+  compareAtPrice?: number | null;
+  stock: number;
+  status: string;
+  optionValueIds?: number[];
+  optionValues?: ProductVariantOptionValue[];
+}
+
 interface Product {
   id: number;
   title: string;
   slug: string;
   price: number;
-  discountPercentage: number;
+  discountPercentage?: number;
   thumbnail: string;
   stock: number;
+  totalStock?: number;
   featured: boolean;
   description: string;
+  defaultVariantId?: number | null;
+  variants?: ProductVariant[];
+  options?: ProductOption[];
+  priceRange?: { min: number; max: number } | null;
   category?: {
     id: number;
     title: string;
@@ -96,10 +133,14 @@ const formatDateTime = (date?: string) => {
 };
 
 const getFinalPrice = (product: Product) => {
-  if (product.discountPercentage > 0) {
-    return product.price * (1 - product.discountPercentage / 100);
+  const discount = Number(product.discountPercentage ?? 0);
+  const price = Number(product.price ?? 0);
+
+  if (discount > 0) {
+    return price * (1 - discount / 100);
   }
-  return product.price;
+
+  return price;
 };
 
 // ==========================
@@ -126,6 +167,13 @@ const ProductDetailPage: React.FC = () => {
   const productImageRef = useRef<HTMLImageElement | null>(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
 
+  const [selectedOptionValues, setSelectedOptionValues] = useState<
+    Record<number, number>
+  >({});
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
+    null,
+  );
+
   // SỬ DỤNG GLOBAL TOAST TẠI ĐÂY
   const { showSuccessToast, showErrorToast } = useToast();
 
@@ -136,6 +184,25 @@ const ProductDetailPage: React.FC = () => {
         const res = await http("GET", `/api/v1/client/products/${id}`);
         if (res?.success && res.data) {
           setProduct(res.data);
+
+          const variants: ProductVariant[] = Array.isArray(res.data.variants)
+            ? res.data.variants
+            : [];
+
+          const defaultVariant =
+            variants.find((v) => v.id === res.data.defaultVariantId) ??
+            variants.find((v) => v.status === "active") ??
+            variants[0];
+
+          if (defaultVariant) {
+            setSelectedVariantId(defaultVariant.id);
+
+            const initialSelected: Record<number, number> = {};
+            (defaultVariant.optionValues || []).forEach((ov) => {
+              if (ov.optionId) initialSelected[ov.optionId] = ov.id;
+            });
+            setSelectedOptionValues(initialSelected);
+          }
 
           if (res.data.category?.id) {
             const related = await http(
@@ -221,15 +288,61 @@ const ProductDetailPage: React.FC = () => {
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
+  const activeVariant = useMemo(() => {
+    if (!product?.variants?.length) return null;
+
+    if (selectedVariantId) {
+      return product.variants.find((v) => v.id === selectedVariantId) ?? null;
+    }
+
+    return (
+      product.variants.find((v) => v.id === product.defaultVariantId) ??
+      product.variants.find((v) => v.status === "active") ??
+      product.variants[0] ??
+      null
+    );
+  }, [product, selectedVariantId]);
+
   const quantityInCart = useMemo(() => {
-    const item = items.find((i) => i.productId === product?.id);
+    if (!activeVariant) return 0;
+    const item = items.find((i) => i.productVariantId === activeVariant.id);
     return item?.quantity || 0;
-  }, [items, product]);
+  }, [items, activeVariant]);
 
   const remainingStock = useMemo(() => {
-    if (!product) return 0;
-    return Math.max(0, product.stock - quantityInCart);
-  }, [product, quantityInCart]);
+    const stock = Number(activeVariant?.stock ?? product?.stock ?? 0);
+    return Math.max(0, stock - quantityInCart);
+  }, [activeVariant, product, quantityInCart]);
+
+  useEffect(() => {
+    if (!product?.variants?.length || !product.options?.length) return;
+
+    const matchedVariant = product.variants.find((variant) => {
+      const ids = variant.optionValueIds || [];
+      return product.options!.every((option) => {
+        const selectedValueId = selectedOptionValues[option.id];
+        return selectedValueId ? ids.includes(selectedValueId) : true;
+      });
+    });
+
+    if (matchedVariant) {
+      setSelectedVariantId(matchedVariant.id);
+    }
+  }, [selectedOptionValues, product]);
+
+  const handleSelectOptionValue = (optionId: number, valueId: number) => {
+    setSelectedOptionValues((prev) => ({
+      ...prev,
+      [optionId]: valueId,
+    }));
+    setQuantity(1);
+  };
+
+  const displayPrice = Number(activeVariant?.price ?? product?.price ?? 0);
+  const displayCompareAtPrice = activeVariant?.compareAtPrice ?? null;
+  const hasVariantComparePrice =
+    typeof displayCompareAtPrice === "number" &&
+    displayCompareAtPrice > displayPrice;
 
   const animateFlyToCart = () => {
     return new Promise<void>((resolve) => {
@@ -295,10 +408,15 @@ const ProductDetailPage: React.FC = () => {
   // XỬ LÝ CHUNG GIỎ HÀNG
   // ==========================
   const processCartAction = async (isBuyNow: boolean) => {
-    if (!product || isAddingToCart) return;
+    if (!product || !activeVariant || isAddingToCart) return;
 
     if (!isAuthenticated) {
       navigate("/login");
+      return;
+    }
+
+    if (quantity <= 0) {
+      showErrorToast("Số lượng không hợp lệ");
       return;
     }
 
@@ -311,7 +429,7 @@ const ProductDetailPage: React.FC = () => {
       setIsAddingToCart(true);
 
       if (isBuyNow) {
-        await addToCart(product.id, quantity);
+        await addToCart(activeVariant.id, quantity);
         navigate("/cart");
         return;
       }
@@ -319,18 +437,20 @@ const ProductDetailPage: React.FC = () => {
       const animationPromise = animateFlyToCart();
 
       await new Promise((resolve) => setTimeout(resolve, 650));
-      await addToCart(product.id, quantity);
+      await addToCart(activeVariant.id, quantity);
 
       await animationPromise;
 
-      // THÔNG BÁO THÀNH CÔNG BẰNG GLOBAL TOAST
       showSuccessToast({
         title: "Thêm vào giỏ hàng thành công",
         message: (
           <p>
             Bạn đã thêm{" "}
             <span className="font-bold text-slate-900">{quantity}</span> ×{" "}
-            <span className="font-bold text-green-700">{product?.title}</span>{" "}
+            <span className="font-bold text-green-700">
+              {product.title}
+              {activeVariant.title ? ` - ${activeVariant.title}` : ""}
+            </span>{" "}
             vào giỏ hàng.
           </p>
         ),
@@ -411,7 +531,7 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const isOutOfStock = product.stock <= 0 || remainingStock <= 0;
+  const isOutOfStock = remainingStock <= 0;
 
   return (
     <div className="flex flex-col min-h-screen bg-[#fcfdfc]">
@@ -469,9 +589,9 @@ const ProductDetailPage: React.FC = () => {
                         Bán Chạy
                       </span>
                     )}
-                    {product.discountPercentage > 0 && (
+                    {Number(product.discountPercentage ?? 0) > 0 && (
                       <span className="bg-red-500 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow-sm">
-                        -{product.discountPercentage}%
+                        -{Number(product.discountPercentage ?? 0)}%
                       </span>
                     )}
                   </div>
@@ -506,29 +626,26 @@ const ProductDetailPage: React.FC = () => {
               </h1>
 
               {/* Price Block */}
-              <div className="flex items-end gap-4 mb-8">
-                {product.discountPercentage > 0 ? (
+              <div className="flex items-end gap-4 mb-8 flex-wrap">
+                {hasVariantComparePrice ? (
                   <>
                     <span className="text-4xl md:text-5xl font-black text-green-600 tracking-tight">
-                      {(
-                        product.price *
-                        (1 - product.discountPercentage / 100)
-                      ).toLocaleString()}{" "}
-                      đ
+                      {displayPrice.toLocaleString("vi-VN")} đ
                     </span>
                     <div className="flex flex-col mb-1.5">
                       <span className="text-lg font-bold text-slate-400 line-through decoration-2">
-                        {product.price.toLocaleString()} đ
+                        {displayCompareAtPrice!.toLocaleString("vi-VN")} đ
                       </span>
                     </div>
                   </>
                 ) : (
                   <span className="text-4xl md:text-5xl font-black text-green-600 tracking-tight">
-                    {product.price.toLocaleString()} đ
+                    {displayPrice.toLocaleString("vi-VN")} đ
                   </span>
                 )}
+
                 <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2 ml-2">
-                  Đơn vị: 1 KG
+                  {activeVariant?.title || "Quy cách mặc định"}
                 </span>
               </div>
 
@@ -542,6 +659,42 @@ const ProductDetailPage: React.FC = () => {
                   <Truck className="w-4 h-4 text-blue-500" /> Giao nhanh 2h
                 </div>
               </div>
+
+              {/* Variant / Option Selector */}
+              {product.options && product.options.length > 0 && (
+                <div className="space-y-5 mb-8">
+                  {product.options.map((option) => (
+                    <div key={option.id}>
+                      <div className="text-sm font-bold text-slate-700 mb-3">
+                        {option.name}
+                      </div>
+                      <div className="flex flex-wrap gap-3">
+                        {option.values.map((value) => {
+                          const selected =
+                            selectedOptionValues[option.id] === value.id;
+
+                          return (
+                            <button
+                              key={value.id}
+                              type="button"
+                              onClick={() =>
+                                handleSelectOptionValue(option.id, value.id)
+                              }
+                              className={`px-4 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                                selected
+                                  ? "border-green-600 bg-green-50 text-green-700"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-green-300"
+                              }`}
+                            >
+                              {value.value}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Action Area */}
               <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100 mb-8">
@@ -560,75 +713,77 @@ const ProductDetailPage: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-4">
                   {/* Stepper */}
                   <div className="flex items-center bg-slate-50 border border-slate-200 rounded-2xl p-1 shrink-0 h-[60px]">
-                      <button
-                        onClick={decreaseQuantity}
-                        disabled={quantity <= 1 || isOutOfStock}
-                        className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
+                    <button
+                      onClick={decreaseQuantity}
+                      disabled={quantity <= 1 || isOutOfStock}
+                      className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
                           ${
                             quantity <= 1 || isOutOfStock
                               ? " opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
                               : "bg-white text-slate-500 hover:text-green-600"
                           }`}
-                      >
-                        <Minus className="w-5 h-5 stroke-[3]" />
-                      </button>
-                      {/* 
+                    >
+                      <Minus className="w-5 h-5 stroke-[3]" />
+                    </button>
+                    {/* 
                         focus -> xoá nhập số
                         blur -> xoá mà không nhập set về 1
                       */}
-                      <input
-                        type="number" 
-                        min="1"
-                        max={remainingStock || 1}
-                        value={quantity}
-                        disabled={isOutOfStock}
-                        onChange={(e) => {
-                          const val = e.target.value;
+                    <input
+                      type="number"
+                      min="1"
+                      max={remainingStock || 1}
+                      value={quantity}
+                      disabled={isOutOfStock}
+                      onChange={(e) => {
+                        const val = e.target.value;
 
-                          // chỉ cho nhập số
-                          if (!/^\d*$/.test(val)) return;
+                        // chỉ cho nhập số
+                        if (!/^\d*$/.test(val)) return;
 
-                          // nếu xoá hết → set rỗng thật
-                          if (val === "") {
-                            setQuantity(0);
-                            return;
-                          }
-                          setQuantity(Number(val));
-                        }}
-                        onBlur={(e) => {
-                          const val = e.target.value;
+                        // nếu xoá hết → set rỗng thật
+                        if (val === "") {
+                          setQuantity(0);
+                          return;
+                        }
+                        setQuantity(Number(val));
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value;
 
-                          // chỉ xử lý khi blur
-                          let qty = val === "" ? 1 : Number(val);
+                        // chỉ xử lý khi blur
+                        let qty = val === "" ? 1 : Number(val);
 
-                          if (qty <= 0) qty = 1;
+                        if (qty <= 0) qty = 1;
 
-                          if (qty > remainingStock) {
-                            showErrorToast(`Chỉ còn ${remainingStock} sản phẩm có thể thêm`);
-                            qty = remainingStock;
-                          }
+                        if (qty > remainingStock) {
+                          showErrorToast(
+                            `Chỉ còn ${remainingStock} sản phẩm có thể thêm`,
+                          );
+                          qty = remainingStock;
+                        }
 
-                          setQuantity(qty);
-                        }}
-                        onFocus={(e) => {
-                          // optional: select toàn bộ để nhập nhanh
-                          e.target.select();
-                        }}
-                        className="w-16 h-full text-center font-black text-xl text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-                      />
+                        setQuantity(qty);
+                      }}
+                      onFocus={(e) => {
+                        // optional: select toàn bộ để nhập nhanh
+                        e.target.select();
+                      }}
+                      className="w-16 h-full text-center font-black text-xl text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                    />
 
-                      <button
-                        onClick={increaseQuantity}
-                        disabled={quantity >= remainingStock || isOutOfStock}
-                        className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
+                    <button
+                      onClick={increaseQuantity}
+                      disabled={quantity >= remainingStock || isOutOfStock}
+                      className={`w-12 h-full flex items-center justify-center rounded-xl shadow-sm transition-all
                           ${
                             quantity >= remainingStock || isOutOfStock
                               ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
                               : "bg-white text-slate-500 hover:text-green-600"
                           }`}
-                      >
-                        <Plus className="w-5 h-5 stroke-[3]" />
-                      </button>
+                    >
+                      <Plus className="w-5 h-5 stroke-[3]" />
+                    </button>
                   </div>
 
                   {/* 2 Buttons Container: Thêm Giỏ Hàng & Mua Ngay */}
@@ -946,9 +1101,7 @@ const ProductDetailPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                   {relatedProducts.map((p) => {
-                    const hasDiscount =
-                      typeof p.discountPercentage === "number" &&
-                      p.discountPercentage > 0;
+                    const hasDiscount = Number(p.discountPercentage ?? 0) > 0;
                     const finalPrice = getFinalPrice(p);
                     const isOutOfStock =
                       typeof p.stock === "number" && p.stock <= 0;
@@ -971,7 +1124,7 @@ const ProductDetailPage: React.FC = () => {
                           <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
                             {hasDiscount && (
                               <span className="bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm">
-                                -{p.discountPercentage}%
+                                -{Number(p.discountPercentage ?? 0)}%
                               </span>
                             )}
                           </div>

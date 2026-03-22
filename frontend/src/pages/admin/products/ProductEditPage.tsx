@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Save, ArrowLeft } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
@@ -13,6 +13,9 @@ import {
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
+// =============================
+// TYPES
+// =============================
 interface ProductCategory {
   id: number;
   title: string;
@@ -20,6 +23,31 @@ interface ProductCategory {
   children?: ProductCategory[];
   position: number;
   status: string;
+}
+
+interface ProductOptionValueInput {
+  id?: number;
+  value: string;
+  position?: number;
+}
+
+interface ProductOptionInput {
+  id?: number;
+  name: string;
+  position?: number;
+  values: ProductOptionValueInput[];
+}
+
+interface ProductVariantInput {
+  id?: number;
+  sku?: string | null;
+  title?: string | null;
+  price: number | string;
+  compareAtPrice?: number | string | null;
+  stock: number | string;
+  status?: string;
+  sortOrder?: number;
+  optionValueIds?: number[];
 }
 
 interface Product {
@@ -34,6 +62,8 @@ interface Product {
   status: "active" | "inactive";
   featured: number;
   position: number | string;
+  options?: ProductOptionInput[];
+  variants?: ProductVariantInput[];
 }
 
 const ProductEditPage: React.FC = () => {
@@ -47,7 +77,7 @@ const ProductEditPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [formErrors, setFormErrors] = useState<
-    Partial<Record<keyof Product, string>>
+    Partial<Record<keyof Product | string, string>>
   >({});
 
   // file ảnh mới (chưa upload)
@@ -65,9 +95,36 @@ const ProductEditPage: React.FC = () => {
       setLoading(true);
       const json = await http<any>(`GET`, `/api/v1/admin/products/edit/${id}`);
       if (json.success && json.data) {
-        setProduct(json.data as Product);
-        setInitialProduct(json.data as Product);
-        setPreviewImage(json.data.thumbnail);
+        const data = json.data;
+
+        // Chuẩn hóa dữ liệu nhận được
+        const normalized: Product = {
+          ...data,
+          product_category_id:
+            data.product_category_id ?? data.categoryId ?? "",
+          discount_percentage:
+            data.discount_percentage ?? data.discountPercentage ?? 0,
+          options: Array.isArray(data.options) ? data.options : [],
+          variants: Array.isArray(data.variants)
+            ? data.variants.map((v: any, index: number) => ({
+                id: v.id,
+                sku: v.sku ?? null,
+                title: v.title ?? null,
+                price: v.price ?? 0,
+                compareAtPrice: v.compareAtPrice ?? null,
+                stock: v.stock ?? 0,
+                status: v.status ?? "active",
+                sortOrder: v.sortOrder ?? index,
+                optionValueIds: Array.isArray(v.optionValueIds)
+                  ? v.optionValueIds
+                  : [],
+              }))
+            : [],
+        };
+
+        setProduct(normalized);
+        setInitialProduct(normalized);
+        setPreviewImage(normalized.thumbnail);
       } else {
         setFetchError(json.message || "Không tìm thấy sản phẩm.");
       }
@@ -84,6 +141,7 @@ const ProductEditPage: React.FC = () => {
   const isDirty = React.useMemo(() => {
     if (!product || !initialProduct) return false;
 
+    // So sánh dữ liệu cơ bản
     const hasFieldChanges =
       product.title !== initialProduct.title ||
       product.description !== initialProduct.description ||
@@ -97,13 +155,19 @@ const ProductEditPage: React.FC = () => {
       Number(product.featured) !== Number(initialProduct.featured) ||
       String(product.position) !== String(initialProduct.position);
 
+    // So sánh ảnh
     const hasImageChanges =
       (imageMethod === "upload" && selectedFile !== null) ||
       (imageMethod === "url" &&
         imageUrl !== "" &&
         imageUrl !== initialProduct.thumbnail);
 
-    return hasFieldChanges || hasImageChanges;
+    // So sánh variants (so sánh JSON chuỗi cho đơn giản, hoặc có thể so sánh sâu hơn nếu cần)
+    const hasVariantChanges =
+      JSON.stringify(product.variants) !==
+      JSON.stringify(initialProduct.variants);
+
+    return hasFieldChanges || hasImageChanges || hasVariantChanges;
   }, [product, initialProduct, selectedFile, imageMethod, imageUrl]);
 
   // Lấy danh sách danh mục từ backend
@@ -148,9 +212,57 @@ const ProductEditPage: React.FC = () => {
         : prev,
     );
 
-    if (formErrors[name as keyof typeof formErrors]) {
+    if (formErrors[name]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  // 🔹 Xử lý thay đổi biến thể
+  const handleVariantChange = (
+    index: number,
+    field: keyof ProductVariantInput,
+    value: any,
+  ) => {
+    if (!product) return;
+    setProduct((prev) => {
+      if (!prev) return prev;
+      const newVariants = [...(prev.variants || [])];
+      newVariants[index] = { ...newVariants[index], [field]: value };
+      return { ...prev, variants: newVariants };
+    });
+    if (formErrors.price) {
+      setFormErrors((prev) => ({ ...prev, price: undefined }));
+    }
+  };
+
+  const addVariant = () => {
+    if (!product) return;
+    setProduct((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        variants: [
+          ...(prev.variants || []),
+          {
+            title: "",
+            price: "0",
+            stock: "0",
+            status: "active",
+            sortOrder: (prev.variants || []).length,
+            optionValueIds: [],
+          },
+        ],
+      };
+    });
+  };
+
+  const removeVariant = (index: number) => {
+    if (!product) return;
+    setProduct((prev) => {
+      if (!prev) return prev;
+      const newVariants = (prev.variants || []).filter((_, i) => i !== index);
+      return { ...prev, variants: newVariants };
+    });
   };
 
   // 🔹 Mô tả
@@ -205,7 +317,7 @@ const ProductEditPage: React.FC = () => {
   const validateForm = () => {
     if (!product) return false;
 
-    const newErrors: Partial<Record<keyof Product, string>> = {};
+    const newErrors: Partial<Record<keyof Product | string, string>> = {};
 
     if (!product.title.trim()) {
       newErrors.title = "Vui lòng nhập tên sản phẩm.";
@@ -213,16 +325,25 @@ const ProductEditPage: React.FC = () => {
     if (!product.product_category_id) {
       newErrors.product_category_id = "Vui lòng chọn danh mục.";
     }
-    if (!product.price || Number(product.price) <= 0) {
-      newErrors.price = "Vui lòng nhập giá sản phẩm hợp lệ (lớn hơn 0).";
+
+    // Validate theo variant
+    const variants = product.variants || [];
+    if (!variants.length) {
+      newErrors.price = "Cần ít nhất 1 biến thể.";
+    } else {
+      const invalidVariant = variants.find(
+        (v) =>
+          Number(v.price) <= 0 ||
+          Number(v.stock) < 0 ||
+          String(v.price) === "" ||
+          String(v.stock) === "",
+      );
+
+      if (invalidVariant) {
+        newErrors.price = "Mỗi biến thể phải có giá > 0 và tồn kho >= 0.";
+      }
     }
-    if (
-      product.stock === "" ||
-      product.stock === null ||
-      Number(product.stock) < 0
-    ) {
-      newErrors.stock = "Vui lòng nhập số lượng tồn kho (không được âm).";
-    }
+
     const discount = Number(product.discount_percentage);
     if (
       product.discount_percentage !== "" &&
@@ -288,6 +409,7 @@ const ProductEditPage: React.FC = () => {
         position: product.position === "" ? null : Number(product.position),
         featured: Boolean(Number(product.featured)),
       };
+
       // Chuyển product_category_id thành categoryId cho backend
       if (payload.product_category_id !== undefined) {
         payload.categoryId =
@@ -295,6 +417,44 @@ const ProductEditPage: React.FC = () => {
             ? null
             : Number(payload.product_category_id);
         delete payload.product_category_id;
+      }
+
+      // Chuẩn hóa Options
+      payload.options = (product.options || []).map((option, optionIndex) => ({
+        id: option.id,
+        name: option.name,
+        position: option.position ?? optionIndex,
+        values: option.values.map((value, valueIndex) => ({
+          id: value.id,
+          value: value.value,
+          position: value.position ?? valueIndex,
+        })),
+      }));
+
+      // Chuẩn hóa Variants
+      payload.variants = (product.variants || []).map((variant, index) => ({
+        id: variant.id,
+        sku: variant.sku ?? null,
+        title: variant.title ?? null,
+        price: Number(variant.price),
+        compareAtPrice:
+          variant.compareAtPrice !== undefined &&
+          variant.compareAtPrice !== null &&
+          variant.compareAtPrice !== ""
+            ? Number(variant.compareAtPrice)
+            : null,
+        stock: Number(variant.stock),
+        status: variant.status ?? "active",
+        sortOrder: variant.sortOrder ?? index,
+        optionValueIds: Array.isArray(variant.optionValueIds)
+          ? variant.optionValueIds
+          : [],
+      }));
+
+      // Set fallback cho price và stock từ variant đầu tiên nếu trống
+      if (payload.variants.length > 0) {
+        if (!payload.price) payload.price = payload.variants[0].price;
+        if (!payload.stock) payload.stock = payload.variants[0].stock;
       }
 
       const json = await http<any>(
@@ -305,7 +465,6 @@ const ProductEditPage: React.FC = () => {
 
       if (json.success) {
         showSuccessToast({ message: "Cập nhật sản phẩm thành công!" });
-        // navigate(`/admin/products/edit/${id}`);
         fetchProduct(); // Re-fetch to get latest data
       } else {
         if (json.errors) {
@@ -320,7 +479,9 @@ const ProductEditPage: React.FC = () => {
       if (err?.message) {
         showErrorToast(err.message);
       } else {
-        showErrorToast("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+        showErrorToast(
+          "Không thể upload ảnh. Vui lòng kiểm tra định dạng file.",
+        );
       }
     } finally {
       setSaving(false);
@@ -423,85 +584,177 @@ const ProductEditPage: React.FC = () => {
             />
           </div>
 
-          {/* Giá & Giảm giá */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Giá (₫)
-              </label>
-              <input
-                type="number"
-                name="price"
-                value={product.price || ""}
-                onChange={handleChange}
-                className={`w-full border ${
-                  formErrors.price
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-              />
-              {formErrors.price && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {formErrors.price}
-                </p>
-              )}
+          {/* --- Block Quản Lý Biến Thể --- */}
+          <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                Danh sách biến thể <span className="text-red-500">*</span>
+              </h3>
+              <button
+                type="button"
+                onClick={addVariant}
+                className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Thêm biến thể
+              </button>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Giảm giá (%)
-              </label>
-              <input
-                type="number"
-                name="discount_percentage"
-                value={product.discount_percentage || "0"}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              />
-              {formErrors.discount_percentage && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {formErrors.discount_percentage}
-                </p>
-              )}
+            {formErrors.price && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
+                {formErrors.price}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {(product.variants || []).map((variant, index) => (
+                <div
+                  key={variant.id || `temp-${index}`}
+                  className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md relative group"
+                >
+                  {/* Nút xóa biến thể */}
+                  <div className="absolute top-2 right-2 md:-right-3 md:-top-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => removeVariant(index)}
+                      disabled={(product.variants || []).length === 1}
+                      className="bg-red-500 text-white p-1.5 rounded-full shadow-sm hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="col-span-1 md:col-span-3">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Tên biến thể
+                    </label>
+                    <input
+                      type="text"
+                      value={variant.title || ""}
+                      onChange={(e) =>
+                        handleVariantChange(index, "title", e.target.value)
+                      }
+                      placeholder="VD: Đỏ - Size L"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      SKU
+                    </label>
+                    <input
+                      type="text"
+                      value={variant.sku || ""}
+                      onChange={(e) =>
+                        handleVariantChange(index, "sku", e.target.value)
+                      }
+                      placeholder="Mã SP"
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Giá bán *
+                    </label>
+                    <input
+                      type="number"
+                      value={variant.price}
+                      onChange={(e) =>
+                        handleVariantChange(index, "price", e.target.value)
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Giá so sánh
+                    </label>
+                    <input
+                      type="number"
+                      value={variant.compareAtPrice || ""}
+                      onChange={(e) =>
+                        handleVariantChange(
+                          index,
+                          "compareAtPrice",
+                          e.target.value,
+                        )
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Tồn kho *
+                    </label>
+                    <input
+                      type="number"
+                      value={variant.stock}
+                      onChange={(e) =>
+                        handleVariantChange(index, "stock", e.target.value)
+                      }
+                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-1 flex items-end mb-[2px]">
+                    <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={variant.status === "active"}
+                        onChange={(e) =>
+                          handleVariantChange(
+                            index,
+                            "status",
+                            e.target.checked ? "active" : "inactive",
+                          )
+                        }
+                        className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                      />
+                      <span className="text-gray-600 dark:text-gray-300">
+                        Active
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Tồn kho & vị trí */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tồn kho
-              </label>
-              <input
-                type="number"
-                name="stock"
-                value={product.stock || ""}
-                onChange={handleChange}
-                className={`w-full border ${
-                  formErrors.stock
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-              />
-              {formErrors.stock && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {formErrors.stock}
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Vị trí hiển thị
-              </label>
-              <input
-                type="number"
-                name="position"
-                value={product.position || ""}
-                onChange={handleChange}
-                placeholder="Nếu bỏ trống sẽ tự xếp cuối"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-              />
-            </div>
+          {/* Vị trí */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Vị trí hiển thị
+            </label>
+            <input
+              type="number"
+              name="position"
+              value={product.position || ""}
+              onChange={handleChange}
+              placeholder="Nếu bỏ trống sẽ tự xếp cuối"
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            />
+          </div>
+
+          {/* Giảm giá (Ẩn do logic chuyển sang fallback, có thể giữ lại nếu backend vẫn dùng cấp product) */}
+          <div className="mt-4 hidden">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Giảm giá (%)
+            </label>
+            <input
+              type="number"
+              name="discount_percentage"
+              value={product.discount_percentage || "0"}
+              onChange={handleChange}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            />
+            {formErrors.discount_percentage && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                {formErrors.discount_percentage}
+              </p>
+            )}
           </div>
 
           {/* Ảnh sản phẩm */}
@@ -510,7 +763,6 @@ const ProductEditPage: React.FC = () => {
               Ảnh sản phẩm
             </label>
 
-            {/* Tab chọn phương thức - Đã thay đổi thành flex-wrap và gap-3 */}
             <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
@@ -691,11 +943,11 @@ const ProductEditPage: React.FC = () => {
           </div>
 
           {/* Nút lưu */}
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="submit"
               disabled={saving || !isDirty} // Cập nhật disable
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
+              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600 font-medium"
             >
               {saving ? (
                 <>

@@ -1,6 +1,3 @@
-// =======================
-// 🔥 NEW: Import thêm useRef
-// =======================
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Loader2, Printer } from "lucide-react";
@@ -13,9 +10,13 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // ====================================
 interface OrderItem {
   productId: number | null;
+  productVariantId?: number | null;
   productTitle: string;
+  variantTitle?: string | null;
+  variantSku?: string | null;
   price: number;
   quantity: number;
+  thumbnail?: string | null;
 }
 
 interface OrderAddress {
@@ -42,7 +43,7 @@ interface Order {
   trackingToken?: string;
   inventoryApplied: boolean;
   createdAt: string;
-  address: OrderAddress;
+  address: OrderAddress | null;
   items: OrderItem[];
 }
 
@@ -276,20 +277,27 @@ const OrdersDetailPageAdmin: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-gray-700 dark:text-gray-300">
             <p>
               <span className="font-medium">Họ tên: </span>
-              {order.address.fullName}
+              {order.address?.fullName || "—"}
             </p>
             <p>
               <span className="font-medium">Số điện thoại: </span>
-              {order.address.phone}
+              {order.address?.phone || "—"}
             </p>
             <p className="sm:col-span-2">
               <span className="font-medium">Địa chỉ: </span>
-              {order.address.addressLine1},{" "}
-              {order.address.addressLine2 && order.address.addressLine2 + ", "}
-              {order.address.ward}, {order.address.district},{" "}
-              {order.address.province}
+              {order.address ? (
+                <>
+                  {order.address.addressLine1},{" "}
+                  {order.address.addressLine2 &&
+                    order.address.addressLine2 + ", "}
+                  {order.address.ward}, {order.address.district},{" "}
+                  {order.address.province}
+                </>
+              ) : (
+                "—"
+              )}
             </p>
-            {order.address.notes && (
+            {order.address?.notes && (
               <p className="sm:col-span-2">
                 <span className="font-medium">Ghi chú: </span>
                 {order.address.notes}
@@ -319,8 +327,28 @@ const OrdersDetailPageAdmin: React.FC = () => {
             </thead>
             <tbody>
               {order.items.map((item, idx) => (
-                <tr key={idx} className="border-b dark:border-gray-700">
-                  <td className="py-2">{item.productTitle}</td>
+                <tr
+                  key={`${item.productId ?? "x"}-${item.productVariantId ?? "no-variant"}-${idx}`}
+                  className="border-b dark:border-gray-700"
+                >
+                  <td className="py-2">
+                    <div className="font-medium text-gray-900 dark:text-gray-100">
+                      {item.productTitle}
+                    </div>
+
+                    {item.variantTitle && (
+                      <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mt-1">
+                        {item.variantTitle}
+                      </div>
+                    )}
+
+                    {item.variantSku && (
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        SKU: {item.variantSku}
+                      </div>
+                    )}
+                  </td>
+
                   <td className="py-2">{item.price.toLocaleString()} đ</td>
                   <td className="py-2">{item.quantity}</td>
                   <td className="py-2 font-medium">
@@ -397,11 +425,17 @@ const OrdersDetailPageAdmin: React.FC = () => {
               <hr className="my-2 border-gray-300" />
 
               <h3 className="font-semibold mb-1">Thông tin khách hàng:</h3>
-              <p>{order.address.fullName}</p>
-              <p>{order.address.phone}</p>
+              <p>{order.address?.fullName || "—"}</p>
+              <p>{order.address?.phone || "—"}</p>
               <p>
-                {order.address.addressLine1}, {order.address.ward},{" "}
-                {order.address.district}, {order.address.province}
+                {order.address ? (
+                  <>
+                    {order.address.addressLine1}, {order.address.ward},{" "}
+                    {order.address.district}, {order.address.province}
+                  </>
+                ) : (
+                  "—"
+                )}
               </p>
 
               <hr className="my-2 border-gray-300" />
@@ -418,8 +452,35 @@ const OrdersDetailPageAdmin: React.FC = () => {
                 </thead>
                 <tbody>
                   {order.items.map((item, idx) => (
-                    <tr key={idx} className="border-b border-gray-200">
-                      <td className="py-1">{item.productTitle}</td>
+                    <tr
+                      key={`${item.productId ?? "x"}-${item.productVariantId ?? "no-variant"}-${idx}`}
+                      className="border-b border-gray-200"
+                    >
+                      <td className="py-1">
+                        <div>{item.productTitle}</div>
+                        {item.variantTitle && (
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              color: "#666",
+                              marginTop: "2px",
+                            }}
+                          >
+                            {item.variantTitle}
+                          </div>
+                        )}
+                        {item.variantSku && (
+                          <div
+                            style={{
+                              fontSize: "10px",
+                              color: "#888",
+                              marginTop: "2px",
+                            }}
+                          >
+                            SKU: {item.variantSku}
+                          </div>
+                        )}
+                      </td>
                       <td className="py-1 text-right">{item.quantity}</td>
                       <td className="py-1 text-right">
                         {(item.price * item.quantity).toLocaleString()} đ

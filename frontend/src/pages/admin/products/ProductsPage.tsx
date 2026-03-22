@@ -25,6 +25,17 @@ interface Product {
   average_rating?: number;
   review_count?: number;
   created_by_id?: number;
+  totalStock?: number;
+  priceRange?: {
+    min: number;
+    max: number;
+  } | null;
+  variants?: Array<{
+    id: number;
+    price: number;
+    stock: number;
+    status: string;
+  }>;
 }
 
 const ProductsPage: React.FC = () => {
@@ -518,8 +529,11 @@ const ProductsPage: React.FC = () => {
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             #{product.id}
                           </div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {product.variants?.length ?? 0} biến thể
+                          </div>
                           {pendingMap[product.id] > 0 && (
-                            <div className="text-xs text-red-600 dark:text-red-400">
+                            <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">
                               {pendingMap[product.id]} đánh giá chờ phản hồi
                             </div>
                           )}
@@ -547,7 +561,9 @@ const ProductsPage: React.FC = () => {
                       {product.category?.title || "—"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {product.price?.toLocaleString()}₫
+                      {product.priceRange
+                        ? `${product.priceRange.min.toLocaleString()}₫ - ${product.priceRange.max.toLocaleString()}₫`
+                        : `${product.price?.toLocaleString()}₫`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -557,7 +573,7 @@ const ProductsPage: React.FC = () => {
                             : "text-gray-900 dark:text-white"
                         }`}
                       >
-                        {product.stock} items
+                        {product.totalStock ?? product.stock} items
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap cursor-pointer">

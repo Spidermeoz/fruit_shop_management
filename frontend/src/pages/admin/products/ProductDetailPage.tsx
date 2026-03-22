@@ -30,6 +30,37 @@ interface Product {
   review_count?: number;
   created_at?: string;
   updated_at?: string;
+  // Các field mở rộng cho variant/options
+  variants?: Array<{
+    id: number;
+    title?: string | null;
+    sku?: string | null;
+    price: number;
+    compareAtPrice?: number | null;
+    stock: number;
+    status: string;
+    sortOrder?: number;
+    optionValues?: Array<{
+      id: number;
+      value: string;
+      optionId?: number;
+      optionName?: string;
+    }>;
+  }>;
+  options?: Array<{
+    id: number;
+    name: string;
+    values: Array<{
+      id: number;
+      value: string;
+    }>;
+  }>;
+  totalStock?: number;
+  priceRange?: {
+    min: number;
+    max: number;
+  };
+  defaultVariantId?: number | null;
 }
 
 // ===== REVIEW REPLY TYPE =====
@@ -353,10 +384,12 @@ const ProductDetailPage: React.FC = () => {
               </p>
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">
-                  Giá:
+                  Khoảng giá:
                 </span>{" "}
                 <span className="font-semibold text-green-600 dark:text-green-400">
-                  {product.price.toLocaleString()}₫
+                  {product.priceRange
+                    ? `${product.priceRange.min.toLocaleString()}₫ - ${product.priceRange.max.toLocaleString()}₫`
+                    : `${product.price.toLocaleString()}₫`}
                 </span>
               </p>
               <p>
@@ -373,9 +406,15 @@ const ProductDetailPage: React.FC = () => {
               </p>
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">
-                  Tồn kho:
+                  Tổng tồn kho:
                 </span>{" "}
-                {product.stock}
+                {product.totalStock ?? product.stock}
+              </p>
+              <p>
+                <span className="font-medium text-gray-600 dark:text-gray-400">
+                  Số biến thể:
+                </span>{" "}
+                {product.variants?.length ?? 0}
               </p>
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">
@@ -423,6 +462,72 @@ const ProductDetailPage: React.FC = () => {
             dangerouslySetInnerHTML={{ __html: product.description }}
           />
         </div>
+
+        {/* SECTION BIẾN THỂ SẢN PHẨM */}
+        {product.variants && product.variants.length > 0 && (
+          <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+            <h2 className="mb-4 text-lg font-semibold dark:text-white">
+              Biến thể sản phẩm
+            </h2>
+
+            <div className="space-y-3">
+              {product.variants.map((variant) => (
+                <div
+                  key={variant.id}
+                  className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-900/40"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-500">
+                        Tên biến thể:
+                      </span>
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {variant.title || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-500">SKU:</span>
+                      <p>{variant.sku || "—"}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-500">Giá:</span>
+                      <p className="text-green-600 font-semibold">
+                        {variant.price.toLocaleString()}₫
+                      </p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-500">
+                        Tồn kho:
+                      </span>
+                      <p>{variant.stock}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-500">
+                        Trạng thái:
+                      </span>
+                      <p>{variant.status}</p>
+                    </div>
+                  </div>
+
+                  {variant.optionValues && variant.optionValues.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {variant.optionValues.map((ov) => (
+                        <span
+                          key={ov.id}
+                          className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-gray-800 text-xs font-medium text-gray-800 dark:text-gray-300"
+                        >
+                          {ov.optionName
+                            ? `${ov.optionName}: ${ov.value}`
+                            : ov.value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* SYSTEM INFO */}
         <div className="mt-8 grid grid-cols-1 gap-3 border-t border-gray-200 px-2 pt-6 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-400 sm:grid-cols-2">

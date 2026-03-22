@@ -22,7 +22,7 @@ import {
 // TYPES
 // ==========================
 interface OrderDetail {
-  totalPrice: any;
+  totalPrice: number;
   id: number;
   code: string;
   status: string;
@@ -37,11 +37,14 @@ interface OrderDetail {
   estimatedDelivery?: string;
 
   items: {
-    productId: number;
+    productId: number | null;
+    productVariantId?: number | null;
     productTitle: string;
+    variantTitle?: string | null;
+    variantSku?: string | null;
     price: number;
     quantity: number;
-    thumbnail?: string;
+    thumbnail?: string | null;
   }[];
 
   address: {
@@ -550,11 +553,15 @@ const OrderDetailPage: React.FC = () => {
                   <div className="grid gap-4">
                     {order.items.map((item) => (
                       <div
-                        key={item.productId}
+                        key={`${item.productId ?? "x"}-${item.productVariantId ?? "no-variant"}-${item.variantSku ?? item.productTitle}`}
                         className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                       >
                         <Link
-                          to={`/products/${item.productId}`}
+                          to={
+                            item.productId
+                              ? `/products/${item.productId}`
+                              : "/products"
+                          }
                           className="shrink-0 relative overflow-hidden rounded-xl w-20 h-20 border border-slate-200 bg-white"
                         >
                           <img
@@ -569,10 +576,25 @@ const OrderDetailPage: React.FC = () => {
                         </Link>
                         <div className="flex-1 min-w-0">
                           <Link
-                            to={`/products/${item.productId}`}
+                            to={
+                              item.productId
+                                ? `/products/${item.productId}`
+                                : "/products"
+                            }
                             className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
                           >
                             {item.productTitle}
+                            {item.variantTitle && (
+                              <p className="text-sm font-bold text-slate-500 mt-1">
+                                {item.variantTitle}
+                              </p>
+                            )}
+
+                            {item.variantSku && (
+                              <p className="text-xs text-slate-400 font-medium mt-1">
+                                SKU: {item.variantSku}
+                              </p>
+                            )}
                           </Link>
                           <div className="flex flex-wrap items-center gap-3 mt-2">
                             <span className="bg-white border border-slate-200 px-3 py-1 rounded-lg text-xs font-bold text-slate-500 shadow-sm">
