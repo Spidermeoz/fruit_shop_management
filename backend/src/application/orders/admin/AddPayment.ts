@@ -8,35 +8,42 @@ export class AddPayment {
 
     if (!order) throw new Error("Order not found");
 
-    // Không cho thanh toán nếu order đã bị hủy
-    if (order.status === "cancelled") {
+    if (order.props.status === "cancelled") {
       throw new Error("Cannot add payment to a cancelled order");
     }
 
-    // Không cho thanh toán nếu đã thanh toán
-    if (order.paymentStatus === "paid") {
+    if (order.props.paymentStatus === "paid") {
       throw new Error("Order already paid");
     }
 
-    // Check đủ tiền
-    if (input.amount < order.finalPrice) {
+    if (input.amount < order.props.finalPrice) {
       throw new Error("Số tiền thanh toán chưa đủ tổng đơn hàng");
     }
 
-    // Tạo payment record
-    await this.repo.addPayment({
-      orderId: input.orderId,
-      provider: "cod",
-      method: "cod",
-      amount: input.amount,
-      status: "paid",
-      transactionId: null,
-      rawPayload: null,
-    });
+    const t = await this.repo.startTransaction();
 
-    // Update payment status
-    await this.repo.updatePaymentStatus(input.orderId, "paid");
+    try {
+      await this.repo.addPayment(
+        {
+          orderId: input.orderId,
+          provider: "cod",
+          method: "cod",
+          amount: input.amount,
+          status: "paid",
+          transactionId: null,
+          rawPayload: null,
+        },
+        t,
+      );
 
-    return { success: true };
+      await this.repo.updatePaymentStatus(input.orderId, "paid", t);
+
+      await t.commit();
+
+      return { success: true };
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
   }
 }

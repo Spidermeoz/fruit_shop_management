@@ -20,17 +20,25 @@ export interface OrderCreateItemInput {
 }
 
 export interface OrderRepository {
-  updatePaymentStatus(orderId: number, status: string): unknown;
+  updatePaymentStatus(
+    orderId: number,
+    status: string,
+    transaction?: any,
+  ): Promise<void>;
 
-  create(data: {
-    userId: number;
-    items: OrderCreateItemInput[];
-    address: any;
-    shippingFee: number;
-    discountAmount: number;
-    totalPrice: number;
-    userInfo: any;
-  }): Promise<Order>;
+  create(
+    data: {
+      userId: number;
+      items: OrderCreateItemInput[];
+      address: any;
+      shippingFee: number;
+      discountAmount: number;
+      totalPrice: number;
+      finalPrice: number;
+      userInfo: any;
+    },
+    transaction?: any,
+  ): Promise<Order>;
 
   findById(id: number): Promise<Order | null>;
 
@@ -39,24 +47,36 @@ export interface OrderRepository {
     filter: OrderListFilter,
   ): Promise<{ rows: Order[]; count: number }>;
 
-  updateStatus(id: number, status: OrderStatus): Promise<void>;
+  updateStatus(
+    id: number,
+    status: OrderStatus,
+    transaction?: any,
+    note?: string,
+    location?: string,
+  ): Promise<void>;
 
   addDeliveryHistory(
     orderId: number,
     status: string,
     location?: string,
     note?: string,
+    transaction?: any,
   ): Promise<void>;
 
-  addPayment(data: {
-    orderId: number;
-    provider: string;
-    method: string;
-    amount: number;
-    status: PaymentStatus;
-    transactionId?: string | null;
-    rawPayload?: any;
-  }): Promise<void>;
+  addPayment(
+    data: {
+      orderId: number;
+      provider: string;
+      method: string;
+      amount: number;
+      status: PaymentStatus;
+      transactionId?: string | null;
+      rawPayload?: any;
+    },
+    transaction?: any,
+  ): Promise<void>;
+
+  startTransaction(): Promise<any>;
 
   findDistinctAddressesByUser(userId: number): Promise<
     {

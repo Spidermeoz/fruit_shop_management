@@ -61,9 +61,11 @@ export const makeOrdersController = (uc: {
 
         await uc.updateStatus.execute(id, status);
 
+        const order = await uc.detail.execute(id);
+
         res.json({
           success: true,
-          data: true,
+          data: order.props,
         });
       } catch (e) {
         next(e);
@@ -77,9 +79,11 @@ export const makeOrdersController = (uc: {
 
         await uc.addDeliveryStatus.execute(id, req.body);
 
+        const order = await uc.detail.execute(id);
+
         res.json({
           success: true,
-          data: true,
+          data: order.props,
         });
       } catch (e) {
         next(e);
@@ -90,24 +94,23 @@ export const makeOrdersController = (uc: {
     addPayment: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const orderId = Number(req.params.id);
-        const { amount } = req.body;
+        const amount = Number(req.body.amount);
 
-        if (!amount) {
+        if (!Number.isFinite(amount) || amount <= 0) {
           return res.status(400).json({
             success: false,
-            message: "Vui lòng nhập số tiền thanh toán",
+            message: "Số tiền thanh toán không hợp lệ",
           });
         }
 
-        const result = await uc.addPayment.execute({ orderId, amount });
+        await uc.addPayment.execute({ orderId, amount });
 
-        // Lấy lại order mới nhất
         const order = await uc.detail.execute(orderId);
 
         return res.json({
           success: true,
           message: "Xác nhận thanh toán thành công",
-          data: order,
+          data: order.props,
         });
       } catch (e) {
         next(e);

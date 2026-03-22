@@ -517,7 +517,7 @@ export const usecases = {
 
     list: new ListOrders(orderRepo),
     detail: new GetOrderDetailAdmin(orderRepo),
-    updateStatus: new UpdateOrderStatus(orderRepo),
+    updateStatus: new UpdateOrderStatus(orderRepo, productRepo),
     addDeliveryStatus: new AddDeliveryHistory(orderRepo),
     addPayment: new AddPayment(orderRepo),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),

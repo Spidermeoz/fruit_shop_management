@@ -73,9 +73,11 @@ export const makeClientOrdersController = (uc: {
 
         await uc.cancelMyOrder.execute(userId, id);
 
+        const order = await uc.myOrderDetail.execute(userId, id);
+
         res.json({
           success: true,
-          data: true,
+          data: order.props,
         });
       } catch (e) {
         next(e);

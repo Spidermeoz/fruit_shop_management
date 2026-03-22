@@ -1,5 +1,8 @@
 export class UpdateOrderStatus {
-  constructor(private orderRepo: any) {}
+  constructor(
+    private orderRepo: any,
+    private productRepo: any,
+  ) {}
 
   private allowedTransitions: Record<string, string[]> = {
     pending: ["processing", "cancelled"],
@@ -17,9 +20,8 @@ export class UpdateOrderStatus {
       throw new Error("Order not found");
     }
 
-    const currentStatus = order.status;
+    const currentStatus = order.props.status;
 
-    // Không cho hủy sau khi đã giao
     if (
       newStatus === "cancelled" &&
       ["shipping", "delivered", "completed"].includes(currentStatus)
@@ -27,17 +29,14 @@ export class UpdateOrderStatus {
       throw new Error("Không thể hủy đơn hàng sau khi đã giao hoặc hoàn thành");
     }
 
-    // Không cho rollback về pending
     if (newStatus === "pending" && currentStatus !== "pending") {
       throw new Error("Không thể chuyển đơn hàng về trạng thái chờ duyệt");
     }
 
-    // Không cho sửa nếu đã cancelled hoặc completed
     if (["cancelled", "completed"].includes(currentStatus)) {
       throw new Error("Order is already finished and cannot be modified");
     }
 
-    // Check transition hợp lệ
     const allowed = this.allowedTransitions[currentStatus] || [];
 
     if (!allowed.includes(newStatus)) {
@@ -46,7 +45,28 @@ export class UpdateOrderStatus {
       );
     }
 
-    // Update
-    await this.orderRepo.updateStatus(orderId, newStatus);
+    const t = await this.orderRepo.startTransaction();
+
+    try {
+      // nếu admin cancel thì hoàn kho
+      if (newStatus === "cancelled") {
+        for (const item of order.props.items) {
+          if (item.productVariantId) {
+            await this.productRepo.increaseVariantStock(
+              item.productVariantId,
+              item.quantity,
+              t,
+            );
+          }
+        }
+      }
+
+      await this.orderRepo.updateStatus(orderId, newStatus, t);
+
+      await t.commit();
+    } catch (err) {
+      await t.rollback();
+      throw err;
+    }
   }
 }

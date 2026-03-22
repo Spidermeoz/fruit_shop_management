@@ -54,7 +54,10 @@ export class SequelizeOrderRepository implements OrderRepository {
       items: row.items
         ? row.items.map((item: any) => ({
             productId: item.product_id,
+            productVariantId: item.product_variant_id ?? null,
             productTitle: item.product_title,
+            variantTitle: item.variant_title ?? null,
+            variantSku: item.variant_sku ?? null,
             price: Number(item.price),
             quantity: Number(item.quantity),
             thumbnail: item.product?.thumbnail || null,
@@ -72,7 +75,6 @@ export class SequelizeOrderRepository implements OrderRepository {
     const t = transaction ?? (await this.models.Order.sequelize.transaction());
 
     try {
-      // Create main order
       const order = await this.models.Order.create(
         {
           user_id: data.userId,
@@ -82,6 +84,7 @@ export class SequelizeOrderRepository implements OrderRepository {
           shipping_fee: data.shippingFee,
           discount_amount: data.discountAmount,
           total_price: data.totalPrice,
+          final_price: data.finalPrice,
           tracking_token: crypto.randomUUID(),
           inventory_applied: 0,
           user_info: data.userInfo,
@@ -89,21 +92,22 @@ export class SequelizeOrderRepository implements OrderRepository {
         { transaction: t },
       );
 
-      // Create items
       for (const item of data.items) {
         await this.models.OrderItem.create(
           {
             order_id: order.id,
             product_id: item.productId,
+            product_variant_id: item.productVariantId,
             quantity: item.quantity,
             price: item.price,
             product_title: item.title,
+            variant_title: item.variantTitle ?? null,
+            variant_sku: item.variantSku ?? null,
           },
           { transaction: t },
         );
       }
 
-      // Create address
       if (data.address) {
         await this.models.OrderAddress.create(
           {
@@ -123,7 +127,16 @@ export class SequelizeOrderRepository implements OrderRepository {
         );
       }
 
-      // Reload full order with relations
+      // ghi lịch sử initial status
+      await this.models.DeliveryStatusHistory.create(
+        {
+          order_id: order.id,
+          status: "pending",
+          note: "Order created",
+        },
+        { transaction: t },
+      );
+
       const full = await this.models.Order.findByPk(order.id, {
         include: [
           {
@@ -138,6 +151,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             ],
           },
           { model: this.models.OrderAddress, as: "address" },
+          { model: this.models.DeliveryStatusHistory, as: "deliveryHistory" },
         ],
         transaction: t,
       });
@@ -293,15 +307,30 @@ export class SequelizeOrderRepository implements OrderRepository {
   // ========================================
   // UPDATE STATUS
   // ========================================
-  async updateStatus(id: number, status: string) {
-    await this.models.Order.update({ status }, { where: { id } });
+  async updateStatus(
+    id: number,
+    status: string,
+    transaction?: any,
+    note?: string,
+    location?: string,
+  ) {
+    await this.models.Order.update(
+      { status },
+      {
+        where: { id, deleted: 0 },
+        transaction,
+      },
+    );
 
-    // ghi lịch sử giao hàng
-    await this.models.DeliveryStatusHistory.create({
-      order_id: id,
-      status,
-      note: `Status changed to ${status}`,
-    });
+    await this.models.DeliveryStatusHistory.create(
+      {
+        order_id: id,
+        status,
+        location: location ?? null,
+        note: note ?? `Status changed to ${status}`,
+      },
+      { transaction },
+    );
   }
 
   // ========================================
@@ -312,44 +341,57 @@ export class SequelizeOrderRepository implements OrderRepository {
     status: string,
     location?: string,
     note?: string,
+    transaction?: any,
   ) {
-    await this.models.DeliveryStatusHistory.create({
-      order_id: orderId,
-      status,
-      location,
-      note,
-    });
+    await this.models.DeliveryStatusHistory.create(
+      {
+        order_id: orderId,
+        status,
+        location,
+        note,
+      },
+      { transaction },
+    );
   }
 
   // ========================================
   // ADD PAYMENT
   // ========================================
-  async updatePaymentStatus(orderId: number, status: string) {
+  async updatePaymentStatus(
+    orderId: number,
+    status: string,
+    transaction?: any,
+  ) {
     await this.models.Order.update(
       { payment_status: status },
-      { where: { id: orderId } },
+      { where: { id: orderId }, transaction },
     );
   }
 
-  // sửa hàm addPayment (không đổi field)
-  async addPayment(data: {
-    orderId: number;
-    provider: string;
-    method: string;
-    amount: number;
-    status: string;
-    transactionId?: string | null;
-    rawPayload?: any;
-  }) {
-    await this.models.Payment.create({
-      order_id: data.orderId,
-      provider: data.provider,
-      method: data.method,
-      amount: data.amount,
-      status: data.status,
-      transaction_id: data.transactionId ?? null,
-      raw_payload: data.rawPayload ?? null,
-    });
+  async addPayment(
+    data: {
+      orderId: number;
+      provider: string;
+      method: string;
+      amount: number;
+      status: string;
+      transactionId?: string | null;
+      rawPayload?: any;
+    },
+    transaction?: any,
+  ) {
+    await this.models.Payment.create(
+      {
+        order_id: data.orderId,
+        provider: data.provider,
+        method: data.method,
+        amount: data.amount,
+        status: data.status,
+        transaction_id: data.transactionId ?? null,
+        raw_payload: data.rawPayload ?? null,
+      },
+      { transaction },
+    );
   }
 
   // ========================================
