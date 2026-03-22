@@ -22,6 +22,7 @@ import { productsRoutes } from "./interfaces/http/express/routes/products.routes
 import { productCategoriesRoutes } from "./interfaces/http/express/routes/productCategories.routes";
 import { rolesRoutes } from "./interfaces/http/express/routes/roles.routes";
 import { originsRoutes } from "./interfaces/http/express/routes/origins.routes";
+import { productTagsRoutes } from "./interfaces/http/express/routes/productTags.routes";
 import { usersRoutes } from "./interfaces/http/express/routes/users.routes";
 import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
@@ -109,6 +110,10 @@ app.use(
   productCategoriesRoutes(controllers.categories, auth, can),
 );
 app.use("/api/v1/admin/origins", originsRoutes(controllers.origins, auth, can));
+app.use(
+  "/api/v1/admin/product-tags",
+  productTagsRoutes(controllers.productTags, auth, can),
+);
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
 app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));

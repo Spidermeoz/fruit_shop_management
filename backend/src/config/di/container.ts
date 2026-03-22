@@ -19,6 +19,8 @@ import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
 import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
 import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
 import OriginModel from "../../infrastructure/db/sequelize/models/OriginModel";
+import ProductTagModel from "../../infrastructure/db/sequelize/models/ProductTagModel";
+import ProductTagMapModel from "../../infrastructure/db/sequelize/models/ProductTagMapModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -30,6 +32,7 @@ import { SequelizeRoleRepository } from "../../infrastructure/repositories/Seque
 import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
 import { SequelizeOriginRepository } from "../../infrastructure/repositories/SequelizeOriginRepository";
+import { SequelizeProductTagRepository } from "../../infrastructure/repositories/SequelizeProductTagRepository";
 
 // ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -132,6 +135,13 @@ import { EditOrigin } from "../../application/origins/usecases/EditOrigin";
 import { GetOriginDetail } from "../../application/origins/usecases/GetOriginDetail";
 import { ListOrigins } from "../../application/origins/usecases/ListOrigins";
 
+// ===== Product tags usecases =====
+import { ChangeProductTagStatus } from "../../application/product-tags/usecases/ChangeProductTagStatus";
+import { CreateProductTag } from "../../application/product-tags/usecases/CreateProductTag";
+import { EditProductTag } from "../../application/product-tags/usecases/EditProductTag";
+import { GetProductTagDetail } from "../../application/product-tags/usecases/GetProductTagDetail";
+import { ListProductTags } from "../../application/product-tags/usecases/ListProductTags";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -171,6 +181,8 @@ import { makeUsersController } from "../../interfaces/http/express/controllers/U
 import type { UsersController } from "../../interfaces/http/express/controllers/UsersController";
 import { makeOriginsController } from "../../interfaces/http/express/controllers/OriginsController";
 import type { OriginsController } from "../../interfaces/http/express/controllers/OriginsController";
+import { makeProductTagsController } from "../../interfaces/http/express/controllers/ProductTagsController";
+import type { ProductTagsController } from "../../interfaces/http/express/controllers/ProductTagsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -189,6 +201,30 @@ ProductModel.belongsTo(ProductCategoryModel, {
 ProductCategoryModel.hasMany(ProductModel, {
   as: "products",
   foreignKey: "product_category_id",
+});
+
+// Product -> Origin
+ProductModel.belongsTo(OriginModel, {
+  as: "origin",
+  foreignKey: "origin_id",
+});
+OriginModel.hasMany(ProductModel, {
+  as: "products",
+  foreignKey: "origin_id",
+});
+
+// Product <-> Product tags
+ProductModel.belongsToMany(ProductTagModel, {
+  through: ProductTagMapModel,
+  as: "tags",
+  foreignKey: "product_id",
+  otherKey: "product_tag_id",
+});
+ProductTagModel.belongsToMany(ProductModel, {
+  through: ProductTagMapModel,
+  as: "products",
+  foreignKey: "product_tag_id",
+  otherKey: "product_id",
 });
 
 // User -> Role
@@ -375,6 +411,9 @@ const productModels = {
   ProductOptionValue: ProductOptionValueModel,
   ProductVariantValue: ProductVariantValueModel,
   ProductCategory: ProductCategoryModel,
+  Origin: OriginModel,
+  ProductTag: ProductTagModel,
+  ProductTagMap: ProductTagMapModel,
 };
 const productRepo = new SequelizeProductRepository(productModels);
 
@@ -435,6 +474,7 @@ const settingModels = {
 };
 const settingsRepo = new SequelizeSettingGeneralRepository(settingModels);
 const originRepo = new SequelizeOriginRepository(OriginModel);
+const productTagRepo = new SequelizeProductTagRepository(ProductTagModel);
 
 // ===== Usecases =====
 export const usecases = {
@@ -553,6 +593,14 @@ export const usecases = {
     edit: new EditOrigin(originRepo),
     changeStatus: new ChangeOriginStatus(originRepo),
   },
+
+  productTags: {
+    list: new ListProductTags(productTagRepo),
+    detail: new GetProductTagDetail(productTagRepo),
+    create: new CreateProductTag(productTagRepo),
+    edit: new EditProductTag(productTagRepo),
+    changeStatus: new ChangeProductTagStatus(productTagRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -567,6 +615,7 @@ type Controllers = {
   reviews: AdminReviewsController;
   settings: SettingsGeneralController;
   origins: OriginsController;
+  productTags: ProductTagsController;
 };
 
 export const controllers: Controllers = {
@@ -646,6 +695,14 @@ export const controllers: Controllers = {
   }),
 
   origins: makeOriginsController(usecases.origins),
+
+  productTags: makeProductTagsController({
+    list: usecases.productTags.list,
+    detail: usecases.productTags.detail,
+    create: usecases.productTags.create,
+    edit: usecases.productTags.edit,
+    changeStatus: usecases.productTags.changeStatus,
+  }),
 };
 
 export const clientControllers = {
