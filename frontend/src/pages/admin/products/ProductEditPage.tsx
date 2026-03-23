@@ -1,5 +1,5 @@
 // src/pages/admin/ProductEditPage.tsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Loader2, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
@@ -16,6 +16,19 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // =============================
 // TYPES
 // =============================
+interface Origin {
+  id: number;
+  title: string;
+  status: string;
+}
+
+interface ProductTag {
+  id: number;
+  title: string;
+  group: string;
+  status: string;
+}
+
 interface ProductCategory {
   id: number;
   title: string;
@@ -55,6 +68,14 @@ interface Product {
   title: string;
   description: string;
   product_category_id: number | string;
+  // --- Thêm fields mới ---
+  origin_id: number | string;
+  tag_ids: number[];
+  short_description: string;
+  storage_guide: string;
+  usage_suggestions: string;
+  nutrition_notes: string;
+  // -----------------------
   price: number | string;
   discount_percentage: number | string;
   stock: number | string;
@@ -72,7 +93,12 @@ const ProductEditPage: React.FC = () => {
 
   const [product, setProduct] = useState<Product | null>(null);
   const [initialProduct, setInitialProduct] = useState<Product | null>(null);
+
+  // States phụ trợ
   const [categories, setCategories] = useState<ProductCategory[]>([]);
+  const [origins, setOrigins] = useState<Origin[]>([]);
+  const [tags, setTags] = useState<ProductTag[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -102,6 +128,19 @@ const ProductEditPage: React.FC = () => {
           ...data,
           product_category_id:
             data.product_category_id ?? data.categoryId ?? "",
+
+          // 🔹 Chuẩn hóa fields mới từ backend trả về
+          origin_id: data.originId ?? data.origin?.id ?? "",
+          tag_ids:
+            data.tagIds ??
+            (Array.isArray(data.tags)
+              ? data.tags.map((t: any) => Number(t.id))
+              : []),
+          short_description: data.shortDescription ?? "",
+          storage_guide: data.storageGuide ?? "",
+          usage_suggestions: data.usageSuggestions ?? "",
+          nutrition_notes: data.nutritionNotes ?? "",
+
           discount_percentage:
             data.discount_percentage ?? data.discountPercentage ?? 0,
           options: Array.isArray(data.options) ? data.options : [],
@@ -153,7 +192,18 @@ const ProductEditPage: React.FC = () => {
       Number(product.stock) !== Number(initialProduct.stock) ||
       product.status !== initialProduct.status ||
       Number(product.featured) !== Number(initialProduct.featured) ||
-      String(product.position) !== String(initialProduct.position);
+      String(product.position) !== String(initialProduct.position) ||
+      // Các field metadata mới
+      String(product.origin_id) !== String(initialProduct.origin_id) ||
+      product.short_description !== initialProduct.short_description ||
+      product.storage_guide !== initialProduct.storage_guide ||
+      product.usage_suggestions !== initialProduct.usage_suggestions ||
+      product.nutrition_notes !== initialProduct.nutrition_notes;
+
+    // So sánh mảng tags (sắp xếp trước khi stringify)
+    const hasTagChanges =
+      JSON.stringify([...(product.tag_ids || [])].sort()) !==
+      JSON.stringify([...(initialProduct.tag_ids || [])].sort());
 
     // So sánh ảnh
     const hasImageChanges =
@@ -162,15 +212,17 @@ const ProductEditPage: React.FC = () => {
         imageUrl !== "" &&
         imageUrl !== initialProduct.thumbnail);
 
-    // So sánh variants (so sánh JSON chuỗi cho đơn giản, hoặc có thể so sánh sâu hơn nếu cần)
+    // So sánh variants
     const hasVariantChanges =
       JSON.stringify(product.variants) !==
       JSON.stringify(initialProduct.variants);
 
-    return hasFieldChanges || hasImageChanges || hasVariantChanges;
+    return (
+      hasFieldChanges || hasTagChanges || hasImageChanges || hasVariantChanges
+    );
   }, [product, initialProduct, selectedFile, imageMethod, imageUrl]);
 
-  // Lấy danh sách danh mục từ backend
+  // Lấy danh sách danh mục, xuất xứ và tags
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -189,16 +241,62 @@ const ProductEditPage: React.FC = () => {
         console.error("fetchCategories error:", err);
       }
     };
+
+    const fetchOrigins = async () => {
+      try {
+        const json = await http<any>("GET", "/api/v1/admin/origins?limit=100");
+        if (json.success && Array.isArray(json.data)) {
+          setOrigins(json.data);
+        }
+      } catch (err) {
+        console.error("fetchOrigins error:", err);
+      }
+    };
+
+    const fetchTags = async () => {
+      try {
+        const json = await http<any>(
+          "GET",
+          "/api/v1/admin/product-tags?limit=1000",
+        );
+        if (json.success && Array.isArray(json.data)) {
+          const activeTags = json.data.filter(
+            (t: any) => t.status === "active",
+          );
+          setTags(activeTags);
+        }
+      } catch (err) {
+        console.error("fetchTags error:", err);
+      }
+    };
+
     fetchCategories();
+    fetchOrigins();
+    fetchTags();
   }, []);
 
   useEffect(() => {
     fetchProduct();
   }, [id]);
 
-  // 🔹 Xử lý input
+  // Gom nhóm thẻ sản phẩm
+  const groupedTags = useMemo(() => {
+    return tags.reduce(
+      (acc, tag) => {
+        const groupName = tag.group || "Khác";
+        if (!acc[groupName]) {
+          acc[groupName] = [];
+        }
+        acc[groupName].push(tag);
+        return acc;
+      },
+      {} as Record<string, ProductTag[]>,
+    );
+  }, [tags]);
+
+  // 🔹 Xử lý input cơ bản
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, type, value } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -215,6 +313,19 @@ const ProductEditPage: React.FC = () => {
     if (formErrors[name]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
+  };
+
+  // 🔹 Handler riêng cho Multi-select Tags
+  const handleToggleTag = (tagId: number) => {
+    setProduct((prev) => {
+      if (!prev) return prev;
+      const currentTags = prev.tag_ids || [];
+      const isSelected = currentTags.includes(tagId);
+      const newTagIds = isSelected
+        ? currentTags.filter((id) => id !== tagId)
+        : [...currentTags, tagId];
+      return { ...prev, tag_ids: newTagIds };
+    });
   };
 
   // 🔹 Xử lý thay đổi biến thể
@@ -265,11 +376,6 @@ const ProductEditPage: React.FC = () => {
     });
   };
 
-  // 🔹 Mô tả
-  const handleDescriptionChange = (content: string) => {
-    setProduct((prev) => (prev ? { ...prev, description: content } : prev));
-  };
-
   // 🔹 Chọn ảnh mới → chỉ preview
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -277,35 +383,29 @@ const ProductEditPage: React.FC = () => {
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-    // Sai định dạng
     if (!allowedTypes.includes(file.type)) {
       setFormErrors((prev) => ({
         ...prev,
         thumbnail: "File tải lên phải là ảnh (jpg, png, webp, gif).",
       }));
-
       e.target.value = "";
       setSelectedFile(null);
       setPreviewImage(product?.thumbnail || "");
       return;
     }
 
-    // Quá dung lượng
     const maxSize = 5 * 1024 * 1024;
-
     if (file.size > maxSize) {
       setFormErrors((prev) => ({
         ...prev,
         thumbnail: "Ảnh không được lớn hơn 5MB.",
       }));
-
       e.target.value = "";
       setSelectedFile(null);
       setPreviewImage(product?.thumbnail || "");
       return;
     }
 
-    // hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
 
@@ -357,7 +457,7 @@ const ProductEditPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ✅ Lưu sản phẩm (upload thumbnail và ảnh trong mô tả)
+  // ✅ Lưu sản phẩm (upload thumbnail và ảnh trong nội dung)
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!product) return;
@@ -384,7 +484,6 @@ const ProductEditPage: React.FC = () => {
         if (dataUpload.success && dataUpload.data?.url) {
           thumbnailUrl = dataUpload.data.url;
         } else if (dataUpload.url) {
-          // fallback
           thumbnailUrl = dataUpload.url;
         } else {
           setFormErrors({ thumbnail: "Lỗi tải ảnh thumbnail lên máy chủ." });
@@ -393,9 +492,18 @@ const ProductEditPage: React.FC = () => {
         }
       }
 
-      // 🔸 Upload ảnh trong nội dung TinyMCE (lazy upload)
+      // 🔸 Upload ảnh trong nội dung của các trường Rich Text
       const updatedDescription = await uploadImagesInContent(
         product.description,
+      );
+      const updatedStorageGuide = await uploadImagesInContent(
+        product.storage_guide,
+      );
+      const updatedUsageSuggestions = await uploadImagesInContent(
+        product.usage_suggestions,
+      );
+      const updatedNutritionNotes = await uploadImagesInContent(
+        product.nutrition_notes,
       );
 
       // --- Chuẩn hóa payload ---
@@ -403,6 +511,11 @@ const ProductEditPage: React.FC = () => {
         ...product,
         thumbnail: thumbnailUrl,
         description: updatedDescription,
+        storageGuide: updatedStorageGuide,
+        usageSuggestions: updatedUsageSuggestions,
+        nutritionNotes: updatedNutritionNotes,
+        shortDescription: product.short_description || null,
+        tagIds: product.tag_ids,
         price: Number(product.price),
         stock: Number(product.stock),
         discountPercentage: Number(product.discount_percentage),
@@ -410,7 +523,7 @@ const ProductEditPage: React.FC = () => {
         featured: Boolean(Number(product.featured)),
       };
 
-      // Chuyển product_category_id thành categoryId cho backend
+      // Map product_category_id -> categoryId
       if (payload.product_category_id !== undefined) {
         payload.categoryId =
           payload.product_category_id === ""
@@ -418,6 +531,20 @@ const ProductEditPage: React.FC = () => {
             : Number(payload.product_category_id);
         delete payload.product_category_id;
       }
+
+      // Map origin_id -> originId
+      if (payload.origin_id !== undefined) {
+        payload.originId =
+          payload.origin_id === "" ? null : Number(payload.origin_id);
+        delete payload.origin_id;
+      }
+
+      // Dọn dẹp các key dùng ở client (snake_case)
+      delete payload.short_description;
+      delete payload.storage_guide;
+      delete payload.usage_suggestions;
+      delete payload.nutrition_notes;
+      delete payload.tag_ids;
 
       // Chuẩn hóa Options
       payload.options = (product.options || []).map((option, optionIndex) => ({
@@ -480,7 +607,7 @@ const ProductEditPage: React.FC = () => {
         showErrorToast(err.message);
       } else {
         showErrorToast(
-          "Không thể upload ảnh. Vui lòng kiểm tra định dạng file.",
+          "Không thể xử lý yêu cầu. Vui lòng kiểm tra định dạng file.",
         );
       }
     } finally {
@@ -526,7 +653,7 @@ const ProductEditPage: React.FC = () => {
           {/* Danh mục */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Danh mục sản phẩm
+              Danh mục sản phẩm <span className="text-red-500">*</span>
             </label>
             <select
               name="product_category_id"
@@ -550,10 +677,30 @@ const ProductEditPage: React.FC = () => {
             )}
           </div>
 
+          {/* Xuất xứ */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Xuất xứ
+            </label>
+            <select
+              name="origin_id"
+              value={product.origin_id || ""}
+              onChange={handleChange}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            >
+              <option value="">-- Chọn xuất xứ --</option>
+              {origins.map((origin) => (
+                <option key={origin.id} value={origin.id}>
+                  {origin.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Tên sản phẩm */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tên sản phẩm
+              Tên sản phẩm <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -573,15 +720,117 @@ const ProductEditPage: React.FC = () => {
             )}
           </div>
 
+          {/* Mô tả ngắn */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Mô tả ngắn
+            </label>
+            <textarea
+              name="short_description"
+              rows={3}
+              value={product.short_description || ""}
+              onChange={handleChange}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              placeholder="Nhập mô tả ngắn gọn về sản phẩm..."
+            />
+          </div>
+
           {/* Mô tả */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Mô tả
+              Mô tả chi tiết
             </label>
             <RichTextEditor
-              value={product.description}
-              onChange={handleDescriptionChange}
+              value={product.description || ""}
+              onChange={(content) =>
+                setProduct((prev) =>
+                  prev ? { ...prev, description: content } : prev,
+                )
+              }
             />
+          </div>
+
+          {/* Hướng dẫn bảo quản */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Hướng dẫn bảo quản
+            </label>
+            <RichTextEditor
+              value={product.storage_guide || ""}
+              onChange={(content) =>
+                setProduct((prev) =>
+                  prev ? { ...prev, storage_guide: content } : prev,
+                )
+              }
+            />
+          </div>
+
+          {/* Gợi ý sử dụng */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Gợi ý sử dụng
+            </label>
+            <RichTextEditor
+              value={product.usage_suggestions || ""}
+              onChange={(content) =>
+                setProduct((prev) =>
+                  prev ? { ...prev, usage_suggestions: content } : prev,
+                )
+              }
+            />
+          </div>
+
+          {/* Ghi chú dinh dưỡng */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Ghi chú dinh dưỡng
+            </label>
+            <RichTextEditor
+              value={product.nutrition_notes || ""}
+              onChange={(content) =>
+                setProduct((prev) =>
+                  prev ? { ...prev, nutrition_notes: content } : prev,
+                )
+              }
+            />
+          </div>
+
+          {/* Product Tags */}
+          <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+            <label className="block text-base font-bold text-gray-800 dark:text-white mb-4">
+              Thẻ sản phẩm (Product Tags)
+            </label>
+            {Object.keys(groupedTags).length > 0 ? (
+              <div className="space-y-4">
+                {Object.entries(groupedTags).map(([group, groupTags]) => (
+                  <div key={group}>
+                    <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-2">
+                      {group}
+                    </h4>
+                    <div className="flex flex-wrap gap-3">
+                      {groupTags.map((tag) => (
+                        <label
+                          key={tag.id}
+                          className="flex items-center space-x-2 cursor-pointer bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-full px-3 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={(product.tag_ids || []).includes(tag.id)}
+                            onChange={() => handleToggleTag(tag.id)}
+                            className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                          />
+                          <span className="text-sm text-gray-800 dark:text-gray-200">
+                            {tag.title}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Chưa có thẻ sản phẩm nào.</p>
+            )}
           </div>
 
           {/* --- Block Quản Lý Biến Thể --- */}
@@ -738,7 +987,7 @@ const ProductEditPage: React.FC = () => {
             />
           </div>
 
-          {/* Giảm giá (Ẩn do logic chuyển sang fallback, có thể giữ lại nếu backend vẫn dùng cấp product) */}
+          {/* Giảm giá (Ẩn do logic chuyển sang fallback) */}
           <div className="mt-4 hidden">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Giảm giá (%)
@@ -946,7 +1195,7 @@ const ProductEditPage: React.FC = () => {
           <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="submit"
-              disabled={saving || !isDirty} // Cập nhật disable
+              disabled={saving || !isDirty}
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600 font-medium"
             >
               {saving ? (

@@ -11,6 +11,8 @@ import {
   Receipt,
   type LucideIcon,
   Settings,
+  MapPinned,
+  Tags,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -33,6 +35,18 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/products",
     icon: ShoppingBag,
     permission: { module: "product", action: "view" },
+  },
+  {
+    name: "Origins",
+    href: "/admin/product-origin",
+    icon: MapPinned,
+    permission: { module: "origin", action: "view" },
+  },
+  {
+    name: "Product Tags",
+    href: "/admin/product-tags",
+    icon: Tags,
+    permission: { module: "product_tag", action: "view" },
   },
   {
     name: "Categories",

@@ -30,6 +30,14 @@ import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
 import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
 import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 import { AdminToastProvider } from "./context/AdminToastContext";
+import ProductOriginPage from "./pages/admin/product-origin/ProductOriginPage";
+import ProductOriginCreatePage from "./pages/admin/product-origin/ProductOriginCreatePage";
+import ProductOriginDetailPage from "./pages/admin/product-origin/ProductOriginDetailPage";
+import ProductOriginEditPage from "./pages/admin/product-origin/ProductOriginEditPage";
+import ProductTagPage from "./pages/admin/product-tags/ProductTagPage";
+import ProductTagCreatePage from "./pages/admin/product-tags/ProductTagCreatePage";
+import ProductTagDetailPage from "./pages/admin/product-tags/ProductTagDetailPage";
+import ProductTagEditPage from "./pages/admin/product-tags/ProductTagEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -154,10 +162,41 @@ const App: React.FC = () => {
                                 path="orders/:id/timeline"
                                 element={<OrderDeliveryTimelinePage />}
                               />
-
                               <Route
                                 path="settings/general"
                                 element={<SettingsGeneralPage />}
+                              />
+                              <Route
+                                path="product-origin"
+                                element={<ProductOriginPage />}
+                              />
+                              <Route
+                                path="product-origin/create"
+                                element={<ProductOriginCreatePage />}
+                              />
+                              <Route
+                                path="product-origin/detail/:id"
+                                element={<ProductOriginDetailPage />}
+                              />
+                              <Route
+                                path="product-origin/edit/:id"
+                                element={<ProductOriginEditPage />}
+                              />
+                              <Route
+                                path="product-tags"
+                                element={<ProductTagPage />}
+                              />
+                              <Route
+                                path="product-tags/create"
+                                element={<ProductTagCreatePage />}
+                              />
+                              <Route
+                                path="product-tags/detail/:id"
+                                element={<ProductTagDetailPage />}
+                              />
+                              <Route
+                                path="product-tags/edit/:id"
+                                element={<ProductTagEditPage />}
                               />
                             </Routes>
                           </main>

@@ -106,16 +106,19 @@ export const makeRolesController = (uc: {
           !Array.isArray(payload.permissions)
         ) {
           const entries = Object.entries(
-            payload.permissions as Record<string, any>
-          ).reduce((acc, [k, v]) => {
-            if (Array.isArray(v)) {
-              acc[k] = v.map((x) => String(x));
-            } else if (v != null) {
-              // single value -> convert to single-element array
-              acc[k] = [String(v)];
-            }
-            return acc;
-          }, {} as Record<string, string[]>);
+            payload.permissions as Record<string, any>,
+          ).reduce(
+            (acc, [k, v]) => {
+              if (Array.isArray(v)) {
+                acc[k] = v.map((x) => String(x));
+              } else if (v != null) {
+                // single value -> convert to single-element array
+                acc[k] = [String(v)];
+              }
+              return acc;
+            },
+            {} as Record<string, string[]>,
+          );
           normalizedPermissions = Object.keys(entries).length ? entries : null;
         }
 
@@ -185,12 +188,15 @@ export const makeRolesController = (uc: {
             !Array.isArray(body.permissions)
           ) {
             const entries = Object.entries(
-              body.permissions as Record<string, any>
-            ).reduce((acc, [k, v]) => {
-              if (Array.isArray(v)) acc[k] = v.map((x) => String(x));
-              else if (v != null) acc[k] = [String(v)];
-              return acc;
-            }, {} as Record<string, string[]>);
+              body.permissions as Record<string, any>,
+            ).reduce(
+              (acc, [k, v]) => {
+                if (Array.isArray(v)) acc[k] = v.map((x) => String(x));
+                else if (v != null) acc[k] = [String(v)];
+                return acc;
+              },
+              {} as Record<string, string[]>,
+            );
             normalizedPermissions = Object.keys(entries).length
               ? entries
               : null;
@@ -260,7 +266,7 @@ export const makeRolesController = (uc: {
     updatePermissions: async (
       req: Request,
       res: Response,
-      next: NextFunction
+      next: NextFunction,
     ) => {
       try {
         const id = Number(req.params.id);
@@ -298,7 +304,7 @@ export const makeRolesController = (uc: {
     permissionsMatrix: async (
       req: Request,
       res: Response,
-      next: NextFunction
+      next: NextFunction,
     ) => {
       try {
         const roles = await uc.listForPermissions.execute(); // [{id,title,permissions}]
@@ -317,6 +323,26 @@ export const makeRolesController = (uc: {
           {
             group: "Sản phẩm",
             key: "product",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
+          {
+            group: "Xuất xứ",
+            key: "origin",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
+          {
+            group: "Tag sản phẩm",
+            key: "product_tag",
             actions: [
               { key: "view", label: "Xem" },
               { key: "create", label: "Thêm mới" },
@@ -407,7 +433,7 @@ export const makeRolesController = (uc: {
     permissionsPatchMatrix: async (
       req: Request,
       res: Response,
-      next: NextFunction
+      next: NextFunction,
     ) => {
       try {
         const { roles } = req.body as {
