@@ -27,6 +27,7 @@ interface Product {
     title?: string | null;
     stock: number;
     price: number;
+    status?: string;
   }>;
   category?: Category | null;
 }
@@ -180,8 +181,17 @@ const ProductListPage: React.FC = () => {
   };
 
   const getDisplayStock = (product: Product) => {
-    if (typeof product.totalStock === "number") return product.totalStock;
-    return typeof product.stock === "number" ? product.stock : 0;
+    if (typeof product.totalStock === "number") {
+      return Math.max(0, Number(product.totalStock));
+    }
+
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      return product.variants.reduce((sum, variant) => {
+        return sum + Math.max(0, Number(variant.stock ?? 0));
+      }, 0);
+    }
+
+    return Math.max(0, Number(product.stock ?? 0));
   };
 
   const hasMultipleVariants = (product: Product) =>

@@ -5,7 +5,7 @@ import { http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
 import { useCart } from "../../../context/CartContext";
 import { useAuth } from "../../../context/AuthContext";
-import { useToast } from "../../../context/ToastContext"; // Đã import useToast chuẩn
+import { useToast } from "../../../context/ToastContext";
 import {
   Star,
   Home,
@@ -143,6 +143,20 @@ const getFinalPrice = (product: Product) => {
   return price;
 };
 
+const getProductDisplayStock = (product: Product) => {
+  if (typeof product.totalStock === "number") {
+    return Math.max(0, Number(product.totalStock));
+  }
+
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    return product.variants.reduce((sum, variant) => {
+      return sum + Number(variant.stock ?? 0);
+    }, 0);
+  }
+
+  return Math.max(0, Number(product.stock ?? 0));
+};
+
 // ==========================
 // PAGE START
 // ==========================
@@ -174,7 +188,6 @@ const ProductDetailPage: React.FC = () => {
     null,
   );
 
-  // SỬ DỤNG GLOBAL TOAST TẠI ĐÂY
   const { showSuccessToast, showErrorToast } = useToast();
 
   useEffect(() => {
@@ -309,10 +322,23 @@ const ProductDetailPage: React.FC = () => {
     return item?.quantity || 0;
   }, [items, activeVariant]);
 
+  const selectedStock = useMemo(() => {
+    if (!product) return 0;
+
+    if (activeVariant) {
+      return Math.max(0, Number(activeVariant.stock ?? 0));
+    }
+
+    if (typeof product.totalStock === "number") {
+      return Math.max(0, Number(product.totalStock));
+    }
+
+    return Math.max(0, Number(product.stock ?? 0));
+  }, [product, activeVariant]);
+
   const remainingStock = useMemo(() => {
-    const stock = Number(activeVariant?.stock ?? product?.stock ?? 0);
-    return Math.max(0, stock - quantityInCart);
-  }, [activeVariant, product, quantityInCart]);
+    return Math.max(0, selectedStock - quantityInCart);
+  }, [selectedStock, quantityInCart]);
 
   useEffect(() => {
     if (!product?.variants?.length || !product.options?.length) return;
@@ -701,10 +727,14 @@ const ProductDetailPage: React.FC = () => {
                 {/* Stock Info */}
                 <div className="flex justify-between items-center mb-6 text-sm font-bold">
                   <span
-                    className={`${product.stock > 0 ? "text-green-600 bg-green-50 px-3 py-1 rounded-lg" : "text-red-500 bg-red-50 px-3 py-1 rounded-lg"}`}
+                    className={`${
+                      selectedStock > 0
+                        ? "text-green-600 bg-green-50 px-3 py-1 rounded-lg"
+                        : "text-red-500 bg-red-50 px-3 py-1 rounded-lg"
+                    }`}
                   >
-                    {product.stock > 0
-                      ? `Còn hàng: ${product.stock.toLocaleString()}`
+                    {selectedStock > 0
+                      ? `Còn hàng: ${selectedStock.toLocaleString()}`
                       : "Đã bán hết"}
                   </span>
                   <span className="text-slate-400">Mã SP: #{product.id}</span>
@@ -725,8 +755,7 @@ const ProductDetailPage: React.FC = () => {
                     >
                       <Minus className="w-5 h-5 stroke-[3]" />
                     </button>
-                    {/* 
-                        focus -> xoá nhập số
+                    {/* focus -> xoá nhập số
                         blur -> xoá mà không nhập set về 1
                       */}
                     <input
@@ -1103,8 +1132,8 @@ const ProductDetailPage: React.FC = () => {
                   {relatedProducts.map((p) => {
                     const hasDiscount = Number(p.discountPercentage ?? 0) > 0;
                     const finalPrice = getFinalPrice(p);
-                    const isOutOfStock =
-                      typeof p.stock === "number" && p.stock <= 0;
+                    const displayStock = getProductDisplayStock(p);
+                    const isOutOfStock = displayStock <= 0;
 
                     return (
                       <div

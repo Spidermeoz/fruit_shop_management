@@ -45,11 +45,27 @@ interface OrderInfo {
   saveInfo: boolean;
 }
 
+// 2) Thêm helper local để checkout dùng stock nhất quán
+const getCheckoutItemAvailableStock = (item: any) => {
+  const raw = item?.variant?.stock;
+
+  if (raw === undefined || raw === null || raw === "") {
+    return item?.quantity > 0 ? item.quantity : 0;
+  }
+
+  const stock = Number(raw);
+  if (!Number.isFinite(stock)) {
+    return item?.quantity > 0 ? item.quantity : 0;
+  }
+
+  return Math.max(0, stock);
+};
+
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items: cartItems, fetchCart } = useCart();
-  const { showErrorToast } = useToast(); // Gọi hook UseToast
+  const { showErrorToast } = useToast();
 
   // List product variants được chọn từ CartPage
   const selectedItems: number[] = location.state?.selectedItems || [];
@@ -97,9 +113,9 @@ const CheckoutPage: React.FC = () => {
       payment: "cod",
       saveInfo: false,
     });
-    setErrors({}); // Xóa toàn bộ báo lỗi đỏ
-    setDistricts([]); // Làm trống danh sách quận/huyện
-    setWards([]); // Làm trống danh sách phường/xã
+    setErrors({});
+    setDistricts([]);
+    setWards([]);
   };
 
   // Nếu không có selected items → quay về giỏ hàng
@@ -193,10 +209,25 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  // Lọc item được chọn từ giỏ hàng thực
-  const checkoutItems = cartItems.filter((i) =>
-    selectedItems.includes(i.productVariantId),
-  );
+  // 3) Chuẩn hóa checkoutItems bằng filter an toàn hơn
+  const checkoutItems = cartItems.filter((item) => {
+    if (!item?.productVariantId) return false;
+    return selectedItems.includes(item.productVariantId);
+  });
+
+  // 4) Thêm derived state để biết item nào invalid / out-of-stock
+  const invalidCheckoutItems = checkoutItems.filter((item) => {
+    const availableStock = getCheckoutItemAvailableStock(item);
+
+    if (!item.productVariantId) return true;
+    if (item.quantity <= 0) return true;
+    if (availableStock <= 0) return true;
+    if (item.quantity > availableStock) return true;
+
+    return false;
+  });
+
+  const hasInvalidCheckoutItems = invalidCheckoutItems.length > 0;
 
   // Hàm tính giá hiệu quả (sau khi giảm giá)
   const getEffectivePrice = (item: any) => {
@@ -292,10 +323,25 @@ const CheckoutPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 5) Chặn submit nếu checkout item vượt tồn kho hiển thị
     if (!checkoutItems.length) {
-      showErrorToast("Không có sản phẩm hợp lệ để thanh toán");
+      showErrorToast("Không có sản phẩm hợp lệ để thanh toán.");
       return;
     }
+
+    const exceededItem = checkoutItems.find((item) => {
+      const availableStock = getCheckoutItemAvailableStock(item);
+      return item.quantity > availableStock;
+    });
+
+    if (exceededItem) {
+      showErrorToast(
+        "Có sản phẩm vượt quá tồn kho hiện có. Vui lòng kiểm tra lại giỏ hàng.",
+      );
+      return;
+    }
+
     setIsProcessing(true);
 
     try {
@@ -911,10 +957,16 @@ const CheckoutPage: React.FC = () => {
                       >
                         <ArrowLeft className="w-5 h-5 stroke-[3]" /> Trở lại
                       </button>
+
+                      {/* 6) Disable nút đặt hàng nếu checkout data không hợp lệ */}
                       <button
                         type="submit"
-                        disabled={isProcessing}
-                        className="bg-green-600 text-white px-10 py-4 rounded-2xl font-bold text-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-3 active:scale-95 shadow-lg disabled:opacity-70"
+                        disabled={
+                          isProcessing ||
+                          !checkoutItems.length ||
+                          hasInvalidCheckoutItems
+                        }
+                        className="bg-green-600 text-white px-10 py-4 rounded-2xl font-bold text-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-3 active:scale-95 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                       >
                         {isProcessing ? (
                           <>
@@ -944,6 +996,14 @@ const CheckoutPage: React.FC = () => {
                   Đơn hàng của bạn
                 </h3>
 
+                {/* 7) Hiển thị warning nhẹ nếu có item hết hàng hoặc vượt tồn kho */}
+                {hasInvalidCheckoutItems && (
+                  <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 font-medium leading-relaxed">
+                    Có sản phẩm trong đơn thanh toán hiện không còn đủ tồn kho.
+                    Vui lòng quay lại giỏ hàng để kiểm tra lại số lượng.
+                  </div>
+                )}
+
                 {/* Items List */}
                 <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                   {checkoutItems.map((item) => (
@@ -953,7 +1013,7 @@ const CheckoutPage: React.FC = () => {
                     >
                       <img
                         src={item.product?.thumbnail || ""}
-                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
+                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white shrink-0"
                         alt="product"
                       />
                       <div className="flex-1 min-w-0">
@@ -984,6 +1044,19 @@ const CheckoutPage: React.FC = () => {
                             đ
                           </p>
                         </div>
+
+                        {/* 8) Thêm warning theo item khi vượt quá tồn kho hoặc hết hàng */}
+                        {item.quantity > getCheckoutItemAvailableStock(item) &&
+                          getCheckoutItemAvailableStock(item) > 0 && (
+                            <p className="mt-2 text-[11px] font-bold text-red-500">
+                              Số lượng đã chọn đang vượt quá tồn kho hiện có.
+                            </p>
+                          )}
+                        {getCheckoutItemAvailableStock(item) <= 0 && (
+                          <p className="mt-2 text-[11px] font-bold text-red-500">
+                            Sản phẩm này hiện đã hết hàng.
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

@@ -5,6 +5,13 @@ export function summarizeProducts(products: Product[]) {
 
   const getStock = (p: Product) => {
     if (typeof p.totalStock === "number") return p.totalStock;
+
+    if (Array.isArray(p.variants) && p.variants.length > 0) {
+      return p.variants.reduce((sum, variant) => {
+        return sum + Number(variant.stock ?? 0);
+      }, 0);
+    }
+
     return typeof p.stock === "number" ? p.stock : 0;
   };
 

@@ -87,6 +87,18 @@ interface Product {
   variants?: ProductVariantInput[];
 }
 
+// =============================
+// HELPERS
+// =============================
+const getDerivedProductStockFromVariants = (
+  variants: ProductVariantInput[],
+) => {
+  return variants.reduce((sum, variant) => {
+    const stock = Number(variant.stock ?? 0);
+    return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
+  }, 0);
+};
+
 const ProductEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -114,6 +126,11 @@ const ProductEditPage: React.FC = () => {
   );
   const [imageUrl, setImageUrl] = useState<string>("");
   const { showSuccessToast, showErrorToast } = useAdminToast();
+
+  // 🔹 Tính toán derived product stock từ variants
+  const derivedProductStock = useMemo(() => {
+    return getDerivedProductStockFromVariants(product?.variants || []);
+  }, [product?.variants]);
 
   // Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
@@ -180,6 +197,13 @@ const ProductEditPage: React.FC = () => {
   const isDirty = React.useMemo(() => {
     if (!product || !initialProduct) return false;
 
+    // Lấy tồn kho chuẩn hóa để compare
+    const initialStockComparable =
+      Array.isArray(initialProduct.variants) &&
+      initialProduct.variants.length > 0
+        ? getDerivedProductStockFromVariants(initialProduct.variants)
+        : Number(initialProduct.stock ?? 0);
+
     // So sánh dữ liệu cơ bản
     const hasFieldChanges =
       product.title !== initialProduct.title ||
@@ -189,7 +213,7 @@ const ProductEditPage: React.FC = () => {
       Number(product.price) !== Number(initialProduct.price) ||
       Number(product.discount_percentage) !==
         Number(initialProduct.discount_percentage) ||
-      Number(product.stock) !== Number(initialProduct.stock) ||
+      derivedProductStock !== initialStockComparable || // Dùng derivedProductStock thay vì product.stock
       product.status !== initialProduct.status ||
       Number(product.featured) !== Number(initialProduct.featured) ||
       String(product.position) !== String(initialProduct.position) ||
@@ -220,7 +244,14 @@ const ProductEditPage: React.FC = () => {
     return (
       hasFieldChanges || hasTagChanges || hasImageChanges || hasVariantChanges
     );
-  }, [product, initialProduct, selectedFile, imageMethod, imageUrl]);
+  }, [
+    product,
+    initialProduct,
+    selectedFile,
+    imageMethod,
+    imageUrl,
+    derivedProductStock,
+  ]);
 
   // Lấy danh sách danh mục, xuất xứ và tags
   useEffect(() => {
@@ -506,6 +537,10 @@ const ProductEditPage: React.FC = () => {
         product.nutrition_notes,
       );
 
+      // Tính tổng tồn kho chính xác dựa trên danh sách variants trước khi gửi payload
+      const derivedStockFromNormalizedVariants =
+        getDerivedProductStockFromVariants(product.variants || []);
+
       // --- Chuẩn hóa payload ---
       const payload: any = {
         ...product,
@@ -517,7 +552,7 @@ const ProductEditPage: React.FC = () => {
         shortDescription: product.short_description || null,
         tagIds: product.tag_ids,
         price: Number(product.price),
-        stock: Number(product.stock),
+        stock: derivedStockFromNormalizedVariants, // 🔹 Sử dụng stock tổng hợp
         discountPercentage: Number(product.discount_percentage),
         position: product.position === "" ? null : Number(product.position),
         featured: Boolean(Number(product.featured)),
@@ -578,10 +613,9 @@ const ProductEditPage: React.FC = () => {
           : [],
       }));
 
-      // Set fallback cho price và stock từ variant đầu tiên nếu trống
+      // Set fallback cho price từ variant đầu tiên nếu trống
       if (payload.variants.length > 0) {
         if (!payload.price) payload.price = payload.variants[0].price;
-        if (!payload.stock) payload.stock = payload.variants[0].stock;
       }
 
       const json = await http<any>(
@@ -846,6 +880,12 @@ const ProductEditPage: React.FC = () => {
               >
                 <Plus className="w-4 h-4" /> Thêm biến thể
               </button>
+            </div>
+
+            {/* 🔹 Thêm UI Text hiển thị Tồn kho tổng hợp */}
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+              Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
+              <span className="font-semibold">{derivedProductStock}</span>
             </div>
 
             {formErrors.price && (

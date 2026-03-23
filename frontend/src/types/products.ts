@@ -31,7 +31,7 @@ export interface ProductVariant {
   title?: string | null;
   price: number;
   compareAtPrice?: number | null;
-  stock: number;
+  stock: number; // mirror tồn kho thực tế ở variant-level
   status: string;
   sortOrder?: number;
   optionValueIds?: number[];
@@ -66,7 +66,17 @@ export interface Product {
   discount_percentage?: number | null;
   discountPercentage?: number | null;
 
+  /**
+   * Compatibility field.
+   * Không nên coi là source tồn kho chính ở frontend Phase 3.
+   * Khi có variants / totalStock thì field này nên được hiểu là mirror tổng hợp.
+   */
   stock: number;
+
+  /**
+   * Product-level aggregate stock.
+   * Ưu tiên dùng field này cho listing / summary / admin detail.
+   */
   totalStock?: number;
 
   variants?: ProductVariant[];

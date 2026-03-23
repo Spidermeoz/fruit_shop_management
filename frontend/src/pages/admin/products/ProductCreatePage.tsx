@@ -80,7 +80,7 @@ interface ProductFormData {
   description: string;
   price: number | string; // Giữ lại như fallback
   discount_percentage: number | string;
-  stock: number | string; // Giữ lại như fallback
+  stock: number | string; // Compatibility field, không còn là nguồn tồn kho chính
   thumbnail: string;
   status: string;
   featured: number | string;
@@ -92,6 +92,16 @@ interface ProductFormData {
   options: ProductOptionInput[];
   variants: ProductVariantInput[];
 }
+
+// 1) Thêm helper tính tồn kho tổng hợp từ variants
+const getDerivedProductStockFromVariants = (
+  variants: ProductVariantInput[],
+) => {
+  return variants.reduce((sum, variant) => {
+    const stock = Number(variant.stock ?? 0);
+    return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
+  }, 0);
+};
 
 const ProductCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -226,6 +236,11 @@ const ProductCreatePage: React.FC = () => {
       {} as Record<string, ProductTag[]>,
     );
   }, [tags]);
+
+  // 2) Thêm derived stock bằng useMemo
+  const derivedProductStock = useMemo(() => {
+    return getDerivedProductStockFromVariants(formData.variants);
+  }, [formData.variants]);
 
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -436,11 +451,15 @@ const ProductCreatePage: React.FC = () => {
           : [],
       }));
 
-      // Lấy price và stock đầu tiên làm fallback cho product cha
+      // 3) Lấy price đầu tiên làm fallback cho product cha nếu cần giữ compatibility cũ
       const fallbackPrice =
         normalizedVariants.length > 0 ? normalizedVariants[0].price : null;
-      const fallbackStock =
-        normalizedVariants.length > 0 ? normalizedVariants[0].stock : 0;
+
+      // Product stock giờ chỉ còn là compatibility mirror từ tổng variants
+      const fallbackStock = normalizedVariants.reduce((sum, variant) => {
+        const stock = Number(variant.stock ?? 0);
+        return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
+      }, 0);
 
       // Chuẩn bị payload
       const json = await http<any>("POST", "/api/v1/admin/products/create", {
@@ -464,7 +483,8 @@ const ProductCreatePage: React.FC = () => {
           formData.discount_percentage === ""
             ? null
             : Number(formData.discount_percentage),
-        stock: Number(formData.stock) || fallbackStock,
+        // 4) Sửa payload submit để không dùng formData.stock làm nguồn chính nữa
+        stock: fallbackStock,
         thumbnail: uploadedThumbnailUrl,
         status: formData.status,
         featured: Boolean(Number(formData.featured)),
@@ -708,6 +728,12 @@ const ProductCreatePage: React.FC = () => {
               {errors.price}
             </div>
           )}
+
+          {/* 6) Thêm một dòng UI nhỏ để admin hiểu stock product-level là tổng hợp */}
+          <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
+            Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
+            <span className="font-semibold">{derivedProductStock}</span>
+          </div>
 
           <div className="space-y-4">
             {formData.variants.map((variant, index) => (

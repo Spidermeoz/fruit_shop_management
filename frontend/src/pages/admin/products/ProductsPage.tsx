@@ -38,6 +38,21 @@ interface Product {
   }>;
 }
 
+// 🔹 Helper lấy tồn kho để hiển thị
+const getDisplayStock = (product: Product) => {
+  if (typeof product.totalStock === "number") {
+    return Math.max(0, Number(product.totalStock));
+  }
+
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    return product.variants.reduce((sum, variant) => {
+      return sum + Math.max(0, Number(variant.stock ?? 0));
+    }, 0);
+  }
+
+  return Math.max(0, Number(product.stock ?? 0));
+};
+
 const ProductsPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
@@ -479,145 +494,149 @@ const ProductsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredProducts.map((product, index) => (
-                  <tr
-                    key={product.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    <td className="px-4 py-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedProducts.includes(product.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedProducts((prev) => [
-                              ...prev,
-                              product.id,
-                            ]);
-                          } else {
-                            setSelectedProducts((prev) =>
-                              prev.filter((id) => id !== product.id),
-                            );
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700 dark:text-gray-300">
-                      {(currentPage - 1) * 10 + index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="relative">
-                          <img
-                            className="h-10 w-10 rounded-full object-cover"
-                            src={
-                              product.thumbnail ||
-                              "https://via.placeholder.com/50"
+                {filteredProducts.map((product, index) => {
+                  const displayStock = getDisplayStock(product);
+
+                  return (
+                    <tr
+                      key={product.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <td className="px-4 py-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.includes(product.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedProducts((prev) => [
+                                ...prev,
+                                product.id,
+                              ]);
+                            } else {
+                              setSelectedProducts((prev) =>
+                                prev.filter((id) => id !== product.id),
+                              );
                             }
-                            alt={product.title}
-                          />
-                          {pendingMap[product.id] > 0 && (
-                            <span className="absolute -top-1 -right-1 px-2 py-1 bg-red-600 text-white text-xs rounded-full">
-                              {pendingMap[product.id]}
-                            </span>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {product.title}
+                          }}
+                        />
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700 dark:text-gray-300">
+                        {(currentPage - 1) * 10 + index + 1}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="relative">
+                            <img
+                              className="h-10 w-10 rounded-full object-cover"
+                              src={
+                                product.thumbnail ||
+                                "https://via.placeholder.com/50"
+                              }
+                              alt={product.title}
+                            />
+                            {pendingMap[product.id] > 0 && (
+                              <span className="absolute -top-1 -right-1 px-2 py-1 bg-red-600 text-white text-xs rounded-full">
+                                {pendingMap[product.id]}
+                              </span>
+                            )}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            #{product.id}
-                          </div>
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {product.variants?.length ?? 0} biến thể
-                          </div>
-                          {pendingMap[product.id] > 0 && (
-                            <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                              {pendingMap[product.id]} đánh giá chờ phản hồi
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {product.title}
                             </div>
-                          )}
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              #{product.id}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {product.variants?.length ?? 0} biến thể
+                            </div>
+                            {pendingMap[product.id] > 0 && (
+                              <div className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                                {pendingMap[product.id]} đánh giá chờ phản hồi
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      <input
-                        type="number"
-                        value={product.position || ""}
-                        onChange={(e) => {
-                          const newPos = Number(e.target.value); // ✅ ép kiểu rõ ràng
-                          setProducts((prev) =>
-                            prev.map((p) =>
-                              p.id === product.id
-                                ? { ...p, position: newPos }
-                                : p,
-                            ),
-                          );
-                        }}
-                        className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {product.category?.title || "—"}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {product.priceRange
-                        ? `${product.priceRange.min.toLocaleString()}₫ - ${product.priceRange.max.toLocaleString()}₫`
-                        : `${product.price?.toLocaleString()}₫`}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`text-sm font-medium ${
-                          product.stock < 10
-                            ? "text-red-600"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
-                        {product.totalStock ?? product.stock} items
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap cursor-pointer">
-                      <span
-                        onClick={() => handleToggleStatus(product)} // ✅ thêm dòng này
-                        title="Click để đổi trạng thái"
-                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition cursor-pointer ${
-                          product.status?.toLowerCase() === "active"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200"
-                        }`}
-                      >
-                        {product.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() =>
-                            navigate(`/admin/products/${product.id}`)
-                          } // ✅ chuyển sang trang chi tiết
-                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                          title="View"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        <input
+                          type="number"
+                          value={product.position || ""}
+                          onChange={(e) => {
+                            const newPos = Number(e.target.value);
+                            setProducts((prev) =>
+                              prev.map((p) =>
+                                p.id === product.id
+                                  ? { ...p, position: newPos }
+                                  : p,
+                              ),
+                            );
+                          }}
+                          className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-center"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {product.category?.title || "—"}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {product.priceRange
+                          ? `${product.priceRange.min.toLocaleString()}₫ - ${product.priceRange.max.toLocaleString()}₫`
+                          : `${product.price?.toLocaleString()}₫`}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`text-sm font-medium ${
+                            displayStock < 10
+                              ? "text-red-600"
+                              : "text-gray-900 dark:text-white"
+                          }`}
                         >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleEditProduct(product.id)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
-                          title="Edit"
+                          {displayStock} items
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap cursor-pointer">
+                        <span
+                          onClick={() => handleToggleStatus(product)}
+                          title="Click để đổi trạng thái"
+                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full transition cursor-pointer ${
+                            product.status?.toLowerCase() === "active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 hover:bg-green-200"
+                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 hover:bg-red-200"
+                          }`}
                         >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteProduct(product.id)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {product.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() =>
+                              navigate(`/admin/products/${product.id}`)
+                            }
+                            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                            title="View"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEditProduct(product.id)}
+                            className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300"
+                            title="Edit"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

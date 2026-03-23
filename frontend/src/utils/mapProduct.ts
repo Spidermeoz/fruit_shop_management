@@ -1,6 +1,12 @@
 export function mapProduct(raw: any) {
   const p = raw?.props ?? raw ?? {};
 
+  const toNumberOrNull = (value: any) => {
+    if (value === undefined || value === null || value === "") return null;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  };
+
   const variants = Array.isArray(p.variants)
     ? p.variants.map((v: any, index: number) => ({
         id: Number(v.id),
@@ -69,13 +75,30 @@ export function mapProduct(raw: any) {
     ? Math.max(...priceSource.map((v: any) => Number(v.price ?? 0)))
     : null;
 
+  const variantsTotalStock = variants.reduce(
+    (sum: number, v: any) => sum + Number(v.stock ?? 0),
+    0,
+  );
+
+  const rawTotalStock = toNumberOrNull(p.totalStock);
+  const rawProductStock = toNumberOrNull(p.stock);
+
+  const hasVariants = variants.length > 0;
+
   const totalStock =
-    p.totalStock !== undefined && p.totalStock !== null
-      ? Number(p.totalStock)
-      : variants.reduce((sum: number, v: any) => sum + Number(v.stock ?? 0), 0);
+    rawTotalStock !== null
+      ? rawTotalStock
+      : hasVariants
+        ? variantsTotalStock
+        : (rawProductStock ?? 0);
+
+  const mirroredProductStock =
+    hasVariants || rawTotalStock !== null
+      ? totalStock
+      : (rawProductStock ?? totalStock);
 
   const basePrice =
-    p.price !== undefined && p.price !== null
+    p.price !== undefined && p.price !== null && p.price !== ""
       ? Number(p.price)
       : (minVariantPrice ?? 0);
 
@@ -129,8 +152,7 @@ export function mapProduct(raw: any) {
     discount_percentage: discountPercentage,
     discountPercentage,
 
-    stock:
-      p.stock !== undefined && p.stock !== null ? Number(p.stock) : totalStock,
+    stock: mirroredProductStock,
     totalStock,
 
     status: p.status,

@@ -16,6 +16,22 @@ import {
 import { useToast } from "../../../context/ToastContext";
 import Footer from "../../../components/client/layouts/Footer";
 
+// Helper dùng chung để lấy stock hợp lệ
+const getItemAvailableStock = (item: CartItem) => {
+  const raw = item.variant?.stock;
+
+  if (raw === undefined || raw === null) {
+    return item.quantity > 0 ? item.quantity : 0;
+  }
+
+  const stock = Number(raw);
+  if (!Number.isFinite(stock)) {
+    return item.quantity > 0 ? item.quantity : 0;
+  }
+
+  return Math.max(0, stock);
+};
+
 const CartPage: React.FC = () => {
   const { items, fetchCart, updateItem, removeItem, clearCart } = useCart();
   const navigate = useNavigate();
@@ -91,15 +107,15 @@ const CartPage: React.FC = () => {
     const item = items.find((i) => i.productVariantId === productVariantId);
     if (!item) return;
 
-    const stock = item.variant?.stock ?? 9999;
+    const availableStock = getItemAvailableStock(item);
 
     const current = qtyInputs[productVariantId] ?? item.quantity;
     let newQty = current + delta;
 
     if (newQty < 1) newQty = 1;
-    if (newQty > stock) {
-      showErrorToast(`Chỉ còn ${stock} sản phẩm`);
-      newQty = stock;
+    if (newQty > availableStock) {
+      showErrorToast(`Chỉ còn ${availableStock} sản phẩm`);
+      newQty = availableStock;
     }
 
     setQtyInputs((prev) => ({
@@ -219,182 +235,195 @@ const CartPage: React.FC = () => {
 
                     {/* Danh sách Item */}
                     <div className="p-4 md:p-6 space-y-4">
-                      {items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 rounded-[1.5rem] border border-slate-100 hover:border-green-200 hover:bg-green-50/30 transition-colors group"
-                        >
-                          {/* Checkbox */}
-                          <div className="flex-shrink-0 pt-1 sm:pt-0">
-                            <label
-                              className="relative flex cursor-pointer items-center rounded-full p-1"
-                              htmlFor={`check-${item.productVariantId}`}
-                            >
-                              <input
-                                type="checkbox"
-                                id={`check-${item.productVariantId}`}
-                                checked={selectedItems.includes(
-                                  item.productVariantId,
-                                )}
-                                onChange={() =>
-                                  toggleSelect(item.productVariantId)
-                                }
-                                className="peer h-6 w-6 cursor-pointer appearance-none rounded-md border-2 border-slate-300 checked:border-green-600 checked:bg-green-600 transition-all"
-                              />
-                              <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
-                                <Check className="h-4 w-4 stroke-[3]" />
-                              </div>
-                            </label>
-                          </div>
+                      {items.map((item) => {
+                        const availableStock = getItemAvailableStock(item);
+                        const canIncrease = item.quantity < availableStock;
 
-                          {/* Thumbnail */}
-                          <Link
-                            to={item.product?.slug ? `/products/${item.product.slug}` : `/products/${item.productId ?? ""}`}
-                            className="flex-shrink-0 relative overflow-hidden rounded-2xl w-24 h-24 sm:w-28 sm:h-28 border border-slate-100 bg-white"
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 p-4 rounded-[1.5rem] border border-slate-100 hover:border-green-200 hover:bg-green-50/30 transition-colors group"
                           >
-                            <img
-                              src={item.product?.thumbnail || ""}
-                              alt={item.product?.title ?? ""}
-                              className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
-                            />
-                          </Link>
+                            {/* Checkbox */}
+                            <div className="flex-shrink-0 pt-1 sm:pt-0">
+                              <label
+                                className="relative flex cursor-pointer items-center rounded-full p-1"
+                                htmlFor={`check-${item.productVariantId}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  id={`check-${item.productVariantId}`}
+                                  checked={selectedItems.includes(
+                                    item.productVariantId,
+                                  )}
+                                  onChange={() =>
+                                    toggleSelect(item.productVariantId)
+                                  }
+                                  className="peer h-6 w-6 cursor-pointer appearance-none rounded-md border-2 border-slate-300 checked:border-green-600 checked:bg-green-600 transition-all"
+                                />
+                                <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 transition-opacity peer-checked:opacity-100">
+                                  <Check className="h-4 w-4 stroke-[3]" />
+                                </div>
+                              </label>
+                            </div>
 
-                          {/* Info */}
-                          <div className="flex-1 min-w-0 flex flex-col justify-between w-full">
+                            {/* Thumbnail */}
                             <Link
-                              to={item.product?.slug ? `/products/${item.product.slug}` : `/products/${item.productId ?? ""}`}
-                              className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors truncate block mb-1"
+                              to={
+                                item.product?.slug
+                                  ? `/products/${item.product.slug}`
+                                  : `/products/${item.productId ?? ""}`
+                              }
+                              className="flex-shrink-0 relative overflow-hidden rounded-2xl w-24 h-24 sm:w-28 sm:h-28 border border-slate-100 bg-white"
                             >
-                              {item.product?.title}
+                              <img
+                                src={item.product?.thumbnail || ""}
+                                alt={item.product?.title ?? ""}
+                                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                              />
                             </Link>
 
-                            {item.variant?.title && (
-                              <p className="text-sm font-bold text-slate-500 mb-1">
-                                {item.variant.title}
-                              </p>
-                            )}
+                            {/* Info */}
+                            <div className="flex-1 min-w-0 flex flex-col justify-between w-full">
+                              <Link
+                                to={
+                                  item.product?.slug
+                                    ? `/products/${item.product.slug}`
+                                    : `/products/${item.productId ?? ""}`
+                                }
+                                className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors truncate block mb-1"
+                              >
+                                {item.product?.title}
+                              </Link>
 
-                            {item.variant?.optionValues &&
-                              item.variant.optionValues.length > 0 && (
-                                <p className="text-xs text-slate-400 font-medium mb-2">
-                                  {item.variant.optionValues
-                                    .map((ov) => ov.value)
-                                    .join(" / ")}
+                              {item.variant?.title && (
+                                <p className="text-sm font-bold text-slate-500 mb-1">
+                                  {item.variant.title}
                                 </p>
                               )}
 
-                            <div className="mb-4 sm:mb-0">
-                              <p className="text-green-600 font-black text-lg">
-                                {getEffectivePrice(item).toLocaleString()} đ
-                              </p>
+                              {item.variant?.optionValues &&
+                                item.variant.optionValues.length > 0 && (
+                                  <p className="text-xs text-slate-400 font-medium mb-2">
+                                    {item.variant.optionValues
+                                      .map((ov) => ov.value)
+                                      .join(" / ")}
+                                  </p>
+                                )}
 
-                              {item.variant?.sku && (
-                                <p className="text-xs text-slate-400 font-medium mt-1">
-                                  SKU: {item.variant.sku}
+                              <div className="mb-4 sm:mb-0">
+                                <p className="text-green-600 font-black text-lg">
+                                  {getEffectivePrice(item).toLocaleString()} đ
                                 </p>
-                              )}
 
-                              <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                                Quy cách: {item.variant?.title || "Mặc định"}
-                              </p>
-                            </div>
-                          </div>
+                                {item.variant?.sku && (
+                                  <p className="text-xs text-slate-400 font-medium mt-1">
+                                    SKU: {item.variant.sku}
+                                  </p>
+                                )}
 
-                          {/* Desktop Qty & Total */}
-                          <div className="hidden sm:flex flex-col items-end gap-4 ml-auto min-w-[120px]">
-                            <div className="text-right">
-                              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                                Thành tiền
-                              </p>
-                              <p className="font-black text-slate-900 text-lg">
-                                {(
-                                  getEffectivePrice(item) * item.quantity
-                                ).toLocaleString()}{" "}
-                                đ
-                              </p>
+                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
+                                  Quy cách: {item.variant?.title || "Mặc định"}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                              <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1">
-                                <button
-                                  disabled={item.quantity <= 1}
-                                  onClick={() =>
-                                    handleUpdateQty(item.productVariantId, -1)
-                                  }
-                                  className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
+                            {/* Desktop Qty & Total */}
+                            <div className="hidden sm:flex flex-col items-end gap-4 ml-auto min-w-[120px]">
+                              <div className="text-right">
+                                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                  Thành tiền
+                                </p>
+                                <p className="font-black text-slate-900 text-lg">
+                                  {(
+                                    getEffectivePrice(item) * item.quantity
+                                  ).toLocaleString()}{" "}
+                                  đ
+                                </p>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <div className="inline-flex items-center bg-slate-50 border border-slate-200 rounded-xl overflow-hidden p-1">
+                                  <button
+                                    disabled={item.quantity <= 1}
+                                    onClick={() =>
+                                      handleUpdateQty(item.productVariantId, -1)
+                                    }
+                                    className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
                                       ${
                                         item.quantity <= 1
                                           ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
                                           : "bg-white text-slate-500 hover:text-green-600"
                                       }
                                     `}
-                                >
-                                  <Minus className="w-4 h-4 stroke-[3]" />
-                                </button>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  max={item.variant?.stock ?? 9999}
-                                  value={
-                                    qtyInputs[item.productVariantId] ??
-                                    item.quantity
-                                  }
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (!/^\d*$/.test(val)) return;
-                                    setQtyInputs((prev) => ({
-                                      ...prev,
-                                      [item.productVariantId]: Number(val),
-                                    }));
-                                  }}
-                                  onBlur={(e) => {
-                                    let qty = Number(e.target.value);
-                                    if (!qty || qty <= 0) qty = 1;
-                                    const stock = item.variant?.stock || 9999;
-                                    if (qty > stock) {
-                                      showErrorToast(
-                                        `Chỉ còn ${stock} sản phẩm`,
-                                      );
-                                      qty = stock;
+                                  >
+                                    <Minus className="w-4 h-4 stroke-[3]" />
+                                  </button>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={Math.max(1, availableStock)}
+                                    value={
+                                      qtyInputs[item.productVariantId] ??
+                                      item.quantity
                                     }
-                                    setQtyInputs((prev) => ({
-                                      ...prev,
-                                      [item.productVariantId]: qty,
-                                    }));
-                                    updateItem(item.productVariantId, qty);
-                                  }}
-                                  className="w-12 h-8 text-center font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                />
-                                <button
-                                  onClick={() =>
-                                    handleUpdateQty(item.productVariantId, 1)
-                                  }
-                                  className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (!/^\d*$/.test(val)) return;
+                                      setQtyInputs((prev) => ({
+                                        ...prev,
+                                        [item.productVariantId]: Number(val),
+                                      }));
+                                    }}
+                                    onBlur={(e) => {
+                                      let qty = Number(e.target.value);
+                                      if (!qty || qty <= 0) qty = 1;
+
+                                      if (qty > availableStock) {
+                                        showErrorToast(
+                                          `Chỉ còn ${availableStock} sản phẩm`,
+                                        );
+                                        qty = availableStock;
+                                      }
+                                      setQtyInputs((prev) => ({
+                                        ...prev,
+                                        [item.productVariantId]: qty,
+                                      }));
+                                      updateItem(item.productVariantId, qty);
+                                    }}
+                                    className="w-12 h-8 text-center font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                  />
+                                  <button
+                                    disabled={!canIncrease}
+                                    onClick={() =>
+                                      handleUpdateQty(item.productVariantId, 1)
+                                    }
+                                    className={`w-8 h-8 flex items-center justify-center  rounded-lg shadow-sm transition-colors active:scale-95
                                       ${
-                                        item.quantity >=
-                                        Number(item.variant?.stock ?? 0)
+                                        !canIncrease
                                           ? "opacity-50 bg-slate-100 text-slate-300 cursor-not-allowed"
                                           : "bg-white text-slate-500 hover:text-green-600"
                                       }
                                     `}
+                                  >
+                                    <Plus className="w-4 h-4 stroke-[3]" />
+                                  </button>
+                                </div>
+
+                                <button
+                                  onClick={() =>
+                                    handleRemove(item.productVariantId)
+                                  }
+                                  className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                                  title="Xoá sản phẩm"
                                 >
-                                  <Plus className="w-4 h-4 stroke-[3]" />
+                                  <Trash2 className="w-5 h-5" />
                                 </button>
                               </div>
-
-                              <button
-                                onClick={() =>
-                                  handleRemove(item.productVariantId)
-                                }
-                                className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
-                                title="Xoá sản phẩm"
-                              >
-                                <Trash2 className="w-5 h-5" />
-                              </button>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
 
                     {/* Footer Actions */}

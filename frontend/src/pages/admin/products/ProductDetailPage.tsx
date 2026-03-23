@@ -190,6 +190,22 @@ const formatDateTime = (date?: string) => {
   return parsed.toLocaleString();
 };
 
+const getDisplayStock = (product: Product | null | undefined) => {
+  if (!product) return 0;
+
+  if (typeof product.totalStock === "number") {
+    return Math.max(0, Number(product.totalStock));
+  }
+
+  if (Array.isArray(product.variants) && product.variants.length > 0) {
+    return product.variants.reduce((sum, variant) => {
+      return sum + Math.max(0, Number(variant.stock ?? 0));
+    }, 0);
+  }
+
+  return Math.max(0, Number(product.stock ?? 0));
+};
+
 // ===== PRODUCT DETAIL PAGE COMPONENT =====
 const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -331,6 +347,8 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
+  const displayStock = getDisplayStock(product);
+
   return (
     <div className="p-4">
       {/* HEADER */}
@@ -408,7 +426,7 @@ const ProductDetailPage: React.FC = () => {
                 <span className="font-medium text-gray-600 dark:text-gray-400">
                   Tổng tồn kho:
                 </span>{" "}
-                {product.totalStock ?? product.stock}
+                {displayStock}
               </p>
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">
