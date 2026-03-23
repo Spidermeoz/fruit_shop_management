@@ -11,7 +11,6 @@ export class CreateOrigin {
 
     const created = await this.repo.create({
       name: input.name.trim(),
-      slug: input.slug ?? null,
       description: input.description ?? null,
       countryCode: input.countryCode ?? null,
       status: input.status ?? "active",

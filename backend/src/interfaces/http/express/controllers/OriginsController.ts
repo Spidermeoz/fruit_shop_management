@@ -4,6 +4,8 @@ import { GetOriginDetail } from "../../../../application/origins/usecases/GetOri
 import { CreateOrigin } from "../../../../application/origins/usecases/CreateOrigin";
 import { EditOrigin } from "../../../../application/origins/usecases/EditOrigin";
 import { ChangeOriginStatus } from "../../../../application/origins/usecases/ChangeOriginStatus";
+import { SoftDeleteOrigin } from "../../../../application/origins/usecases/SoftDeleteOrigin";
+import { BulkDeleteOrigins } from "../../../../application/origins/usecases/BulkDeleteOrigins";
 import type {
   OriginStatus,
   UpdateOriginPatch,
@@ -18,6 +20,8 @@ export const makeOriginsController = (uc: {
   create: CreateOrigin;
   edit: EditOrigin;
   changeStatus: ChangeOriginStatus;
+  softDelete: SoftDeleteOrigin;
+  bulkDelete: BulkDeleteOrigins;
 }) => {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
@@ -32,7 +36,7 @@ export const makeOriginsController = (uc: {
           limit: toNum(limit) ?? 20,
           q,
           status: (status as any) ?? "all",
-          sortBy: (sortBy as any) ?? "position",
+          sortBy: (sortBy as any) ?? "name",
           order: (order as any) ?? "ASC",
         });
 
@@ -79,14 +83,20 @@ export const makeOriginsController = (uc: {
       try {
         const payload = req.body as {
           name: string;
-          slug?: string | null;
           description?: string | null;
           countryCode?: string | null;
+          country_code?: string | null;
           status?: OriginStatus;
           position?: number | null;
         };
 
-        const result = await uc.create.execute(payload);
+        const result = await uc.create.execute({
+          name: payload.name,
+          description: payload.description ?? null,
+          countryCode: payload.countryCode ?? payload.country_code ?? null,
+          status: payload.status,
+          position: payload.position ?? null,
+        });
 
         return res.status(201).json({
           success: true,
@@ -130,7 +140,6 @@ export const makeOriginsController = (uc: {
 
         const patch: UpdateOriginPatch = {
           ...(b.name !== undefined ? { name: String(b.name) } : {}),
-          ...(b.slug !== undefined ? { slug: b.slug || null } : {}),
           ...(b.description !== undefined
             ? { description: b.description }
             : {}),
@@ -149,6 +158,36 @@ export const makeOriginsController = (uc: {
         };
 
         const result = await uc.edit.execute(id, patch);
+
+        return res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    softDelete: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const id = Number(req.params.id);
+        const result = await uc.softDelete.execute(id);
+
+        return res.json({
+          success: true,
+          data: result,
+          meta: { total: 0, page: 1, limit: 10 },
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    bulkDelete: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { ids } = req.body as { ids: number[] };
+        const result = await uc.bulkDelete.execute(ids);
 
         return res.json({
           success: true,

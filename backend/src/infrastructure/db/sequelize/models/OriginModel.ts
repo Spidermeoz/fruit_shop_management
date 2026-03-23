@@ -103,27 +103,26 @@ async function ensureUniqueSlug(base: string, excludeId?: number) {
   }
 }
 
+Origin.beforeValidate((origin: any) => {
+  if (typeof origin.name === "string") {
+    origin.name = origin.name.trim();
+  }
+});
+
 Origin.beforeCreate(async (origin: any) => {
-  const name = origin.name?.toString().trim();
-  const incoming = origin.slug?.toString().trim();
-  const base = makeBaseSlug(incoming || name || "");
+  const name = origin.name?.toString().trim() || "";
+  const base = makeBaseSlug(name);
   origin.slug = await ensureUniqueSlug(base);
 });
 
 Origin.beforeUpdate(async (origin: any) => {
   const changedName = origin.changed && origin.changed("name");
-  const changedSlug = origin.changed && origin.changed("slug");
 
-  if (changedSlug) {
-    const base = makeBaseSlug(origin.slug?.toString().trim() || "");
-    origin.slug = await ensureUniqueSlug(base, Number(origin.id));
-    return;
-  }
+  if (!changedName) return;
 
-  if (changedName) {
-    const base = makeBaseSlug(origin.name?.toString().trim() || "");
-    origin.slug = await ensureUniqueSlug(base, Number(origin.id));
-  }
+  const name = origin.name?.toString().trim() || "";
+  const base = makeBaseSlug(name);
+  origin.slug = await ensureUniqueSlug(base, Number(origin.id));
 });
 
 export default Origin;

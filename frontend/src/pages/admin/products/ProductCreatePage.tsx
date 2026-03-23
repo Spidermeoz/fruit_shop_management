@@ -18,7 +18,8 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // =============================
 interface Origin {
   id: number;
-  title: string;
+  name: string;
+  slug?: string | null;
   status: string;
 }
 
@@ -190,9 +191,13 @@ const ProductCreatePage: React.FC = () => {
 
     const fetchOrigins = async () => {
       try {
-        const json = await http<any>("GET", "/api/v1/admin/origins?limit=100");
+        const json = await http<{ success: boolean; data: Origin[] }>(
+          "GET",
+          "/api/v1/admin/origins?limit=100",
+        );
+
         if (json.success && Array.isArray(json.data)) {
-          setOrigins(json.data);
+          setOrigins(json.data.filter((origin) => origin.status === "active"));
         }
       } catch (err) {
         console.error("fetchOrigins error:", err);
@@ -597,7 +602,7 @@ const ProductCreatePage: React.FC = () => {
             <option value="">-- Chọn xuất xứ --</option>
             {origins.map((origin) => (
               <option key={origin.id} value={origin.id}>
-                {origin.title}
+                {origin.name}
               </option>
             ))}
           </select>

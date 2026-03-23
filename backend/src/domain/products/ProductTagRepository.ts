@@ -1,5 +1,9 @@
-export type ProductTagGroup = "season" | "health" | "usage" | "audience";
-export type ProductTagStatus = "active" | "inactive";
+export type ProductTagGroup =
+  | "general"
+  | "taste"
+  | "benefit"
+  | "season"
+  | "usage";
 
 export type ProductTag = {
   id?: number;
@@ -7,8 +11,6 @@ export type ProductTag = {
   slug?: string | null;
   tagGroup: ProductTagGroup;
   description?: string | null;
-  status: ProductTagStatus;
-  position?: number | null;
   deleted?: boolean;
   deletedAt?: Date | null;
   createdAt?: Date;
@@ -19,9 +21,8 @@ export type ProductTagListFilter = {
   page?: number;
   limit?: number;
   q?: string;
-  status?: ProductTagStatus | "all";
   tagGroup?: ProductTagGroup | "all";
-  sortBy?: "id" | "name" | "position" | "createdAt" | "updatedAt";
+  sortBy?: "id" | "name" | "createdAt" | "updatedAt";
   order?: "ASC" | "DESC";
 };
 
@@ -30,8 +31,6 @@ export type CreateProductTagInput = {
   slug?: string | null;
   tagGroup: ProductTagGroup;
   description?: string | null;
-  status?: ProductTagStatus;
-  position?: number | null;
 };
 
 export type UpdateProductTagPatch = Partial<CreateProductTagInput> & {
@@ -45,5 +44,6 @@ export interface ProductTagRepository {
   findById(id: number): Promise<ProductTag | null>;
   create(input: CreateProductTagInput): Promise<ProductTag>;
   update(id: number, patch: UpdateProductTagPatch): Promise<ProductTag>;
-  changeStatus(id: number, status: ProductTagStatus): Promise<void>;
+  softDelete(id: number): Promise<void>;
+  bulkSoftDelete(ids: number[]): Promise<number>;
 }

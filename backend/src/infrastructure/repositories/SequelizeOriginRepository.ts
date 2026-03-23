@@ -154,4 +154,39 @@ export class SequelizeOriginRepository implements OriginRepository {
   async changeStatus(id: number, status: OriginStatus) {
     await this.OriginModel.update({ status }, { where: { id } });
   }
+
+  async softDelete(id: number) {
+    const existing = await this.findById(id);
+
+    if (!existing) {
+      throw new Error("Origin not found");
+    }
+
+    await this.OriginModel.update(
+      {
+        deleted: 1,
+        deleted_at: new Date(),
+      },
+      { where: { id } },
+    );
+  }
+
+  async bulkSoftDelete(ids: number[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+    const [affectedCount] = await this.OriginModel.update(
+      {
+        deleted: 1,
+        deleted_at: new Date(),
+      },
+      {
+        where: {
+          id: { [Op.in]: ids },
+          deleted: 0,
+        },
+      },
+    );
+
+    return Number(affectedCount) || 0;
+  }
 }

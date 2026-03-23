@@ -42,4 +42,6 @@ export interface OriginRepository {
   create(input: CreateOriginInput): Promise<Origin>;
   update(id: number, patch: UpdateOriginPatch): Promise<Origin>;
   changeStatus(id: number, status: OriginStatus): Promise<void>;
+  softDelete(id: number): Promise<void>;
+  bulkSoftDelete(ids: number[]): Promise<number>;
 }

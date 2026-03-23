@@ -13,7 +13,7 @@ export class ListOrigins {
       limit: filter.limit ?? 20,
       q: filter.q,
       status: filter.status ?? "all",
-      sortBy: filter.sortBy ?? "position",
+      sortBy: filter.sortBy ?? "name",
       order: filter.order ?? "ASC",
     });
 

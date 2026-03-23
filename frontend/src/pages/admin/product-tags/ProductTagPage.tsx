@@ -8,12 +8,11 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 interface ProductTag {
   id: number;
   name: string;
-  slug?: string | null;
-  group: string;
-  status: string;
-  position: number;
-  created_at?: string;
-  updated_at?: string;
+  slug?: string;
+  description?: string | null;
+  tagGroup: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 type ApiList<T> = {
@@ -27,10 +26,9 @@ type ApiOk = { success: true; data?: any; meta?: any };
 const ProductTagPage: React.FC = () => {
   const [tags, setTags] = useState<ProductTag[]>([]);
   const [selectedTags, setSelectedTags] = useState<number[]>([]);
-  const [bulkAction, setBulkAction] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-
   const [groupFilter, setGroupFilter] = useState<string>("all");
 
   const navigate = useNavigate();
@@ -43,10 +41,12 @@ const ProductTagPage: React.FC = () => {
 
       const res = await http<ApiList<ProductTag>>(
         "GET",
-        "/api/v1/admin/product-tags?limit=1000",
+        "/api/v1/admin/product-tags?limit=1000&sortBy=name&order=ASC",
       );
 
-      setTags(Array.isArray(res.data) ? res.data : []);
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setTags(rows);
+      setSelectedTags([]);
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
@@ -59,53 +59,62 @@ const ProductTagPage: React.FC = () => {
     fetchTags();
   }, []);
 
+  const availableGroups = useMemo(() => {
+    return Array.from(
+      new Set(tags.map((item) => item.tagGroup).filter(Boolean)),
+    ).sort();
+  }, [tags]);
+
+  const filteredTags =
+    groupFilter === "all"
+      ? tags
+      : tags.filter((item) => item.tagGroup === groupFilter);
+
+  const allFilteredSelected =
+    filteredTags.length > 0 &&
+    filteredTags.every((item) => selectedTags.includes(item.id));
+
+  const handleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelectedTags((prev) =>
+        prev.filter((id) => !filteredTags.some((item) => item.id === id)),
+      );
+      return;
+    }
+
+    setSelectedTags((prev) => {
+      const merged = new Set([...prev, ...filteredTags.map((item) => item.id)]);
+      return Array.from(merged);
+    });
+  };
+
+  const handleToggleSelectOne = (id: number) => {
+    setSelectedTags((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
   const handleDelete = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa product tag này không?")) return;
 
     try {
-      setLoading(true);
-      await http<ApiOk>("DELETE", `/api/v1/admin/product-tags/delete/${id}`);
-      showSuccessToast({ message: "Đã xóa product tag thành công!" });
+      setSubmitting(true);
+
+      await http<ApiOk>("DELETE", `/api/v1/admin/product-tags/${id}`);
+
       setTags((prev) => prev.filter((item) => item.id !== id));
       setSelectedTags((prev) => prev.filter((x) => x !== id));
+
+      showSuccessToast({ message: "Đã xóa product tag thành công!" });
     } catch (err: any) {
       console.error(err);
-      showErrorToast(err?.message || "Không thể kết nối đến server!");
+      showErrorToast(err?.message || "Không thể xóa product tag!");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleToggleStatus = async (tag: ProductTag) => {
-    const newStatus =
-      tag.status.toLowerCase() === "active" ? "inactive" : "active";
-
-    try {
-      await http<ApiOk>(
-        "PATCH",
-        `/api/v1/admin/product-tags/${tag.id}/status`,
-        {
-          status: newStatus,
-        },
-      );
-
-      setTags((prev) =>
-        prev.map((item) =>
-          item.id === tag.id ? { ...item, status: newStatus } : item,
-        ),
-      );
-    } catch (err: any) {
-      console.error(err);
-      showErrorToast(err?.message || "Cập nhật trạng thái thất bại");
-    }
-  };
-
-  const handleBulkAction = async () => {
-    if (!bulkAction) {
-      showErrorToast("Vui lòng chọn hành động!");
-      return;
-    }
-
+  const handleBulkDelete = async () => {
     if (selectedTags.length === 0) {
       showErrorToast("Chưa chọn product tag nào!");
       return;
@@ -113,64 +122,37 @@ const ProductTagPage: React.FC = () => {
 
     if (
       !window.confirm(
-        `Xác nhận thực hiện '${bulkAction}' cho ${selectedTags.length} product tag?`,
+        `Xác nhận xóa ${selectedTags.length} product tag đã chọn?`,
       )
     ) {
       return;
     }
 
     try {
-      const body: any = {
+      setSubmitting(true);
+
+      await http<ApiOk>("POST", "/api/v1/admin/product-tags/bulk-delete", {
         ids: selectedTags,
-        updated_by_id: 1,
-      };
+      });
 
-      switch (bulkAction) {
-        case "activate":
-          body.action = "status";
-          body.value = "active";
-          break;
-        case "deactivate":
-          body.action = "status";
-          body.value = "inactive";
-          break;
-        case "delete":
-          body.patch = { deleted: true };
-          break;
-        case "update_position":
-          body.action = "position";
-          body.value = {};
-          tags
-            .filter((item) => selectedTags.includes(item.id))
-            .forEach((item) => {
-              body.value[item.id] = Number(item.position) || 0;
-            });
-          break;
-        default:
-          showErrorToast("Hành động không hợp lệ!");
-          return;
-      }
-
-      await http<ApiOk>("PATCH", "/api/v1/admin/product-tags/bulk-edit", body);
-      showSuccessToast({ message: "Cập nhật thành công!" });
+      setTags((prev) => prev.filter((item) => !selectedTags.includes(item.id)));
       setSelectedTags([]);
-      fetchTags();
+
+      showSuccessToast({
+        message: `Đã xóa ${selectedTags.length} product tag thành công!`,
+      });
     } catch (err: any) {
       console.error(err);
-      showErrorToast(err?.message || "Lỗi kết nối server!");
+      showErrorToast(err?.message || "Xóa nhiều product tag thất bại!");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const availableGroups = useMemo(() => {
-    return Array.from(
-      new Set(tags.map((item) => item.group).filter(Boolean)),
-    ).sort();
-  }, [tags]);
-
-  const filteredTags =
-    groupFilter === "all"
-      ? tags
-      : tags.filter((item) => item.group === groupFilter);
+  const stripHtml = (value?: string | null) => {
+    if (!value) return "—";
+    return value.replace(/<[^>]+>/g, "").trim() || "—";
+  };
 
   return (
     <div>
@@ -179,13 +161,26 @@ const ProductTagPage: React.FC = () => {
           Product Tags
         </h1>
 
-        <button
-          onClick={() => navigate("/admin/product-tags/create")}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Thêm product tag
-        </button>
+        <div className="flex items-center gap-3">
+          {selectedTags.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={submitting}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              <Trash2 className="w-5 h-5" />
+              Xóa đã chọn ({selectedTags.length})
+            </button>
+          )}
+
+          <button
+            onClick={() => navigate("/admin/product-tags/create")}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Thêm product tag
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 mb-4">
@@ -194,7 +189,7 @@ const ProductTagPage: React.FC = () => {
           className={`px-4 py-2 rounded-md text-sm font-medium border ${
             groupFilter === "all"
               ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
+              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
           }`}
         >
           Tất cả
@@ -207,42 +202,13 @@ const ProductTagPage: React.FC = () => {
             className={`px-4 py-2 rounded-md text-sm font-medium border ${
               groupFilter === group
                 ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
+                : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
             }`}
           >
             {group}
           </button>
         ))}
       </div>
-
-      {selectedTags.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            Đã chọn <strong>{selectedTags.length}</strong> product tag
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="">-- Chọn hành động --</option>
-              <option value="activate">Hoạt động</option>
-              <option value="deactivate">Dừng hoạt động</option>
-              <option value="delete">Xóa mềm</option>
-              <option value="update_position">Cập nhật vị trí</option>
-            </select>
-
-            <button
-              onClick={handleBulkAction}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
-            >
-              Áp dụng
-            </button>
-          </div>
-        </div>
-      )}
 
       <Card>
         <div className="overflow-x-auto">
@@ -266,37 +232,27 @@ const ProductTagPage: React.FC = () => {
                   <th className="w-[50px] px-3 py-3 text-center">
                     <input
                       type="checkbox"
-                      checked={
-                        selectedTags.length > 0 &&
-                        selectedTags.length === filteredTags.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedTags(filteredTags.map((item) => item.id));
-                        } else {
-                          setSelectedTags([]);
-                        }
-                      }}
+                      checked={allFilteredSelected}
+                      onChange={handleSelectAllFiltered}
                     />
                   </th>
+
                   <th className="w-[80px] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     STT
                   </th>
+
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Tên tag
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Slug
-                  </th>
+
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Group
                   </th>
+
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Vị trí
+                    Mô tả
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Trạng thái
-                  </th>
+
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Hành động
                   </th>
@@ -313,15 +269,7 @@ const ProductTagPage: React.FC = () => {
                       <input
                         type="checkbox"
                         checked={selectedTags.includes(tag.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedTags((prev) => [...prev, tag.id]);
-                          } else {
-                            setSelectedTags((prev) =>
-                              prev.filter((id) => id !== tag.id),
-                            );
-                          }
-                        }}
+                        onChange={() => handleToggleSelectOne(tag.id)}
                       />
                     </td>
 
@@ -335,33 +283,16 @@ const ProductTagPage: React.FC = () => {
                       </div>
                     </td>
 
-                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {tag.slug || "—"}
-                    </td>
-
                     <td className="px-4 py-4">
                       <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 dark:bg-gray-800 dark:text-gray-300">
-                        {tag.group || "—"}
+                        {tag.tagGroup || "—"}
                       </span>
                     </td>
 
-                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {tag.position ?? 0}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(tag)}
-                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                          tag.status === "active"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        }`}
-                      >
-                        {tag.status === "active"
-                          ? "Hoạt động"
-                          : "Dừng hoạt động"}
-                      </button>
+                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[320px]">
+                      <div className="line-clamp-2">
+                        {stripHtml(tag.description)}
+                      </div>
                     </td>
 
                     <td className="px-4 py-4">
@@ -388,7 +319,8 @@ const ProductTagPage: React.FC = () => {
 
                         <button
                           onClick={() => handleDelete(tag.id)}
-                          className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+                          disabled={submitting}
+                          className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 disabled:opacity-50"
                           title="Xóa"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -3,7 +3,8 @@ import { ListProductTags } from "../../../../application/product-tags/usecases/L
 import { GetProductTagDetail } from "../../../../application/product-tags/usecases/GetProductTagDetail";
 import { CreateProductTag } from "../../../../application/product-tags/usecases/CreateProductTag";
 import { EditProductTag } from "../../../../application/product-tags/usecases/EditProductTag";
-import { ChangeProductTagStatus } from "../../../../application/product-tags/usecases/ChangeProductTagStatus";
+import { DeleteProductTag } from "../../../../application/product-tags/usecases/DeleteProductTag";
+import { BulkDeleteProductTags } from "../../../../application/product-tags/usecases/BulkDeleteProductTags";
 
 const toNum = (v: any) =>
   v === undefined || v === null ? undefined : Number(v);
@@ -13,19 +14,21 @@ export const makeProductTagsController = (uc: {
   detail: GetProductTagDetail;
   create: CreateProductTag;
   edit: EditProductTag;
-  changeStatus: ChangeProductTagStatus;
+  deleteTag: DeleteProductTag;
+  bulkDelete: BulkDeleteProductTags;
 }) => {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { page, limit, q, status, tagGroup } = req.query as any;
+        const { page, limit, q, tagGroup, sortBy, order } = req.query as any;
 
         const data = await uc.list.execute({
           page: toNum(page) ?? 1,
           limit: toNum(limit) ?? 20,
           q,
-          status: status ?? "all",
           tagGroup: tagGroup ?? "all",
+          sortBy: sortBy ?? "name",
+          order: order ?? "ASC",
         });
 
         return res.json({
@@ -97,12 +100,24 @@ export const makeProductTagsController = (uc: {
       }
     },
 
-    changeStatus: async (req: Request, res: Response, next: NextFunction) => {
+    delete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const { status } = req.body;
+        const result = await uc.deleteTag.execute(id);
 
-        const result = await uc.changeStatus.execute(id, status);
+        return res.json({
+          success: true,
+          data: result,
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    bulkDelete: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const { ids } = req.body;
+        const result = await uc.bulkDelete.execute(ids);
 
         return res.json({
           success: true,

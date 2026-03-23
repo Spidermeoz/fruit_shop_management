@@ -18,13 +18,14 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // =============================
 interface Origin {
   id: number;
-  title: string;
+  name: string;
+  slug?: string | null;
   status: string;
 }
 
 interface ProductTag {
   id: number;
-  title: string;
+  name: string;
   group: string;
   status: string;
 }
@@ -146,31 +147,52 @@ const ProductEditPage: React.FC = () => {
           product_category_id:
             data.product_category_id ?? data.categoryId ?? "",
 
-          // 🔹 Chuẩn hóa fields mới từ backend trả về
-          origin_id: data.originId ?? data.origin?.id ?? "",
+          origin_id: data.origin_id ?? data.originId ?? data.origin?.id ?? "",
+
           tag_ids:
             data.tagIds ??
             (Array.isArray(data.tags)
               ? data.tags.map((t: any) => Number(t.id))
               : []),
-          short_description: data.shortDescription ?? "",
-          storage_guide: data.storageGuide ?? "",
-          usage_suggestions: data.usageSuggestions ?? "",
-          nutrition_notes: data.nutritionNotes ?? "",
+
+          short_description:
+            data.short_description ?? data.shortDescription ?? "",
+
+          storage_guide: data.storage_guide ?? data.storageGuide ?? "",
+
+          usage_suggestions:
+            data.usage_suggestions ?? data.usageSuggestions ?? "",
+
+          nutrition_notes: data.nutrition_notes ?? data.nutritionNotes ?? "",
 
           discount_percentage:
             data.discount_percentage ?? data.discountPercentage ?? 0,
-          options: Array.isArray(data.options) ? data.options : [],
+
+          options: Array.isArray(data.options)
+            ? data.options.map((o: any, index: number) => ({
+                id: o.id,
+                name: o.name ?? "",
+                position: o.position ?? index,
+                values: Array.isArray(o.values)
+                  ? o.values.map((v: any, valueIndex: number) => ({
+                      id: v.id,
+                      value: v.value ?? "",
+                      position: v.position ?? valueIndex,
+                    }))
+                  : [],
+              }))
+            : [],
+
           variants: Array.isArray(data.variants)
             ? data.variants.map((v: any, index: number) => ({
                 id: v.id,
                 sku: v.sku ?? null,
                 title: v.title ?? null,
                 price: v.price ?? 0,
-                compareAtPrice: v.compareAtPrice ?? null,
+                compareAtPrice: v.compareAtPrice ?? v.compare_at_price ?? null,
                 stock: v.stock ?? 0,
                 status: v.status ?? "active",
-                sortOrder: v.sortOrder ?? index,
+                sortOrder: v.sortOrder ?? v.sort_order ?? index,
                 optionValueIds: Array.isArray(v.optionValueIds)
                   ? v.optionValueIds
                   : [],
@@ -277,13 +299,15 @@ const ProductEditPage: React.FC = () => {
       try {
         const json = await http<any>("GET", "/api/v1/admin/origins?limit=100");
         if (json.success && Array.isArray(json.data)) {
-          setOrigins(json.data);
+          const activeOrigins = json.data.filter(
+            (origin: any) => origin.status === "active",
+          );
+          setOrigins(activeOrigins);
         }
       } catch (err) {
         console.error("fetchOrigins error:", err);
       }
     };
-
     const fetchTags = async () => {
       try {
         const json = await http<any>(
@@ -725,7 +749,7 @@ const ProductEditPage: React.FC = () => {
               <option value="">-- Chọn xuất xứ --</option>
               {origins.map((origin) => (
                 <option key={origin.id} value={origin.id}>
-                  {origin.title}
+                  {origin.name}
                 </option>
               ))}
             </select>
@@ -854,7 +878,7 @@ const ProductEditPage: React.FC = () => {
                             className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
                           />
                           <span className="text-sm text-gray-800 dark:text-gray-200">
-                            {tag.title}
+                            {tag.name}
                           </span>
                         </label>
                       ))}

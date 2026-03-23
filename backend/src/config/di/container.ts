@@ -137,6 +137,8 @@ import { CreateOrigin } from "../../application/origins/usecases/CreateOrigin";
 import { EditOrigin } from "../../application/origins/usecases/EditOrigin";
 import { GetOriginDetail } from "../../application/origins/usecases/GetOriginDetail";
 import { ListOrigins } from "../../application/origins/usecases/ListOrigins";
+import { SoftDeleteOrigin } from "../../application/origins/usecases/SoftDeleteOrigin";
+import { BulkDeleteOrigins } from "../../application/origins/usecases/BulkDeleteOrigins";
 
 // ===== Product tags usecases =====
 import { ChangeProductTagStatus } from "../../application/product-tags/usecases/ChangeProductTagStatus";
@@ -144,6 +146,8 @@ import { CreateProductTag } from "../../application/product-tags/usecases/Create
 import { EditProductTag } from "../../application/product-tags/usecases/EditProductTag";
 import { GetProductTagDetail } from "../../application/product-tags/usecases/GetProductTagDetail";
 import { ListProductTags } from "../../application/product-tags/usecases/ListProductTags";
+import { DeleteProductTag } from "../../application/product-tags/usecases/DeleteProductTag";
+import { BulkDeleteProductTags } from "../../application/product-tags/usecases/BulkDeleteProductTags";
 
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
@@ -627,6 +631,8 @@ export const usecases = {
     create: new CreateOrigin(originRepo),
     edit: new EditOrigin(originRepo),
     changeStatus: new ChangeOriginStatus(originRepo),
+    softDelete: new SoftDeleteOrigin(originRepo),
+    bulkDelete: new BulkDeleteOrigins(originRepo),
   },
 
   productTags: {
@@ -634,7 +640,8 @@ export const usecases = {
     detail: new GetProductTagDetail(productTagRepo),
     create: new CreateProductTag(productTagRepo),
     edit: new EditProductTag(productTagRepo),
-    changeStatus: new ChangeProductTagStatus(productTagRepo),
+    deleteTag: new DeleteProductTag(productTagRepo),
+    bulkDelete: new BulkDeleteProductTags(productTagRepo),
   },
 };
 
@@ -736,7 +743,8 @@ export const controllers: Controllers = {
     detail: usecases.productTags.detail,
     create: usecases.productTags.create,
     edit: usecases.productTags.edit,
-    changeStatus: usecases.productTags.changeStatus,
+    deleteTag: usecases.productTags.deleteTag,
+    bulkDelete: usecases.productTags.bulkDelete,
   }),
 };
 

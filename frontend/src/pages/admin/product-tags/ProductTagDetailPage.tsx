@@ -8,11 +8,10 @@ interface ProductTag {
   id: number;
   name: string;
   slug?: string | null;
-  group: string;
-  status: string;
-  position: number;
-  created_at: string;
-  updated_at?: string;
+  tagGroup: string;
+  description?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 type ApiDetail<T> = {
@@ -58,8 +57,8 @@ const ProductTagDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
         <span className="ml-2 text-gray-600 dark:text-gray-400">
           Đang tải chi tiết product tag...
         </span>
@@ -69,7 +68,7 @@ const ProductTagDetailPage: React.FC = () => {
 
   if (error) {
     return (
-      <p className="text-center text-red-500 dark:text-red-400 py-10">
+      <p className="py-10 text-center text-red-500 dark:text-red-400">
         {error}
       </p>
     );
@@ -77,7 +76,7 @@ const ProductTagDetailPage: React.FC = () => {
 
   if (!tag) {
     return (
-      <p className="text-center text-gray-500 dark:text-gray-400 py-10">
+      <p className="py-10 text-center text-gray-500 dark:text-gray-400">
         Không tìm thấy product tag.
       </p>
     );
@@ -85,28 +84,32 @@ const ProductTagDetailPage: React.FC = () => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Chi tiết product tag
         </h1>
+
         <div className="flex gap-3">
           <button
             onClick={() => navigate(`/admin/product-tags/edit/${id}`)}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
+            className="flex items-center gap-2 rounded-md bg-blue-100 px-4 py-2 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
           >
-            <Edit className="w-4 h-4" /> Chỉnh sửa
+            <Edit className="h-4 w-4" />
+            Chỉnh sửa
           </button>
+
           <button
             onClick={() => navigate("/admin/product-tags")}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+            className="flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
           >
-            <ArrowLeft className="w-4 h-4" /> Quay lại
+            <ArrowLeft className="h-4 w-4" />
+            Quay lại
           </button>
         </div>
       </div>
 
       <Card>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-2">
+        <div className="grid grid-cols-1 gap-6 p-2 md:grid-cols-2">
           <div className="space-y-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white">
@@ -118,66 +121,53 @@ const ProductTagDetailPage: React.FC = () => {
             </div>
 
             <div>
-              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <span className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 Slug:
               </span>
-              <p className="text-gray-800 dark:text-gray-200 font-medium">
+              <p className="font-medium text-gray-800 dark:text-gray-200">
                 {tag.slug || "—"}
               </p>
             </div>
 
             <div>
-              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <span className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 Group:
               </span>
-              <p className="text-gray-800 dark:text-gray-200 font-medium">
-                {tag.group || "—"}
+              <p className="font-medium text-gray-800 dark:text-gray-200">
+                {tag.tagGroup || "—"}
               </p>
             </div>
 
             <div>
-              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Vị trí hiển thị:
+              <span className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+                Mô tả:
               </span>
-              <p className="text-gray-800 dark:text-gray-200 font-medium">
-                {tag.position}
+              <p className="whitespace-pre-line text-gray-800 dark:text-gray-200">
+                {tag.description?.trim() ? tag.description : "—"}
               </p>
             </div>
 
             <div>
-              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                Trạng thái:
-              </span>
-              <span
-                className={`inline-block px-3 py-1 text-xs font-semibold rounded-full ${
-                  tag.status === "active"
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                }`}
-              >
-                {tag.status === "active" ? "Hoạt động" : "Dừng hoạt động"}
-              </span>
-            </div>
-
-            <div>
-              <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
+              <span className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
                 Ngày tạo:
               </span>
               <p className="text-gray-800 dark:text-gray-200">
-                {new Date(tag.created_at).toLocaleString("vi-VN")}
+                {tag.createdAt
+                  ? new Date(tag.createdAt).toLocaleString("vi-VN")
+                  : "—"}
               </p>
             </div>
 
-            {tag.updated_at && (
-              <div>
-                <span className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Cập nhật lần cuối:
-                </span>
-                <p className="text-gray-800 dark:text-gray-200">
-                  {new Date(tag.updated_at).toLocaleString("vi-VN")}
-                </p>
-              </div>
-            )}
+            <div>
+              <span className="mb-1 block text-sm text-gray-600 dark:text-gray-400">
+                Cập nhật lần cuối:
+              </span>
+              <p className="text-gray-800 dark:text-gray-200">
+                {tag.updatedAt
+                  ? new Date(tag.updatedAt).toLocaleString("vi-VN")
+                  : "—"}
+              </p>
+            </div>
           </div>
         </div>
       </Card>

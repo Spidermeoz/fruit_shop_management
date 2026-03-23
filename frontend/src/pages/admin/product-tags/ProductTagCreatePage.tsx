@@ -8,11 +8,8 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface ProductTagFormData {
   name: string;
-  slug: string;
-  group: string;
-  status: string;
-  position: number | string;
-  created_by_id: number;
+  tagGroup: string;
+  description: string;
 }
 
 type ApiOk = { success: true; data?: any; url?: string; meta?: any };
@@ -36,22 +33,20 @@ const ProductTagCreatePage: React.FC = () => {
 
   const [formData, setFormData] = useState<ProductTagFormData>({
     name: "",
-    slug: "",
-    group: "general",
-    status: "active",
-    position: "",
-    created_by_id: 1,
+    tagGroup: "general",
+    description: "",
   });
 
   const handleInputChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
-    if (errors[name as keyof typeof errors]) {
+
+    if (errors[name as keyof ProductTagFormData]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
   };
@@ -63,8 +58,8 @@ const ProductTagCreatePage: React.FC = () => {
       newErrors.name = "Vui lòng nhập tên product tag.";
     }
 
-    if (!formData.group.trim()) {
-      newErrors.group = "Vui lòng chọn group.";
+    if (!formData.tagGroup.trim()) {
+      newErrors.tagGroup = "Vui lòng chọn group.";
     }
 
     setErrors(newErrors);
@@ -81,11 +76,9 @@ const ProductTagCreatePage: React.FC = () => {
       setErrors({});
 
       const payload = {
-        name: formData.name,
-        slug: formData.slug || null,
-        group: formData.group,
-        status: formData.status,
-        position: formData.position === "" ? null : Number(formData.position),
+        name: formData.name.trim(),
+        tagGroup: formData.tagGroup,
+        description: formData.description.trim() || null,
       };
 
       const createRes = await http<ApiOk & { errors?: any }>(
@@ -116,21 +109,23 @@ const ProductTagCreatePage: React.FC = () => {
 
   return (
     <Card>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Thêm product tag
         </h1>
+
         <button
           onClick={() => navigate("/admin/product-tags")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
+          className="flex items-center gap-2 rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
         >
-          <ArrowLeft className="w-4 h-4" /> Quay lại
+          <ArrowLeft className="h-4 w-4" />
+          Quay lại
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5 p-2">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Tên tag
           </label>
           <input
@@ -138,45 +133,33 @@ const ProductTagCreatePage: React.FC = () => {
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            className={`w-full border ${
+            className={`w-full rounded-md border p-2 text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
               errors.name
                 ? "border-red-500 dark:border-red-500"
                 : "border-gray-300 dark:border-gray-600"
-            } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            }`}
+            placeholder="Nhập tên product tag"
           />
           {errors.name && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
               {errors.name}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Slug
-          </label>
-          <input
-            type="text"
-            name="slug"
-            value={formData.slug}
-            onChange={handleInputChange}
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
             Group
           </label>
           <select
-            name="group"
-            value={formData.group}
+            name="tagGroup"
+            value={formData.tagGroup}
             onChange={handleInputChange}
-            className={`w-full border ${
-              errors.group
+            className={`w-full rounded-md border p-2 text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white ${
+              errors.tagGroup
                 ? "border-red-500 dark:border-red-500"
                 : "border-gray-300 dark:border-gray-600"
-            } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+            }`}
           >
             {TAG_GROUP_OPTIONS.map((item) => (
               <option key={item.value} value={item.value}>
@@ -184,77 +167,45 @@ const ProductTagCreatePage: React.FC = () => {
               </option>
             ))}
           </select>
-          {errors.group && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-              {errors.group}
+          {errors.tagGroup && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.tagGroup}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-            Vị trí hiển thị
+          <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            Mô tả
           </label>
-          <input
-            type="number"
-            name="position"
-            value={formData.position}
+          <textarea
+            name="description"
+            value={formData.description}
             onChange={handleInputChange}
-            placeholder="Nếu bỏ trống sẽ tự xếp cuối"
-            className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            rows={4}
+            className="w-full rounded-md border border-gray-300 p-2 text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+            placeholder="Nhập mô tả cho product tag"
           />
         </div>
 
-        <div className="pt-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Trạng thái
-          </label>
-          <div className="flex gap-6">
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="status"
-                value="active"
-                checked={formData.status === "active"}
-                onChange={handleInputChange}
-                className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <span className="text-gray-800 dark:text-gray-200">
-                Hoạt động
-              </span>
-            </label>
-            <label className="flex items-center space-x-2 cursor-pointer">
-              <input
-                type="radio"
-                name="status"
-                value="inactive"
-                checked={formData.status === "inactive"}
-                onChange={handleInputChange}
-                className="text-red-600 focus:ring-red-500 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <span className="text-gray-800 dark:text-gray-200">
-                Dừng hoạt động
-              </span>
-            </label>
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-4 dark:border-gray-700">
           <button
             type="button"
             onClick={() => navigate("/admin/product-tags")}
-            className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+            className="rounded-md border border-gray-400 bg-transparent px-4 py-2 font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             Hủy
           </button>
+
           <button
             type="submit"
-            className="flex items-center gap-2 px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
             disabled={loading}
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-5 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
           >
             {loading ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Đang lưu...
               </>
             ) : (
               "Lưu product tag"

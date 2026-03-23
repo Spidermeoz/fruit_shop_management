@@ -16,7 +16,9 @@ export const productTagsRoutes = (
   r.post("/create", auth, can("product", "create"), controller.create);
   r.get("/edit/:id", auth, can("product", "edit"), controller.getEdit);
   r.patch("/edit/:id", auth, can("product", "edit"), controller.edit);
-  r.patch("/:id/status", auth, can("product", "edit"), controller.changeStatus);
+
+  r.delete("/:id", auth, can("product", "delete"), controller.delete);
+  r.post("/bulk-delete", auth, can("product", "delete"), controller.bulkDelete);
 
   return r;
 };

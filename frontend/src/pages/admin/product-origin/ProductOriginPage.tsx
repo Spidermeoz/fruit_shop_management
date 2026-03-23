@@ -7,29 +7,31 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface Origin {
   id: number;
-  title: string;
+  name: string;
   description?: string | null;
-  slug?: string | null;
-  thumbnail?: string | null;
-  status: string;
-  position: number;
-  created_at?: string;
-  updated_at?: string;
+  countryCode?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 type ApiList<T> = {
   success: true;
   data: T[];
-  meta?: { total?: number; page?: number; limit?: number; totalPages?: number };
+  meta?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+  };
 };
 
 type ApiOk = { success: true; data?: any; meta?: any };
 
 const ProductOriginPage: React.FC = () => {
   const [origins, setOrigins] = useState<Origin[]>([]);
-  const [selectedOrigins, setSelectedOrigins] = useState<number[]>([]);
-  const [bulkAction, setBulkAction] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
   const navigate = useNavigate();
@@ -42,10 +44,11 @@ const ProductOriginPage: React.FC = () => {
 
       const res = await http<ApiList<Origin>>(
         "GET",
-        "/api/v1/admin/origins?limit=1000",
+        "/api/v1/admin/origins?limit=1000&sortBy=name&order=ASC",
       );
 
       setOrigins(Array.isArray(res.data) ? res.data : []);
+      setSelectedIds([]);
     } catch (err: any) {
       console.error(err);
       setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
@@ -58,101 +61,78 @@ const ProductOriginPage: React.FC = () => {
     fetchOrigins();
   }, []);
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Bạn có chắc muốn xóa xuất xứ này không?")) return;
+  const stripHtml = (value?: string | null) => {
+    if (!value) return "—";
+    return value.replace(/<[^>]+>/g, "").trim() || "—";
+  };
+
+  const allSelected =
+    origins.length > 0 && selectedIds.length === origins.length;
+
+  const selectedCount = selectedIds.length;
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds([]);
+      return;
+    }
+    setSelectedIds(origins.map((item) => item.id));
+  };
+
+  const handleToggleSelectOne = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
+  const handleDeleteOne = async (id: number) => {
+    const confirmed = window.confirm("Bạn có chắc muốn xóa xuất xứ này?");
+    if (!confirmed) return;
 
     try {
-      setLoading(true);
-      await http<ApiOk>("DELETE", `/api/v1/admin/origins/delete/${id}`);
-      showSuccessToast({ message: "Đã xóa xuất xứ thành công!" });
+      setSubmitting(true);
+      await http<ApiOk>("DELETE", `/api/v1/admin/origins/${id}`);
+
       setOrigins((prev) => prev.filter((item) => item.id !== id));
-      setSelectedOrigins((prev) => prev.filter((x) => x !== id));
+      setSelectedIds((prev) => prev.filter((x) => x !== id));
+
+      showSuccessToast({ message: "Xóa xuất xứ thành công." });
     } catch (err: any) {
       console.error(err);
-      showErrorToast(err?.message || "Không thể kết nối đến server!");
+      showErrorToast(err?.message || "Xóa xuất xứ thất bại.");
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleToggleStatus = async (origin: Origin) => {
-    const newStatus =
-      origin.status.toLowerCase() === "active" ? "inactive" : "active";
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xóa ${selectedIds.length} xuất xứ đã chọn?`,
+    );
+    if (!confirmed) return;
 
     try {
-      await http<ApiOk>("PATCH", `/api/v1/admin/origins/${origin.id}/status`, {
-        status: newStatus,
+      setSubmitting(true);
+
+      await http<ApiOk>("POST", "/api/v1/admin/origins/bulk-delete", {
+        ids: selectedIds,
       });
 
       setOrigins((prev) =>
-        prev.map((item) =>
-          item.id === origin.id ? { ...item, status: newStatus } : item,
-        ),
+        prev.filter((item) => !selectedIds.includes(item.id)),
       );
+      setSelectedIds([]);
+
+      showSuccessToast({
+        message: `Đã xóa ${selectedCount} xuất xứ.`,
+      });
     } catch (err: any) {
       console.error(err);
-      showErrorToast(err?.message || "Cập nhật trạng thái thất bại");
-    }
-  };
-
-  const handleBulkAction = async () => {
-    if (!bulkAction) {
-      showErrorToast("Vui lòng chọn hành động!");
-      return;
-    }
-
-    if (selectedOrigins.length === 0) {
-      showErrorToast("Chưa chọn xuất xứ nào!");
-      return;
-    }
-
-    if (
-      !window.confirm(
-        `Xác nhận thực hiện '${bulkAction}' cho ${selectedOrigins.length} xuất xứ?`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      const body: any = {
-        ids: selectedOrigins,
-        updated_by_id: 1,
-      };
-
-      switch (bulkAction) {
-        case "activate":
-          body.action = "status";
-          body.value = "active";
-          break;
-        case "deactivate":
-          body.action = "status";
-          body.value = "inactive";
-          break;
-        case "delete":
-          body.patch = { deleted: true };
-          break;
-        case "update_position":
-          body.action = "position";
-          body.value = {};
-          origins
-            .filter((item) => selectedOrigins.includes(item.id))
-            .forEach((item) => {
-              body.value[item.id] = Number(item.position) || 0;
-            });
-          break;
-        default:
-          showErrorToast("Hành động không hợp lệ!");
-          return;
-      }
-
-      await http<ApiOk>("PATCH", "/api/v1/admin/origins/bulk-edit", body);
-      showSuccessToast({ message: "Cập nhật thành công!" });
-      setSelectedOrigins([]);
-      fetchOrigins();
-    } catch (err: any) {
-      console.error(err);
-      showErrorToast(err?.message || "Lỗi kết nối server!");
+      showErrorToast(err?.message || "Xóa nhiều xuất xứ thất bại.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -163,43 +143,27 @@ const ProductOriginPage: React.FC = () => {
           Xuất xứ sản phẩm
         </h1>
 
-        <button
-          onClick={() => navigate("/admin/product-origin/create")}
-          className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Thêm xuất xứ
-        </button>
-      </div>
-
-      {selectedOrigins.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
-            Đã chọn <strong>{selectedOrigins.length}</strong> xuất xứ
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={bulkAction}
-              onChange={(e) => setBulkAction(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="">-- Chọn hành động --</option>
-              <option value="activate">Hoạt động</option>
-              <option value="deactivate">Dừng hoạt động</option>
-              <option value="delete">Xóa mềm</option>
-              <option value="update_position">Cập nhật vị trí</option>
-            </select>
-
+        <div className="flex items-center gap-3">
+          {selectedCount > 0 && (
             <button
-              onClick={handleBulkAction}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              onClick={handleBulkDelete}
+              disabled={submitting}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
             >
-              Áp dụng
+              <Trash2 className="w-5 h-5" />
+              Xóa đã chọn ({selectedCount})
             </button>
-          </div>
+          )}
+
+          <button
+            onClick={() => navigate("/admin/product-origin/create")}
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Thêm xuất xứ
+          </button>
         </div>
-      )}
+      </div>
 
       <Card>
         <div className="overflow-x-auto">
@@ -220,39 +184,21 @@ const ProductOriginPage: React.FC = () => {
             <table className="min-w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
               <thead className="bg-gray-100 dark:bg-gray-800">
                 <tr>
-                  <th className="w-[50px] px-3 py-3 text-center">
+                  <th className="w-[56px] px-4 py-3 text-center">
                     <input
                       type="checkbox"
-                      checked={
-                        selectedOrigins.length > 0 &&
-                        selectedOrigins.length === origins.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedOrigins(origins.map((item) => item.id));
-                        } else {
-                          setSelectedOrigins([]);
-                        }
-                      }}
+                      checked={allSelected}
+                      onChange={handleToggleSelectAll}
                     />
                   </th>
                   <th className="w-[80px] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     STT
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Ảnh
+                    Tên xuất xứ
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Tiêu đề
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Slug
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Vị trí
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Trạng thái
+                    Mã quốc gia
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Hành động
@@ -266,19 +212,11 @@ const ProductOriginPage: React.FC = () => {
                     key={origin.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
-                    <td className="px-3 py-4 text-center">
+                    <td className="px-4 py-4 text-center">
                       <input
                         type="checkbox"
-                        checked={selectedOrigins.includes(origin.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedOrigins((prev) => [...prev, origin.id]);
-                          } else {
-                            setSelectedOrigins((prev) =>
-                              prev.filter((id) => id !== origin.id),
-                            );
-                          }
-                        }}
+                        checked={selectedIds.includes(origin.id)}
+                        onChange={() => handleToggleSelectOne(origin.id)}
                       />
                     </td>
 
@@ -287,53 +225,16 @@ const ProductOriginPage: React.FC = () => {
                     </td>
 
                     <td className="px-4 py-4">
-                      {origin.thumbnail ? (
-                        <img
-                          src={origin.thumbnail}
-                          alt={origin.title}
-                          className="w-14 h-14 object-cover rounded-md border border-gray-200 dark:border-gray-700"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-xs text-gray-400">
-                          No image
-                        </div>
-                      )}
-                    </td>
-
-                    <td className="px-4 py-4">
                       <div className="font-medium text-gray-900 dark:text-white">
-                        {origin.title}
+                        {origin.name}
                       </div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                        {origin.description
-                          ? origin.description
-                              .replace(/<[^>]+>/g, "")
-                              .slice(0, 80)
-                          : "—"}
+                        {stripHtml(origin.description).slice(0, 120)}
                       </div>
                     </td>
 
                     <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {origin.slug || "—"}
-                    </td>
-
-                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {origin.position ?? 0}
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <button
-                        onClick={() => handleToggleStatus(origin)}
-                        className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
-                          origin.status === "active"
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-                        }`}
-                      >
-                        {origin.status === "active"
-                          ? "Hoạt động"
-                          : "Dừng hoạt động"}
-                      </button>
+                      {origin.countryCode || "—"}
                     </td>
 
                     <td className="px-4 py-4">
@@ -361,8 +262,9 @@ const ProductOriginPage: React.FC = () => {
                         </button>
 
                         <button
-                          onClick={() => handleDelete(origin.id)}
-                          className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+                          onClick={() => handleDeleteOne(origin.id)}
+                          disabled={submitting}
+                          className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 disabled:opacity-50"
                           title="Xóa"
                         >
                           <Trash2 className="w-4 h-4" />

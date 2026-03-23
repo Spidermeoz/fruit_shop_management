@@ -14,32 +14,61 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 
 // ===== PRODUCT TYPE =====
 interface Product {
-  category: any;
+  category?: {
+    id: number;
+    title: string;
+  } | null;
+
+  origin?: {
+    id: number;
+    name: string;
+    slug?: string | null;
+  } | null;
+
+  tags?: Array<{
+    id: number;
+    name: string;
+    slug?: string | null;
+    tagGroup?: string;
+  }>;
+
   id: number;
   title: string;
   description: string;
   product_category_id: number | string;
+
+  origin_id?: number | string | null;
+  short_description?: string;
+  storage_guide?: string;
+  usage_suggestions?: string;
+  nutrition_notes?: string;
+
   thumbnail?: string;
   price: number;
   discount_percentage?: number;
   stock: number;
+  totalStock?: number;
+  total_stock?: number;
+
   status: "active" | "inactive" | string;
-  featured?: boolean;
+  featured?: boolean | number;
   position?: number;
   average_rating?: number;
   review_count?: number;
   created_at?: string;
   updated_at?: string;
-  // Các field mở rộng cho variant/options
+
   variants?: Array<{
     id: number;
     title?: string | null;
     sku?: string | null;
     price: number;
     compareAtPrice?: number | null;
+    compare_at_price?: number | null;
     stock: number;
     status: string;
     sortOrder?: number;
+    sort_order?: number;
     optionValues?: Array<{
       id: number;
       value: string;
@@ -47,6 +76,7 @@ interface Product {
       optionName?: string;
     }>;
   }>;
+
   options?: Array<{
     id: number;
     name: string;
@@ -55,7 +85,7 @@ interface Product {
       value: string;
     }>;
   }>;
-  totalStock?: number;
+
   priceRange?: {
     min: number;
     max: number;
@@ -197,13 +227,113 @@ const getDisplayStock = (product: Product | null | undefined) => {
     return Math.max(0, Number(product.totalStock));
   }
 
+  if (typeof product.total_stock === "number") {
+    return Math.max(0, Number(product.total_stock));
+  }
+
   if (Array.isArray(product.variants) && product.variants.length > 0) {
-    return product.variants.reduce((sum, variant) => {
+    return product.variants.reduce((sum: number, variant) => {
       return sum + Math.max(0, Number(variant.stock ?? 0));
     }, 0);
   }
 
   return Math.max(0, Number(product.stock ?? 0));
+};
+
+const normalizeProductDetail = (data: any): Product => {
+  const variants = Array.isArray(data.variants)
+    ? data.variants.map((v: any, index: number) => ({
+        id: Number(v.id),
+        title: v.title ?? null,
+        sku: v.sku ?? null,
+        price: Number(v.price ?? 0),
+        compareAtPrice:
+          v.compareAtPrice !== undefined && v.compareAtPrice !== null
+            ? Number(v.compareAtPrice)
+            : v.compare_at_price !== undefined && v.compare_at_price !== null
+              ? Number(v.compare_at_price)
+              : null,
+        stock: Number(v.stock ?? 0),
+        status: v.status ?? "active",
+        sortOrder:
+          v.sortOrder !== undefined && v.sortOrder !== null
+            ? Number(v.sortOrder)
+            : v.sort_order !== undefined && v.sort_order !== null
+              ? Number(v.sort_order)
+              : index,
+        optionValues: Array.isArray(v.optionValues) ? v.optionValues : [],
+      }))
+    : [];
+
+  const derivedMinPrice = variants.length
+    ? Math.min(...variants.map((v: { price: number }) => Number(v.price ?? 0)))
+    : null;
+
+  const derivedMaxPrice = variants.length
+    ? Math.max(...variants.map((v: { price: number }) => Number(v.price ?? 0)))
+    : null;
+
+  const totalStock =
+    data.totalStock !== undefined && data.totalStock !== null
+      ? Number(data.totalStock)
+      : data.total_stock !== undefined && data.total_stock !== null
+        ? Number(data.total_stock)
+        : variants.length
+          ? variants.reduce(
+              (sum: number, v: { stock: number }) => sum + Number(v.stock ?? 0),
+              0,
+            )
+          : Number(data.stock ?? 0);
+
+  return {
+    ...data,
+    id: Number(data.id),
+    title: data.title ?? "",
+    description: data.description ?? "",
+    product_category_id: data.product_category_id ?? data.categoryId ?? "",
+    origin_id: data.origin_id ?? data.originId ?? data.origin?.id ?? null,
+    short_description: data.short_description ?? data.shortDescription ?? "",
+    storage_guide: data.storage_guide ?? data.storageGuide ?? "",
+    usage_suggestions: data.usage_suggestions ?? data.usageSuggestions ?? "",
+    nutrition_notes: data.nutrition_notes ?? data.nutritionNotes ?? "",
+
+    price: Number(data.price ?? 0),
+    discount_percentage: Number(
+      data.discount_percentage ?? data.discountPercentage ?? 0,
+    ),
+    stock: Number(data.stock ?? 0),
+    totalStock,
+    total_stock: totalStock,
+
+    featured: Boolean(Number(data.featured ?? 0)),
+    position:
+      data.position !== undefined && data.position !== null
+        ? Number(data.position)
+        : undefined,
+    average_rating: Number(data.average_rating ?? data.averageRating ?? 0),
+    review_count: Number(data.review_count ?? data.reviewCount ?? 0),
+
+    thumbnail: data.thumbnail ?? "",
+    category: data.category ?? null,
+    origin: data.origin ?? null,
+    tags: Array.isArray(data.tags) ? data.tags : [],
+
+    options: Array.isArray(data.options) ? data.options : [],
+    variants,
+
+    priceRange:
+      data.priceRange?.min !== undefined && data.priceRange?.max !== undefined
+        ? {
+            min: Number(data.priceRange.min),
+            max: Number(data.priceRange.max),
+          }
+        : derivedMinPrice !== null && derivedMaxPrice !== null
+          ? {
+              min: derivedMinPrice,
+              max: derivedMaxPrice,
+            }
+          : undefined,
+  };
 };
 
 // ===== PRODUCT DETAIL PAGE COMPONENT =====
@@ -240,7 +370,7 @@ const ProductDetailPage: React.FC = () => {
       );
 
       if (json.success && json.data) {
-        setProduct(json.data as Product);
+        setProduct(normalizeProductDetail(json.data));
       } else {
         setError(json.message || "Không thể tải chi tiết sản phẩm.");
       }
@@ -481,6 +611,48 @@ const ProductDetailPage: React.FC = () => {
           />
         </div>
 
+        <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
+            Hướng dẫn bảo quản
+          </h2>
+          {product.storage_guide ? (
+            <div
+              className="prose max-w-none text-gray-700 dark:prose-invert dark:text-gray-300"
+              dangerouslySetInnerHTML={{ __html: product.storage_guide }}
+            />
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">—</p>
+          )}
+        </div>
+
+        <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
+            Gợi ý sử dụng
+          </h2>
+          {product.usage_suggestions ? (
+            <div
+              className="prose max-w-none text-gray-700 dark:prose-invert dark:text-gray-300"
+              dangerouslySetInnerHTML={{ __html: product.usage_suggestions }}
+            />
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">—</p>
+          )}
+        </div>
+
+        <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
+            Ghi chú dinh dưỡng
+          </h2>
+          {product.nutrition_notes ? (
+            <div
+              className="prose max-w-none text-gray-700 dark:prose-invert dark:text-gray-300"
+              dangerouslySetInnerHTML={{ __html: product.nutrition_notes }}
+            />
+          ) : (
+            <p className="text-sm text-gray-500 dark:text-gray-400">—</p>
+          )}
+        </div>
+
         {/* SECTION BIẾN THỂ SẢN PHẨM */}
         {product.variants && product.variants.length > 0 && (
           <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
@@ -546,6 +718,52 @@ const ProductDetailPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        <div className="mt-8 border-t border-gray-200 px-2 pt-6 dark:border-gray-700">
+          <h2 className="mb-4 text-lg font-semibold dark:text-white">
+            Thông tin bổ sung
+          </h2>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <p className="mb-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                Mô tả ngắn
+              </p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                {product.short_description || "—"}
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1 text-sm font-medium text-gray-600 dark:text-gray-400">
+                Xuất xứ
+              </p>
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900/40 dark:text-gray-300">
+                {product.origin?.name || product.origin_id || "—"}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-medium text-gray-600 dark:text-gray-400">
+              Thẻ sản phẩm
+            </p>
+            {Array.isArray(product.tags) && product.tags.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {product.tags.map((tag) => (
+                  <span
+                    key={tag.id}
+                    className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700 dark:bg-gray-800 dark:text-gray-300"
+                  >
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400">—</p>
+            )}
+          </div>
+        </div>
 
         {/* SYSTEM INFO */}
         <div className="mt-8 grid grid-cols-1 gap-3 border-t border-gray-200 px-2 pt-6 text-sm text-gray-700 dark:border-gray-700 dark:text-gray-400 sm:grid-cols-2">

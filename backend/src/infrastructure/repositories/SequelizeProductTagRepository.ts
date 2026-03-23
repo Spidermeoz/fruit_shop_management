@@ -1,89 +1,72 @@
-import { Op, literal, type WhereOptions } from "sequelize";
+import { Op } from "sequelize";
 import type {
   CreateProductTagInput,
   ProductTag,
   ProductTagListFilter,
   ProductTagRepository,
-  ProductTagStatus,
   UpdateProductTagPatch,
 } from "../../domain/products/ProductTagRepository";
 
-export class SequelizeProductTagRepository implements ProductTagRepository {
-  constructor(private ProductTagModel: any) {}
+type ProductTagModelStatic = any;
 
-  private toPlain(row: any) {
-    if (!row) return row;
-    return typeof row.get === "function" ? row.get({ plain: true }) : row;
-  }
-
-  private mapRow = (row: any): ProductTag => {
-    const r = this.toPlain(row);
-
-    return {
-      id: Number(r.id),
-      name: r.name,
-      slug: r.slug ?? null,
-      tagGroup: r.tag_group,
-      description: r.description ?? null,
-      status: r.status,
-      position:
-        r.position !== undefined && r.position !== null
-          ? Number(r.position)
-          : null,
-      deleted: !!r.deleted,
-      deletedAt: r.deleted_at ?? null,
-      createdAt: r.created_at ?? r.createdAt,
-      updatedAt: r.updated_at ?? r.updatedAt,
-    };
+function mapRow(row: any): ProductTag {
+  return {
+    id: Number(row.id),
+    name: String(row.name),
+    slug: row.slug ? String(row.slug) : null,
+    description: row.description ?? null,
+    tagGroup: row.tag_group,
+    deleted: !!row.deleted,
+    deletedAt: row.deleted_at ?? null,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
   };
+}
 
-  private async resolvePosition(position?: number | null) {
-    if (position != null) return Number(position);
-
-    let maxPos = await this.ProductTagModel.max("position", {
-      where: { deleted: 0 },
-    });
-
-    maxPos = Number(maxPos) || 0;
-
-    return maxPos + 1;
-  }
+export class SequelizeProductTagRepository implements ProductTagRepository {
+  constructor(private readonly ProductTagModel: ProductTagModelStatic) {}
 
   async list(filter: ProductTagListFilter) {
-    const {
-      page = 1,
-      limit = 20,
-      q,
-      status = "all",
-      tagGroup = "all",
-      sortBy = "position",
-      order = "ASC",
-    } = filter;
+    const page = Math.max(1, Number(filter.page || 1));
+    const limit = Math.max(1, Math.min(1000, Number(filter.limit || 20)));
+    const offset = (page - 1) * limit;
 
-    const where: WhereOptions = { deleted: 0 };
+    const where: any = {
+      deleted: 0,
+    };
 
-    if (status !== "all") (where as any).status = status;
-    if (tagGroup !== "all") (where as any).tag_group = tagGroup;
-
-    if (q) {
-      (where as any)[Op.or] = [
-        { name: { [Op.like]: `%${q}%` } },
-        { slug: { [Op.like]: `%${q}%` } },
+    if (filter.q?.trim()) {
+      where[Op.or] = [
+        { name: { [Op.like]: `%${filter.q.trim()}%` } },
+        { slug: { [Op.like]: `%${filter.q.trim()}%` } },
+        { description: { [Op.like]: `%${filter.q.trim()}%` } },
       ];
     }
 
-    const offset = (page - 1) * limit;
+    if (filter.tagGroup && filter.tagGroup !== "all") {
+      where.tag_group = filter.tagGroup;
+    }
+
+    const sortableFields: Record<string, string> = {
+      id: "id",
+      name: "name",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    };
+
+    const sortBy = sortableFields[filter.sortBy || "name"] || "name";
+    const order = filter.order === "DESC" ? "DESC" : "ASC";
 
     const { rows, count } = await this.ProductTagModel.findAndCountAll({
       where,
-      limit,
       offset,
-      order: [[literal(sortBy), order]],
+      limit,
+      order: [[sortBy, order]],
     });
 
     return {
-      rows: rows.map(this.mapRow),
-      count,
+      rows: rows.map(mapRow),
+      count: Number(count || 0),
     };
   }
 
@@ -92,45 +75,75 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
       where: { id, deleted: 0 },
     });
 
-    return row ? this.mapRow(row) : null;
+    if (!row) return null;
+    return mapRow(row);
   }
 
   async create(input: CreateProductTagInput) {
-    const position = await this.resolvePosition(input.position);
-
     const row = await this.ProductTagModel.create({
       name: input.name,
-      slug: input.slug ?? null,
-      tag_group: input.tagGroup,
+      slug: input.slug,
       description: input.description ?? null,
-      status: input.status ?? "active",
-      position,
+      tag_group: input.tagGroup,
       deleted: 0,
-      deleted_at: null,
     });
 
-    return this.mapRow(row);
+    return mapRow(row);
   }
 
   async update(id: number, patch: UpdateProductTagPatch) {
-    const values: any = {};
+    const existing = await this.ProductTagModel.findOne({
+      where: { id, deleted: 0 },
+    });
 
-    if (patch.name !== undefined) values.name = patch.name;
-    if (patch.slug !== undefined) values.slug = patch.slug;
-    if (patch.tagGroup !== undefined) values.tag_group = patch.tagGroup;
-    if (patch.description !== undefined) values.description = patch.description;
-    if (patch.status !== undefined) values.status = patch.status;
-    if (patch.position !== undefined) values.position = patch.position;
+    if (!existing) {
+      throw new Error("Không tìm thấy product tag");
+    }
 
-    await this.ProductTagModel.update(values, { where: { id } });
+    const nextPatch: any = {};
 
-    const fresh = await this.findById(id);
-    if (!fresh) throw new Error("Product tag not found");
+    if (patch.name !== undefined) nextPatch.name = patch.name;
+    if (patch.slug !== undefined) nextPatch.slug = patch.slug;
+    if (patch.description !== undefined)
+      nextPatch.description = patch.description;
+    if (patch.tagGroup !== undefined) nextPatch.tag_group = patch.tagGroup;
 
-    return fresh;
+    await existing.update(nextPatch);
+
+    return mapRow(existing);
   }
 
-  async changeStatus(id: number, status: ProductTagStatus) {
-    await this.ProductTagModel.update({ status }, { where: { id } });
+  async softDelete(id: number) {
+    const existing = await this.ProductTagModel.findOne({
+      where: { id, deleted: 0 },
+    });
+
+    if (!existing) {
+      throw new Error("Không tìm thấy product tag");
+    }
+
+    await existing.update({
+      deleted: 1,
+      deleted_at: new Date(),
+    });
+  }
+
+  async bulkSoftDelete(ids: number[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+    const [affectedCount] = await this.ProductTagModel.update(
+      {
+        deleted: 1,
+        deleted_at: new Date(),
+      },
+      {
+        where: {
+          id: { [Op.in]: ids },
+          deleted: 0,
+        },
+      },
+    );
+
+    return Number(affectedCount || 0);
   }
 }

@@ -41,6 +41,10 @@ export type ProductDTO = {
     slug: string;
     tagGroup: string;
   }[];
+  variants?: any[];
+  options?: any[];
+  tagIds?: number[];
+  
 };
 
 export const toDTO = (p: Product): ProductDTO => {
@@ -84,5 +88,10 @@ export const toDTO = (p: Product): ProductDTO => {
     nutritionNotes: p.props.nutritionNotes ?? null,
 
     tags: p.props.tags ?? [],
+
+    tagIds: p.props.tags?.map((t) => t.id) ?? [],
+
+    variants: p.props.variants ?? [],
+    options: p.props.options ?? [],
   };
 };

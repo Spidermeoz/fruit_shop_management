@@ -12,11 +12,8 @@ export class CreateProductTag {
 
     const created = await this.repo.create({
       name: input.name.trim(),
-      slug: input.slug ?? null,
       tagGroup: input.tagGroup,
       description: input.description ?? null,
-      status: input.status ?? "active",
-      position: input.position ?? null,
     });
 
     return { id: created.id! };

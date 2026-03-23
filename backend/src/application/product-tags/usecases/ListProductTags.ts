@@ -12,9 +12,8 @@ export class ListProductTags {
       page: filter.page ?? 1,
       limit: filter.limit ?? 20,
       q: filter.q,
-      status: filter.status ?? "all",
       tagGroup: filter.tagGroup ?? "all",
-      sortBy: filter.sortBy ?? "position",
+      sortBy: filter.sortBy ?? "name",
       order: filter.order ?? "ASC",
     });
 
