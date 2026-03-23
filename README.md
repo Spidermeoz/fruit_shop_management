@@ -227,6 +227,22 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 GetMyOrderDetail.ts
 │   │   │   │       ├── 📄 GetMyOrders.ts
 │   │   │   │       └── 📄 ListMyOrderAddresses.ts
+│   │   │   ├── 📁 origins
+│   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 ChangeOriginStatus.ts
+│   │   │   │   │   ├── 📄 CreateOrigin.ts
+│   │   │   │   │   ├── 📄 EditOrigin.ts
+│   │   │   │   │   ├── 📄 GetOriginDetail.ts
+│   │   │   │   │   └── 📄 ListOrigins.ts
+│   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 product-tags
+│   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 ChangeProductTagStatus.ts
+│   │   │   │   │   ├── 📄 CreateProductTag.ts
+│   │   │   │   │   ├── 📄 EditProductTag.ts
+│   │   │   │   │   ├── 📄 GetProductTagDetail.ts
+│   │   │   │   │   └── 📄 ListProductTags.ts
+│   │   │   │   └── 📄 dto.ts
 │   │   │   ├── 📁 products
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 BulkEditProducts.ts
@@ -290,12 +306,16 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 ProductCategory.ts
 │   │   │   │   ├── 📄 ProductCategoryRepository.ts
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 inventory
+│   │   │   │   └── 📄 InventoryRepository.ts
 │   │   │   ├── 📁 orders
 │   │   │   │   ├── 📄 Order.ts
 │   │   │   │   ├── 📄 OrderRepository.ts
 │   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 products
+│   │   │   │   ├── 📄 OriginRepository.ts
 │   │   │   │   ├── 📄 ProductRepository.ts
+│   │   │   │   ├── 📄 ProductTagRepository.ts
 │   │   │   │   ├── 📄 Products.ts
 │   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 reviews
@@ -325,15 +345,20 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 CartModel.ts
 │   │   │   │       │   ├── 📄 DeliveryStatusHistoryModel.ts
 │   │   │   │       │   ├── 📄 ForgotPasswordModel.ts
+│   │   │   │       │   ├── 📄 InventoryStockModel.ts
+│   │   │   │       │   ├── 📄 InventoryTransactionModel.ts
 │   │   │   │       │   ├── 📄 OrderAddressModel.ts
 │   │   │   │       │   ├── 📄 OrderItemModel.ts
 │   │   │   │       │   ├── 📄 OrderModel.ts
+│   │   │   │       │   ├── 📄 OriginModel.ts
 │   │   │   │       │   ├── 📄 PaymentModel.ts
 │   │   │   │       │   ├── 📄 ProductCategoryModel.ts
 │   │   │   │       │   ├── 📄 ProductModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionValueModel.ts
 │   │   │   │       │   ├── 📄 ProductReviewModel.ts
+│   │   │   │       │   ├── 📄 ProductTagMapModel.ts
+│   │   │   │       │   ├── 📄 ProductTagModel.ts
 │   │   │   │       │   ├── 📄 ProductVariantModel.ts
 │   │   │   │       │   ├── 📄 ProductVariantValueModel.ts
 │   │   │   │       │   ├── 📄 RoleModel.ts
@@ -344,9 +369,12 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📄 EmailService.ts
 │   │   │   ├── 📁 repositories
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
+│   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
+│   │   │   │   ├── 📄 SequelizeOriginRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductCategoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductRepository.ts
+│   │   │   │   ├── 📄 SequelizeProductTagRepository.ts
 │   │   │   │   ├── 📄 SequelizeReviewRepository.ts
 │   │   │   │   ├── 📄 SequelizeRoleRepository.ts
 │   │   │   │   ├── 📄 SequelizeSettingGeneralRepository.ts
@@ -371,7 +399,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 AdminReviewsController.ts
 │   │   │           │   ├── 📄 AuthController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
+│   │   │           │   ├── 📄 OriginsController.ts
 │   │   │           │   ├── 📄 ProductCategoriesController.ts
+│   │   │           │   ├── 📄 ProductTagsController.ts
 │   │   │           │   ├── 📄 ProductsController.ts
 │   │   │           │   ├── 📄 RolesController.ts
 │   │   │           │   ├── 📄 SettingsGeneralController.ts
@@ -396,7 +426,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 adminSettings.routes.ts
 │   │   │               ├── 📄 auth.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
+│   │   │               ├── 📄 origins.routes.ts
 │   │   │               ├── 📄 productCategories.routes.ts
+│   │   │               ├── 📄 productTags.routes.ts
 │   │   │               ├── 📄 products.routes.ts
 │   │   │               ├── 📄 roles.routes.ts
 │   │   │               ├── 📄 upload.routes.ts
@@ -461,6 +493,16 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ProductCategoryDetailPage.tsx
 │   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
+│   │   │   │   ├── 📁 product-origin
+│   │   │   │   │   ├── 📄 ProductOriginCreatePage.tsx
+│   │   │   │   │   ├── 📄 ProductOriginDetailPage.tsx
+│   │   │   │   │   ├── 📄 ProductOriginEditPage.tsx
+│   │   │   │   │   └── 📄 ProductOriginPage.tsx
+│   │   │   │   ├── 📁 product-tags
+│   │   │   │   │   ├── 📄 ProductTagCreatePage.tsx
+│   │   │   │   │   ├── 📄 ProductTagDetailPage.tsx
+│   │   │   │   │   ├── 📄 ProductTagEditPage.tsx
+│   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 products
 │   │   │   │   │   ├── 📄 ProductCreatePage.tsx
 │   │   │   │   │   ├── 📄 ProductDetailPage.tsx

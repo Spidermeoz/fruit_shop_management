@@ -511,8 +511,8 @@ export const usecases = {
   products: {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo),
-    create: new CreateProduct(productRepo),
-    edit: new EditProduct(productRepo),
+    create: new CreateProduct(productRepo, inventoryRepo),
+    edit: new EditProduct(productRepo, inventoryRepo),
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
@@ -581,9 +581,9 @@ export const usecases = {
   authServices,
 
   carts: {
-    addToCart: new AddToCart(cartRepo, productRepo),
+    addToCart: new AddToCart(cartRepo, productRepo, inventoryRepo),
     listItems: new ListCartItems(cartRepo),
-    updateItem: new UpdateCartItem(cartRepo, productRepo),
+    updateItem: new UpdateCartItem(cartRepo, productRepo, inventoryRepo),
     removeItem: new RemoveFromCart(cartRepo),
     removeAllItems: new RemoveAllFromCart(cartRepo),
   },

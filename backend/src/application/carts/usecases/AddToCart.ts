@@ -11,6 +11,7 @@ export class AddToCart {
   constructor(
     private cartRepo: CartRepository,
     private productRepo: ProductRepository,
+    private inventoryRepo: any,
   ) {}
 
   async execute(input: Input) {
@@ -29,13 +30,18 @@ export class AddToCart {
       throw new Error("Product variant is inactive");
     }
 
+    const stock = await this.inventoryRepo.ensureStockForVariant(
+      input.productVariantId,
+      Number(variant.stock ?? 0),
+    );
+
     const items = await this.cartRepo.listItems(input.userId);
 
     const currentQty =
       items.find((i) => i.productVariantId === input.productVariantId)
         ?.quantity || 0;
 
-    if (currentQty + quantity > variant.stock) {
+    if (currentQty + quantity > stock.quantity) {
       throw new Error("Quantity exceeds stock");
     }
 

@@ -84,6 +84,7 @@ export const makeProductsController = (uc: {
             price: dto.price,
             discount_percentage: dto.discountPercentage,
             stock: dto.stock,
+            total_stock: dto.stock,
             thumbnail: dto.thumbnail,
             status: dto.status,
             featured: dto.featured,
@@ -130,8 +131,40 @@ export const makeProductsController = (uc: {
           usageSuggestions?: string | null;
           nutritionNotes?: string | null;
           tagIds?: number[];
+          options?: Array<{
+            id?: number;
+            name: string;
+            position?: number;
+            values?: Array<{
+              id?: number;
+              value: string;
+              position?: number;
+            }>;
+          }>;
+          variants?: Array<{
+            id?: number;
+            sku?: string | null;
+            title?: string | null;
+            price?: number | null;
+            compareAtPrice?: number | null;
+            stock?: number;
+            status?: ProductStatus;
+            sortOrder?: number;
+            optionValueIds?: number[];
+          }>;
         };
-        const result = await uc.create.execute(payload);
+        const result = await uc.create.execute({
+          ...payload,
+          options: payload.options?.map((o) => ({
+            ...o,
+            values: o.values ?? [],
+          })),
+          variants: payload.variants?.map((v) => ({
+            ...v,
+            price: v.price ?? 0,
+            stock: v.stock ?? 0,
+          })),
+        });
         res.status(201).json({
           success: true,
           data: result,
@@ -157,6 +190,7 @@ export const makeProductsController = (uc: {
             price: dto.price ?? "",
             discount_percentage: dto.discountPercentage ?? 0,
             stock: dto.stock ?? 0,
+            total_stock: dto.stock ?? 0,
             thumbnail: dto.thumbnail ?? "",
             status: dto.status,
             featured: dto.featured ? 1 : 0,

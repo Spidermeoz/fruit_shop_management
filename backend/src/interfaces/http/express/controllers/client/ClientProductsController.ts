@@ -46,12 +46,6 @@ const normalizeProduct = (raw: any) => {
                   : undefined,
             }))
           : [],
-        origin: p.origin ?? null,
-        tags: p.tags ?? [],
-        shortDescription: p.shortDescription ?? null,
-        storageGuide: p.storageGuide ?? null,
-        usageSuggestions: p.usageSuggestions ?? null,
-        nutritionNotes: p.nutritionNotes ?? null,
       }))
     : [];
 
@@ -81,14 +75,18 @@ const normalizeProduct = (raw: any) => {
     ? Math.max(...sourceVariants.map((v: any) => Number(v.price ?? 0)))
     : null;
 
+  const totalVariantStock = variants.reduce(
+    (sum: number, v: any) => sum + Number(v.stock ?? 0),
+    0,
+  );
+
+  const hasVariants = variants.length > 0;
+
   const totalStock =
-    p?.totalStock !== undefined && p?.totalStock !== null && p.totalStock > 0
+    p?.totalStock !== undefined && p?.totalStock !== null
       ? Number(p.totalStock)
-      : variants.length > 0
-        ? variants.reduce(
-            (sum: number, v: any) => sum + Number(v.stock ?? 0),
-            0,
-          )
+      : hasVariants
+        ? totalVariantStock
         : Number(p.stock ?? 0);
 
   const basePrice =
@@ -119,8 +117,7 @@ const normalizeProduct = (raw: any) => {
     description: p.description ?? null,
     price: basePrice,
     discountPercentage,
-    stock:
-      p.stock !== undefined && p.stock !== null ? Number(p.stock) : totalStock,
+    stock: totalStock,
     totalStock,
     thumbnail: p.thumbnail ?? null,
     slug: p.slug ?? null,
@@ -156,6 +153,18 @@ const normalizeProduct = (raw: any) => {
           title: p.category.title,
         }
       : null,
+    originId:
+      p.originId !== undefined && p.originId !== null
+        ? Number(p.originId)
+        : p.origin_id !== undefined && p.origin_id !== null
+          ? Number(p.origin_id)
+          : null,
+    origin: p.origin ?? null,
+    tags: Array.isArray(p.tags) ? p.tags : [],
+    shortDescription: p.shortDescription ?? p.short_description ?? null,
+    storageGuide: p.storageGuide ?? p.storage_guide ?? null,
+    usageSuggestions: p.usageSuggestions ?? p.usage_suggestions ?? null,
+    nutritionNotes: p.nutritionNotes ?? p.nutrition_notes ?? null,
     variants,
     options,
     defaultVariantId:

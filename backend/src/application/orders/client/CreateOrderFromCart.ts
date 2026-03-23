@@ -5,6 +5,7 @@ export class CreateOrderFromCart {
     private orderRepo: any,
     private cartRepo: any,
     private productRepo: any,
+    private inventoryRepo: any,
   ) {}
 
   async execute(userId: number, payload: any) {
@@ -26,7 +27,6 @@ export class CreateOrderFromCart {
     const transaction = await this.orderRepo.startTransaction();
 
     try {
-      // check stock theo variant
       for (const item of cartItems) {
         if (!item.productVariantId) {
           throw new Error("Cart item chưa gắn product variant");
@@ -43,7 +43,13 @@ export class CreateOrderFromCart {
           );
         }
 
-        if (variant.stock < item.quantity) {
+        const stock = await this.inventoryRepo.ensureStockForVariant(
+          item.productVariantId,
+          Number(variant.stock ?? 0),
+          transaction,
+        );
+
+        if (stock.quantity < item.quantity) {
           throw new Error(`Không đủ tồn kho (${variant.title || "variant"})`);
         }
       }
@@ -84,10 +90,17 @@ export class CreateOrderFromCart {
       );
 
       for (const item of cartItems) {
-        await this.productRepo.decreaseVariantStock(
+        await this.inventoryRepo.decreaseStockByVariantId(
           item.productVariantId,
           item.quantity,
-          transaction,
+          {
+            transaction,
+            transactionType: "order_created",
+            referenceType: "order",
+            referenceId: Number(order.props.id),
+            note: `Trừ kho khi tạo đơn ${order.props.code}`,
+            createdById: userId,
+          },
         );
       }
 

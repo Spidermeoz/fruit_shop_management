@@ -1,57 +1,61 @@
-// src/application/orders/client/CancelMyOrder.ts
-
 export class CancelMyOrder {
   constructor(
     private orderRepo: any,
-    private productRepo: any,
+    private inventoryRepo: any,
   ) {}
 
   async execute(userId: number, orderId: number) {
     const order = await this.orderRepo.findById(orderId);
+    if (!order) throw new Error("Không tìm thấy đơn hàng");
+    if (order.props.userId !== userId)
+      throw new Error("Bạn không có quyền hủy đơn này");
 
-    if (!order) {
-      throw new Error("Đơn hàng không tồn tại");
-    }
-
-    if (order.props.userId !== userId) {
-      throw new Error("Bạn không có quyền hủy đơn hàng này");
-    }
-
-    if (
-      order.props.status !== "pending" &&
-      order.props.status !== "processing"
-    ) {
+    const cancellableStatuses = ["pending", "processing"];
+    if (!cancellableStatuses.includes(order.props.status)) {
       throw new Error("Đơn hàng không thể hủy ở trạng thái hiện tại");
     }
 
-    const t = await this.orderRepo.startTransaction();
+    const transaction = await this.orderRepo.startTransaction();
 
     try {
-      // hoàn kho variant trước
-      for (const item of order.props.items) {
-        if (item.productVariantId) {
-          await this.productRepo.increaseVariantStock(
-            item.productVariantId,
-            item.quantity,
-            t,
-          );
-        }
+      const freshOrder = await this.orderRepo.findById(orderId, transaction);
+      if (!freshOrder) throw new Error("Không tìm thấy đơn hàng");
+
+      for (const item of freshOrder.props.items ?? []) {
+        if (!item.productVariantId || !item.quantity) continue;
+
+        await this.inventoryRepo.increaseStockByVariantId(
+          Number(item.productVariantId),
+          Number(item.quantity),
+          {
+            transaction,
+            transactionType: "order_cancelled",
+            referenceType: "order",
+            referenceId: Number(orderId),
+            note: `Hoàn kho khi khách hủy đơn ${freshOrder.props.code}`,
+            createdById: userId,
+          },
+        );
       }
 
-      // update status + ghi history trong cùng transaction
-      await this.orderRepo.updateStatus(
-        orderId,
-        "cancelled",
-        t,
-        "Khách hàng đã hủy đơn",
-      );
+      await this.orderRepo.updateStatus(orderId, "cancelled", transaction);
 
-      await t.commit();
+      if (typeof this.orderRepo.addDeliveryHistory === "function") {
+        await this.orderRepo.addDeliveryHistory(
+          {
+            orderId,
+            status: "cancelled",
+            note: "Khách hàng đã hủy đơn",
+          },
+          transaction,
+        );
+      }
 
+      await transaction.commit();
       return { success: true };
-    } catch (err) {
-      await t.rollback();
-      throw err;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
     }
   }
 }
