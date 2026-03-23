@@ -21,6 +21,8 @@ import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
 import OriginModel from "../../infrastructure/db/sequelize/models/OriginModel";
 import ProductTagModel from "../../infrastructure/db/sequelize/models/ProductTagModel";
 import ProductTagMapModel from "../../infrastructure/db/sequelize/models/ProductTagMapModel";
+import InventoryStockModel from "../../infrastructure/db/sequelize/models/InventoryStockModel";
+import InventoryTransactionModel from "../../infrastructure/db/sequelize/models/InventoryTransactionModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -33,6 +35,7 @@ import { SequelizeSettingGeneralRepository } from "../../infrastructure/reposito
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
 import { SequelizeOriginRepository } from "../../infrastructure/repositories/SequelizeOriginRepository";
 import { SequelizeProductTagRepository } from "../../infrastructure/repositories/SequelizeProductTagRepository";
+import { SequelizeInventoryRepository } from "../../infrastructure/repositories/SequelizeInventoryRepository";
 
 // ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -347,6 +350,25 @@ OrderItemModel.belongsTo(ProductVariantModel, {
   foreignKey: "product_variant_id",
 });
 
+// Inventory -> Variant
+InventoryStockModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
+ProductVariantModel.hasOne(InventoryStockModel, {
+  as: "inventoryStock",
+  foreignKey: "product_variant_id",
+});
+
+InventoryTransactionModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
+ProductVariantModel.hasMany(InventoryTransactionModel, {
+  as: "inventoryTransactions",
+  foreignKey: "product_variant_id",
+});
+
 // Order -> Address
 OrderModel.hasOne(OrderAddressModel, {
   as: "address",
@@ -416,6 +438,14 @@ const productModels = {
   ProductTagMap: ProductTagMapModel,
 };
 const productRepo = new SequelizeProductRepository(productModels);
+
+const inventoryModels = {
+  InventoryStock: InventoryStockModel,
+  InventoryTransaction: InventoryTransactionModel,
+  ProductVariant: ProductVariantModel,
+  Product: ProductModel,
+};
+const inventoryRepo = new SequelizeInventoryRepository(inventoryModels);
 
 // Category
 const categoryModels = {
@@ -559,14 +589,19 @@ export const usecases = {
   },
 
   orders: {
-    createFromCart: new CreateOrderFromCart(orderRepo, cartRepo, productRepo),
+    createFromCart: new CreateOrderFromCart(
+      orderRepo,
+      cartRepo,
+      productRepo,
+      inventoryRepo,
+    ),
     myOrders: new GetMyOrders(orderRepo),
     myOrderDetail: new GetMyOrderDetail(orderRepo),
-    cancelMyOrder: new CancelMyOrder(orderRepo, productRepo),
+    cancelMyOrder: new CancelMyOrder(orderRepo, inventoryRepo),
 
     list: new ListOrders(orderRepo),
     detail: new GetOrderDetailAdmin(orderRepo),
-    updateStatus: new UpdateOrderStatus(orderRepo, productRepo),
+    updateStatus: new UpdateOrderStatus(orderRepo, inventoryRepo),
     addDeliveryStatus: new AddDeliveryHistory(orderRepo),
     addPayment: new AddPayment(orderRepo),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
