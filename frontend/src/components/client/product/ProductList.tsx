@@ -10,11 +10,46 @@ interface Category {
   slug: string;
 }
 
+interface ProductVariantInventory {
+  id: number;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface ProductVariant {
+  id: number;
+  title?: string | null;
+  stock: number;
+  availableStock?: number;
+  inventory?: ProductVariantInventory | null;
+  price: number;
+  status?: string;
+}
+
+interface ProductTag {
+  id: number;
+  name: string;
+  slug: string;
+  tagGroup?: string;
+}
+
+interface ProductOrigin {
+  id: number;
+  name: string;
+  slug: string;
+  countryCode?: string | null;
+}
+
 interface Product {
   id: number;
   title: string;
   slug: string;
   price: number;
+  effectivePrice?: number | null;
+  discountPercentage?: number | null;
   effective_price?: number;
   discount_percentage?: number;
   thumbnail: string;
@@ -22,14 +57,13 @@ interface Product {
   totalStock?: number;
   featured: boolean;
   priceRange?: { min: number; max: number } | null;
-  variants?: Array<{
-    id: number;
-    title?: string | null;
-    stock: number;
-    price: number;
-    status?: string;
-  }>;
+  variants?: ProductVariant[];
   category?: Category | null;
+  origin?: ProductOrigin | null;
+  tags?: ProductTag[];
+  averageRating?: number;
+  reviewCount?: number;
+  shortDescription?: string | null;
 }
 
 const ProductListPage: React.FC = () => {
@@ -38,7 +72,7 @@ const ProductListPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchTerm, setSearchTerm] = useState(searchParams.get("q") || "");
   const [sortBy, setSortBy] = useState("default");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000000]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -80,7 +114,7 @@ const ProductListPage: React.FC = () => {
         if (categorySlug) params.set("category", categorySlug);
         if (searchTerm) params.set("q", searchTerm);
         if (priceRange[0] > 0) params.set("minPrice", priceRange[0].toString());
-        if (priceRange[1] < 1000000)
+        if (priceRange[1] < 5000000)
           params.set("maxPrice", priceRange[1].toString());
 
         if (sortBy === "price-asc") {
@@ -129,9 +163,16 @@ const ProductListPage: React.FC = () => {
 
   const totalPages = Math.ceil(total / productsPerPage);
 
-  // --- GIỮ NGUYÊN HANDLERS ---
   const handleCategoryClick = (slug: string | null) => {
-    setSearchParams(slug ? { category: slug } : {});
+    const next = new URLSearchParams(searchParams);
+
+    if (slug) {
+      next.set("category", slug);
+    } else {
+      next.delete("category");
+    }
+
+    setSearchParams(next);
   };
 
   const handleSearchChange = (term: string) => {
@@ -151,8 +192,8 @@ const ProductListPage: React.FC = () => {
     setSearchParams({});
     setSearchTerm("");
     setSortBy("default");
-    setPriceRange([0, 1000000]);
-    setVisibleCategoriesCount(5); // Xóa bộ lọc thì reset lại số danh mục hiển thị
+    setPriceRange([0, 5000000]);
+    setVisibleCategoriesCount(5);
   };
 
   const handleLoadMoreCategories = () => {
@@ -165,6 +206,8 @@ const ProductListPage: React.FC = () => {
 
   const getDisplayPrice = (product: Product) => {
     if (product.priceRange?.min !== undefined) return product.priceRange.min;
+    if (typeof product.effectivePrice === "number")
+      return product.effectivePrice;
     if (typeof product.effective_price === "number")
       return product.effective_price;
     return product.price ?? 0;
@@ -187,11 +230,40 @@ const ProductListPage: React.FC = () => {
 
     if (Array.isArray(product.variants) && product.variants.length > 0) {
       return product.variants.reduce((sum, variant) => {
-        return sum + Math.max(0, Number(variant.stock ?? 0));
+        return (
+          sum +
+          Math.max(
+            0,
+            Number(
+              variant.availableStock ??
+                variant.inventory?.availableQuantity ??
+                variant.stock ??
+                0,
+            ),
+          )
+        );
       }, 0);
     }
 
     return Math.max(0, Number(product.stock ?? 0));
+  };
+
+  const getDiscountPercent = (product: Product) => {
+    if (typeof product.discountPercentage === "number") {
+      return Math.max(0, Number(product.discountPercentage));
+    }
+    if (typeof product.discount_percentage === "number") {
+      return Math.max(0, Number(product.discount_percentage));
+    }
+
+    const displayPrice = getDisplayPrice(product);
+    const comparePrice = getDisplayComparePrice(product);
+
+    if (comparePrice > displayPrice && comparePrice > 0) {
+      return Math.round(((comparePrice - displayPrice) / comparePrice) * 100);
+    }
+
+    return 0;
   };
 
   const hasMultipleVariants = (product: Product) =>
@@ -391,7 +463,7 @@ const ProductListPage: React.FC = () => {
                       <input
                         type="range"
                         min="0"
-                        max="1000000"
+                        max="5000000"
                         step="10000"
                         value={priceRange[0]}
                         onChange={(e) => handlePriceRangeChange(e, 0)}
@@ -402,7 +474,7 @@ const ProductListPage: React.FC = () => {
                       <input
                         type="range"
                         min="0"
-                        max="1000000"
+                        max="5000000"
                         step="10000"
                         value={priceRange[1]}
                         onChange={(e) => handlePriceRangeChange(e, 1)}
@@ -549,14 +621,15 @@ const ProductListPage: React.FC = () => {
                   <p className="text-slate-500 font-medium">{error}</p>
                 </div>
               ) : products.length > 0 ? (
-                // 4.1. Product Grid (Điều chỉnh thành lg:grid-cols-4) -> đổi thành tự co dãn layout (reponsive)
+                // 4.1. Product Grid
                 <>
                   <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(250px,1fr))]">
                     {products.map((product) => {
                       const displayPrice = getDisplayPrice(product);
                       const comparePrice = getDisplayComparePrice(product);
-                      const hasDiscount = comparePrice > displayPrice;
                       const discountAmount = getDiscountAmount(product);
+                      const discountPercent = getDiscountPercent(product);
+                      const hasDiscount = discountPercent > 0;
                       const stock = getDisplayStock(product);
 
                       return (
@@ -579,7 +652,7 @@ const ProductListPage: React.FC = () => {
                             <div className="absolute top-3 left-3 flex flex-col gap-2">
                               {hasDiscount && (
                                 <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-                                  Giảm giá
+                                  -{discountPercent}%
                                 </span>
                               )}
                               {product.featured && (
@@ -604,9 +677,53 @@ const ProductListPage: React.FC = () => {
                             <span className="text-[11px] font-bold uppercase tracking-wider text-green-600 mb-1.5 line-clamp-1">
                               {product.category?.title || "Sản phẩm tươi"}
                             </span>
-                            <h3 className="text-lg font-bold text-slate-900 mb-3 line-clamp-2 leading-tight group-hover:text-green-700 transition-colors">
+
+                            <Link
+                              to={
+                                product.slug
+                                  ? `/products/${product.slug}`
+                                  : "/products"
+                              }
+                              className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 leading-tight group-hover:text-green-700 transition-colors"
+                            >
                               {product.title}
-                            </h3>
+                            </Link>
+
+                            {/* Đánh giá */}
+                            {typeof product.averageRating === "number" &&
+                              typeof product.reviewCount === "number" &&
+                              product.reviewCount > 0 && (
+                                <div className="flex items-center gap-1.5 mb-2 text-sm">
+                                  <span className="flex items-center gap-1 text-yellow-500 font-bold">
+                                    <svg
+                                      xmlns="http://www.w3.org/2000/svg"
+                                      className="h-4 w-4 fill-current"
+                                      viewBox="0 0 20 20"
+                                    >
+                                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.176 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81H7.03a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    {product.averageRating.toFixed(1)}
+                                  </span>
+                                  <span className="text-slate-400">
+                                    ({product.reviewCount})
+                                  </span>
+                                </div>
+                              )}
+
+                            {/* Mô tả ngắn */}
+                            {product.shortDescription && (
+                              <p className="text-sm text-slate-500 font-medium line-clamp-2 mb-2">
+                                {product.shortDescription}
+                              </p>
+                            )}
+
+                            {/* Xuất xứ */}
+                            {product.origin?.name && (
+                              <p className="text-xs font-bold text-slate-400 mb-2">
+                                Xuất xứ: {product.origin.name}
+                              </p>
+                            )}
+
                             {hasMultipleVariants(product) && (
                               <p className="text-xs font-bold text-slate-400 mb-2">
                                 Nhiều quy cách / size
@@ -638,7 +755,11 @@ const ProductListPage: React.FC = () => {
 
                             {/* Nút CTA */}
                             <Link
-                              to={`/products/${product.id}`}
+                              to={
+                                product.slug
+                                  ? `/products/${product.slug}`
+                                  : "/products"
+                              }
                               className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3.5 rounded-xl font-bold hover:bg-green-600 active:scale-[0.98] transition-all shadow-sm group-hover:shadow-md"
                             >
                               <svg
@@ -729,7 +850,7 @@ const ProductListPage: React.FC = () => {
                               strokeLinecap="round"
                               strokeLinejoin="round"
                               strokeWidth="2.5"
-                              d="M9 5l7 7-7 7"
+                              d="M9 5l7 7-7-7"
                             ></path>
                           </svg>
                         </button>

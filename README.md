@@ -229,16 +229,20 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       └── 📄 ListMyOrderAddresses.ts
 │   │   │   ├── 📁 origins
 │   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 BulkDeleteOrigins.ts
 │   │   │   │   │   ├── 📄 ChangeOriginStatus.ts
 │   │   │   │   │   ├── 📄 CreateOrigin.ts
 │   │   │   │   │   ├── 📄 EditOrigin.ts
 │   │   │   │   │   ├── 📄 GetOriginDetail.ts
-│   │   │   │   │   └── 📄 ListOrigins.ts
+│   │   │   │   │   ├── 📄 ListOrigins.ts
+│   │   │   │   │   └── 📄 SoftDeleteOrigin.ts
 │   │   │   │   └── 📄 dto.ts
 │   │   │   ├── 📁 product-tags
 │   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 BulkDeleteProductTags.ts
 │   │   │   │   │   ├── 📄 ChangeProductTagStatus.ts
 │   │   │   │   │   ├── 📄 CreateProductTag.ts
+│   │   │   │   │   ├── 📄 DeleteProductTag.ts
 │   │   │   │   │   ├── 📄 EditProductTag.ts
 │   │   │   │   │   ├── 📄 GetProductTagDetail.ts
 │   │   │   │   │   └── 📄 ListProductTags.ts
@@ -251,6 +255,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 CreateProduct.ts
 │   │   │   │   │   ├── 📄 EditProduct.ts
 │   │   │   │   │   ├── 📄 GetProductDetail.ts
+│   │   │   │   │   ├── 📄 GetProductDetailBySlug.ts
 │   │   │   │   │   ├── 📄 ListProducts.ts
 │   │   │   │   │   └── 📄 SoftDeleteProduct.ts
 │   │   │   │   └── 📄 dto.ts

@@ -5,6 +5,7 @@ export const clientProductsRoutes = (controller: ClientProductsController) => {
   const r = Router();
 
   r.get("/", controller.list);
+  r.get("/:slug", controller.detailBySlug);
   r.get("/:id", controller.detail);
 
   return r;

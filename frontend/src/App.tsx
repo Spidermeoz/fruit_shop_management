@@ -223,7 +223,7 @@ const App: React.FC = () => {
                             element={<ProductListPage />}
                           />
                           <Route
-                            path="/products/:id"
+                            path="/products/:slug"
                             element={<ProductClientDetailPage />}
                           />
                           <Route path="/cart" element={<CartPage />} />

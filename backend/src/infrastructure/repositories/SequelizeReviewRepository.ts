@@ -3,23 +3,35 @@ import { fn, col, literal, Op } from "sequelize";
 export class SequelizeReviewRepository {
   constructor(private models: any) {}
 
-  async userCanReview(userId: number, productId: number, orderId: number) {
+  async userCanReview(
+    userId: number,
+    productId: number,
+    orderId: number,
+    productVariantId?: number | null,
+  ) {
     const order = await this.models.Order.findOne({
       where: { id: orderId, user_id: userId, status: "completed" },
     });
 
     if (!order) return false;
 
-    const item = await this.models.OrderItem.findOne({
-      where: { order_id: orderId, product_id: productId },
-    });
+    const where: any = {
+      order_id: orderId,
+      product_id: productId,
+    };
 
+    if (productVariantId != null) {
+      where.product_variant_id = productVariantId;
+    }
+
+    const item = await this.models.OrderItem.findOne({ where });
     return !!item;
   }
 
   async create(input: any) {
     return await this.models.ProductReview.create({
       product_id: input.productId,
+      product_variant_id: input.productVariantId ?? null,
       order_id: input.orderId,
       user_id: input.userId,
       rating: input.rating,
@@ -49,7 +61,11 @@ export class SequelizeReviewRepository {
 
   async listByProduct(productId: number) {
     const rows = await this.models.ProductReview.findAll({
-      where: { product_id: productId },
+      where: {
+        product_id: productId,
+        parent_id: null,
+        status: "approved",
+      },
       include: [
         {
           model: this.models.User,
@@ -60,6 +76,7 @@ export class SequelizeReviewRepository {
           model: this.models.ProductReview,
           as: "replies",
           required: false,
+          where: { status: "approved" },
           include: [
             {
               model: this.models.User,

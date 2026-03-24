@@ -20,6 +20,7 @@ type Models = {
   Origin?: any;
   ProductTag?: any;
   ProductTagMap?: any;
+  InventoryStock?: any; // A. Mở rộng Models thêm InventoryStock
 };
 
 type OptionValueRef = {
@@ -69,6 +70,20 @@ export class SequelizeProductRepository implements ProductRepository {
           .filter(Boolean)
       : [];
 
+    // A. Xử lý inventory object từ r.inventoryStock
+    const inventory = r.inventoryStock
+      ? {
+          id: Number(r.inventoryStock.id),
+          quantity: Number(r.inventoryStock.quantity ?? 0),
+          reservedQuantity: Number(r.inventoryStock.reserved_quantity ?? 0),
+          availableQuantity:
+            Number(r.inventoryStock.quantity ?? 0) -
+            Number(r.inventoryStock.reserved_quantity ?? 0),
+          createdAt: r.inventoryStock.created_at,
+          updatedAt: r.inventoryStock.updated_at,
+        }
+      : null;
+
     return {
       id: Number(r.id),
       productId:
@@ -82,7 +97,14 @@ export class SequelizeProductRepository implements ProductRepository {
         r.compare_at_price !== undefined && r.compare_at_price !== null
           ? Number(r.compare_at_price)
           : null,
+
+      // A. Trả thêm các trường liên quan đến tồn kho
+      inventory,
+      availableStock: inventory
+        ? Math.max(0, inventory.availableQuantity)
+        : Number(r.stock ?? 0),
       stock: Number(r.stock ?? 0),
+
       status: r.status ?? "active",
       sortOrder: Number(r.sort_order ?? 0),
       optionValueIds: optionValues.map((x) => x.id),
@@ -138,16 +160,24 @@ export class SequelizeProductRepository implements ProductRepository {
 
     const derivedTotalStock = hasVariants
       ? variants.reduce(
-          (sum: number, v: { stock?: number | null }) =>
-            sum + Number(v.stock ?? 0),
+          (
+            sum: number,
+            v: { stock?: number | null; availableStock?: number | null },
+          ) => sum + Number(v.availableStock ?? v.stock ?? 0),
           0,
         )
       : Number(r.stock ?? 0);
 
+    // B. Đổi rule lấy defaultVariantId: Ưu tiên (active + còn hàng) -> active -> phần tử đầu
+    const activeInStockVariant = variants.find(
+      (v: any) =>
+        v.status === "active" && Number(v.availableStock ?? v.stock ?? 0) > 0,
+    );
+
+    const activeVariant = variants.find((v: any) => v.status === "active");
+
     const defaultVariantId =
-      variants.find((v: any) => v.status === "active")?.id ??
-      variants[0]?.id ??
-      null;
+      activeInStockVariant?.id ?? activeVariant?.id ?? variants[0]?.id ?? null;
 
     return DomainProduct.create({
       id: Number(r.id),
@@ -261,6 +291,22 @@ export class SequelizeProductRepository implements ProductRepository {
 
     if (this.models.ProductVariant) {
       const variantInclude: any[] = [];
+
+      // A. Join thêm InventoryStockModel vào variant
+      if (this.models.InventoryStock) {
+        variantInclude.push({
+          model: this.models.InventoryStock,
+          as: "inventoryStock",
+          attributes: [
+            "id",
+            "quantity",
+            "reserved_quantity",
+            "created_at",
+            "updated_at",
+          ],
+          required: false,
+        });
+      }
 
       if (this.models.ProductVariantValue && this.models.ProductOptionValue) {
         const optionValueInclude: any = {
@@ -634,6 +680,12 @@ export class SequelizeProductRepository implements ProductRepository {
     }
   }
 
+  // LƯU Ý:
+  // Hiện tại, việc lọc giá trong danh sách sản phẩm sử dụng products.price làm trường dẫn xuất/dự phòng.
+
+  // Trong kiến ​​trúc hiện tại, giá bán thực tế nằm ở product_variants.price.
+
+  // Nếu sau này bạn cần lọc chính xác cho các sản phẩm đa biến thể, hãy chuyển bộ lọc này sang logic truy vấn cấp biến thể.
   async list(filter: ProductListFilter) {
     const {
       page = 1,
@@ -673,6 +725,8 @@ export class SequelizeProductRepository implements ProductRepository {
       ];
     }
 
+    // C. Ghi chú rõ ràng: Contract backend list hiện đang dùng products.price làm derived/fallback price.
+    // Tương lai nếu muốn chuẩn xác cho Phase 2 thì cần join bảng variant để filter trực tiếp trên variant price.
     if (minPrice != null || maxPrice != null) {
       (where as any).price = {};
       if (minPrice != null) (where as any).price[Op.gte] = Number(minPrice);
@@ -712,6 +766,16 @@ export class SequelizeProductRepository implements ProductRepository {
   async findById(id: number) {
     const row = await this.models.Product.findOne({
       where: { id, deleted: 0 },
+      include: this.buildIncludes(true),
+      subQuery: false,
+    });
+
+    return row ? this.mapRow(row) : null;
+  }
+
+  async findBySlug(slug: string) {
+    const row = await this.models.Product.findOne({
+      where: { slug, deleted: 0 },
       include: this.buildIncludes(true),
       subQuery: false,
     });
@@ -1001,14 +1065,30 @@ export class SequelizeProductRepository implements ProductRepository {
       throw new Error("ProductVariant model not provided");
     }
 
+    const include: any[] = [];
+
+    if (this.models.InventoryStock) {
+      include.push({
+        model: this.models.InventoryStock,
+        as: "inventoryStock",
+        attributes: ["id", "quantity", "reserved_quantity"],
+        required: false,
+      });
+    }
+
     const variant = await Variant.findOne({
       where: { id: variantId },
+      include,
       transaction,
     });
 
     if (!variant) return null;
 
     const v = this.toPlain(variant);
+
+    const quantity = Number(v.inventoryStock?.quantity ?? v.stock ?? 0);
+    const reservedQuantity = Number(v.inventoryStock?.reserved_quantity ?? 0);
+    const availableStock = Math.max(0, quantity - reservedQuantity);
 
     return {
       id: Number(v.id),
@@ -1017,10 +1097,17 @@ export class SequelizeProductRepository implements ProductRepository {
       sku: v.sku ?? null,
       price: Number(v.price),
       stock: Number(v.stock ?? 0),
+      availableStock,
+      reservedQuantity,
       status: v.status ?? "active",
     };
   }
 
+  // LƯU Ý:
+  // Các phương pháp này chỉ thay đổi trực tiếp product_variants.stock để đảm bảo tính tương thích.
+
+  // Các quy trình mới nhạy cảm với tồn kho nên ưu tiên các phương pháp của InventoryRepository,
+  // trong đó inventory_stocks là nguồn thông tin chính xác và tồn kho sản phẩm/biến thể được phản ánh.
   async decreaseVariantStock(
     variantId: number,
     quantity: number,

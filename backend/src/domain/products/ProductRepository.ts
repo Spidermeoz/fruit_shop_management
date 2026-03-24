@@ -53,7 +53,9 @@ export interface ProductVariantStockInfo {
   title?: string | null;
   sku?: string | null;
   price: number;
-  stock: number;
+  stock: number; // compatibility / mirror
+  availableStock?: number;
+  reservedQuantity?: number;
   status: string;
 }
 
@@ -64,6 +66,7 @@ export interface ProductRepository {
     variantId: number,
     transaction?: any,
   ): Promise<ProductVariantStockInfo | null>;
+  findBySlug(slug: string): Promise<Product | null>;
 
   create(input: CreateProductInput): Promise<Product>;
   update(id: number, patch: UpdateProductPatch): Promise<Product>;

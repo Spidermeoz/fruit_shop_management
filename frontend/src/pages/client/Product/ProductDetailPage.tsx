@@ -44,16 +44,41 @@ interface ProductVariantOptionValue {
   optionName?: string;
 }
 
+interface ProductVariantInventory {
+  id: number;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 interface ProductVariant {
   id: number;
   title?: string | null;
   sku?: string | null;
   price: number;
   compareAtPrice?: number | null;
-  stock: number;
+  stock: number; // mirror / compatibility
+  availableStock?: number;
+  inventory?: ProductVariantInventory | null;
   status: string;
   optionValueIds?: number[];
   optionValues?: ProductVariantOptionValue[];
+}
+
+interface ProductTag {
+  id: number;
+  name: string;
+  slug: string;
+  tagGroup?: string;
+}
+
+interface ProductOrigin {
+  id: number;
+  name: string;
+  slug: string;
+  countryCode?: string | null;
 }
 
 interface Product {
@@ -61,21 +86,35 @@ interface Product {
   title: string;
   slug: string;
   price: number;
-  discountPercentage?: number;
+  discountPercentage?: number | null;
   thumbnail: string;
   stock: number;
   totalStock?: number;
   featured: boolean;
   description: string;
+
+  shortDescription?: string | null;
+  storageGuide?: string | null;
+  usageSuggestions?: string | null;
+  nutritionNotes?: string | null;
+
   defaultVariantId?: number | null;
   variants?: ProductVariant[];
   options?: ProductOption[];
   priceRange?: { min: number; max: number } | null;
+
   category?: {
     id: number;
     title: string;
   } | null;
-  effectivePrice?: number;
+
+  origin?: ProductOrigin | null;
+  tags?: ProductTag[];
+
+  averageRating?: number;
+  reviewCount?: number;
+
+  effectivePrice?: number | null;
 }
 
 interface ReviewUser {
@@ -132,15 +171,13 @@ const formatDateTime = (date?: string) => {
   });
 };
 
-const getFinalPrice = (product: Product) => {
-  const discount = Number(product.discountPercentage ?? 0);
-  const price = Number(product.price ?? 0);
-
-  if (discount > 0) {
-    return price * (1 - discount / 100);
+const getProductCardPrice = (product: Product) => {
+  if (product.priceRange) {
+    return product.priceRange;
   }
 
-  return price;
+  const price = Number(product.effectivePrice ?? product.price ?? 0);
+  return { min: price, max: price };
 };
 
 const getProductDisplayStock = (product: Product) => {
@@ -150,7 +187,15 @@ const getProductDisplayStock = (product: Product) => {
 
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     return product.variants.reduce((sum, variant) => {
-      return sum + Number(variant.stock ?? 0);
+      return (
+        sum +
+        Number(
+          variant.availableStock ??
+            variant.inventory?.availableQuantity ??
+            variant.stock ??
+            0,
+        )
+      );
     }, 0);
   }
 
@@ -161,11 +206,16 @@ const getProductDisplayStock = (product: Product) => {
 // PAGE START
 // ==========================
 const ProductDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  // A.1 Chuyển sang nhận param slug
+  const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+
+  // 3.A Tách riêng state cho quantity và quantity input để UI gõ mượt mà hơn
   const [quantity, setQuantity] = useState(1);
+  const [quantityInput, setQuantityInput] = useState("1");
+
   const [activeTab, setActiveTab] = useState("description");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -194,7 +244,8 @@ const ProductDetailPage: React.FC = () => {
     const fetchProductDetail = async () => {
       try {
         setIsLoading(true);
-        const res = await http("GET", `/api/v1/client/products/${id}`);
+        // A.3 Gọi API với endpoint slug
+        const res = await http("GET", `/api/v1/client/products/${slug}`);
         if (res?.success && res.data) {
           setProduct(res.data);
 
@@ -202,8 +253,19 @@ const ProductDetailPage: React.FC = () => {
             ? res.data.variants
             : [];
 
+          // 2.B Fallback tìm default variant thông minh hơn (ưu tiên active và còn stock thực)
           const defaultVariant =
             variants.find((v) => v.id === res.data.defaultVariantId) ??
+            variants.find(
+              (v) =>
+                v.status === "active" &&
+                Number(
+                  v.availableStock ??
+                    v.inventory?.availableQuantity ??
+                    v.stock ??
+                    0,
+                ) > 0,
+            ) ??
             variants.find((v) => v.status === "active") ??
             variants[0];
 
@@ -243,7 +305,7 @@ const ProductDetailPage: React.FC = () => {
     };
 
     fetchProductDetail();
-  }, [id]);
+  }, [slug]); // A.4 Sửa dependency từ id sang slug
 
   const fetchReviews = async (productId: number) => {
     try {
@@ -322,11 +384,20 @@ const ProductDetailPage: React.FC = () => {
     return item?.quantity || 0;
   }, [items, activeVariant]);
 
+  // C.D Cập nhật ưu tiên tính selectedStock dùng availableStock
   const selectedStock = useMemo(() => {
     if (!product) return 0;
 
     if (activeVariant) {
-      return Math.max(0, Number(activeVariant.stock ?? 0));
+      return Math.max(
+        0,
+        Number(
+          activeVariant.availableStock ??
+            activeVariant.inventory?.availableQuantity ??
+            activeVariant.stock ??
+            0,
+        ),
+      );
     }
 
     if (typeof product.totalStock === "number") {
@@ -343,7 +414,10 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     if (!product?.variants?.length || !product.options?.length) return;
 
+    // 2.D Chỉ match với những variant đang active
     const matchedVariant = product.variants.find((variant) => {
+      if (variant.status !== "active") return false;
+
       const ids = variant.optionValueIds || [];
       return product.options!.every((option) => {
         const selectedValueId = selectedOptionValues[option.id];
@@ -362,6 +436,41 @@ const ProductDetailPage: React.FC = () => {
       [optionId]: valueId,
     }));
     setQuantity(1);
+    setQuantityInput("1");
+  };
+
+  // 2.C Helper kiểm tra trạng thái option value trước khi render button
+  const isOptionValueSelectable = (
+    optionId: number,
+    valueId: number,
+  ): boolean => {
+    if (!product?.variants?.length || !product.options?.length) return true;
+
+    const draftSelection: Record<number, number> = {
+      ...selectedOptionValues,
+      [optionId]: valueId,
+    };
+
+    return product.variants.some((variant) => {
+      if (variant.status !== "active") return false;
+
+      const variantOptionValueIds = variant.optionValueIds || [];
+      const availableStock = Number(
+        variant.availableStock ??
+          variant.inventory?.availableQuantity ??
+          variant.stock ??
+          0,
+      );
+
+      const matchesSelection = product.options!.every((option) => {
+        const selectedValueId = draftSelection[option.id];
+        return selectedValueId
+          ? variantOptionValueIds.includes(selectedValueId)
+          : true;
+      });
+
+      return matchesSelection && availableStock > 0;
+    });
   };
 
   const displayPrice = Number(activeVariant?.price ?? product?.price ?? 0);
@@ -492,8 +601,29 @@ const ProductDetailPage: React.FC = () => {
   const handleAddToCart = () => processCartAction(false);
   const handleBuyNow = () => processCartAction(true);
 
-  const increaseQuantity = () => setQuantity((q) => q + 1);
-  const decreaseQuantity = () => setQuantity((q) => (q > 1 ? q - 1 : 1));
+  // 3.A Đồng bộ Quantity state
+  const increaseQuantity = () => {
+    setQuantity((q) => {
+      const next = q + 1;
+      setQuantityInput(String(next));
+      return next;
+    });
+  };
+
+  const decreaseQuantity = () => {
+    setQuantity((q) => {
+      const next = q > 1 ? q - 1 : 1;
+      setQuantityInput(String(next));
+      return next;
+    });
+  };
+
+  const variantDiscountPercent = hasVariantComparePrice
+    ? Math.round(
+        ((displayCompareAtPrice! - displayPrice) / displayCompareAtPrice!) *
+          100,
+      )
+    : 0;
 
   const filteredReviews = useMemo(() => {
     return reviews.filter(
@@ -615,9 +745,9 @@ const ProductDetailPage: React.FC = () => {
                         Bán Chạy
                       </span>
                     )}
-                    {Number(product.discountPercentage ?? 0) > 0 && (
+                    {variantDiscountPercent > 0 && (
                       <span className="bg-red-500 text-white px-4 py-1.5 rounded-xl text-xs font-black shadow-sm">
-                        -{Number(product.discountPercentage ?? 0)}%
+                        -{variantDiscountPercent}%
                       </span>
                     )}
                   </div>
@@ -647,9 +777,16 @@ const ProductDetailPage: React.FC = () => {
                 <Leaf className="w-4 h-4" /> Trái cây tươi tuyển chọn
               </span>
 
-              <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight mb-6">
+              <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight mb-4">
                 {product.title}
               </h1>
+
+              {/* 2.F Bổ sung Short Description ngay dưới title */}
+              {product.shortDescription && (
+                <p className="text-slate-600 text-base md:text-lg font-medium leading-relaxed mb-6">
+                  {product.shortDescription}
+                </p>
+              )}
 
               {/* Price Block */}
               <div className="flex items-end gap-4 mb-8 flex-wrap">
@@ -686,6 +823,20 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* 2.F Tags List */}
+              {Array.isArray(product.tags) && product.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {product.tags.map((tag) => (
+                    <span
+                      key={tag.id}
+                      className="px-3 py-1.5 rounded-xl bg-green-50 text-green-700 border border-green-100 text-xs font-bold"
+                    >
+                      {tag.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {/* Variant / Option Selector */}
               {product.options && product.options.length > 0 && (
                 <div className="space-y-5 mb-8">
@@ -699,17 +850,27 @@ const ProductDetailPage: React.FC = () => {
                           const selected =
                             selectedOptionValues[option.id] === value.id;
 
+                          // 2.C Check selectable state
+                          const selectable = isOptionValueSelectable(
+                            option.id,
+                            value.id,
+                          );
+
                           return (
                             <button
                               key={value.id}
                               type="button"
                               onClick={() =>
+                                selectable &&
                                 handleSelectOptionValue(option.id, value.id)
                               }
+                              disabled={!selectable}
                               className={`px-4 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
                                 selected
                                   ? "border-green-600 bg-green-50 text-green-700"
-                                  : "border-slate-200 bg-white text-slate-700 hover:border-green-300"
+                                  : selectable
+                                    ? "border-slate-200 bg-white text-slate-700 hover:border-green-300"
+                                    : "border-slate-100 bg-slate-100 text-slate-300 cursor-not-allowed"
                               }`}
                             >
                               {value.value}
@@ -737,7 +898,29 @@ const ProductDetailPage: React.FC = () => {
                       ? `Còn hàng: ${selectedStock.toLocaleString()}`
                       : "Đã bán hết"}
                   </span>
-                  <span className="text-slate-400">Mã SP: #{product.id}</span>
+                  <span className="text-slate-400">
+                    Mã SP: {activeVariant?.sku || `#${product.id}`}
+                  </span>
+                </div>
+
+                {/* 2.F SKU & Xuất Xứ Area */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-sm">
+                  {activeVariant?.sku && (
+                    <div className="text-slate-500">
+                      <span className="font-bold text-slate-700">SKU:</span>{" "}
+                      {activeVariant.sku}
+                    </div>
+                  )}
+
+                  {product.origin?.name && (
+                    <div className="text-slate-500">
+                      <span className="font-bold text-slate-700">Xuất xứ:</span>{" "}
+                      {product.origin.name}
+                      {product.origin.countryCode
+                        ? ` (${product.origin.countryCode})`
+                        : ""}
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4">
@@ -755,34 +938,22 @@ const ProductDetailPage: React.FC = () => {
                     >
                       <Minus className="w-5 h-5 stroke-[3]" />
                     </button>
-                    {/* focus -> xoá nhập số
-                        blur -> xoá mà không nhập set về 1
-                      */}
+                    {/* 3.A Refactor Quantity Input mượt hơn */}
                     <input
-                      type="number"
-                      min="1"
-                      max={remainingStock || 1}
-                      value={quantity}
+                      type="text"
+                      value={quantityInput}
                       disabled={isOutOfStock}
                       onChange={(e) => {
                         const val = e.target.value;
-
-                        // chỉ cho nhập số
                         if (!/^\d*$/.test(val)) return;
-
-                        // nếu xoá hết → set rỗng thật
-                        if (val === "") {
-                          setQuantity(0);
-                          return;
+                        setQuantityInput(val);
+                        if (val !== "") {
+                          setQuantity(Number(val));
                         }
-                        setQuantity(Number(val));
                       }}
-                      onBlur={(e) => {
-                        const val = e.target.value;
-
-                        // chỉ xử lý khi blur
-                        let qty = val === "" ? 1 : Number(val);
-
+                      onBlur={() => {
+                        let qty =
+                          quantityInput === "" ? 1 : Number(quantityInput);
                         if (qty <= 0) qty = 1;
 
                         if (qty > remainingStock) {
@@ -793,9 +964,9 @@ const ProductDetailPage: React.FC = () => {
                         }
 
                         setQuantity(qty);
+                        setQuantityInput(String(qty));
                       }}
                       onFocus={(e) => {
-                        // optional: select toàn bộ để nhập nhanh
                         e.target.select();
                       }}
                       className="w-16 h-full text-center font-black text-xl text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
@@ -817,7 +988,6 @@ const ProductDetailPage: React.FC = () => {
 
                   {/* 2 Buttons Container: Thêm Giỏ Hàng & Mua Ngay */}
                   <div className="flex-1 flex flex-col sm:flex-row gap-3">
-                    {/* Thêm vào giỏ hàng (chỉ update cart) */}
                     <button
                       onClick={handleAddToCart}
                       disabled={isOutOfStock || isAddingToCart}
@@ -831,7 +1001,6 @@ const ProductDetailPage: React.FC = () => {
                       Thêm vào giỏ
                     </button>
 
-                    {/* Mua ngay (update cart + navigate /cart) */}
                     <button
                       onClick={handleBuyNow}
                       disabled={isOutOfStock}
@@ -904,17 +1073,52 @@ const ProductDetailPage: React.FC = () => {
 
             {/* Tab Contents */}
             <div className="bg-white rounded-[2.5rem] p-8 md:p-12 shadow-[0_20px_60px_rgba(0,0,0,0.03)] border border-slate-50 min-h-[300px]">
-              {/* DESC TAB */}
+              {/* DESC TAB 2.G Cấu trúc lại section theo Metadata */}
               {activeTab === "description" && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div
-                    className="prose prose-lg prose-green max-w-none text-slate-600 leading-relaxed font-medium"
-                    dangerouslySetInnerHTML={{
-                      __html:
-                        product.description ||
-                        "<p>Thông tin chi tiết về sản phẩm đang được cập nhật. Vui lòng quay lại sau.</p>",
-                    }}
-                  />
+                  <div className="space-y-8">
+                    <div
+                      className="prose prose-lg prose-green max-w-none text-slate-600 leading-relaxed font-medium"
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          product.description ||
+                          "<p>Thông tin chi tiết về sản phẩm đang được cập nhật. Vui lòng quay lại sau.</p>",
+                      }}
+                    />
+
+                    {product.storageGuide && (
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-3">
+                          Hướng dẫn bảo quản
+                        </h3>
+                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
+                          {product.storageGuide}
+                        </p>
+                      </div>
+                    )}
+
+                    {product.usageSuggestions && (
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-3">
+                          Gợi ý sử dụng
+                        </h3>
+                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
+                          {product.usageSuggestions}
+                        </p>
+                      </div>
+                    )}
+
+                    {product.nutritionNotes && (
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900 mb-3">
+                          Ghi chú dinh dưỡng
+                        </h3>
+                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
+                          {product.nutritionNotes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -928,12 +1132,15 @@ const ProductDetailPage: React.FC = () => {
                         Đánh giá trung bình
                       </h3>
                       <div className="text-6xl font-black text-slate-900 mb-4">
-                        {reviews.length > 0
-                          ? (
-                              reviews.reduce((acc, r) => acc + r.rating, 0) /
-                              reviews.length
-                            ).toFixed(1)
-                          : "0.0"}
+                        {/* 2.H Sử dụng AverageRating và ReviewCount */}
+                        {typeof product.averageRating === "number"
+                          ? product.averageRating.toFixed(1)
+                          : reviews.length > 0
+                            ? (
+                                reviews.reduce((acc, r) => acc + r.rating, 0) /
+                                reviews.length
+                              ).toFixed(1)
+                            : "0.0"}
                       </div>
                       <div className="flex justify-center gap-1 text-yellow-400 mb-2">
                         {[1, 2, 3, 4, 5].map((s) => (
@@ -941,7 +1148,11 @@ const ProductDetailPage: React.FC = () => {
                         ))}
                       </div>
                       <p className="text-sm font-bold text-slate-500">
-                        Dựa trên {reviews.length} nhận xét
+                        Dựa trên{" "}
+                        {typeof product.reviewCount === "number"
+                          ? product.reviewCount
+                          : reviews.length}{" "}
+                        nhận xét
                       </p>
                     </div>
 
@@ -1131,7 +1342,11 @@ const ProductDetailPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                   {relatedProducts.map((p) => {
                     const hasDiscount = Number(p.discountPercentage ?? 0) > 0;
-                    const finalPrice = getFinalPrice(p);
+
+                    // 2.E Dùng helper Price Range mới cho thẻ sản phẩm thay vì getFinalPrice
+                    const priceRange = getProductCardPrice(p);
+                    const isRange = priceRange.min !== priceRange.max;
+
                     const displayStock = getProductDisplayStock(p);
                     const isOutOfStock = displayStock <= 0;
 
@@ -1166,8 +1381,11 @@ const ProductDetailPage: React.FC = () => {
                           )}
                           {!isOutOfStock && (
                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 w-11/12">
+                              {/* B. Sửa Link thành slug fallbacks */}
                               <Link
-                                to={`/products/${p.id}`}
+                                to={
+                                  p.slug ? `/products/${p.slug}` : `/products`
+                                }
                                 onClick={() => window.scrollTo(0, 0)}
                                 className="block w-full bg-slate-900/90 backdrop-blur text-white text-center py-3 rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors"
                               >
@@ -1178,7 +1396,7 @@ const ProductDetailPage: React.FC = () => {
                         </div>
                         <div className="p-5 flex flex-col flex-grow">
                           <Link
-                            to={`/products/${p.id}`}
+                            to={p.slug ? `/products/${p.slug}` : `/products`}
                             onClick={() => window.scrollTo(0, 0)}
                             className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors line-clamp-2 mb-4 h-14"
                           >
@@ -1187,11 +1405,13 @@ const ProductDetailPage: React.FC = () => {
                           <div className="mt-auto">
                             <div className="flex items-end gap-2 flex-wrap mb-1">
                               <span className="text-xl font-black text-green-600">
-                                {finalPrice.toLocaleString("vi-VN")} đ
+                                {isRange
+                                  ? `${priceRange.min.toLocaleString("vi-VN")} - ${priceRange.max.toLocaleString("vi-VN")} đ`
+                                  : `${priceRange.min.toLocaleString("vi-VN")} đ`}
                               </span>
-                              {hasDiscount && (
+                              {hasDiscount && !isRange && (
                                 <span className="text-sm font-medium text-slate-400 line-through mb-0.5">
-                                  {p.price.toLocaleString("vi-VN")} đ
+                                  {Number(p.price).toLocaleString("vi-VN")} đ
                                 </span>
                               )}
                             </div>

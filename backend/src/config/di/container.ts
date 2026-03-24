@@ -54,6 +54,7 @@ import { EditProduct } from "../../application/products/usecases/EditProduct";
 import { GetProductDetail } from "../../application/products/usecases/GetProductDetail";
 import { ListProducts } from "../../application/products/usecases/ListProducts";
 import { SoftDeleteProduct } from "../../application/products/usecases/SoftDeleteProduct";
+import { GetProductDetailBySlug } from "../../application/products/usecases/GetProductDetailBySlug";
 
 // ===== Category usecases =====
 import { BulkEditCategories } from "../../application/categories/usecases/BulkEditCategories";
@@ -515,6 +516,7 @@ export const usecases = {
   products: {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo),
+    detailBySlug: new GetProductDetailBySlug(productRepo),
     create: new CreateProduct(productRepo, inventoryRepo),
     edit: new EditProduct(productRepo, inventoryRepo),
     changeStatus: new ChangeProductStatus(productRepo),
@@ -752,6 +754,7 @@ export const clientControllers = {
   products: makeClientProductsController({
     list: usecases.products.list,
     detail: usecases.products.detail,
+    detailBySlug: usecases.products.detailBySlug,
   }),
 
   categories: makeClientCategoriesController({

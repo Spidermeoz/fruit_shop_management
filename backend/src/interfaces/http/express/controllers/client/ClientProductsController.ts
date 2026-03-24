@@ -3,6 +3,7 @@ import { ListProducts } from "../../../../../application/products/usecases/ListP
 import { GetProductDetail } from "../../../../../application/products/usecases/GetProductDetail";
 import { ProductListFilter } from "../../../../../domain/products/types";
 import ProductCategoryModel from "../../../../../infrastructure/db/sequelize/models/ProductCategoryModel";
+import { GetProductDetailBySlug } from "../../../../../application/products/usecases/GetProductDetailBySlug";
 
 const toNum = (v: any) => (v === undefined ? undefined : Number(v));
 
@@ -188,6 +189,7 @@ const normalizeProduct = (raw: any) => {
 export const makeClientProductsController = (uc: {
   list: ListProducts;
   detail: GetProductDetail;
+  detailBySlug: GetProductDetailBySlug;
 }) => {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
@@ -285,6 +287,36 @@ export const makeClientProductsController = (uc: {
       try {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
+        const normalized = normalizeProduct(dto);
+
+        if (!normalized || normalized.status !== "active") {
+          return res.status(404).json({
+            success: false,
+            message: "Product not found or inactive",
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: normalized,
+        });
+      } catch (err) {
+        next(err);
+      }
+    },
+
+    detailBySlug: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const slug = String(req.params.slug || "").trim();
+
+        if (!slug) {
+          return res.status(400).json({
+            success: false,
+            message: "Slug is required",
+          });
+        }
+
+        const dto = await uc.detailBySlug.execute(slug);
         const normalized = normalizeProduct(dto);
 
         if (!normalized || normalized.status !== "active") {
