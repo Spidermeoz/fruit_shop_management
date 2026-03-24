@@ -301,6 +301,145 @@ const ProductCreatePage: React.FC = () => {
     }));
   };
 
+  const handleOptionChange = (
+    optionIndex: number,
+    field: keyof ProductOptionInput,
+    value: any,
+  ) => {
+    setFormData((prev) => {
+      const next = [...prev.options];
+      next[optionIndex] = { ...next[optionIndex], [field]: value };
+      return { ...prev, options: next };
+    });
+  };
+
+  const handleOptionValueChange = (
+    optionIndex: number,
+    valueIndex: number,
+    value: string,
+  ) => {
+    setFormData((prev) => {
+      const nextOptions = [...prev.options];
+      const option = { ...nextOptions[optionIndex] };
+      const values = [...option.values];
+      values[valueIndex] = {
+        ...values[valueIndex],
+        value,
+      };
+      option.values = values;
+      nextOptions[optionIndex] = option;
+      return { ...prev, options: nextOptions };
+    });
+  };
+
+  const addOption = () => {
+    setFormData((prev) => ({
+      ...prev,
+      options: [
+        ...prev.options,
+        {
+          name: "",
+          position: prev.options.length,
+          values: [{ value: "", position: 0 }],
+        },
+      ],
+    }));
+  };
+
+  const removeOption = (optionIndex: number) => {
+    setFormData((prev) => {
+      const nextOptions = prev.options.filter((_, i) => i !== optionIndex);
+
+      const remainingValueIds = new Set(
+        nextOptions.flatMap((o) => o.values.map((v) => v.id)).filter(Boolean),
+      );
+
+      const nextVariants = prev.variants.map((variant) => ({
+        ...variant,
+        optionValueIds: (variant.optionValueIds || []).filter((id) =>
+          remainingValueIds.has(id),
+        ),
+      }));
+
+      return {
+        ...prev,
+        options: nextOptions,
+        variants: nextVariants,
+      };
+    });
+  };
+
+  const addOptionValue = (optionIndex: number) => {
+    setFormData((prev) => {
+      const nextOptions = [...prev.options];
+      const option = { ...nextOptions[optionIndex] };
+      option.values = [
+        ...option.values,
+        {
+          value: "",
+          position: option.values.length,
+        },
+      ];
+      nextOptions[optionIndex] = option;
+      return { ...prev, options: nextOptions };
+    });
+  };
+
+  const removeOptionValue = (optionIndex: number, valueIndex: number) => {
+    setFormData((prev) => {
+      const nextOptions = [...prev.options];
+      const option = { ...nextOptions[optionIndex] };
+      const removed = option.values[valueIndex];
+      option.values = option.values.filter((_, i) => i !== valueIndex);
+      nextOptions[optionIndex] = option;
+
+      const nextVariants = prev.variants.map((variant) => ({
+        ...variant,
+        optionValueIds: (variant.optionValueIds || []).filter(
+          (id) => id !== removed?.id,
+        ),
+      }));
+
+      return {
+        ...prev,
+        options: nextOptions,
+        variants: nextVariants,
+      };
+    });
+  };
+
+  const toggleVariantOptionValue = (
+    variantIndex: number,
+    optionIdOrTempIndex: number,
+    valueIdOrTempKey: number,
+  ) => {
+    setFormData((prev) => {
+      const nextVariants = [...prev.variants];
+      const current = nextVariants[variantIndex];
+      const currentIds = [...(current.optionValueIds || [])];
+
+      const option = prev.options.find(
+        (o, idx) => (o.id ?? idx) === optionIdOrTempIndex,
+      );
+      const targetValue = option?.values.find(
+        (v, idx) => (v.id ?? idx) === valueIdOrTempKey,
+      );
+
+      if (!option || !targetValue) return prev;
+
+      const optionValueKeys = option.values.map((v, idx) => v.id ?? idx);
+      const nextIds = currentIds.filter((id) => !optionValueKeys.includes(id));
+      nextIds.push(targetValue.id ?? valueIdOrTempKey);
+
+      nextVariants[variantIndex] = {
+        ...current,
+        optionValueIds: nextIds,
+      };
+
+      return { ...prev, variants: nextVariants };
+    });
+  };
+
   const removeVariant = (index: number) => {
     setFormData((prev) => {
       const newVariants = prev.variants.filter((_, i) => i !== index);
@@ -353,6 +492,30 @@ const ProductCreatePage: React.FC = () => {
     }
     if (!formData.product_category_id) {
       newErrors.product_category_id = "Vui lòng chọn danh mục.";
+    }
+
+    const invalidOption = formData.options.find(
+      (option) =>
+        !option.name.trim() ||
+        !option.values.length ||
+        option.values.some((value) => !value.value.trim()),
+    );
+
+    if (invalidOption) {
+      newErrors.options =
+        "Mỗi tùy chọn phải có tên và ít nhất 1 giá trị hợp lệ.";
+    }
+
+    const optionCount = formData.options.length;
+
+    const invalidVariantOptionMapping = formData.variants.find((variant) => {
+      const selectedCount = (variant.optionValueIds || []).length;
+      return optionCount > 0 && selectedCount !== optionCount;
+    });
+
+    if (invalidVariantOptionMapping) {
+      newErrors.variants =
+        "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
     }
 
     // Validate theo variant
@@ -728,6 +891,91 @@ const ProductCreatePage: React.FC = () => {
             </button>
           </div>
 
+          <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                Tùy chọn sản phẩm
+              </h3>
+              <button
+                type="button"
+                onClick={addOption}
+                className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 px-3 py-1.5 rounded-md hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Thêm tùy chọn
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {formData.options.map((option, optionIndex) => (
+                <div
+                  key={option.id ?? `option-${optionIndex}`}
+                  className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-white dark:bg-gray-800"
+                >
+                  <div className="flex items-center gap-3 mb-3">
+                    <input
+                      type="text"
+                      value={option.name}
+                      onChange={(e) =>
+                        handleOptionChange(optionIndex, "name", e.target.value)
+                      }
+                      placeholder="Tên tùy chọn, ví dụ: Size"
+                      className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeOption(optionIndex)}
+                      disabled={formData.options.length === 1}
+                      className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {option.values.map((value, valueIndex) => (
+                      <div
+                        key={value.id ?? `value-${valueIndex}`}
+                        className="flex gap-2"
+                      >
+                        <input
+                          type="text"
+                          value={value.value}
+                          onChange={(e) =>
+                            handleOptionValueChange(
+                              optionIndex,
+                              valueIndex,
+                              e.target.value,
+                            )
+                          }
+                          placeholder="Giá trị, ví dụ: S / M / L"
+                          className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            removeOptionValue(optionIndex, valueIndex)
+                          }
+                          disabled={option.values.length === 1}
+                          className="bg-red-100 text-red-600 px-3 rounded-md hover:bg-red-200 disabled:opacity-50"
+                        >
+                          Xóa
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => addOptionValue(optionIndex)}
+                    className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    + Thêm giá trị
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {errors.price && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
               {errors.price}
@@ -786,6 +1034,52 @@ const ProductCreatePage: React.FC = () => {
                     placeholder="Mã SP"
                     className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
                   />
+                </div>
+
+                <div className="col-span-1 md:col-span-12">
+                  <label className="block text-xs font-medium text-gray-500 mb-2">
+                    Gán tùy chọn cho biến thể
+                  </label>
+
+                  <div className="space-y-3">
+                    {formData.options.map((option, optionIndex) => (
+                      <div key={option.id ?? optionIndex}>
+                        <p className="text-xs font-semibold text-gray-600 mb-2">
+                          {option.name || `Tùy chọn ${optionIndex + 1}`}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {option.values.map((value, valueIndex) => {
+                            const optionKey = option.id ?? optionIndex;
+                            const valueKey = value.id ?? valueIndex;
+                            const selected = (
+                              variant.optionValueIds || []
+                            ).includes(valueKey);
+
+                            return (
+                              <button
+                                key={value.id ?? valueIndex}
+                                type="button"
+                                onClick={() =>
+                                  toggleVariantOptionValue(
+                                    index,
+                                    optionKey,
+                                    valueKey,
+                                  )
+                                }
+                                className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+                                  selected
+                                    ? "bg-blue-600 text-white border-blue-600"
+                                    : "bg-white text-gray-700 border-gray-300"
+                                }`}
+                              >
+                                {value.value || `Giá trị ${valueIndex + 1}`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="col-span-1 md:col-span-2">

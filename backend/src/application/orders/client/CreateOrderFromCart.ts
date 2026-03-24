@@ -43,14 +43,30 @@ export class CreateOrderFromCart {
           );
         }
 
-        const stock = await this.inventoryRepo.ensureStockForVariant(
-          item.productVariantId,
-          Number(variant.stock ?? 0),
-          transaction,
-        );
+        if (variant.status !== "active") {
+          throw new Error(
+            `Variant không khả dụng (${variant.title || "variant"})`,
+          );
+        }
 
-        if (stock.quantity < item.quantity) {
-          throw new Error(`Không đủ tồn kho (${variant.title || "variant"})`);
+        const availableStock =
+          typeof this.inventoryRepo.getAvailableStockByVariantId === "function"
+            ? await this.inventoryRepo.getAvailableStockByVariantId(
+                item.productVariantId,
+                Number(variant.stock ?? 0),
+                transaction,
+              )
+            : (() => {
+                const fallback = Number(
+                  variant.availableStock ?? variant.stock ?? 0,
+                );
+                return Math.max(0, fallback);
+              })();
+
+        if (availableStock < item.quantity) {
+          throw new Error(
+            `Không đủ tồn kho khả dụng (${variant.title || "variant"})`,
+          );
         }
       }
 
@@ -78,12 +94,15 @@ export class CreateOrderFromCart {
             title: i.product?.title ?? "(deleted)",
             variantTitle: i.variant?.title ?? null,
             variantSku: i.variant?.sku ?? null,
+            thumbnail: i.product?.thumbnail ?? null,
+            optionSummary: Array.isArray(i.variant?.optionValues)
+              ? i.variant.optionValues.map((x: any) => x.value).join(" / ")
+              : null,
           })),
           address,
           shippingFee,
           discountAmount,
           totalPrice: subtotal,
-          finalPrice,
           userInfo: payload.userInfo ?? null,
         },
         transaction,

@@ -13,14 +13,20 @@ type InventoryModels = {
   Product: any;
 };
 
-const toStock = (row: any): InventoryStock => ({
-  id: Number(row.id),
-  productVariantId: Number(row.product_variant_id),
-  quantity: Number(row.quantity ?? 0),
-  reservedQuantity: Number(row.reserved_quantity ?? 0),
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
+const toStock = (row: any): InventoryStock => {
+  const quantity = Number(row.quantity ?? 0);
+  const reservedQuantity = Number(row.reserved_quantity ?? 0);
+
+  return {
+    id: Number(row.id),
+    productVariantId: Number(row.product_variant_id),
+    quantity,
+    reservedQuantity,
+    availableQuantity: Math.max(0, quantity - reservedQuantity),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
 
 export class SequelizeInventoryRepository implements InventoryRepository {
   constructor(private models: InventoryModels) {}
@@ -73,6 +79,20 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     }
 
     return toStock(row);
+  }
+
+  async getAvailableStockByVariantId(
+    productVariantId: number,
+    fallbackQuantity = 0,
+    transaction?: Transaction,
+  ): Promise<number> {
+    const stock = await this.ensureStockForVariant(
+      productVariantId,
+      fallbackQuantity,
+      transaction,
+    );
+
+    return Math.max(0, Number(stock.quantity) - Number(stock.reservedQuantity));
   }
 
   async setStockByVariantId(
@@ -146,6 +166,10 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     return {
       ...current,
       quantity: safeQuantity,
+      availableQuantity: Math.max(
+        0,
+        safeQuantity - Number(current.reservedQuantity ?? 0),
+      ),
     };
   }
 
@@ -222,6 +246,10 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     return {
       ...current,
       quantity: nextQuantity,
+      availableQuantity: Math.max(
+        0,
+        nextQuantity - Number(current.reservedQuantity ?? 0),
+      ),
     };
   }
 
@@ -257,8 +285,13 @@ export class SequelizeInventoryRepository implements InventoryRepository {
       transaction,
     );
 
-    if (current.quantity < delta) {
-      throw new Error("Insufficient inventory stock");
+    const availableQuantity = Math.max(
+      0,
+      Number(current.quantity ?? 0) - Number(current.reservedQuantity ?? 0),
+    );
+
+    if (availableQuantity < delta) {
+      throw new Error("Insufficient available inventory stock");
     }
 
     const nextQuantity = current.quantity - delta;
@@ -302,6 +335,10 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     return {
       ...current,
       quantity: nextQuantity,
+      availableQuantity: Math.max(
+        0,
+        nextQuantity - Number(current.reservedQuantity ?? 0),
+      ),
     };
   }
 

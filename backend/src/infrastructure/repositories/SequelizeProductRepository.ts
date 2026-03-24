@@ -651,8 +651,12 @@ export class SequelizeProductRepository implements ProductRepository {
           const resolvedValueIds = new Set<number>();
 
           for (const id of normalized.optionValueIds) {
-            const mapped = optionValueIdMap.get(`legacy:${id}`);
-            resolvedValueIds.add(mapped ?? id);
+            if (!Number.isFinite(Number(id)) || Number(id) <= 0) continue;
+
+            const mapped = optionValueIdMap.get(`legacy:${Number(id)}`);
+            if (mapped && Number(mapped) > 0) {
+              resolvedValueIds.add(Number(mapped));
+            }
           }
 
           for (const ov of normalized.optionValues) {
@@ -667,6 +671,13 @@ export class SequelizeProductRepository implements ProductRepository {
           }
 
           for (const optionValueId of resolvedValueIds) {
+            if (
+              !Number.isFinite(Number(optionValueId)) ||
+              Number(optionValueId) <= 0
+            ) {
+              continue;
+            }
+
             await VariantValue.create(
               {
                 product_variant_id: variantRow.id,

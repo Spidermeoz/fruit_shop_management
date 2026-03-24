@@ -24,6 +24,15 @@ export interface ProductVariantOptionValue {
   position?: number;
 }
 
+export interface ProductVariantInventory {
+  id?: number;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
 export interface ProductVariant {
   id: number;
   productId?: number | null;
@@ -31,7 +40,15 @@ export interface ProductVariant {
   title?: string | null;
   price: number;
   compareAtPrice?: number | null;
-  stock: number; // mirror tồn kho thực tế ở variant-level
+
+  // mirror
+  stock: number;
+
+  // phase 3
+  availableStock?: number;
+  reservedQuantity?: number;
+  inventory?: ProductVariantInventory | null;
+
   status: string;
   sortOrder?: number;
   optionValueIds?: number[];
@@ -65,6 +82,29 @@ export interface Product {
   effective_price?: number;
   discount_percentage?: number | null;
   discountPercentage?: number | null;
+
+  origin?: {
+    id: number;
+    name: string;
+    slug?: string | null;
+    countryCode?: string | null;
+  } | null;
+
+  tags?: Array<{
+    id: number;
+    name: string;
+    slug?: string | null;
+    tagGroup?: string;
+  }>;
+
+  shortDescription?: string | null;
+  storageGuide?: string | null;
+  usageSuggestions?: string | null;
+  nutritionNotes?: string | null;
+
+  effectivePrice?: number | null;
+  reviewCount?: number;
+  averageRating?: number;
 
   /**
    * Compatibility field.

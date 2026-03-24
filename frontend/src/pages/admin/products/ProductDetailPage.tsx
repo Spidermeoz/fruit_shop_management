@@ -75,6 +75,14 @@ interface Product {
       optionId?: number;
       optionName?: string;
     }>;
+    availableStock?: number;
+    reservedQuantity?: number;
+    inventory?: {
+      id?: number;
+      quantity: number;
+      reservedQuantity: number;
+      availableQuantity: number;
+    };
   }>;
 
   options?: Array<{
@@ -233,7 +241,18 @@ const getDisplayStock = (product: Product | null | undefined) => {
 
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     return product.variants.reduce((sum: number, variant) => {
-      return sum + Math.max(0, Number(variant.stock ?? 0));
+      return (
+        sum +
+        Math.max(
+          0,
+          Number(
+            variant.availableStock ??
+              variant.inventory?.availableQuantity ??
+              variant.stock ??
+              0,
+          ),
+        )
+      );
     }, 0);
   }
 
@@ -262,6 +281,34 @@ const normalizeProductDetail = (data: any): Product => {
               ? Number(v.sort_order)
               : index,
         optionValues: Array.isArray(v.optionValues) ? v.optionValues : [],
+        availableStock:
+          v.availableStock !== undefined && v.availableStock !== null
+            ? Number(v.availableStock)
+            : v.available_stock !== undefined && v.available_stock !== null
+              ? Number(v.available_stock)
+              : undefined,
+        reservedQuantity:
+          v.reservedQuantity !== undefined && v.reservedQuantity !== null
+            ? Number(v.reservedQuantity)
+            : v.reserved_quantity !== undefined && v.reserved_quantity !== null
+              ? Number(v.reserved_quantity)
+              : undefined,
+        inventory: v.inventory
+          ? {
+              id: v.inventory.id ? Number(v.inventory.id) : undefined,
+              quantity: Number(v.inventory.quantity ?? 0),
+              reservedQuantity: Number(
+                v.inventory.reservedQuantity ??
+                  v.inventory.reserved_quantity ??
+                  0,
+              ),
+              availableQuantity: Number(
+                v.inventory.availableQuantity ??
+                  v.inventory.available_quantity ??
+                  0,
+              ),
+            }
+          : null,
       }))
     : [];
 
@@ -689,7 +736,19 @@ const ProductDetailPage: React.FC = () => {
                       <span className="font-medium text-gray-500">
                         Tồn kho:
                       </span>
-                      <p>{variant.stock}</p>
+                      <p>
+                        {Number(
+                          variant.availableStock ??
+                            variant.inventory?.availableQuantity ??
+                            variant.stock ??
+                            0,
+                        )}
+                      </p>
+                      {typeof variant.stock === "number" && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Mirror stock: {variant.stock}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="font-medium text-gray-500">

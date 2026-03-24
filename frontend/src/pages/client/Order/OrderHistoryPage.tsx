@@ -21,50 +21,19 @@ import Footer from "../../../components/client/layouts/Footer";
 import { useToast } from "../../../context/ToastContext";
 
 // =============================
-// TYPE MAPPING TỪ BACKEND
+// IMPORT TYPE & MAPPER TỪ BACKEND
 // =============================
-interface Order {
-  id: number;
-  code: string;
-  status: string;
-  totalPrice: number;
-  finalPrice: number;
-  shippingFee: number;
-  createdAt: string;
-
-  items: {
-    _reviewed: any;
-    productId: number | null;
-    productVariantId?: number | null;
-    productTitle: string;
-    variantTitle?: string | null;
-    variantSku?: string | null;
-    price: number;
-    quantity: number;
-    thumbnail?: string | null;
-  }[];
-
-  address?: {
-    full_name: string;
-    phone: string;
-    address_line1: string;
-    ward: string;
-    district: string;
-    province: string;
-  } | null;
-
-  paymentStatus?: string;
-}
+import type { ClientOrder } from "../../../types/orders";
+import { mapClientOrder } from "../../../utils/mapOrder";
 
 const OrderHistoryPage: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<ClientOrder[]>([]);
   const [filterStatus, setFilterStatus] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState<number | null>(null);
   const [reviewingOrderId, setReviewingOrderId] = useState<number | null>(null);
   const [reviewsData, setReviewsData] = useState<any>({});
 
-  // Đã sửa thành string | null theo yêu cầu 1.7
   const [submittingReviewId, setSubmittingReviewId] = useState<string | null>(
     null,
   );
@@ -78,19 +47,22 @@ const OrderHistoryPage: React.FC = () => {
   const loadOrders = async () => {
     try {
       const res = await http("GET", "/api/v1/client/orders");
-      let result: Order[] = [];
+      let result: ClientOrder[] = [];
 
       if (res.success && res.data) {
-        if (res.data.rows) result = res.data.rows;
-        else if (Array.isArray(res.data))
-          result = res.data.map((o: any) => o.props);
+        if (Array.isArray(res.data.rows)) {
+          result = res.data.rows.map(mapClientOrder);
+        } else if (Array.isArray(res.data)) {
+          result = res.data.map(mapClientOrder);
+        }
       }
 
       const extendedOrders = [];
 
       for (const ord of result) {
         const newItems = [];
-        for (const item of ord.items) {
+
+        for (const item of ord.items ?? []) {
           if (!item.productId) {
             newItems.push({ ...item, _reviewed: false });
             continue;
@@ -100,13 +72,15 @@ const OrderHistoryPage: React.FC = () => {
             "GET",
             `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`,
           );
+
           const reviewed = check?.success ? check.reviewed : false;
           newItems.push({ ...item, _reviewed: reviewed });
         }
+
         extendedOrders.push({ ...ord, items: newItems });
       }
 
-      setOrders(extendedOrders);
+      setOrders(extendedOrders as any);
     } catch (err) {
       console.error("Order load error:", err);
     } finally {
@@ -222,11 +196,10 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
-  // Thêm helper tạo key an toàn theo yêu cầu 1.1
   const getReviewKey = (
     orderId: number,
     item: {
-      productId: number | null;
+      productId?: number | null;
       productVariantId?: number | null;
     },
     index: number,
@@ -236,7 +209,6 @@ const OrderHistoryPage: React.FC = () => {
     return `o-${orderId}-${index}`;
   };
 
-  // Sửa theo yêu cầu 1.2
   const updateReviewData = (reviewKey: string, field: string, value: any) => {
     setReviewsData((prev: any) => ({
       ...prev,
@@ -250,7 +222,6 @@ const OrderHistoryPage: React.FC = () => {
   // =============================
   // SUBMIT SINGLE REVIEW
   // =============================
-  // Sửa signature và logic bên trong theo yêu cầu 1.3
   const submitSingleReview = async (
     orderId: number,
     productId: number | null,
@@ -351,7 +322,6 @@ const OrderHistoryPage: React.FC = () => {
               Lọc trạng thái
             </h2>
 
-            {/* Chỉnh sửa Responsive: Hiển thị trọn vẹn 1 hàng trên mọi thiết bị */}
             <div className="flex w-full justify-between gap-1 sm:gap-2">
               {[
                 "all",
@@ -483,15 +453,15 @@ const OrderHistoryPage: React.FC = () => {
                     {/* ORDER ITEMS */}
                     <div className="p-6">
                       <div className="space-y-4">
-                        {order.items.slice(0, 2).map((i) => (
+                        {(order.items || []).slice(0, 2).map((i: any) => (
                           <div
                             key={`${i.productId ?? "x"}-${i.productVariantId ?? "no-variant"}-${i.variantSku ?? i.productTitle}`}
                             className="flex items-center gap-4 p-3 rounded-2xl border border-slate-100 hover:border-green-200 transition-colors bg-white"
                           >
                             <Link
                               to={
-                                i.productId
-                                  ? `/products/${i.productId}`
+                                i.productSlug
+                                  ? `/products/${i.productSlug}`
                                   : "/products"
                               }
                               className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-slate-50"
@@ -505,8 +475,8 @@ const OrderHistoryPage: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <Link
                                 to={
-                                  i.productId
-                                    ? `/products/${i.productId}`
+                                  i.productSlug
+                                    ? `/products/${i.productSlug}`
                                     : "/products"
                                 }
                                 className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
@@ -543,19 +513,20 @@ const OrderHistoryPage: React.FC = () => {
                             </div>
                           </div>
                         ))}
-                        {order.items.length > 2 && (
+                        {(order.items || []).length > 2 && (
                           <div className="text-center">
                             <Link
                               to={`/orders/${order.id}`}
                               className="inline-block text-sm font-bold text-green-600 bg-green-50 px-4 py-2 rounded-xl hover:bg-green-100 transition-colors"
                             >
-                              Xem thêm {order.items.length - 2} sản phẩm khác
+                              Xem thêm {(order.items || []).length - 2} sản phẩm
+                              khác
                             </Link>
                           </div>
                         )}
                       </div>
 
-                      {/* REVIEW SECTION (Nếu đơn hàng đã hoàn tất) */}
+                      {/* REVIEW SECTION */}
                       {order.status === "completed" && (
                         <div className="mt-6 border-t border-slate-100 pt-6">
                           <button
@@ -575,113 +546,115 @@ const OrderHistoryPage: React.FC = () => {
                               <h4 className="font-bold text-slate-800 uppercase tracking-wider text-sm mb-4">
                                 Viết đánh giá của bạn
                               </h4>
-                              {/* Sửa lại map theo yêu cầu 1.4 */}
-                              {order.items.map((item, index) => {
-                                const reviewKey = getReviewKey(
-                                  order.id,
-                                  item,
-                                  index,
-                                );
+                              {(order.items || []).map(
+                                (item: any, index: number) => {
+                                  const reviewKey = getReviewKey(
+                                    order.id,
+                                    item,
+                                    index,
+                                  );
 
-                                return item._reviewed ? (
-                                  <div
-                                    key={reviewKey}
-                                    className="p-4 border border-green-200 rounded-2xl bg-green-50/50 flex flex-col sm:flex-row items-start sm:items-center gap-4"
-                                  >
-                                    <img
-                                      src={item.thumbnail || ""}
-                                      className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
-                                      alt="product"
-                                    />
-                                    <div>
-                                      <p className="font-bold text-slate-900 mb-1">
-                                        {item.productTitle}
-                                      </p>
-                                      <p className="text-sm font-bold text-green-600 flex items-center gap-1.5">
-                                        <CheckCircle className="w-4 h-4" /> Bạn
-                                        đã đánh giá sản phẩm này
-                                      </p>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div
-                                    key={reviewKey}
-                                    className="border border-slate-200 p-4 sm:p-6 rounded-2xl bg-white shadow-sm"
-                                  >
-                                    <div className="flex items-center gap-4 mb-4">
+                                  return item._reviewed ? (
+                                    <div
+                                      key={reviewKey}
+                                      className="p-4 border border-green-200 rounded-2xl bg-green-50/50 flex flex-col sm:flex-row items-start sm:items-center gap-4"
+                                    >
                                       <img
                                         src={item.thumbnail || ""}
-                                        className="w-14 h-14 rounded-xl object-cover bg-slate-50 border border-slate-100"
+                                        className="w-16 h-16 rounded-xl object-cover border border-slate-200 bg-white"
                                         alt="product"
                                       />
-                                      <p className="font-bold text-slate-900">
-                                        {item.productTitle}
-                                      </p>
+                                      <div>
+                                        <p className="font-bold text-slate-900 mb-1">
+                                          {item.productTitle}
+                                        </p>
+                                        <p className="text-sm font-bold text-green-600 flex items-center gap-1.5">
+                                          <CheckCircle className="w-4 h-4" />{" "}
+                                          Bạn đã đánh giá sản phẩm này
+                                        </p>
+                                      </div>
                                     </div>
-
-                                    <div className="flex gap-1.5 mb-4">
-                                      {[1, 2, 3, 4, 5].map((n) => (
-                                        <Star
-                                          key={n}
-                                          className={`w-8 h-8 cursor-pointer transition-colors ${
-                                            reviewsData[reviewKey]?.rating >= n
-                                              ? "text-yellow-500 fill-yellow-400"
-                                              : "text-slate-200 hover:text-yellow-300"
-                                          }`}
-                                          onClick={() =>
-                                            updateReviewData(
-                                              reviewKey,
-                                              "rating",
-                                              n,
-                                            )
-                                          }
+                                  ) : (
+                                    <div
+                                      key={reviewKey}
+                                      className="border border-slate-200 p-4 sm:p-6 rounded-2xl bg-white shadow-sm"
+                                    >
+                                      <div className="flex items-center gap-4 mb-4">
+                                        <img
+                                          src={item.thumbnail || ""}
+                                          className="w-14 h-14 rounded-xl object-cover bg-slate-50 border border-slate-100"
+                                          alt="product"
                                         />
-                                      ))}
-                                    </div>
+                                        <p className="font-bold text-slate-900">
+                                          {item.productTitle}
+                                        </p>
+                                      </div>
 
-                                    <textarea
-                                      rows={3}
-                                      className="w-full border border-slate-200 p-4 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-medium resize-none bg-slate-50 focus:bg-white"
-                                      placeholder="Hãy chia sẻ cảm nhận của bạn về độ tươi ngon của sản phẩm nhé..."
-                                      value={
-                                        reviewsData[reviewKey]?.content || ""
-                                      }
-                                      onChange={(e) =>
-                                        updateReviewData(
-                                          reviewKey,
-                                          "content",
-                                          e.target.value,
-                                        )
-                                      }
-                                    />
+                                      <div className="flex gap-1.5 mb-4">
+                                        {[1, 2, 3, 4, 5].map((n) => (
+                                          <Star
+                                            key={n}
+                                            className={`w-8 h-8 cursor-pointer transition-colors ${
+                                              reviewsData[reviewKey]?.rating >=
+                                              n
+                                                ? "text-yellow-500 fill-yellow-400"
+                                                : "text-slate-200 hover:text-yellow-300"
+                                            }`}
+                                            onClick={() =>
+                                              updateReviewData(
+                                                reviewKey,
+                                                "rating",
+                                                n,
+                                              )
+                                            }
+                                          />
+                                        ))}
+                                      </div>
 
-                                    <div className="mt-4 text-right">
-                                      <button
-                                        disabled={
-                                          submittingReviewId === reviewKey
+                                      <textarea
+                                        rows={3}
+                                        className="w-full border border-slate-200 p-4 rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 transition-all font-medium resize-none bg-slate-50 focus:bg-white"
+                                        placeholder="Hãy chia sẻ cảm nhận của bạn về độ tươi ngon của sản phẩm nhé..."
+                                        value={
+                                          reviewsData[reviewKey]?.content || ""
                                         }
-                                        onClick={() =>
-                                          submitSingleReview(
-                                            order.id,
-                                            item.productId,
+                                        onChange={(e) =>
+                                          updateReviewData(
                                             reviewKey,
+                                            "content",
+                                            e.target.value,
                                           )
                                         }
-                                        className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all shadow-md active:scale-95"
-                                      >
-                                        {submittingReviewId === reviewKey ? (
-                                          <span className="flex items-center gap-2">
-                                            <RefreshCw className="w-4 h-4 animate-spin" />{" "}
-                                            Đang gửi...
-                                          </span>
-                                        ) : (
-                                          "Gửi đánh giá"
-                                        )}
-                                      </button>
+                                      />
+
+                                      <div className="mt-4 text-right">
+                                        <button
+                                          disabled={
+                                            submittingReviewId === reviewKey
+                                          }
+                                          onClick={() =>
+                                            submitSingleReview(
+                                              order.id,
+                                              item.productId,
+                                              reviewKey,
+                                            )
+                                          }
+                                          className="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 disabled:opacity-50 transition-all shadow-md active:scale-95"
+                                        >
+                                          {submittingReviewId === reviewKey ? (
+                                            <span className="flex items-center gap-2">
+                                              <RefreshCw className="w-4 h-4 animate-spin" />{" "}
+                                              Đang gửi...
+                                            </span>
+                                          ) : (
+                                            "Gửi đánh giá"
+                                          )}
+                                        </button>
+                                      </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                },
+                              )}
                             </div>
                           )}
                         </div>
@@ -717,12 +690,11 @@ const OrderHistoryPage: React.FC = () => {
                           </button>
                         )}
 
-                        {/* Sửa nút Mua lại theo yêu cầu 1.9 */}
                         {order.items && order.items.length > 0 ? (
                           <Link
                             to={
-                              order.items[0]?.productId
-                                ? `/products/${order.items[0].productId}`
+                              (order.items[0] as any)?.productSlug
+                                ? `/products/${(order.items[0] as any).productSlug}`
                                 : "/products"
                             }
                             className="flex-1 sm:flex-none px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm"

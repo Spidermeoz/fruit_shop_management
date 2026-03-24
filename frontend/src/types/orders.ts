@@ -5,6 +5,9 @@ export interface OrdersSummary {
   pendingOrders: number;
 }
 
+// =========================
+// Admin/list-oriented raw types
+// =========================
 export interface OrderItem {
   id?: number;
   product_id?: number | null;
@@ -44,4 +47,50 @@ export interface Order {
   phone?: string | null;
   items?: OrderItem[];
   address?: OrderAddress | null;
+}
+
+// =========================
+// Client normalized types
+// =========================
+export interface ClientOrderItem {
+  id?: number;
+  productId?: number | null;
+  productVariantId?: number | null;
+  quantity: number;
+  price: number;
+  productTitle?: string | null;
+  variantTitle?: string | null;
+  variantSku?: string | null;
+  thumbnail?: string | null;
+}
+
+export interface ClientOrderAddress {
+  fullName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  ward?: string | null;
+  district?: string | null;
+  province?: string | null;
+  postalCode?: string | null;
+  notes?: string | null;
+}
+
+export interface ClientOrder {
+  id: number;
+  userId?: number;
+  customer?: string | null;
+  userName?: string | null;
+  finalPrice: number;
+  totalPrice?: number;
+  discountAmount?: number;
+  shippingFee?: number;
+  paymentStatus?: string;
+  status: string;
+  createdAt: string;
+  code?: string;
+  phone?: string | null;
+  items?: ClientOrderItem[];
+  address?: ClientOrderAddress | null;
 }

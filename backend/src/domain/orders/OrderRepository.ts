@@ -17,6 +17,11 @@ export interface OrderCreateItemInput {
   title: string;
   variantTitle?: string | null;
   variantSku?: string | null;
+
+  // optional richer snapshot fields
+  variantLabel?: string | null;
+  optionSummary?: string | null;
+  thumbnail?: string | null;
 }
 
 export interface OrderRepository {
@@ -40,7 +45,7 @@ export interface OrderRepository {
     transaction?: any,
   ): Promise<Order>;
 
-  findById(id: number): Promise<Order | null>;
+  findById(id: number, transaction?: any): Promise<Order | null>;
 
   findByUser(
     id: number,

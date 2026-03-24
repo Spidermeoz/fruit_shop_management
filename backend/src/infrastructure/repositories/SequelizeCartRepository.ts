@@ -6,6 +6,10 @@ type Models = {
   CartItem: any;
   Product: any;
   ProductVariant: any;
+  InventoryStock?: any;
+  ProductVariantValue?: any;
+  ProductOptionValue?: any;
+  ProductOption?: any;
 };
 
 export class SequelizeCartRepository implements CartRepository {
@@ -21,6 +25,8 @@ export class SequelizeCartRepository implements CartRepository {
 
     const variantRow = row.variant ?? row.ProductVariant ?? null;
 
+    const inventoryRow = variantRow?.inventoryStock ?? null;
+
     const product = productRow
       ? {
           id: Number(productRow.id),
@@ -35,6 +41,26 @@ export class SequelizeCartRepository implements CartRepository {
         }
       : null;
 
+    const optionValues = Array.isArray(variantRow?.variantValues)
+      ? variantRow.variantValues
+          .map((vv: any) => vv?.optionValue)
+          .filter(Boolean)
+          .map((ov: any) => ({
+            id: Number(ov.id),
+            value: String(ov.value),
+            optionId:
+              ov.product_option_id !== undefined &&
+              ov.product_option_id !== null
+                ? Number(ov.product_option_id)
+                : undefined,
+            optionName: ov.option?.name ?? undefined,
+          }))
+      : [];
+
+    const quantity = Number(inventoryRow?.quantity ?? variantRow?.stock ?? 0);
+    const reservedQuantity = Number(inventoryRow?.reserved_quantity ?? 0);
+    const availableStock = Math.max(0, quantity - reservedQuantity);
+
     const variant = variantRow
       ? {
           id: Number(variantRow.id),
@@ -47,15 +73,11 @@ export class SequelizeCartRepository implements CartRepository {
             variantRow.compare_at_price !== undefined
               ? Number(variantRow.compare_at_price)
               : null,
-          stock: Number(variantRow.stock ?? 0),
+          stock: Number(variantRow.stock ?? 0), // mirror
+          availableStock,
+          reservedQuantity,
           status: variantRow.status ?? "active",
-          optionValues: Array.isArray(variantRow.optionValues)
-            ? variantRow.optionValues.map((ov: any) => ({
-                id: Number(ov.id),
-                value: String(ov.value),
-                optionName: ov.option?.name ?? undefined,
-              }))
-            : [],
+          optionValues,
         }
       : null;
 
@@ -92,6 +114,49 @@ export class SequelizeCartRepository implements CartRepository {
   }
 
   private buildVariantInclude() {
+    const variantInclude: any[] = [
+      {
+        model: this.models.Product,
+        as: "product",
+        attributes: ["id", "title", "thumbnail", "slug", "discount_percentage"],
+      },
+    ];
+
+    if (this.models.InventoryStock) {
+      variantInclude.push({
+        model: this.models.InventoryStock,
+        as: "inventoryStock",
+        attributes: ["id", "quantity", "reserved_quantity"],
+        required: false,
+      });
+    }
+
+    if (this.models.ProductVariantValue && this.models.ProductOptionValue) {
+      const optionValueInclude: any = {
+        model: this.models.ProductOptionValue,
+        as: "optionValue",
+        attributes: ["id", "product_option_id", "value", "position"],
+      };
+
+      if (this.models.ProductOption) {
+        optionValueInclude.include = [
+          {
+            model: this.models.ProductOption,
+            as: "option",
+            attributes: ["id", "name", "position"],
+          },
+        ];
+      }
+
+      variantInclude.push({
+        model: this.models.ProductVariantValue,
+        as: "variantValues",
+        attributes: ["id", "product_variant_id", "product_option_value_id"],
+        include: [optionValueInclude],
+        required: false,
+      });
+    }
+
     return [
       {
         model: this.models.ProductVariant,
@@ -106,21 +171,15 @@ export class SequelizeCartRepository implements CartRepository {
           "stock",
           "status",
         ],
-        include: [
-          {
-            model: this.models.Product,
-            as: "product",
-            attributes: [
-              "id",
-              "title",
-              "thumbnail",
-              "slug",
-              "discount_percentage",
-            ],
-          },
-        ],
+        include: variantInclude,
       },
     ];
+  }
+
+  private async findCartByUserId(userId: number) {
+    return await this.models.Cart.findOne({
+      where: { user_id: userId },
+    });
   }
 
   async addItem(
@@ -149,6 +208,9 @@ export class SequelizeCartRepository implements CartRepository {
 
     if (!variant) {
       throw new Error("Product variant not found");
+    }
+    if (variant.status !== "active") {
+      throw new Error("Product variant is inactive");
     }
 
     const productId =
@@ -266,7 +328,8 @@ export class SequelizeCartRepository implements CartRepository {
   ): Promise<void> {
     if (!productVariantIds.length) return;
 
-    const cart = await this.getOrCreateCart(userId);
+    const cart = await this.findCartByUserId(userId);
+    if (!cart) return;
 
     await this.models.CartItem.destroy({
       where: {

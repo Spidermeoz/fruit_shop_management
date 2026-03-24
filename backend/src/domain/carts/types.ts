@@ -8,6 +8,13 @@ export type CartItemProduct = {
   discountPercentage: number | null;
 };
 
+export type CartItemVariantOptionValue = {
+  id: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+};
+
 export type CartItemVariant = {
   id: number;
   productId: number;
@@ -15,13 +22,16 @@ export type CartItemVariant = {
   sku: string | null;
   price: number;
   compareAtPrice?: number | null;
+
+  // mirror / compatibility
   stock: number;
+
+  // phase 3 inventory-aware fields
+  availableStock?: number;
+  reservedQuantity?: number;
+
   status?: string;
-  optionValues?: {
-    id: number;
-    value: string;
-    optionName?: string;
-  }[];
+  optionValues?: CartItemVariantOptionValue[];
 };
 
 export type CartItemDTO = {

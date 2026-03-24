@@ -3,6 +3,8 @@ import React, {
   useContext,
   useState,
   useEffect,
+  useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { http, tokenStore } from "../services/http";
@@ -28,7 +30,9 @@ export interface CartItem {
     title?: string | null;
     sku?: string | null;
     price: number;
-    stock: number;
+    stock: number; // mirror
+    availableStock?: number;
+    reservedQuantity?: number;
     status?: string;
     optionValues?: Array<{
       id: number;
@@ -91,6 +95,22 @@ const mapCartItem = (raw: any): CartItem => ({
         sku: raw.variant.sku ?? null,
         price: Number(raw.variant.price ?? 0),
         stock: Number(raw.variant.stock ?? 0),
+        availableStock:
+          raw.variant.availableStock !== undefined &&
+          raw.variant.availableStock !== null
+            ? Number(raw.variant.availableStock)
+            : raw.variant.available_stock !== undefined &&
+                raw.variant.available_stock !== null
+              ? Number(raw.variant.available_stock)
+              : undefined,
+        reservedQuantity:
+          raw.variant.reservedQuantity !== undefined &&
+          raw.variant.reservedQuantity !== null
+            ? Number(raw.variant.reservedQuantity)
+            : raw.variant.reserved_quantity !== undefined &&
+                raw.variant.reserved_quantity !== null
+              ? Number(raw.variant.reserved_quantity)
+              : undefined,
         status: raw.variant.status ?? "active",
         optionValues: Array.isArray(raw.variant.optionValues)
           ? raw.variant.optionValues.map((ov: any) => ({
@@ -114,7 +134,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const [items, setItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCart = async () => {
+  const fetchCart = useCallback(async () => {
     if (!isAuthenticated) {
       setItems([]);
       setIsLoading(false);
@@ -135,60 +155,69 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
-  const addToCart = async (productVariantId: number, qty: number = 1) => {
-    if (!isAuthenticated) return;
+  const addToCart = useCallback(
+    async (productVariantId: number, qty: number = 1) => {
+      if (!isAuthenticated) return;
 
-    try {
-      const res = await http("POST", "/api/v1/client/cart/items", {
-        productVariantId,
-        quantity: qty,
-      });
+      try {
+        const res = await http("POST", "/api/v1/client/cart/items", {
+          productVariantId,
+          quantity: qty,
+        });
 
-      if (res?.success) {
-        await fetchCart();
+        if (res?.success) {
+          await fetchCart();
+        }
+      } catch (err) {
+        console.error("Lỗi thêm vào giỏ hàng:", err);
+        throw err;
       }
-    } catch (err) {
-      console.error("Lỗi thêm vào giỏ hàng:", err);
-      throw err;
-    }
-  };
+    },
+    [isAuthenticated, fetchCart],
+  );
 
-  const updateItem = async (productVariantId: number, qty: number) => {
-    try {
-      const res = await http(
-        "PATCH",
-        `/api/v1/client/cart/items/${productVariantId}`,
-        { quantity: qty },
-      );
+  const updateItem = useCallback(
+    async (productVariantId: number, qty: number) => {
+      try {
+        const res = await http(
+          "PATCH",
+          `/api/v1/client/cart/items/${productVariantId}`,
+          { quantity: qty },
+        );
 
-      if (res?.success) {
-        await fetchCart();
+        if (res?.success) {
+          await fetchCart();
+        }
+      } catch (err) {
+        console.error("Lỗi cập nhật giỏ hàng:", err);
+        throw err;
       }
-    } catch (err) {
-      console.error("Lỗi cập nhật giỏ hàng:", err);
-      throw err;
-    }
-  };
+    },
+    [fetchCart],
+  );
 
-  const removeItem = async (productVariantId: number) => {
-    try {
-      const res = await http(
-        "DELETE",
-        `/api/v1/client/cart/items/${productVariantId}`,
-      );
+  const removeItem = useCallback(
+    async (productVariantId: number) => {
+      try {
+        const res = await http(
+          "DELETE",
+          `/api/v1/client/cart/items/${productVariantId}`,
+        );
 
-      if (res?.success) {
-        await fetchCart();
+        if (res?.success) {
+          await fetchCart();
+        }
+      } catch (err) {
+        console.error("Lỗi xoá sản phẩm trong giỏ:", err);
+        throw err;
       }
-    } catch (err) {
-      console.error("Lỗi xoá sản phẩm trong giỏ:", err);
-      throw err;
-    }
-  };
+    },
+    [fetchCart],
+  );
 
-  const clearCart = async () => {
+  const clearCart = useCallback(async () => {
     try {
       const res = await http("DELETE", "/api/v1/client/cart/all-items");
       if (res?.success) {
@@ -198,7 +227,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       console.error("Lỗi xoá sản phẩm trong giỏ:", err);
       throw err;
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!tokenStore.getAccess()) {
@@ -206,25 +235,33 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       setIsLoading(false);
       return;
     }
-    fetchCart();
-  }, [isAuthenticated]);
+    void fetchCart();
+  }, [fetchCart]);
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  return (
-    <CartContext.Provider
-      value={{
-        items,
-        totalItems,
-        isLoading,
-        fetchCart,
-        addToCart,
-        updateItem,
-        removeItem,
-        clearCart,
-      }}
-    >
-      {children}
-    </CartContext.Provider>
+  const value = useMemo(
+    () => ({
+      items,
+      totalItems,
+      isLoading,
+      fetchCart,
+      addToCart,
+      updateItem,
+      removeItem,
+      clearCart,
+    }),
+    [
+      items,
+      totalItems,
+      isLoading,
+      fetchCart,
+      addToCart,
+      updateItem,
+      removeItem,
+      clearCart,
+    ],
   );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

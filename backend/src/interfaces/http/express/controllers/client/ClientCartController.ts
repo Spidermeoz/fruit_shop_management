@@ -38,10 +38,22 @@ export const makeClientCartController = (uc: {
         const userId = Number((req as any).user?.id);
         const { productVariantId, quantity } = req.body;
 
+        const normalizedVariantId = Number(productVariantId);
+        const normalizedQty =
+          quantity !== undefined && quantity !== null ? Number(quantity) : 1;
+
+        if (!Number.isFinite(normalizedVariantId) || normalizedVariantId <= 0) {
+          throw new Error("productVariantId is invalid");
+        }
+
+        if (!Number.isFinite(normalizedQty) || normalizedQty <= 0) {
+          throw new Error("quantity is invalid");
+        }
+
         const item = await uc.addToCart.execute({
           userId,
-          productVariantId: Number(productVariantId),
-          quantity: quantity ? Number(quantity) : 1,
+          productVariantId: normalizedVariantId,
+          quantity: normalizedQty,
         });
 
         res.status(201).json({
@@ -59,11 +71,20 @@ export const makeClientCartController = (uc: {
         const userId = Number((req as any).user?.id);
         const productVariantId = Number(req.params.variantId);
         const { quantity } = req.body;
+        const normalizedQty = Number(quantity);
+
+        if (!Number.isFinite(productVariantId) || productVariantId <= 0) {
+          throw new Error("variantId is invalid");
+        }
+
+        if (!Number.isFinite(normalizedQty) || normalizedQty <= 0) {
+          throw new Error("quantity is invalid");
+        }
 
         const item = await uc.updateItem.execute({
           userId,
           productVariantId,
-          quantity: Number(quantity),
+          quantity: normalizedQty,
         });
 
         res.json({
@@ -80,6 +101,10 @@ export const makeClientCartController = (uc: {
       try {
         const userId = Number((req as any).user?.id);
         const productVariantId = Number(req.params.variantId);
+
+        if (!Number.isFinite(productVariantId) || productVariantId <= 0) {
+          throw new Error("variantId is invalid");
+        }
 
         await uc.removeItem.execute({
           userId,

@@ -30,10 +30,15 @@ export class AddToCart {
       throw new Error("Product variant is inactive");
     }
 
-    const stock = await this.inventoryRepo.ensureStockForVariant(
-      input.productVariantId,
-      Number(variant.stock ?? 0),
-    );
+    const availableStock =
+      typeof this.inventoryRepo.getAvailableStockByVariantId === "function"
+        ? await this.inventoryRepo.getAvailableStockByVariantId(
+            input.productVariantId,
+            Number(variant.stock ?? 0),
+          )
+        : variant.availableStock !== undefined
+          ? Number(variant.availableStock)
+          : Number(variant.stock ?? 0);
 
     const items = await this.cartRepo.listItems(input.userId);
 
@@ -41,8 +46,8 @@ export class AddToCart {
       items.find((i) => i.productVariantId === input.productVariantId)
         ?.quantity || 0;
 
-    if (currentQty + quantity > stock.quantity) {
-      throw new Error("Quantity exceeds stock");
+    if (currentQty + quantity > availableStock) {
+      throw new Error("Quantity exceeds available stock");
     }
 
     return this.cartRepo.addItem(

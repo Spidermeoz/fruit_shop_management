@@ -477,6 +477,10 @@ const cartModels = {
   CartItem: CartItemModel,
   Product: ProductModel,
   ProductVariant: ProductVariantModel,
+  InventoryStock: InventoryStockModel,
+  ProductVariantValue: ProductVariantValueModel,
+  ProductOptionValue: ProductOptionValueModel,
+  ProductOption: ProductOptionModel,
 };
 const cartRepo = new SequelizeCartRepository(cartModels);
 
@@ -515,8 +519,8 @@ const productTagRepo = new SequelizeProductTagRepository(ProductTagModel);
 export const usecases = {
   products: {
     list: new ListProducts(productRepo),
-    detail: new GetProductDetail(productRepo),
-    detailBySlug: new GetProductDetailBySlug(productRepo),
+    detail: new GetProductDetail(productRepo, inventoryRepo),
+    detailBySlug: new GetProductDetailBySlug(productRepo, inventoryRepo),
     create: new CreateProduct(productRepo, inventoryRepo),
     edit: new EditProduct(productRepo, inventoryRepo),
     changeStatus: new ChangeProductStatus(productRepo),

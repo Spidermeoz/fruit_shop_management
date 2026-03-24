@@ -12,6 +12,7 @@ export type InventoryStock = {
   productVariantId: number;
   quantity: number;
   reservedQuantity: number;
+  availableQuantity: number;
   createdAt?: Date;
   updatedAt?: Date;
 };
@@ -39,6 +40,12 @@ export interface InventoryRepository {
     fallbackQuantity?: number,
     transaction?: Transaction,
   ): Promise<InventoryStock>;
+
+  getAvailableStockByVariantId(
+    productVariantId: number,
+    fallbackQuantity?: number,
+    transaction?: Transaction,
+  ): Promise<number>;
 
   setStockByVariantId(
     productVariantId: number,

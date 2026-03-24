@@ -1,6 +1,50 @@
 // src/application/products/dto.ts
-import type { ProductStatus } from "../../domain/products/types";
 import type { Product } from "../../domain/products/Products";
+import type {
+  ProductPriceRange,
+  ProductStatus,
+  ProductTagGroup,
+  ProductVariantStatus,
+} from "../../domain/products/types";
+
+export type ProductOptionValueDTO = {
+  id?: number;
+  value: string;
+  position?: number;
+};
+
+export type ProductOptionDTO = {
+  id?: number;
+  name: string;
+  position?: number;
+  values: ProductOptionValueDTO[];
+};
+
+export type ProductVariantOptionValueDTO = {
+  id: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+  position?: number;
+};
+
+export type ProductVariantDTO = {
+  id?: number;
+  productId?: number;
+  sku?: string | null;
+  title?: string | null;
+  price: number;
+  compareAtPrice?: number | null;
+  stock: number; // mirror / compatibility
+  availableStock?: number;
+  reservedQuantity?: number;
+  status: ProductVariantStatus;
+  sortOrder?: number;
+  optionValueIds: number[];
+  optionValues: ProductVariantOptionValueDTO[];
+  createdAt?: Date;
+  updatedAt?: Date;
+};
 
 export type ProductDTO = {
   product_category_id: number | null;
@@ -8,9 +52,15 @@ export type ProductDTO = {
   categoryId: number | null;
   title: string;
   description: string | null;
+
+  // product-level summary / fallback fields
   price: number | null;
   discountPercentage: number | null;
   stock: number;
+  totalStock: number;
+  defaultVariantId: number | null;
+  priceRange: ProductPriceRange | null;
+
   thumbnail: string | null;
   slug: string | null;
   status: ProductStatus;
@@ -24,8 +74,9 @@ export type ProductDTO = {
   updatedAt?: Date;
   createdById?: number | null;
   updatedById?: number | null;
-  // field suy diễn cho FE (tuỳ dùng)
-  effectivePrice: number | null; // price sau khi áp discount
+
+  effectivePrice: number | null;
+
   category: { id: number; title: string } | null;
   originId?: number | null;
   origin: { id: number; name: string; slug: string } | null;
@@ -39,21 +90,21 @@ export type ProductDTO = {
     id: number;
     name: string;
     slug: string;
-    tagGroup: string;
+    tagGroup: ProductTagGroup;
   }[];
-  variants?: any[];
-  options?: any[];
+
   tagIds?: number[];
-  
+
+  variants: ProductVariantDTO[];
+  options: ProductOptionDTO[];
 };
 
 export const toDTO = (p: Product): ProductDTO => {
   const price = p.props.price ?? null;
   const discount = p.props.discountPercentage ?? 0;
+
   const effectivePrice =
-    price === null
-      ? null
-      : Math.round((price * (100 - discount)) as number) / 100;
+    price === null ? null : Math.round(price * (100 - discount)) / 100;
 
   return {
     product_category_id: p.props.categoryId ?? null,
@@ -61,9 +112,15 @@ export const toDTO = (p: Product): ProductDTO => {
     categoryId: p.props.categoryId ?? null,
     title: p.props.title,
     description: p.props.description ?? null,
+
+    // summary / fallback product-level fields
     price,
     discountPercentage: p.props.discountPercentage ?? null,
     stock: p.props.stock ?? 0,
+    totalStock: p.props.totalStock ?? p.props.stock ?? 0,
+    defaultVariantId: p.props.defaultVariantId ?? null,
+    priceRange: p.props.priceRange ?? null,
+
     thumbnail: p.props.thumbnail ?? null,
     slug: p.props.slug ?? null,
     status: p.props.status,
@@ -77,7 +134,9 @@ export const toDTO = (p: Product): ProductDTO => {
     updatedAt: p.props.updatedAt,
     createdById: p.props.createdById ?? null,
     updatedById: p.props.updatedById ?? null,
+
     effectivePrice,
+
     category: p.props.category ?? null,
     originId: p.props.originId ?? null,
     origin: p.props.origin ?? null,
@@ -88,10 +147,48 @@ export const toDTO = (p: Product): ProductDTO => {
     nutritionNotes: p.props.nutritionNotes ?? null,
 
     tags: p.props.tags ?? [],
-
     tagIds: p.props.tags?.map((t) => t.id) ?? [],
 
-    variants: p.props.variants ?? [],
-    options: p.props.options ?? [],
+    variants: (p.props.variants ?? []).map((variant) => ({
+      id: variant.id,
+      productId: variant.productId,
+      sku: variant.sku ?? null,
+      title: variant.title ?? null,
+      price: Number(variant.price ?? 0),
+      compareAtPrice:
+        variant.compareAtPrice !== undefined ? variant.compareAtPrice : null,
+      stock: Number(variant.stock ?? 0),
+      availableStock:
+        (variant as any).availableStock !== undefined
+          ? Number((variant as any).availableStock ?? 0)
+          : undefined,
+      reservedQuantity:
+        (variant as any).reservedQuantity !== undefined
+          ? Number((variant as any).reservedQuantity ?? 0)
+          : undefined,
+      status: variant.status ?? "active",
+      sortOrder: variant.sortOrder ?? 0,
+      optionValueIds: variant.optionValueIds ?? [],
+      optionValues: (variant.optionValues ?? []).map((ov) => ({
+        id: Number(ov.id),
+        value: ov.value,
+        optionId: ov.optionId,
+        optionName: ov.optionName,
+        position: ov.position,
+      })),
+      createdAt: variant.createdAt,
+      updatedAt: variant.updatedAt,
+    })),
+
+    options: (p.props.options ?? []).map((option) => ({
+      id: option.id,
+      name: option.name,
+      position: option.position ?? 0,
+      values: (option.values ?? []).map((value) => ({
+        id: value.id,
+        value: value.value,
+        position: value.position ?? 0,
+      })),
+    })),
   };
 };

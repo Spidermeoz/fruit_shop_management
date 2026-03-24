@@ -18,7 +18,11 @@ import Footer from "../../../components/client/layouts/Footer";
 
 // Helper dùng chung để lấy stock hợp lệ
 const getItemAvailableStock = (item: CartItem) => {
-  const raw = item.variant?.stock;
+  const raw =
+    item.variant?.availableStock !== undefined &&
+    item.variant?.availableStock !== null
+      ? item.variant.availableStock
+      : item.variant?.stock;
 
   if (raw === undefined || raw === null) {
     return item.quantity > 0 ? item.quantity : 0;
@@ -44,8 +48,8 @@ const CartPage: React.FC = () => {
   const { showErrorToast } = useToast();
 
   useEffect(() => {
-    fetchCart();
-  }, []);
+    void fetchCart();
+  }, [fetchCart]);
 
   // Toggle chọn sản phẩm
   const toggleSelect = (productVariantId: number) => {
@@ -123,12 +127,12 @@ const CartPage: React.FC = () => {
       [productVariantId]: newQty,
     }));
 
-    updateItem(productVariantId, newQty);
+    updateItem(productVariantId, newQty).catch(() => {});
   };
 
   // Xóa sản phẩm
   const handleRemove = (productVariantId: number) => {
-    removeItem(productVariantId);
+    void removeItem(productVariantId);
     setSelectedItems((prev) => prev.filter((id) => id !== productVariantId));
   };
 
@@ -324,6 +328,10 @@ const CartPage: React.FC = () => {
 
                                 <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
                                   Quy cách: {item.variant?.title || "Mặc định"}
+                                </p>
+
+                                <p className="text-xs text-slate-400 font-medium mt-1">
+                                  Tồn khả dụng: {availableStock}
                                 </p>
                               </div>
                             </div>

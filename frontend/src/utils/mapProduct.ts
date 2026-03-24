@@ -26,6 +26,41 @@ export function mapProduct(raw: any) {
               ? Number(v.compare_at_price)
               : null,
         stock: Number(v.stock ?? 0),
+        availableStock:
+          v.availableStock !== undefined && v.availableStock !== null
+            ? Number(v.availableStock)
+            : v.available_stock !== undefined && v.available_stock !== null
+              ? Number(v.available_stock)
+              : undefined,
+        reservedQuantity:
+          v.reservedQuantity !== undefined && v.reservedQuantity !== null
+            ? Number(v.reservedQuantity)
+            : v.reserved_quantity !== undefined && v.reserved_quantity !== null
+              ? Number(v.reserved_quantity)
+              : undefined,
+        inventory: v.inventory
+          ? {
+              id:
+                v.inventory.id !== undefined && v.inventory.id !== null
+                  ? Number(v.inventory.id)
+                  : undefined,
+              quantity: Number(v.inventory.quantity ?? 0),
+              reservedQuantity: Number(
+                v.inventory.reservedQuantity ??
+                  v.inventory.reserved_quantity ??
+                  0,
+              ),
+              availableQuantity: Number(
+                v.inventory.availableQuantity ??
+                  v.inventory.available_quantity ??
+                  0,
+              ),
+              createdAt:
+                v.inventory.createdAt ?? v.inventory.created_at ?? null,
+              updatedAt:
+                v.inventory.updatedAt ?? v.inventory.updated_at ?? null,
+            }
+          : null,
         status: v.status ?? "active",
         sortOrder: Number(v.sortOrder ?? v.sort_order ?? index),
         optionValueIds: Array.isArray(v.optionValueIds)
@@ -75,10 +110,12 @@ export function mapProduct(raw: any) {
     ? Math.max(...priceSource.map((v: any) => Number(v.price ?? 0)))
     : null;
 
-  const variantsTotalStock = variants.reduce(
-    (sum: number, v: any) => sum + Number(v.stock ?? 0),
-    0,
-  );
+  const variantsTotalStock = variants.reduce((sum: number, v: any) => {
+    return (
+      sum +
+      Number(v.availableStock ?? v.inventory?.availableQuantity ?? v.stock ?? 0)
+    );
+  }, 0);
 
   const rawTotalStock = toNumberOrNull(p.totalStock);
   const rawProductStock = toNumberOrNull(p.stock);
@@ -180,6 +217,19 @@ export function mapProduct(raw: any) {
         : minVariantPrice !== null && maxVariantPrice !== null
           ? { min: minVariantPrice, max: maxVariantPrice }
           : { min: basePrice, max: basePrice },
+
+    origin: p.origin ?? null,
+    tags: Array.isArray(p.tags) ? p.tags : [],
+    shortDescription: p.shortDescription ?? p.short_description ?? null,
+    storageGuide: p.storageGuide ?? p.storage_guide ?? null,
+    usageSuggestions: p.usageSuggestions ?? p.usage_suggestions ?? null,
+    nutritionNotes: p.nutritionNotes ?? p.nutrition_notes ?? null,
+    effectivePrice:
+      p.effectivePrice !== undefined && p.effectivePrice !== null
+        ? Number(p.effectivePrice)
+        : effectivePrice,
+    reviewCount: Number(p.reviewCount ?? p.review_count ?? 0),
+    averageRating: Number(p.averageRating ?? p.average_rating ?? 0),
 
     created_at: p.createdAt ?? p.created_at,
     updated_at: p.updatedAt ?? p.updated_at,

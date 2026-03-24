@@ -8,7 +8,15 @@ export function summarizeProducts(products: Product[]) {
 
     if (Array.isArray(p.variants) && p.variants.length > 0) {
       return p.variants.reduce((sum, variant) => {
-        return sum + Number(variant.stock ?? 0);
+        return (
+          sum +
+          Number(
+            variant.availableStock ??
+              variant.inventory?.availableQuantity ??
+              variant.stock ??
+              0,
+          )
+        );
       }, 0);
     }
 

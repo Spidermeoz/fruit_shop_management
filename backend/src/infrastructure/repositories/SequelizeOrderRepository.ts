@@ -84,7 +84,6 @@ export class SequelizeOrderRepository implements OrderRepository {
           shipping_fee: data.shippingFee,
           discount_amount: data.discountAmount,
           total_price: data.totalPrice,
-          final_price: data.finalPrice,
           tracking_token: crypto.randomUUID(),
           inventory_applied: 0,
           user_info: data.userInfo,
@@ -168,7 +167,7 @@ export class SequelizeOrderRepository implements OrderRepository {
   // ========================================
   // FIND BY ID
   // ========================================
-  async findById(id: number) {
+  async findById(id: number, transaction?: any) {
     const row = await this.models.Order.findOne({
       where: { id, deleted: 0 },
       include: [
@@ -187,6 +186,7 @@ export class SequelizeOrderRepository implements OrderRepository {
         { model: this.models.Payment, as: "payments" },
         { model: this.models.DeliveryStatusHistory, as: "deliveryHistory" },
       ],
+      transaction,
     });
 
     return row ? this.mapRow(row) : null;

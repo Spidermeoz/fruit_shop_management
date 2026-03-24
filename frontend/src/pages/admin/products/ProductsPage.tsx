@@ -34,6 +34,10 @@ interface Product {
     id: number;
     price: number;
     stock: number;
+    availableStock?: number;
+    inventory?: {
+      availableQuantity: number;
+    } | null;
     status: string;
   }>;
 }
@@ -46,7 +50,18 @@ const getDisplayStock = (product: Product) => {
 
   if (Array.isArray(product.variants) && product.variants.length > 0) {
     return product.variants.reduce((sum, variant) => {
-      return sum + Math.max(0, Number(variant.stock ?? 0));
+      return (
+        sum +
+        Math.max(
+          0,
+          Number(
+            variant.availableStock ??
+              variant.inventory?.availableQuantity ??
+              variant.stock ??
+              0,
+          ),
+        )
+      );
     }, 0);
   }
 
@@ -131,8 +146,129 @@ const ProductsPage: React.FC = () => {
       const json = await http<any>("GET", url);
 
       if (Array.isArray(json.data)) {
-        setProducts(json.data);
-        // --- fix: tính totalPages từ meta.total / meta.limit (fallback 1)
+        const normalizedProducts = json.data.map((raw: any) => {
+          const variants = Array.isArray(raw.variants)
+            ? raw.variants.map((v: any) => ({
+                id: Number(v.id),
+                price: Number(v.price ?? 0),
+                stock: Number(v.stock ?? 0),
+                availableStock:
+                  v.availableStock !== undefined && v.availableStock !== null
+                    ? Number(v.availableStock)
+                    : v.available_stock !== undefined &&
+                        v.available_stock !== null
+                      ? Number(v.available_stock)
+                      : undefined,
+                inventory: v.inventory
+                  ? {
+                      availableQuantity: Number(
+                        v.inventory.availableQuantity ??
+                          v.inventory.available_quantity ??
+                          0,
+                      ),
+                    }
+                  : null,
+                status: v.status ?? "active",
+              }))
+            : [];
+
+          const normalizedPriceRange =
+            raw.priceRange?.min !== undefined &&
+            raw.priceRange?.max !== undefined
+              ? {
+                  min: Number(raw.priceRange.min),
+                  max: Number(raw.priceRange.max),
+                }
+              : raw.price_range?.min !== undefined &&
+                  raw.price_range?.max !== undefined
+                ? {
+                    min: Number(raw.price_range.min),
+                    max: Number(raw.price_range.max),
+                  }
+                : raw.priceRange?.minPrice !== undefined &&
+                    raw.priceRange?.maxPrice !== undefined
+                  ? {
+                      min: Number(raw.priceRange.minPrice),
+                      max: Number(raw.priceRange.maxPrice),
+                    }
+                  : raw.price_range?.minPrice !== undefined &&
+                      raw.price_range?.maxPrice !== undefined
+                    ? {
+                        min: Number(raw.price_range.minPrice),
+                        max: Number(raw.price_range.maxPrice),
+                      }
+                    : null;
+
+          const normalizedTotalStock =
+            raw.totalStock !== undefined && raw.totalStock !== null
+              ? Number(raw.totalStock)
+              : raw.total_stock !== undefined && raw.total_stock !== null
+                ? Number(raw.total_stock)
+                : variants.reduce((sum: number, variant: any) => {
+                    return (
+                      sum +
+                      Number(
+                        variant.availableStock ??
+                          variant.inventory?.availableQuantity ??
+                          variant.stock ??
+                          0,
+                      )
+                    );
+                  }, 0);
+
+          return {
+            ...raw,
+            id: Number(raw.id),
+            product_category_id:
+              raw.product_category_id ??
+              raw.categoryId ??
+              raw.category_id ??
+              "",
+            price:
+              raw.price !== undefined && raw.price !== null
+                ? Number(raw.price)
+                : 0,
+            discount_percentage:
+              raw.discount_percentage !== undefined &&
+              raw.discount_percentage !== null
+                ? Number(raw.discount_percentage)
+                : raw.discountPercentage !== undefined &&
+                    raw.discountPercentage !== null
+                  ? Number(raw.discountPercentage)
+                  : 0,
+            stock:
+              raw.stock !== undefined && raw.stock !== null
+                ? Number(raw.stock)
+                : 0,
+            position:
+              raw.position !== undefined && raw.position !== null
+                ? Number(raw.position)
+                : 0,
+            featured:
+              raw.featured !== undefined && raw.featured !== null
+                ? raw.featured
+                : 0,
+            average_rating:
+              raw.average_rating !== undefined && raw.average_rating !== null
+                ? Number(raw.average_rating)
+                : raw.averageRating !== undefined && raw.averageRating !== null
+                  ? Number(raw.averageRating)
+                  : 0,
+            review_count:
+              raw.review_count !== undefined && raw.review_count !== null
+                ? Number(raw.review_count)
+                : raw.reviewCount !== undefined && raw.reviewCount !== null
+                  ? Number(raw.reviewCount)
+                  : 0,
+            category: raw.category ?? null,
+            variants,
+            totalStock: normalizedTotalStock,
+            priceRange: normalizedPriceRange,
+          };
+        });
+
+        setProducts(normalizedProducts);
+
         const total = Number(json.meta?.total ?? 0);
         const limit = Number(json.meta?.limit ?? 10);
         setTotalPages(Math.max(1, Math.ceil(total / limit)));
@@ -579,9 +715,31 @@ const ProductsPage: React.FC = () => {
                         {product.category?.title || "—"}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {product.priceRange
-                          ? `${product.priceRange.min.toLocaleString()}₫ - ${product.priceRange.max.toLocaleString()}₫`
-                          : `${product.price?.toLocaleString()}₫`}
+                        {(() => {
+                          const min =
+                            product.priceRange?.min !== undefined &&
+                            product.priceRange?.min !== null
+                              ? Number(product.priceRange.min)
+                              : null;
+
+                          const max =
+                            product.priceRange?.max !== undefined &&
+                            product.priceRange?.max !== null
+                              ? Number(product.priceRange.max)
+                              : null;
+
+                          const basePrice =
+                            product.price !== undefined &&
+                            product.price !== null
+                              ? Number(product.price)
+                              : 0;
+
+                          if (min !== null && max !== null) {
+                            return `${min.toLocaleString()}₫ - ${max.toLocaleString()}₫`;
+                          }
+
+                          return `${basePrice.toLocaleString()}₫`;
+                        })()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span

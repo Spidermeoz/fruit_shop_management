@@ -31,13 +31,18 @@ export class UpdateCartItem {
       throw new Error("Product variant is inactive");
     }
 
-    const stock = await this.inventoryRepo.ensureStockForVariant(
+    await this.inventoryRepo.ensureStockForVariant(
       input.productVariantId,
       Number(variant.stock ?? 0),
     );
 
-    if (input.quantity > stock.quantity) {
-      throw new Error("Quantity exceeds stock");
+    const availableStock =
+      variant.availableStock !== undefined
+        ? Number(variant.availableStock)
+        : Number(variant.stock ?? 0);
+
+    if (input.quantity > availableStock) {
+      throw new Error("Quantity exceeds available stock");
     }
 
     return this.cartRepo.updateItem(

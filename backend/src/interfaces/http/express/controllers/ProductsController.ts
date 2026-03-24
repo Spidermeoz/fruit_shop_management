@@ -17,6 +17,87 @@ const toBool = (v: any) =>
     ? undefined
     : v === "true" || v === true || v === 1 || v === "1";
 
+const normalizeOptions = (
+  options?: Array<{
+    id?: number;
+    name: string;
+    position?: number;
+    values?: Array<{
+      id?: number;
+      value: string;
+      position?: number;
+    }>;
+  }>,
+) =>
+  Array.isArray(options)
+    ? options.map((o, optionIndex) => ({
+        id: o.id,
+        name: String(o.name ?? "").trim(),
+        position: o.position ?? optionIndex,
+        values: Array.isArray(o.values)
+          ? o.values.map((v, valueIndex) => ({
+              id: v.id,
+              value: String(v.value ?? "").trim(),
+              position: v.position ?? valueIndex,
+            }))
+          : [],
+      }))
+    : undefined;
+
+const normalizeVariants = (
+  variants?: Array<{
+    id?: number;
+    sku?: string | null;
+    title?: string | null;
+    price?: number | null;
+    compareAtPrice?: number | null;
+    stock?: number;
+    status?: ProductStatus;
+    sortOrder?: number;
+    optionValueIds?: number[];
+    optionValues?: Array<{
+      id?: number;
+      value: string;
+      optionId?: number;
+      optionName?: string;
+      position?: number;
+    }>;
+  }>,
+) =>
+  Array.isArray(variants)
+    ? variants.map((v, index) => ({
+        id: v.id,
+        sku: v.sku ?? null,
+        title: v.title ?? null,
+        price: Number(v.price ?? 0),
+        compareAtPrice:
+          v.compareAtPrice !== undefined && v.compareAtPrice !== null
+            ? Number(v.compareAtPrice)
+            : null,
+        stock: Number(v.stock ?? 0),
+        status: v.status ?? "active",
+        sortOrder: v.sortOrder ?? index,
+        optionValueIds: Array.isArray(v.optionValueIds)
+          ? v.optionValueIds.map(Number)
+          : [],
+        optionValues: Array.isArray(v.optionValues)
+          ? v.optionValues.map((ov) => ({
+              id: ov.id,
+              value: String(ov.value ?? "").trim(),
+              optionId:
+                ov.optionId !== undefined && ov.optionId !== null
+                  ? Number(ov.optionId)
+                  : undefined,
+              optionName: String(ov.optionName ?? "").trim(),
+              position:
+                ov.position !== undefined && ov.position !== null
+                  ? Number(ov.position)
+                  : undefined,
+            }))
+          : [],
+      }))
+    : undefined;
+
 export const makeProductsController = (uc: {
   list: ListProducts;
   detail: GetProductDetail;
@@ -83,10 +164,15 @@ export const makeProductsController = (uc: {
             description: dto.description ?? "",
             product_category_id: dto.categoryId ?? "",
             category: dto.category ?? null,
+
+            // product-level summary fields
             price: dto.price ?? 0,
             discount_percentage: dto.discountPercentage ?? 0,
             stock: dto.stock ?? 0,
-            total_stock: dto.stock ?? 0,
+            total_stock: dto.totalStock ?? dto.stock ?? 0,
+            default_variant_id: dto.defaultVariantId ?? null,
+            price_range: dto.priceRange ?? null,
+
             thumbnail: dto.thumbnail ?? "",
             status: dto.status,
             featured: dto.featured ? 1 : 0,
@@ -94,16 +180,20 @@ export const makeProductsController = (uc: {
             slug: dto.slug ?? "",
             average_rating: dto.averageRating ?? 0,
             review_count: dto.reviewCount ?? 0,
+
             origin_id: dto.originId ?? null,
             origin: dto.origin ?? null,
             tags: dto.tags ?? [],
             tagIds: dto.tagIds ?? [],
+
             short_description: dto.shortDescription ?? "",
             storage_guide: dto.storageGuide ?? "",
             usage_suggestions: dto.usageSuggestions ?? "",
             nutrition_notes: dto.nutritionNotes ?? "",
+
             options: dto.options ?? [],
             variants: dto.variants ?? [],
+
             created_by_id: dto.createdById ?? null,
             updated_by_id: dto.updatedById ?? null,
             created_at: dto.createdAt ?? null,
@@ -159,15 +249,8 @@ export const makeProductsController = (uc: {
         };
         const result = await uc.create.execute({
           ...payload,
-          options: payload.options?.map((o) => ({
-            ...o,
-            values: o.values ?? [],
-          })),
-          variants: payload.variants?.map((v) => ({
-            ...v,
-            price: v.price ?? 0,
-            stock: v.stock ?? 0,
-          })),
+          options: normalizeOptions(payload.options),
+          variants: normalizeVariants(payload.variants),
         });
         res.status(201).json({
           success: true,
@@ -192,10 +275,15 @@ export const makeProductsController = (uc: {
             description: dto.description ?? "",
             product_category_id: dto.categoryId ?? "",
             category: dto.category ?? null,
-            price: dto.price ?? "",
+
+            // product-level summary fields
+            price: dto.price ?? 0,
             discount_percentage: dto.discountPercentage ?? 0,
             stock: dto.stock ?? 0,
-            total_stock: dto.stock ?? 0,
+            total_stock: dto.totalStock ?? dto.stock ?? 0,
+            default_variant_id: dto.defaultVariantId ?? null,
+            price_range: dto.priceRange ?? null,
+
             thumbnail: dto.thumbnail ?? "",
             status: dto.status,
             featured: dto.featured ? 1 : 0,
@@ -203,9 +291,11 @@ export const makeProductsController = (uc: {
             slug: dto.slug ?? "",
             average_rating: dto.averageRating ?? 0,
             review_count: dto.reviewCount ?? 0,
+
             origin_id: dto.originId ?? null,
+            origin: dto.origin ?? null,
             tags: dto.tags ?? [],
-            tagIds: (dto.tags ?? []).map((t) => t.id),
+            tagIds: dto.tagIds ?? [],
 
             short_description: dto.shortDescription ?? "",
             storage_guide: dto.storageGuide ?? "",
@@ -231,7 +321,14 @@ export const makeProductsController = (uc: {
       try {
         const id = Number(req.params.id);
         const patch = req.body as UpdateProductPatch;
-        const result = await uc.edit.execute(id, patch);
+
+        const normalizedPatch: UpdateProductPatch = {
+          ...patch,
+          options: normalizeOptions(patch.options as any),
+          variants: normalizeVariants(patch.variants as any),
+        };
+
+        const result = await uc.edit.execute(id, normalizedPatch);
         res.json({
           success: true,
           data: result,

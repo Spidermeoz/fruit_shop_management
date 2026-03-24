@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { useCart } from "../../../context/CartContext";
@@ -47,7 +47,11 @@ interface OrderInfo {
 
 // 2) Thêm helper local để checkout dùng stock nhất quán
 const getCheckoutItemAvailableStock = (item: any) => {
-  const raw = item?.variant?.stock;
+  const raw =
+    item?.variant?.availableStock !== undefined &&
+    item?.variant?.availableStock !== null
+      ? item.variant.availableStock
+      : item?.variant?.stock;
 
   if (raw === undefined || raw === null || raw === "") {
     return item?.quantity > 0 ? item.quantity : 0;
@@ -100,6 +104,8 @@ const CheckoutPage: React.FC = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
+  const submitLockRef = useRef(false);
+
   const handleClearForm = () => {
     setOrderInfo({
       name: "",
@@ -120,9 +126,14 @@ const CheckoutPage: React.FC = () => {
 
   // Nếu không có selected items → quay về giỏ hàng
   useEffect(() => {
-    fetchCart();
-    if (!selectedItems.length) navigate("/cart");
-  }, [fetchCart, navigate, selectedItems.length]);
+    if (!selectedItems.length) {
+      navigate("/cart");
+    }
+  }, [navigate, selectedItems.length]);
+
+  useEffect(() => {
+    void fetchCart();
+  }, [fetchCart]);
 
   useEffect(() => {
     window.scrollTo({
@@ -241,7 +252,7 @@ const CheckoutPage: React.FC = () => {
     0,
   );
 
-  const shippingFee = selectedItems.length > 0 ? 20000 : 0;
+  const shippingFee = checkoutItems.length > 0 ? 20000 : 0;
   const total = subtotal + shippingFee;
 
   const handleChange = (
@@ -324,6 +335,9 @@ const CheckoutPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isProcessing || submitLockRef.current) return;
+    submitLockRef.current = true;
+
     // 5) Chặn submit nếu checkout item vượt tồn kho hiển thị
     if (!checkoutItems.length) {
       showErrorToast("Không có sản phẩm hợp lệ để thanh toán.");
@@ -346,7 +360,7 @@ const CheckoutPage: React.FC = () => {
 
     try {
       const payload = {
-        productVariantIds: selectedItems,
+        productVariantIds: checkoutItems.map((item) => item.productVariantId),
         address: {
           fullName: orderInfo.name,
           phone: orderInfo.phone,
@@ -376,6 +390,7 @@ const CheckoutPage: React.FC = () => {
     } catch (err: any) {
       showErrorToast(err.message || "Lỗi không xác định");
     } finally {
+      submitLockRef.current = false;
       setIsProcessing(false);
     }
   };
@@ -870,6 +885,7 @@ const CheckoutPage: React.FC = () => {
                       {/* Shipping Info Card */}
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 relative">
                         <button
+                          type="button"
                           onClick={() => setCurrentStep(1)}
                           className="absolute top-6 right-6 text-sm font-bold text-green-600 hover:text-green-800 underline"
                         >
@@ -928,6 +944,7 @@ const CheckoutPage: React.FC = () => {
                       {/* Payment Card */}
                       <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 relative">
                         <button
+                          type="button"
                           onClick={() => setCurrentStep(2)}
                           className="absolute top-6 right-6 text-sm font-bold text-green-600 hover:text-green-800 underline"
                         >

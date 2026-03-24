@@ -51,18 +51,8 @@ export class UpdateOrderStatus {
         orderId,
         normalizedNextStatus,
         transaction,
+        `Status changed to ${normalizedNextStatus}`,
       );
-
-      if (typeof this.orderRepo.addDeliveryHistory === "function") {
-        await this.orderRepo.addDeliveryHistory(
-          {
-            orderId,
-            status: normalizedNextStatus,
-            note: `Status changed to ${normalizedNextStatus}`,
-          },
-          transaction,
-        );
-      }
 
       await transaction.commit();
       return { success: true };

@@ -17,6 +17,22 @@ export class EditProduct {
       throw new Error("Product not found");
     }
 
+    const normalizedOptions =
+      patch.options !== undefined
+        ? patch.options.map((option, optionIndex) => ({
+            id: option.id,
+            name: String(option.name ?? "").trim(),
+            position: option.position ?? optionIndex,
+            values: Array.isArray(option.values)
+              ? option.values.map((value, valueIndex) => ({
+                  id: value.id,
+                  value: String(value.value ?? "").trim(),
+                  position: value.position ?? valueIndex,
+                }))
+              : [],
+          }))
+        : existingProduct.props.options;
+
     const normalizedVariants =
       patch.variants !== undefined
         ? patch.variants.map((variant, index) => ({
@@ -25,13 +41,31 @@ export class EditProduct {
             title: variant.title ?? null,
             price: Number(variant.price ?? 0),
             compareAtPrice:
-              variant.compareAtPrice !== undefined
-                ? variant.compareAtPrice
+              variant.compareAtPrice !== undefined &&
+              variant.compareAtPrice !== null
+                ? Number(variant.compareAtPrice)
                 : null,
             stock: Number(variant.stock ?? 0),
             status: variant.status ?? "active",
             sortOrder: variant.sortOrder ?? index,
-            optionValueIds: variant.optionValueIds ?? [],
+            optionValueIds: Array.isArray(variant.optionValueIds)
+              ? variant.optionValueIds.map(Number)
+              : [],
+            optionValues: Array.isArray((variant as any).optionValues)
+              ? (variant as any).optionValues.map((ov: any) => ({
+                  id: ov.id,
+                  value: String(ov.value ?? "").trim(),
+                  optionId:
+                    ov.optionId !== undefined && ov.optionId !== null
+                      ? Number(ov.optionId)
+                      : undefined,
+                  optionName: String(ov.optionName ?? "").trim(),
+                  position:
+                    ov.position !== undefined && ov.position !== null
+                      ? Number(ov.position)
+                      : undefined,
+                }))
+              : [],
           }))
         : existingProduct.props.variants;
 
@@ -45,7 +79,15 @@ export class EditProduct {
     const updatedProduct = Product.create({
       ...existingProduct.props,
       ...patch,
+      title:
+        patch.title !== undefined
+          ? String(patch.title).trim()
+          : existingProduct.props.title,
+
+      // summary / compatibility field
       stock: totalVariantStock,
+
+      options: normalizedOptions,
       variants: normalizedVariants,
     });
 

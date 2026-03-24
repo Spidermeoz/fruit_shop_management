@@ -33,10 +33,15 @@ export interface OrderItemProps {
   productTitle: string;
   variantTitle?: string | null;
   variantSku?: string | null;
+
+  // optional snapshot fields for richer variant display
+  variantLabel?: string | null;
+  optionSummary?: string | null;
+
   price: number;
   quantity: number;
+  thumbnail?: string | null;
 }
-
 export interface DeliveryHistoryProps {
   id: number;
   status: string;

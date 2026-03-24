@@ -19,53 +19,10 @@ import {
 } from "lucide-react";
 
 // ==========================
-// TYPES
+// IMPORTS
 // ==========================
-interface OrderDetail {
-  totalPrice: number;
-  id: number;
-  code: string;
-  status: string;
-  subtotal: number;
-  shippingFee: number;
-  discountAmount: number;
-  finalPrice: number;
-  createdAt: string;
-  paymentStatus: string;
-  paymentMethod?: string;
-  trackingToken?: string;
-  estimatedDelivery?: string;
-
-  items: {
-    productId: number | null;
-    productVariantId?: number | null;
-    productTitle: string;
-    variantTitle?: string | null;
-    variantSku?: string | null;
-    price: number;
-    quantity: number;
-    thumbnail?: string | null;
-  }[];
-
-  address: {
-    fullName: string;
-    phone: string;
-    email?: string;
-    addressLine1: string;
-    ward: string;
-    district: string;
-    province: string;
-    notes?: string;
-  } | null;
-
-  deliveryHistory?: {
-    id: number;
-    status: string;
-    location?: string;
-    note?: string;
-    createdAt: string;
-  }[];
-}
+import type { ClientOrder } from "../../../types/orders";
+import { mapClientOrder } from "../../../utils/mapOrder";
 
 // ==========================
 // PAGE
@@ -73,7 +30,21 @@ interface OrderDetail {
 const OrderDetailPage: React.FC = () => {
   const { id } = useParams();
 
-  const [order, setOrder] = useState<OrderDetail | null>(null);
+  const [order, setOrder] = useState<
+    | (ClientOrder & {
+        paymentMethod?: string;
+        trackingToken?: string;
+        estimatedDelivery?: string;
+        deliveryHistory?: {
+          id: number;
+          status: string;
+          location?: string;
+          note?: string;
+          createdAt: string;
+        }[];
+      })
+    | null
+  >(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("details");
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +61,25 @@ const OrderDetailPage: React.FC = () => {
         if (!res.success) {
           setError(res.message || "Không tìm thấy đơn hàng");
         } else {
-          setOrder(res.data);
+          const mapped = mapClientOrder(res.data);
+          setOrder({
+            ...mapped,
+            paymentMethod: res.data?.paymentMethod ?? res.data?.payment_method,
+            trackingToken: res.data?.trackingToken ?? res.data?.tracking_token,
+            estimatedDelivery:
+              res.data?.estimatedDelivery ?? res.data?.estimated_delivery,
+            deliveryHistory: Array.isArray(res.data?.deliveryHistory)
+              ? res.data.deliveryHistory
+              : Array.isArray(res.data?.delivery_history)
+                ? res.data.delivery_history.map((x: any) => ({
+                    id: Number(x.id),
+                    status: x.status,
+                    location: x.location,
+                    note: x.note,
+                    createdAt: x.createdAt ?? x.created_at,
+                  }))
+                : [],
+          });
         }
       } catch (err: any) {
         setError(err.message || "Có lỗi xảy ra");
@@ -144,20 +133,14 @@ const OrderDetailPage: React.FC = () => {
           color: "text-blue-700",
           icon: <Package className="w-5 h-5" />,
         };
-      case "shipping":
+      case "shipped":
         return {
           text: "Đang giao hàng",
           bg: "bg-purple-100",
           color: "text-purple-700",
           icon: <Truck className="w-5 h-5" />,
         };
-      case "delivered":
-        return {
-          text: "Đã giao hàng",
-          bg: "bg-emerald-100",
-          color: "text-emerald-700",
-          icon: <CheckCircle className="w-5 h-5" />,
-        };
+      case "delivered": // Gộp delivered thành alias của completed theo yêu cầu E
       case "completed":
         return {
           text: "Hoàn tất",
@@ -188,7 +171,7 @@ const OrderDetailPage: React.FC = () => {
         return <Clock className="w-5 h-5" />;
       case "processing":
         return <Package className="w-5 h-5" />;
-      case "shipping":
+      case "shipped":
         return <Truck className="w-5 h-5" />;
       case "delivered":
       case "completed":
@@ -206,10 +189,9 @@ const OrderDetailPage: React.FC = () => {
         return "Chờ xác nhận";
       case "processing":
         return "Đang xử lý";
-      case "shipping":
+      case "shipped":
         return "Đang giao hàng";
       case "delivered":
-        return "Đã giao hàng";
       case "completed":
         return "Hoàn tất";
       case "cancelled":
@@ -219,15 +201,11 @@ const OrderDetailPage: React.FC = () => {
     }
   };
 
-  const calculateProgress = (order: OrderDetail) => {
-    const statusFlow = [
-      "pending",
-      "processing",
-      "shipping",
-      "delivered",
-      "completed",
-    ];
-    const currentIndex = statusFlow.indexOf(order.status);
+  const calculateProgress = (order: any) => {
+    const statusFlow = ["pending", "processing", "shipped", "completed"];
+    const currentIndex = statusFlow.indexOf(
+      order.status === "delivered" ? "completed" : order.status,
+    );
     if (currentIndex === -1) return 0;
     if (order.status === "cancelled") return 0;
     return ((currentIndex + 1) / statusFlow.length) * 100;
@@ -512,16 +490,16 @@ const OrderDetailPage: React.FC = () => {
                         <div className="flex justify-between font-medium text-slate-600 text-sm">
                           <span>Tạm tính</span>
                           <span className="font-bold text-slate-900">
-                            {order.totalPrice.toLocaleString()} đ
+                            {order.totalPrice?.toLocaleString()} đ
                           </span>
                         </div>
                         <div className="flex justify-between font-medium text-slate-600 text-sm">
                           <span>Phí giao hàng</span>
                           <span className="font-bold text-slate-900">
-                            {order.shippingFee.toLocaleString()} đ
+                            {order.shippingFee?.toLocaleString()} đ
                           </span>
                         </div>
-                        {order.discountAmount > 0 && (
+                        {order.discountAmount && order.discountAmount > 0 && (
                           <div className="flex justify-between font-medium text-green-600 text-sm">
                             <span>Giảm giá</span>
                             <span className="font-bold">
@@ -534,7 +512,7 @@ const OrderDetailPage: React.FC = () => {
                             Tổng cộng
                           </span>
                           <span className="text-2xl font-black text-green-600 leading-none">
-                            {order.finalPrice.toLocaleString()} đ
+                            {order.finalPrice?.toLocaleString()} đ
                           </span>
                         </div>
                       </div>
@@ -548,19 +526,21 @@ const OrderDetailPage: React.FC = () => {
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2 uppercase tracking-wider text-sm">
                     <Package className="w-4 h-4 text-slate-400" /> Danh sách sản
-                    phẩm ({order.items.length})
+                    phẩm ({order.items?.length || 0})
                   </h3>
                   <div className="grid gap-4">
-                    {order.items.map((item) => (
+                    {order.items?.map((item: any) => (
                       <div
                         key={`${item.productId ?? "x"}-${item.productVariantId ?? "no-variant"}-${item.variantSku ?? item.productTitle}`}
                         className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                       >
                         <Link
                           to={
-                            item.productId
-                              ? `/products/${item.productId}`
-                              : "/products"
+                            item.slug
+                              ? `/products/${item.slug}`
+                              : item.productId
+                                ? `/products/${item.productId}`
+                                : "/products"
                           }
                           className="shrink-0 relative overflow-hidden rounded-xl w-20 h-20 border border-slate-200 bg-white"
                         >
@@ -577,9 +557,11 @@ const OrderDetailPage: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <Link
                             to={
-                              item.productId
-                                ? `/products/${item.productId}`
-                                : "/products"
+                              item.slug
+                                ? `/products/${item.slug}`
+                                : item.productId
+                                  ? `/products/${item.productId}`
+                                  : "/products"
                             }
                             className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
                           >
@@ -601,7 +583,7 @@ const OrderDetailPage: React.FC = () => {
                               Số lượng: {item.quantity}
                             </span>
                             <span className="text-slate-500 font-medium text-sm">
-                              {item.price.toLocaleString()} đ / sp
+                              {item.price?.toLocaleString()} đ / sp
                             </span>
                           </div>
                         </div>
@@ -610,7 +592,7 @@ const OrderDetailPage: React.FC = () => {
                             Thành tiền
                           </p>
                           <p className="font-black text-slate-900 text-lg">
-                            {(item.price * item.quantity).toLocaleString()} đ
+                            {(item.price * item.quantity)?.toLocaleString()} đ
                           </p>
                         </div>
                       </div>
@@ -736,12 +718,11 @@ const OrderDetailPage: React.FC = () => {
                               "Đơn hàng của bạn đã được ghi nhận và đang chờ bộ phận CSKH xác nhận."}
                             {order.status === "processing" &&
                               "Đơn hàng của bạn đang được đóng gói cẩn thận tại kho."}
-                            {order.status === "shipping" &&
+                            {order.status === "shipped" &&
                               "Tài xế đang trên đường giao hàng đến bạn. Vui lòng chú ý điện thoại."}
-                            {order.status === "delivered" &&
-                              "Đơn hàng đã được giao thành công. Cảm ơn bạn đã tin tưởng FreshFruits!"}
-                            {order.status === "completed" &&
-                              "Đơn hàng đã hoàn tất. Chúc bạn có một bữa ăn ngon miệng!"}
+                            {(order.status === "delivered" ||
+                              order.status === "completed") &&
+                              "Đơn hàng đã được giao thành công. Cảm ơn bạn đã tin tưởng!"}
                             {order.status === "cancelled" &&
                               "Đơn hàng đã bị hủy. Nếu bạn có thắc mắc, vui lòng liên hệ CSKH."}
                           </p>
@@ -779,7 +760,7 @@ const OrderDetailPage: React.FC = () => {
               </button>
             )}
 
-            {order.status === "shipping" && order.trackingToken && (
+            {order.status === "shipped" && order.trackingToken && (
               <button
                 className="w-full sm:w-auto px-8 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 hover:shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95"
                 onClick={() =>
