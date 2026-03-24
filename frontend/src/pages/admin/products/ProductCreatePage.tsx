@@ -46,6 +46,14 @@ interface ProductOptionInput {
   values: ProductOptionValueInput[];
 }
 
+interface ProductVariantSelectedOptionValue {
+  id?: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+  position?: number;
+}
+
 interface ProductVariantInput {
   id?: number;
   sku?: string | null;
@@ -56,6 +64,7 @@ interface ProductVariantInput {
   status?: string;
   sortOrder?: number;
   optionValueIds?: number[];
+  optionValues?: ProductVariantSelectedOptionValue[];
 }
 
 interface ProductCategory {
@@ -164,7 +173,14 @@ const ProductCreatePage: React.FC = () => {
         stock: "0",
         status: "active",
         sortOrder: 0,
-        optionValueIds: [],
+        optionValueIds: [0],
+        optionValues: [
+          {
+            value: "Mặc định",
+            optionName: "Kích cỡ",
+            position: 0,
+          },
+        ],
       },
     ],
   });
@@ -296,8 +312,16 @@ const ProductCreatePage: React.FC = () => {
           status: "active",
           sortOrder: prev.variants.length,
           optionValueIds: [],
+          optionValues: [],
         },
       ],
+    }));
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
     }));
   };
 
@@ -308,9 +332,29 @@ const ProductCreatePage: React.FC = () => {
   ) => {
     setFormData((prev) => {
       const next = [...prev.options];
-      next[optionIndex] = { ...next[optionIndex], [field]: value };
-      return { ...prev, options: next };
+      const oldOption = next[optionIndex];
+      const oldName = oldOption?.name ?? "";
+
+      next[optionIndex] = { ...oldOption, [field]: value };
+
+      let nextVariants = prev.variants;
+      if (field === "name") {
+        nextVariants = prev.variants.map((variant) => ({
+          ...variant,
+          optionValues: (variant.optionValues || []).map((ov) =>
+            ov.optionName === oldName ? { ...ov, optionName: value } : ov,
+          ),
+        }));
+      }
+
+      return { ...prev, options: next, variants: nextVariants };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+    }));
   };
 
   const handleOptionValueChange = (
@@ -321,15 +365,35 @@ const ProductCreatePage: React.FC = () => {
     setFormData((prev) => {
       const nextOptions = [...prev.options];
       const option = { ...nextOptions[optionIndex] };
+      const oldValue = option.values[valueIndex]?.value ?? "";
+      const optionName = option.name ?? "";
       const values = [...option.values];
+
       values[valueIndex] = {
         ...values[valueIndex],
         value,
       };
+
       option.values = values;
       nextOptions[optionIndex] = option;
-      return { ...prev, options: nextOptions };
+
+      const nextVariants = prev.variants.map((variant) => ({
+        ...variant,
+        optionValues: (variant.optionValues || []).map((ov) =>
+          ov.optionName === optionName && ov.value === oldValue
+            ? { ...ov, value }
+            : ov,
+        ),
+      }));
+
+      return { ...prev, options: nextOptions, variants: nextVariants };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+    }));
   };
 
   const addOption = () => {
@@ -344,6 +408,13 @@ const ProductCreatePage: React.FC = () => {
         },
       ],
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const removeOption = (optionIndex: number) => {
@@ -354,10 +425,15 @@ const ProductCreatePage: React.FC = () => {
         nextOptions.flatMap((o) => o.values.map((v) => v.id)).filter(Boolean),
       );
 
+      const removedOption = prev.options[optionIndex];
+
       const nextVariants = prev.variants.map((variant) => ({
         ...variant,
         optionValueIds: (variant.optionValueIds || []).filter((id) =>
           remainingValueIds.has(id),
+        ),
+        optionValues: (variant.optionValues || []).filter(
+          (ov) => ov.optionName !== removedOption?.name,
         ),
       }));
 
@@ -367,6 +443,13 @@ const ProductCreatePage: React.FC = () => {
         variants: nextVariants,
       };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const addOptionValue = (optionIndex: number) => {
@@ -383,6 +466,13 @@ const ProductCreatePage: React.FC = () => {
       nextOptions[optionIndex] = option;
       return { ...prev, options: nextOptions };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const removeOptionValue = (optionIndex: number, valueIndex: number) => {
@@ -398,6 +488,10 @@ const ProductCreatePage: React.FC = () => {
         optionValueIds: (variant.optionValueIds || []).filter(
           (id) => id !== removed?.id,
         ),
+        optionValues: (variant.optionValues || []).filter(
+          (ov) =>
+            !(ov.optionName === option.name && ov.value === removed?.value),
+        ),
       }));
 
       return {
@@ -406,6 +500,13 @@ const ProductCreatePage: React.FC = () => {
         variants: nextVariants,
       };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const toggleVariantOptionValue = (
@@ -427,17 +528,41 @@ const ProductCreatePage: React.FC = () => {
 
       if (!option || !targetValue) return prev;
 
+      if (
+        !String(option.name ?? "").trim() ||
+        !String(targetValue.value ?? "").trim()
+      ) {
+        return prev;
+      }
+
       const optionValueKeys = option.values.map((v, idx) => v.id ?? idx);
       const nextIds = currentIds.filter((id) => !optionValueKeys.includes(id));
       nextIds.push(targetValue.id ?? valueIdOrTempKey);
 
+      const nextOptionValues = (current.optionValues || []).filter(
+        (ov) => ov.optionName !== option.name,
+      );
+
+      nextOptionValues.push({
+        id: targetValue.id,
+        value: targetValue.value,
+        optionId: option.id,
+        optionName: option.name,
+        position: targetValue.position,
+      });
+
       nextVariants[variantIndex] = {
         ...current,
         optionValueIds: nextIds,
+        optionValues: nextOptionValues,
       };
 
       return { ...prev, variants: nextVariants };
     });
+
+    if (errors.variants) {
+      setErrors((prev) => ({ ...prev, variants: undefined }));
+    }
   };
 
   const removeVariant = (index: number) => {
@@ -445,6 +570,13 @@ const ProductCreatePage: React.FC = () => {
       const newVariants = prev.variants.filter((_, i) => i !== index);
       return { ...prev, variants: newVariants };
     });
+
+    setErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -506,11 +638,17 @@ const ProductCreatePage: React.FC = () => {
         "Mỗi tùy chọn phải có tên và ít nhất 1 giá trị hợp lệ.";
     }
 
-    const optionCount = formData.options.length;
-
     const invalidVariantOptionMapping = formData.variants.find((variant) => {
-      const selectedCount = (variant.optionValueIds || []).length;
-      return optionCount > 0 && selectedCount !== optionCount;
+      return formData.options.some((option) => {
+        const optionName = String(option.name ?? "").trim();
+        if (!optionName) return true;
+
+        const matches = (variant.optionValues || []).filter(
+          (ov) => String(ov.optionName ?? "").trim() === optionName,
+        );
+
+        return matches.length !== 1 || !String(matches[0]?.value ?? "").trim();
+      });
     });
 
     if (invalidVariantOptionMapping) {
@@ -616,6 +754,15 @@ const ProductCreatePage: React.FC = () => {
         sortOrder: variant.sortOrder ?? index,
         optionValueIds: Array.isArray(variant.optionValueIds)
           ? variant.optionValueIds
+          : [],
+        optionValues: Array.isArray(variant.optionValues)
+          ? variant.optionValues.map((ov) => ({
+              id: ov.id,
+              value: ov.value,
+              optionId: ov.optionId,
+              optionName: ov.optionName,
+              position: ov.position,
+            }))
           : [],
       }));
 
@@ -905,6 +1052,12 @@ const ProductCreatePage: React.FC = () => {
               </button>
             </div>
 
+            {errors.options && (
+              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
+                {errors.options}
+              </div>
+            )}
+
             <div className="space-y-4">
               {formData.options.map((option, optionIndex) => (
                 <div
@@ -975,6 +1128,12 @@ const ProductCreatePage: React.FC = () => {
               ))}
             </div>
           </div>
+
+          {errors.variants && (
+            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
+              {errors.variants}
+            </div>
+          )}
 
           {errors.price && (
             <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
@@ -1051,9 +1210,15 @@ const ProductCreatePage: React.FC = () => {
                           {option.values.map((value, valueIndex) => {
                             const optionKey = option.id ?? optionIndex;
                             const valueKey = value.id ?? valueIndex;
-                            const selected = (
-                              variant.optionValueIds || []
-                            ).includes(valueKey);
+
+                            // A4 Điểm 2: Ưu tiên check selected state theo optionValues
+                            const selected = (variant.optionValues || []).some(
+                              (ov) =>
+                                String(ov.optionName ?? "").trim() ===
+                                  String(option.name ?? "").trim() &&
+                                String(ov.value ?? "").trim() ===
+                                  String(value.value ?? "").trim(),
+                            );
 
                             return (
                               <button

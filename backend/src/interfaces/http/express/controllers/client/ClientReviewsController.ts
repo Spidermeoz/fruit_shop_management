@@ -7,15 +7,19 @@ export const makeClientReviewsController = (uc: {
   listMyReviews: any;
 }) => {
   return {
-    // POST /client/reviews
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
-        const { productId, orderId, rating, content } = req.body;
+        const { productId, productVariantId, orderId, rating, content } =
+          req.body;
 
         const review = await uc.createReview.execute(userId, {
-          productId,
-          orderId,
+          productId: Number(productId),
+          productVariantId:
+            productVariantId !== undefined && productVariantId !== null
+              ? Number(productVariantId)
+              : null,
+          orderId: Number(orderId),
           rating,
           content,
         });
@@ -26,7 +30,6 @@ export const makeClientReviewsController = (uc: {
       }
     },
 
-    // GET /client/reviews/product/:productId
     listByProduct: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const productId = Number(req.params.productId);
@@ -38,7 +41,6 @@ export const makeClientReviewsController = (uc: {
       }
     },
 
-    // GET /client/reviews/me
     listMine: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
@@ -55,11 +57,18 @@ export const makeClientReviewsController = (uc: {
         const userId = req.user!.id;
         const orderId = Number(req.query.orderId);
         const productId = Number(req.query.productId);
+        const productVariantId =
+          req.query.productVariantId !== undefined &&
+          req.query.productVariantId !== null &&
+          req.query.productVariantId !== ""
+            ? Number(req.query.productVariantId)
+            : null;
 
         const reviewed = await uc.checkReviewed.execute(
           userId,
           orderId,
-          productId
+          productId,
+          productVariantId,
         );
 
         res.json({ success: true, reviewed });

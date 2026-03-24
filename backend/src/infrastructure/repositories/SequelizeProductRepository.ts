@@ -660,14 +660,17 @@ export class SequelizeProductRepository implements ProductRepository {
           }
 
           for (const ov of normalized.optionValues) {
-            const key = `pair:${String(ov?.optionName ?? "")
-              .trim()
-              .toLowerCase()}::${String(ov?.value ?? "")
-              .trim()
-              .toLowerCase()}`;
+            const optionName = String(ov?.optionName ?? "").trim();
+            const optionValue = String(ov?.value ?? "").trim();
 
+            if (!optionName || !optionValue) continue;
+
+            const key = `pair:${optionName.toLowerCase()}::${optionValue.toLowerCase()}`;
             const mapped = optionValueIdMap.get(key);
-            if (mapped) resolvedValueIds.add(mapped);
+
+            if (mapped && Number(mapped) > 0) {
+              resolvedValueIds.add(Number(mapped));
+            }
           }
 
           for (const optionValueId of resolvedValueIds) {

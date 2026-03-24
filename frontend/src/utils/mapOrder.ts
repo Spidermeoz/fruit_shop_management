@@ -40,6 +40,7 @@ export function mapOrder(order: any) {
             item.productId !== undefined && item.productId !== null
               ? Number(item.productId)
               : null,
+          slug: item.slug ?? null,
           product_variant_id:
             item.productVariantId !== undefined &&
             item.productVariantId !== null
@@ -100,6 +101,7 @@ export function mapClientOrder(order: any) {
             item.productId !== undefined && item.productId !== null
               ? Number(item.productId)
               : null,
+          slug: item.slug ?? null,
           productVariantId:
             item.productVariantId !== undefined &&
             item.productVariantId !== null

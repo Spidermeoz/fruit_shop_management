@@ -535,13 +535,7 @@ const OrderDetailPage: React.FC = () => {
                         className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-2xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors"
                       >
                         <Link
-                          to={
-                            item.slug
-                              ? `/products/${item.slug}`
-                              : item.productId
-                                ? `/products/${item.productId}`
-                                : "/products"
-                          }
+                          to={`/products/${item.slug || item.productId}`}
                           className="shrink-0 relative overflow-hidden rounded-xl w-20 h-20 border border-slate-200 bg-white"
                         >
                           <img
@@ -556,13 +550,7 @@ const OrderDetailPage: React.FC = () => {
                         </Link>
                         <div className="flex-1 min-w-0">
                           <Link
-                            to={
-                              item.slug
-                                ? `/products/${item.slug}`
-                                : item.productId
-                                  ? `/products/${item.productId}`
-                                  : "/products"
-                            }
+                            to={`/products/${item.slug || item.productId}`}
                             className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
                           >
                             {item.productTitle}

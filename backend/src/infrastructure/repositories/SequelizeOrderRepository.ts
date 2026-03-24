@@ -53,7 +53,9 @@ export class SequelizeOrderRepository implements OrderRepository {
 
       items: row.items
         ? row.items.map((item: any) => ({
+            id: Number(item.id),
             productId: item.product_id,
+            slug: item.product?.slug ?? null,
             productVariantId: item.product_variant_id ?? null,
             productTitle: item.product_title,
             variantTitle: item.variant_title ?? null,
@@ -145,7 +147,7 @@ export class SequelizeOrderRepository implements OrderRepository {
               {
                 model: this.models.Product,
                 as: "product",
-                attributes: ["thumbnail"],
+                attributes: ["thumbnail", "slug"],
               },
             ],
           },
@@ -178,7 +180,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             {
               model: this.models.Product,
               as: "product",
-              attributes: ["thumbnail"],
+              attributes: ["thumbnail", "slug"],
             },
           ],
         },
@@ -210,7 +212,7 @@ export class SequelizeOrderRepository implements OrderRepository {
             {
               model: this.models.Product,
               as: "product",
-              attributes: ["thumbnail"],
+              attributes: ["thumbnail", "slug"],
             },
           ],
         },

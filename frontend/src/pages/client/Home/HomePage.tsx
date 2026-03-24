@@ -428,11 +428,11 @@ const HomePage: React.FC = () => {
                             </div>
                           )}
 
-                          {/* Quick Action Hover */}
+                          {/* Quick Action Hover - ĐÃ SỬA THÀNH p.slug || p.id */}
                           {!isOutOfStock && (
                             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 w-11/12">
                               <Link
-                                to={`/products/${p.id}`}
+                                to={`/products/${p.slug || p.id}`}
                                 className="block w-full bg-slate-900/90 backdrop-blur text-white text-center py-3 rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors"
                               >
                                 Xem chi tiết
@@ -443,8 +443,9 @@ const HomePage: React.FC = () => {
 
                         {/* Content Box */}
                         <div className="p-5 flex flex-col flex-grow">
+                          {/* ĐÃ SỬA THÀNH p.slug || p.id */}
                           <Link
-                            to={`/products/${p.id}`}
+                            to={`/products/${p.slug || p.id}`}
                             className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors line-clamp-2 mb-4 h-14"
                           >
                             {p.title}

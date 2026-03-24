@@ -46,6 +46,21 @@ export class CreateProduct {
           optionValueIds: Array.isArray(variant.optionValueIds)
             ? variant.optionValueIds.map(Number)
             : [],
+          optionValues: Array.isArray(variant.optionValues)
+            ? variant.optionValues.map((ov) => ({
+                id: ov.id,
+                value: String(ov.value ?? "").trim(),
+                optionId:
+                  ov.optionId !== undefined && ov.optionId !== null
+                    ? Number(ov.optionId)
+                    : undefined,
+                optionName: String(ov.optionName ?? "").trim(),
+                position:
+                  ov.position !== undefined && ov.position !== null
+                    ? Number(ov.position)
+                    : undefined,
+              }))
+            : [],
         }))
       : [];
 

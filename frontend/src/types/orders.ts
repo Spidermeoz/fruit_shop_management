@@ -55,6 +55,7 @@ export interface Order {
 export interface ClientOrderItem {
   id?: number;
   productId?: number | null;
+  slug?: string | null;
   productVariantId?: number | null;
   quantity: number;
   price: number;

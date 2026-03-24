@@ -78,7 +78,9 @@ const normalizeVariants = (
         status: v.status ?? "active",
         sortOrder: v.sortOrder ?? index,
         optionValueIds: Array.isArray(v.optionValueIds)
-          ? v.optionValueIds.map(Number)
+          ? v.optionValueIds
+              .map(Number)
+              .filter((id) => Number.isFinite(id) && id > 0)
           : [],
         optionValues: Array.isArray(v.optionValues)
           ? v.optionValues.map((ov) => ({
@@ -245,6 +247,13 @@ export const makeProductsController = (uc: {
             status?: ProductStatus;
             sortOrder?: number;
             optionValueIds?: number[];
+            optionValues?: Array<{
+              id?: number;
+              value: string;
+              optionId?: number;
+              optionName?: string;
+              position?: number;
+            }>;
           }>;
         };
         const result = await uc.create.execute({

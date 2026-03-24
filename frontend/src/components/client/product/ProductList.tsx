@@ -623,7 +623,7 @@ const ProductListPage: React.FC = () => {
               ) : products.length > 0 ? (
                 // 4.1. Product Grid
                 <>
-                  <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(250px,1fr))]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     {products.map((product) => {
                       const displayPrice = getDisplayPrice(product);
                       const comparePrice = getDisplayComparePrice(product);

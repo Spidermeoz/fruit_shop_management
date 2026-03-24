@@ -22,6 +22,8 @@ export class SequelizeReviewRepository {
 
     if (productVariantId != null) {
       where.product_variant_id = productVariantId;
+    } else {
+      where.product_variant_id = { [Op.is]: null };
     }
 
     const item = await this.models.OrderItem.findOne({ where });
@@ -55,6 +57,7 @@ export class SequelizeReviewRepository {
       content: input.content,
       status: "approved",
       product_id: parentReview.product_id,
+      product_variant_id: parentReview.product_variant_id ?? null,
       order_id: parentReview.order_id,
     });
   }
@@ -102,10 +105,26 @@ export class SequelizeReviewRepository {
     });
   }
 
-  async hasReviewed(userId: number, orderId: number, productId: number) {
-    const r = await this.models.ProductReview.findOne({
-      where: { user_id: userId, order_id: orderId, product_id: productId },
-    });
+  async hasReviewed(
+    userId: number,
+    orderId: number,
+    productId: number,
+    productVariantId?: number | null,
+  ) {
+    const where: any = {
+      user_id: userId,
+      order_id: orderId,
+      product_id: productId,
+      parent_id: null,
+    };
+
+    if (productVariantId != null) {
+      where.product_variant_id = productVariantId;
+    } else {
+      where.product_variant_id = { [Op.is]: null };
+    }
+
+    const r = await this.models.ProductReview.findOne({ where });
     return !!r;
   }
 

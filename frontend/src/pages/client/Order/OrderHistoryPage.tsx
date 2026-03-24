@@ -70,7 +70,7 @@ const OrderHistoryPage: React.FC = () => {
 
           const check = await http(
             "GET",
-            `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}`,
+            `/api/v1/client/reviews/check?orderId=${ord.id}&productId=${item.productId}&productVariantId=${item.productVariantId ?? ""}`,
           );
 
           const reviewed = check?.success ? check.reviewed : false;
@@ -204,9 +204,7 @@ const OrderHistoryPage: React.FC = () => {
     },
     index: number,
   ) => {
-    if (item.productId) return `p-${item.productId}`;
-    if (item.productVariantId) return `pv-${item.productVariantId}`;
-    return `o-${orderId}-${index}`;
+    return `order-${orderId}-prod-${item.productId ?? "none"}-variant-${item.productVariantId ?? "none"}-index-${index}`;
   };
 
   const updateReviewData = (reviewKey: string, field: string, value: any) => {
@@ -225,6 +223,7 @@ const OrderHistoryPage: React.FC = () => {
   const submitSingleReview = async (
     orderId: number,
     productId: number | null,
+    productVariantId: number | null,
     reviewKey: string,
   ) => {
     try {
@@ -232,6 +231,7 @@ const OrderHistoryPage: React.FC = () => {
         showErrorToast("Không xác định được sản phẩm để đánh giá.");
         return;
       }
+
       const rd = reviewsData[reviewKey];
 
       if (!rd || (!rd.rating && !rd.content?.trim())) {
@@ -243,6 +243,7 @@ const OrderHistoryPage: React.FC = () => {
 
       const res = await http("POST", "/api/v1/client/reviews", {
         productId,
+        productVariantId,
         orderId,
         rating: rd.rating || null,
         content: rd.content?.trim() || null,
@@ -635,7 +636,8 @@ const OrderHistoryPage: React.FC = () => {
                                           onClick={() =>
                                             submitSingleReview(
                                               order.id,
-                                              item.productId,
+                                              item.productId ?? null,
+                                              item.productVariantId ?? null,
                                               reviewKey,
                                             )
                                           }

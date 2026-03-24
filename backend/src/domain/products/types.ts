@@ -36,6 +36,14 @@ export type ProductOptionInput = {
   values: ProductOptionValueInput[];
 };
 
+export type ProductVariantSelectedOptionValueInput = {
+  id?: number;
+  value: string;
+  optionId?: number;
+  optionName?: string;
+  position?: number;
+};
+
 export type ProductVariantInput = {
   id?: number;
   sku?: string | null;
@@ -46,6 +54,7 @@ export type ProductVariantInput = {
   status?: ProductVariantStatus;
   sortOrder?: number;
   optionValueIds?: number[];
+  optionValues?: ProductVariantSelectedOptionValueInput[];
 };
 
 export type ProductPriceRange = {
