@@ -253,7 +253,9 @@ const ProductCategoryEditPage: React.FC = () => {
       }
     } catch (err: any) {
       console.error("saveCategory error:", err);
-      showErrorToast(err?.data?.message || err?.message || "Lỗi kết nối server.");
+      showErrorToast(
+        err?.data?.message || err?.message || "Lỗi kết nối server.",
+      );
     } finally {
       setSaving(false);
     }
@@ -287,7 +289,7 @@ const ProductCategoryEditPage: React.FC = () => {
           Chỉnh sửa danh mục
         </h1>
         <button
-          onClick={() => navigate("/admin/product-category")}
+          onClick={() => navigate("/admin/products/categories")}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại

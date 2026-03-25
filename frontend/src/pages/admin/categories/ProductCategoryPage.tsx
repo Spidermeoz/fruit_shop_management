@@ -195,7 +195,7 @@ const ProductCategoryPage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
           <button
-            onClick={() => navigate("/admin/product-category/create")}
+            onClick={() => navigate("/admin/products/categories/create")}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />

@@ -1,8 +1,8 @@
 // src/pages/ProductCreatePage.tsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
@@ -13,9 +13,6 @@ import {
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// =============================
-// TYPES MỚI ĐƯỢC BỔ SUNG
-// =============================
 interface Origin {
   id: number;
   name: string;
@@ -37,9 +34,6 @@ interface ProductTag {
   deleted?: boolean;
 }
 
-// =============================
-// CÁC TYPES CŨ
-// =============================
 interface ProductOptionValueInput {
   id?: number;
   value: string;
@@ -85,19 +79,17 @@ interface ProductCategory {
 
 interface ProductFormData {
   product_category_id: number | string;
-  // --- Các field mới thêm ---
   origin_id: number | string;
   tag_ids: number[];
   short_description: string;
   storage_guide: string;
   usage_suggestions: string;
   nutrition_notes: string;
-  // -------------------------
   title: string;
   description: string;
-  price: number | string; // Giữ lại như fallback
+  price: number | string;
   discount_percentage: number | string;
-  stock: number | string; // Compatibility field, không còn là nguồn tồn kho chính
+  stock: number | string;
   thumbnail: string;
   status: string;
   featured: number | string;
@@ -109,6 +101,8 @@ interface ProductFormData {
   options: ProductOptionInput[];
   variants: ProductVariantInput[];
 }
+
+type ErrorMap = Partial<Record<keyof ProductFormData | string, string>>;
 
 function normalizeProductTag(raw: any): ProductTag {
   const resolvedGroup =
@@ -143,7 +137,6 @@ function normalizeProductTag(raw: any): ProductTag {
   };
 }
 
-// 1) Thêm helper tính tồn kho tổng hợp từ variants
 const getDerivedProductStockFromVariants = (
   variants: ProductVariantInput[],
 ) => {
@@ -153,24 +146,92 @@ const getDerivedProductStockFromVariants = (
   }, 0);
 };
 
+const normalizeTextForCompare = (value: string) =>
+  String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const slugifyVariantPart = (value: string | undefined) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+
+const buildVariantCombinationKey = (
+  optionValues: ProductVariantSelectedOptionValue[],
+) => {
+  return [...optionValues]
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map(
+      (item) =>
+        `${normalizeTextForCompare(item.optionName ?? "")}:${normalizeTextForCompare(item.value ?? "")}`,
+    )
+    .join("|");
+};
+
+const buildVariantCartesian = (
+  options: ProductOptionInput[],
+): ProductVariantSelectedOptionValue[][] => {
+  const normalizedOptions = options
+    .map((option, optionIndex) => ({
+      ...option,
+      position: option.position ?? optionIndex,
+      values: (option.values || [])
+        .map((value, valueIndex) => ({
+          ...value,
+          position: value.position ?? valueIndex,
+        }))
+        .filter((value) => String(value.value ?? "").trim()),
+    }))
+    .filter(
+      (option) =>
+        String(option.name ?? "").trim() &&
+        Array.isArray(option.values) &&
+        option.values.length > 0,
+    );
+
+  if (!normalizedOptions.length) {
+    return [];
+  }
+
+  return normalizedOptions.reduce<ProductVariantSelectedOptionValue[][]>(
+    (acc, option, optionIndex) => {
+      const mappedValues = option.values.map((value) => ({
+        id: value.id,
+        value: value.value,
+        optionId: option.id,
+        optionName: option.name,
+        position: option.position ?? optionIndex,
+      }));
+
+      if (!acc.length) {
+        return mappedValues.map((value) => [value]);
+      }
+
+      return acc.flatMap((existing) =>
+        mappedValues.map((value) => [...existing, value]),
+      );
+    },
+    [],
+  );
+};
+
 const ProductCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof ProductFormData | string, string>>
-  >({});
+  const [errors, setErrors] = useState<ErrorMap>({});
+  const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
 
   const [categories, setCategories] = useState<ProductCategory[]>([]);
-  // --- Thêm state phụ trợ ---
   const [origins, setOrigins] = useState<Origin[]>([]);
   const [tags, setTags] = useState<ProductTag[]>([]);
-
-  // file ảnh gốc (để upload sau)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-
-  // preview ảnh local
   const [previewImage, setPreviewImage] = useState<string>("");
-
   const [imageMethod, setImageMethod] = useState<"upload" | "url">("upload");
   const [imageUrl, setImageUrl] = useState<string>("");
 
@@ -178,14 +239,12 @@ const ProductCreatePage: React.FC = () => {
 
   const [formData, setFormData] = useState<ProductFormData>({
     product_category_id: "",
-    // --- Khởi tạo field mới ---
     origin_id: "",
     tag_ids: [],
     short_description: "",
     storage_guide: "",
     usage_suggestions: "",
     nutrition_notes: "",
-    // -------------------------
     title: "",
     description: "",
     price: "",
@@ -225,7 +284,30 @@ const ProductCreatePage: React.FC = () => {
     ],
   });
 
-  // Fetch danh mục, xuất xứ và thẻ (tags) từ backend
+  const setFieldRef = (key: string) => (element: HTMLElement | null) => {
+    fieldRefs.current[key] = element;
+  };
+
+  const clearError = (key: string) => {
+    setErrors((prev) => {
+      if (!prev[key]) return prev;
+      return { ...prev, [key]: undefined };
+    });
+  };
+
+  const scrollToFirstError = (errorMap: ErrorMap) => {
+    const firstErrorKey = Object.keys(errorMap)[0];
+    if (!firstErrorKey) return;
+
+    const target = fieldRefs.current[firstErrorKey];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      if (typeof (target as HTMLInputElement).focus === "function") {
+        (target as HTMLInputElement).focus();
+      }
+    }
+  };
+
   useEffect(() => {
     const fetchCategories = async () => {
       try {
@@ -306,7 +388,6 @@ const ProductCreatePage: React.FC = () => {
     fetchTags();
   }, []);
 
-  // Nhóm các tag lại theo group để render
   const groupedTags = useMemo(() => {
     return tags.reduce(
       (acc, tag) => {
@@ -323,7 +404,6 @@ const ProductCreatePage: React.FC = () => {
     );
   }, [tags]);
 
-  // 2) Thêm derived stock bằng useMemo
   const derivedProductStock = useMemo(() => {
     return getDerivedProductStockFromVariants(formData.variants);
   }, [formData.variants]);
@@ -333,12 +413,9 @@ const ProductCreatePage: React.FC = () => {
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
+    clearError(name);
   };
 
-  // Handler riêng cho Multi-select Tags
   const handleToggleTag = (tagId: number) => {
     setFormData((prev) => {
       const isSelected = prev.tag_ids.includes(tagId);
@@ -364,10 +441,9 @@ const ProductCreatePage: React.FC = () => {
       newVariants[index] = { ...newVariants[index], [field]: value };
       return { ...prev, variants: newVariants };
     });
-    // Xóa lỗi price nếu có khi sửa variant
-    if (errors.price) {
-      setErrors((prev) => ({ ...prev, price: undefined }));
-    }
+
+    clearError(`variants.${index}.${String(field)}`);
+    clearError(`variant-card-${index}`);
   };
 
   const addVariant = () => {
@@ -386,13 +462,69 @@ const ProductCreatePage: React.FC = () => {
         },
       ],
     }));
+  };
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
-    }));
+  const suggestVariants = () => {
+    setFormData((prev) => {
+      const productTitle = String(prev.title ?? "").trim();
+      const combinations = buildVariantCartesian(prev.options);
+
+      if (!combinations.length) {
+        return prev;
+      }
+
+      const existingVariantMap = new Map(
+        prev.variants.map((variant) => [
+          buildVariantCombinationKey(variant.optionValues || []),
+          variant,
+        ]),
+      );
+
+      const nextVariants: ProductVariantInput[] = combinations.map(
+        (combination, index) => {
+          const key = buildVariantCombinationKey(combination);
+          const existingVariant = existingVariantMap.get(key);
+          const combinationLabel = combination
+            .map((item) => `${item.optionName}: ${item.value}`)
+            .join(" - ");
+          const autoTitle = [productTitle, combinationLabel]
+            .filter(Boolean)
+            .join(" - ");
+          const skuParts = [
+            productTitle,
+            ...combination.flatMap((item) => [item.optionName, item.value]),
+          ]
+            .map(slugifyVariantPart)
+            .filter(Boolean);
+          const autoSku = skuParts.join("-");
+
+          return {
+            id: existingVariant?.id,
+            title:
+              autoTitle || existingVariant?.title || `Biến thể ${index + 1}`,
+            sku: autoSku || existingVariant?.sku || null,
+            price: existingVariant?.price ?? prev.price ?? "0",
+            compareAtPrice: existingVariant?.compareAtPrice ?? "",
+            stock: existingVariant?.stock ?? "0",
+            status: existingVariant?.status ?? "active",
+            sortOrder: index,
+            optionValueIds: combination
+              .map((item, optionIndex) => item.id ?? optionIndex)
+              .filter(
+                (valueId): valueId is number => typeof valueId === "number",
+              ),
+            optionValues: combination,
+          };
+        },
+      );
+
+      return {
+        ...prev,
+        variants: nextVariants,
+      };
+    });
+
+    setErrors({});
   };
 
   const handleOptionChange = (
@@ -420,11 +552,7 @@ const ProductCreatePage: React.FC = () => {
       return { ...prev, options: next, variants: nextVariants };
     });
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-    }));
+    clearError(`options.${optionIndex}.name`);
   };
 
   const handleOptionValueChange = (
@@ -459,11 +587,7 @@ const ProductCreatePage: React.FC = () => {
       return { ...prev, options: nextOptions, variants: nextVariants };
     });
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-    }));
+    clearError(`options.${optionIndex}.values.${valueIndex}`);
   };
 
   const addOption = () => {
@@ -477,13 +601,6 @@ const ProductCreatePage: React.FC = () => {
           values: [{ value: "", position: 0 }],
         },
       ],
-    }));
-
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
     }));
   };
 
@@ -514,12 +631,7 @@ const ProductCreatePage: React.FC = () => {
       };
     });
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
-    }));
+    setErrors({});
   };
 
   const addOptionValue = (optionIndex: number) => {
@@ -536,13 +648,6 @@ const ProductCreatePage: React.FC = () => {
       nextOptions[optionIndex] = option;
       return { ...prev, options: nextOptions };
     });
-
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
-    }));
   };
 
   const removeOptionValue = (optionIndex: number, valueIndex: number) => {
@@ -571,12 +676,7 @@ const ProductCreatePage: React.FC = () => {
       };
     });
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
-    }));
+    setErrors({});
   };
 
   const toggleVariantOptionValue = (
@@ -630,9 +730,8 @@ const ProductCreatePage: React.FC = () => {
       return { ...prev, variants: nextVariants };
     });
 
-    if (errors.variants) {
-      setErrors((prev) => ({ ...prev, variants: undefined }));
-    }
+    clearError(`variants.${variantIndex}.optionValues`);
+    clearError(`variant-card-${variantIndex}`);
   };
 
   const removeVariant = (index: number) => {
@@ -641,12 +740,7 @@ const ProductCreatePage: React.FC = () => {
       return { ...prev, variants: newVariants };
     });
 
-    setErrors((prev) => ({
-      ...prev,
-      options: undefined,
-      variants: undefined,
-      price: undefined,
-    }));
+    setErrors({});
   };
 
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
@@ -679,71 +773,174 @@ const ProductCreatePage: React.FC = () => {
 
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
-
-    if (errors.thumbnail) {
-      setErrors((prev) => ({ ...prev, thumbnail: undefined }));
-    }
+    clearError("thumbnail");
   };
 
   const validateForm = () => {
-    const newErrors: Partial<Record<keyof ProductFormData | string, string>> =
-      {};
+    const newErrors: ErrorMap = {};
 
     if (!formData.title.trim()) {
       newErrors.title = "Vui lòng nhập tên sản phẩm.";
     }
+
     if (!formData.product_category_id) {
       newErrors.product_category_id = "Vui lòng chọn danh mục.";
     }
 
-    const invalidOption = formData.options.find(
-      (option) =>
-        !option.name.trim() ||
-        !option.values.length ||
-        option.values.some((value) => !value.value.trim()),
-    );
+    formData.options.forEach((option, optionIndex) => {
+      if (!String(option.name ?? "").trim()) {
+        newErrors[`options.${optionIndex}.name`] =
+          "Vui lòng nhập tên tùy chọn.";
+      }
 
-    if (invalidOption) {
-      newErrors.options =
-        "Mỗi tùy chọn phải có tên và ít nhất 1 giá trị hợp lệ.";
-    }
+      if (!Array.isArray(option.values) || option.values.length === 0) {
+        newErrors[`options.${optionIndex}.name`] =
+          "Mỗi tùy chọn phải có ít nhất 1 giá trị.";
+      }
 
-    const invalidVariantOptionMapping = formData.variants.find((variant) => {
-      return formData.options.some((option) => {
-        const optionName = String(option.name ?? "").trim();
-        if (!optionName) return true;
+      const normalizedValueMap = new Set<string>();
+      option.values.forEach((value, valueIndex) => {
+        const normalizedValue = normalizeTextForCompare(value.value);
 
-        const matches = (variant.optionValues || []).filter(
-          (ov) => String(ov.optionName ?? "").trim() === optionName,
-        );
+        if (!normalizedValue) {
+          newErrors[`options.${optionIndex}.values.${valueIndex}`] =
+            "Vui lòng nhập giá trị tùy chọn.";
+          return;
+        }
 
-        return matches.length !== 1 || !String(matches[0]?.value ?? "").trim();
+        if (normalizedValueMap.has(normalizedValue)) {
+          newErrors[`options.${optionIndex}.values.${valueIndex}`] =
+            "Giá trị trong cùng một tùy chọn không được trùng nhau.";
+          return;
+        }
+
+        normalizedValueMap.add(normalizedValue);
       });
     });
 
-    if (invalidVariantOptionMapping) {
-      newErrors.variants =
-        "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
-    }
-
-    // Validate theo variant
     if (!formData.variants.length) {
-      newErrors.price = "Cần ít nhất 1 biến thể.";
-    } else {
-      const invalidVariant = formData.variants.find(
-        (v) =>
-          Number(v.price) <= 0 ||
-          Number(v.stock) < 0 ||
-          String(v.price) === "" ||
-          String(v.stock) === "",
-      );
-
-      if (invalidVariant) {
-        newErrors.price = "Mỗi biến thể phải có giá > 0 và tồn kho >= 0.";
-      }
+      newErrors["variants.0.title"] = "Cần ít nhất 1 biến thể.";
     }
+
+    const usedVariantCombinationKeys = new Set<string>();
+
+    formData.variants.forEach((variant, index) => {
+      const variantTitle = String(variant.title ?? "").trim();
+      const priceRaw = String(variant.price ?? "").trim();
+      const stockRaw = String(variant.stock ?? "").trim();
+      const compareAtPriceRaw = String(variant.compareAtPrice ?? "").trim();
+      const priceNumber = Number(variant.price);
+      const stockNumber = Number(variant.stock);
+      const compareAtPriceNumber = Number(variant.compareAtPrice);
+      const cardKey = `variant-card-${index}`;
+
+      if (!variantTitle) {
+        newErrors[`variants.${index}.title`] = "Vui lòng nhập tên biến thể.";
+        newErrors[cardKey] =
+          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+      }
+
+      if (!priceRaw || !Number.isFinite(priceNumber) || priceNumber <= 0) {
+        newErrors[`variants.${index}.price`] = "Giá bán phải lớn hơn 0.";
+        newErrors[cardKey] =
+          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+      }
+
+      if (
+        !stockRaw ||
+        !Number.isFinite(stockNumber) ||
+        stockNumber < 0 ||
+        !Number.isInteger(stockNumber)
+      ) {
+        newErrors[`variants.${index}.stock`] =
+          "Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.";
+        newErrors[cardKey] =
+          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+      }
+
+      if (
+        compareAtPriceRaw &&
+        (!Number.isFinite(compareAtPriceNumber) || compareAtPriceNumber < 0)
+      ) {
+        newErrors[`variants.${index}.compareAtPrice`] =
+          "Giá so sánh phải lớn hơn hoặc bằng 0.";
+        newErrors[cardKey] =
+          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+      }
+
+      if (
+        compareAtPriceRaw &&
+        Number.isFinite(compareAtPriceNumber) &&
+        Number.isFinite(priceNumber) &&
+        compareAtPriceNumber > 0 &&
+        compareAtPriceNumber < priceNumber
+      ) {
+        newErrors[`variants.${index}.compareAtPrice`] =
+          "Giá so sánh phải lớn hơn hoặc bằng giá bán.";
+        newErrors[cardKey] =
+          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+      }
+
+      const normalizedSelections = formData.options.map((option) => {
+        const optionName = String(option.name ?? "").trim();
+        const matches = (variant.optionValues || []).filter(
+          (ov) =>
+            normalizeTextForCompare(ov.optionName ?? "") ===
+            normalizeTextForCompare(optionName),
+        );
+
+        if (!optionName || !option.values.length) {
+          return null;
+        }
+
+        if (matches.length !== 1 || !String(matches[0]?.value ?? "").trim()) {
+          newErrors[`variants.${index}.optionValues`] =
+            "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
+          newErrors[cardKey] =
+            newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+          return null;
+        }
+
+        const selectedValue = normalizeTextForCompare(matches[0].value ?? "");
+        const validOptionValues = option.values.map((value) =>
+          normalizeTextForCompare(value.value),
+        );
+
+        if (!validOptionValues.includes(selectedValue)) {
+          newErrors[`variants.${index}.optionValues`] =
+            "Có giá trị tùy chọn không còn hợp lệ trong biến thể này.";
+          newErrors[cardKey] =
+            newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+          return null;
+        }
+
+        return {
+          optionName,
+          value: matches[0].value,
+          position: matches[0].position,
+        };
+      });
+
+      if (normalizedSelections.every(Boolean)) {
+        const key = buildVariantCombinationKey(
+          normalizedSelections.filter(
+            Boolean,
+          ) as ProductVariantSelectedOptionValue[],
+        );
+
+        if (usedVariantCombinationKeys.has(key)) {
+          newErrors[`variants.${index}.optionValues`] =
+            "Tổ hợp tùy chọn của biến thể này đang bị trùng.";
+          newErrors[cardKey] =
+            newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
+        } else {
+          usedVariantCombinationKeys.add(key);
+        }
+      }
+    });
 
     setErrors(newErrors);
+    scrollToFirstError(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
@@ -760,7 +957,6 @@ const ProductCreatePage: React.FC = () => {
 
       let uploadedThumbnailUrl = formData.thumbnail;
 
-      // 🔹 Upload Thumbnail
       if (selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
@@ -785,7 +981,6 @@ const ProductCreatePage: React.FC = () => {
         uploadedThumbnailUrl = imageUrl;
       }
 
-      // 🔹 Upload ảnh trong tất cả các nội dung RichTextEditor
       const updatedDescription = await uploadImagesInContent(
         formData.description,
       );
@@ -799,7 +994,6 @@ const ProductCreatePage: React.FC = () => {
         formData.nutrition_notes,
       );
 
-      // 🔹 Normalize Payload
       const normalizedOptions = formData.options.map((option, optionIndex) => ({
         name: option.name,
         position: option.position ?? optionIndex,
@@ -836,22 +1030,18 @@ const ProductCreatePage: React.FC = () => {
           : [],
       }));
 
-      // 3) Lấy price đầu tiên làm fallback cho product cha nếu cần giữ compatibility cũ
       const fallbackPrice =
         normalizedVariants.length > 0 ? normalizedVariants[0].price : null;
 
-      // Product stock giờ chỉ còn là compatibility mirror từ tổng variants
       const fallbackStock = normalizedVariants.reduce((sum, variant) => {
         const stock = Number(variant.stock ?? 0);
         return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
       }, 0);
 
-      // Chuẩn bị payload
       const json = await http<any>("POST", "/api/v1/admin/products/create", {
         categoryId: formData.product_category_id
           ? Number(formData.product_category_id)
           : null,
-        // Map các field mới sang camelCase
         originId: formData.origin_id ? Number(formData.origin_id) : null,
         tagIds: [...new Set(formData.tag_ids.map(Number))].filter(
           (id) => Number.isInteger(id) && id > 0,
@@ -860,7 +1050,6 @@ const ProductCreatePage: React.FC = () => {
         storageGuide: updatedStorageGuide,
         usageSuggestions: updatedUsageSuggestions,
         nutritionNotes: updatedNutritionNotes,
-
         title: formData.title,
         description: updatedDescription,
         price: formData.price === "" ? fallbackPrice : Number(formData.price),
@@ -870,7 +1059,6 @@ const ProductCreatePage: React.FC = () => {
           formData.discount_percentage === ""
             ? null
             : Number(formData.discount_percentage),
-        // 4) Sửa payload submit để không dùng formData.stock làm nguồn chính nữa
         stock: fallbackStock,
         thumbnail: uploadedThumbnailUrl,
         status: formData.status,
@@ -887,6 +1075,7 @@ const ProductCreatePage: React.FC = () => {
       } else {
         if (json.errors) {
           setErrors(json.errors);
+          scrollToFirstError(json.errors);
         } else {
           showErrorToast(json.message || "Không thể thêm sản phẩm!");
         }
@@ -920,12 +1109,12 @@ const ProductCreatePage: React.FC = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 p-2">
-        {/* --- Tên sản phẩm --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Tên sản phẩm <span className="text-red-500">*</span>
           </label>
           <input
+            ref={setFieldRef("title") as React.Ref<HTMLInputElement>}
             type="text"
             name="title"
             value={formData.title}
@@ -943,12 +1132,14 @@ const ProductCreatePage: React.FC = () => {
           )}
         </div>
 
-        {/* --- Danh mục --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Danh mục <span className="text-red-500">*</span>
           </label>
           <select
+            ref={
+              setFieldRef("product_category_id") as React.Ref<HTMLSelectElement>
+            }
             name="product_category_id"
             value={formData.product_category_id}
             onChange={handleInputChange}
@@ -970,7 +1161,6 @@ const ProductCreatePage: React.FC = () => {
           )}
         </div>
 
-        {/* --- Xuất xứ --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Xuất xứ
@@ -990,7 +1180,6 @@ const ProductCreatePage: React.FC = () => {
           </select>
         </div>
 
-        {/* --- Mô tả ngắn --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Mô tả ngắn
@@ -1005,7 +1194,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Mô tả sản phẩm --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Mô tả sản phẩm
@@ -1018,7 +1206,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Hướng dẫn bảo quản --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Hướng dẫn bảo quản
@@ -1031,7 +1218,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Gợi ý sử dụng --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Gợi ý sử dụng
@@ -1044,7 +1230,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Ghi chú dinh dưỡng --- */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Ghi chú dinh dưỡng
@@ -1057,7 +1242,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Product Tags --- */}
         <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
           <label className="block text-base font-bold text-gray-800 dark:text-white mb-4">
             Thẻ sản phẩm (Product Tags)
@@ -1095,74 +1279,75 @@ const ProductCreatePage: React.FC = () => {
           )}
         </div>
 
-        {/* --- Block Quản Lý Biến Thể --- */}
         <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-              Danh sách biến thể <span className="text-red-500">*</span>
+              Tùy chọn sản phẩm
             </h3>
             <button
               type="button"
-              onClick={addVariant}
-              className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              onClick={addOption}
+              className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 px-3 py-1.5 rounded-md hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
             >
-              <Plus className="w-4 h-4" /> Thêm biến thể
+              <Plus className="w-4 h-4" /> Thêm tùy chọn
             </button>
           </div>
 
-          <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                Tùy chọn sản phẩm
-              </h3>
-              <button
-                type="button"
-                onClick={addOption}
-                className="flex items-center gap-1 text-sm bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-200 px-3 py-1.5 rounded-md hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+          <div className="space-y-4">
+            {formData.options.map((option, optionIndex) => (
+              <div
+                key={option.id ?? `option-${optionIndex}`}
+                className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-white dark:bg-gray-800"
               >
-                <Plus className="w-4 h-4" /> Thêm tùy chọn
-              </button>
-            </div>
-
-            {errors.options && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-                {errors.options}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              {formData.options.map((option, optionIndex) => (
-                <div
-                  key={option.id ?? `option-${optionIndex}`}
-                  className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-white dark:bg-gray-800"
-                >
-                  <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="flex-1">
                     <input
+                      ref={
+                        setFieldRef(
+                          `options.${optionIndex}.name`,
+                        ) as React.Ref<HTMLInputElement>
+                      }
                       type="text"
                       value={option.name}
                       onChange={(e) =>
                         handleOptionChange(optionIndex, "name", e.target.value)
                       }
                       placeholder="Tên tùy chọn, ví dụ: Size"
-                      className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
+                      className={`flex-1 w-full border ${
+                        errors[`options.${optionIndex}.name`]
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white`}
                     />
-                    <button
-                      type="button"
-                      onClick={() => removeOption(optionIndex)}
-                      disabled={formData.options.length === 1}
-                      className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {errors[`options.${optionIndex}.name`] && (
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                        {errors[`options.${optionIndex}.name`]}
+                      </p>
+                    )}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => removeOption(optionIndex)}
+                    disabled={formData.options.length === 1}
+                    className="bg-red-500 text-white p-2 rounded-md hover:bg-red-600 disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
 
-                  <div className="space-y-2">
-                    {option.values.map((value, valueIndex) => (
-                      <div
-                        key={value.id ?? `value-${valueIndex}`}
-                        className="flex gap-2"
-                      >
+                <div className="space-y-2">
+                  {option.values.map((value, valueIndex) => (
+                    <div
+                      key={value.id ?? `value-${valueIndex}`}
+                      className="flex gap-2 items-start"
+                    >
+                      <div className="flex-1">
                         <input
+                          ref={
+                            setFieldRef(
+                              `options.${optionIndex}.values.${valueIndex}`,
+                            ) as React.Ref<HTMLInputElement>
+                          }
                           type="text"
                           value={value.value}
                           onChange={(e) =>
@@ -1173,59 +1358,93 @@ const ProductCreatePage: React.FC = () => {
                             )
                           }
                           placeholder="Giá trị, ví dụ: S / M / L"
-                          className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
+                          className={`flex-1 w-full border ${
+                            errors[
+                              `options.${optionIndex}.values.${valueIndex}`
+                            ]
+                              ? "border-red-500"
+                              : "border-gray-300 dark:border-gray-600"
+                          } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white`}
                         />
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeOptionValue(optionIndex, valueIndex)
-                          }
-                          disabled={option.values.length === 1}
-                          className="bg-red-100 text-red-600 px-3 rounded-md hover:bg-red-200 disabled:opacity-50"
-                        >
-                          Xóa
-                        </button>
+                        {errors[
+                          `options.${optionIndex}.values.${valueIndex}`
+                        ] && (
+                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                            {
+                              errors[
+                                `options.${optionIndex}.values.${valueIndex}`
+                              ]
+                            }
+                          </p>
+                        )}
                       </div>
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => addOptionValue(optionIndex)}
-                    className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    + Thêm giá trị
-                  </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          removeOptionValue(optionIndex, valueIndex)
+                        }
+                        disabled={option.values.length === 1}
+                        className="bg-red-100 text-red-600 px-3 h-10 rounded-md hover:bg-red-200 disabled:opacity-50"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                <button
+                  type="button"
+                  onClick={() => addOptionValue(optionIndex)}
+                  className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  + Thêm giá trị
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+              Danh sách biến thể <span className="text-red-500">*</span>
+            </h3>
+            <button
+              type="button"
+              onClick={suggestVariants}
+              className="flex items-center gap-1 text-sm bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 px-3 py-1.5 rounded-md hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
+            >
+              <Sparkles className="w-4 h-4" /> Gợi ý biến thể
+            </button>
           </div>
 
-          {errors.variants && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-              {errors.variants}
+          <div className="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
+            <div>
+              Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
+              <span className="font-semibold">{derivedProductStock}</span>
             </div>
-          )}
-
-          {errors.price && (
-            <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-              {errors.price}
-            </div>
-          )}
-
-          {/* 6) Thêm một dòng UI nhỏ để admin hiểu stock product-level là tổng hợp */}
-          <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-            Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
-            <span className="font-semibold">{derivedProductStock}</span>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Sau khi thêm hoặc sửa tùy chọn, bấm{" "}
+              <span className="font-semibold">Gợi ý biến thể</span> để tự tạo
+              toàn bộ tổ hợp tên biến thể và SKU.
+            </p>
           </div>
 
           <div className="space-y-4">
             {formData.variants.map((variant, index) => (
               <div
                 key={index}
-                className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md relative group"
+                ref={
+                  setFieldRef(
+                    `variant-card-${index}`,
+                  ) as React.Ref<HTMLDivElement>
+                }
+                className={`grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white dark:bg-gray-800 border rounded-md relative group ${
+                  errors[`variant-card-${index}`]
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-200 dark:border-gray-700"
+                }`}
               >
-                {/* Nút xóa biến thể */}
                 <div className="absolute top-2 right-2 md:-right-3 md:-top-3 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     type="button"
@@ -1239,17 +1458,31 @@ const ProductCreatePage: React.FC = () => {
 
                 <div className="col-span-1 md:col-span-3">
                   <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Tên biến thể
+                    Tên biến thể *
                   </label>
                   <input
+                    ref={
+                      setFieldRef(
+                        `variants.${index}.title`,
+                      ) as React.Ref<HTMLInputElement>
+                    }
                     type="text"
                     value={variant.title || ""}
                     onChange={(e) =>
                       handleVariantChange(index, "title", e.target.value)
                     }
                     placeholder="VD: Đỏ - Size L"
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    className={`w-full border ${
+                      errors[`variants.${index}.title`]
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                   />
+                  {errors[`variants.${index}.title`] && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      {errors[`variants.${index}.title`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
@@ -1282,8 +1515,6 @@ const ProductCreatePage: React.FC = () => {
                           {option.values.map((value, valueIndex) => {
                             const optionKey = option.id ?? optionIndex;
                             const valueKey = value.id ?? valueIndex;
-
-                            // A4 Điểm 2: Ưu tiên check selected state theo optionValues
                             const selected = (variant.optionValues || []).some(
                               (ov) =>
                                 String(ov.optionName ?? "").trim() ===
@@ -1317,6 +1548,19 @@ const ProductCreatePage: React.FC = () => {
                       </div>
                     ))}
                   </div>
+
+                  {errors[`variants.${index}.optionValues`] && (
+                    <p
+                      ref={
+                        setFieldRef(
+                          `variants.${index}.optionValues`,
+                        ) as React.Ref<HTMLParagraphElement>
+                      }
+                      className="text-sm text-red-600 dark:text-red-400 mt-2"
+                    >
+                      {errors[`variants.${index}.optionValues`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
@@ -1324,13 +1568,27 @@ const ProductCreatePage: React.FC = () => {
                     Giá bán *
                   </label>
                   <input
+                    ref={
+                      setFieldRef(
+                        `variants.${index}.price`,
+                      ) as React.Ref<HTMLInputElement>
+                    }
                     type="number"
                     value={variant.price}
                     onChange={(e) =>
                       handleVariantChange(index, "price", e.target.value)
                     }
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    className={`w-full border ${
+                      errors[`variants.${index}.price`]
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                   />
+                  {errors[`variants.${index}.price`] && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      {errors[`variants.${index}.price`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
@@ -1338,6 +1596,11 @@ const ProductCreatePage: React.FC = () => {
                     Giá so sánh
                   </label>
                   <input
+                    ref={
+                      setFieldRef(
+                        `variants.${index}.compareAtPrice`,
+                      ) as React.Ref<HTMLInputElement>
+                    }
                     type="number"
                     value={variant.compareAtPrice || ""}
                     onChange={(e) =>
@@ -1347,8 +1610,17 @@ const ProductCreatePage: React.FC = () => {
                         e.target.value,
                       )
                     }
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    className={`w-full border ${
+                      errors[`variants.${index}.compareAtPrice`]
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                   />
+                  {errors[`variants.${index}.compareAtPrice`] && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      {errors[`variants.${index}.compareAtPrice`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-2">
@@ -1356,13 +1628,27 @@ const ProductCreatePage: React.FC = () => {
                     Tồn kho *
                   </label>
                   <input
+                    ref={
+                      setFieldRef(
+                        `variants.${index}.stock`,
+                      ) as React.Ref<HTMLInputElement>
+                    }
                     type="number"
                     value={variant.stock}
                     onChange={(e) =>
                       handleVariantChange(index, "stock", e.target.value)
                     }
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                    className={`w-full border ${
+                      errors[`variants.${index}.stock`]
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                   />
+                  {errors[`variants.${index}.stock`] && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                      {errors[`variants.${index}.stock`]}
+                    </p>
+                  )}
                 </div>
 
                 <div className="col-span-1 md:col-span-1 flex items-end mb-[2px]">
@@ -1387,9 +1673,18 @@ const ProductCreatePage: React.FC = () => {
               </div>
             ))}
           </div>
+
+          <div className="pt-4 mt-4 border-t border-dashed border-gray-300 dark:border-gray-600">
+            <button
+              type="button"
+              onClick={addVariant}
+              className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Thêm biến thể
+            </button>
+          </div>
         </div>
 
-        {/* --- Fallback Fields (Giữ lại cho tương thích nhưng ko cần validate gắt) --- */}
         <div className="grid grid-cols-2 gap-4 hidden">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1408,7 +1703,6 @@ const ProductCreatePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Ảnh minh họa */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Ảnh minh họa
@@ -1450,6 +1744,7 @@ const ProductCreatePage: React.FC = () => {
           ) : (
             <div>
               <input
+                ref={setFieldRef("thumbnail") as React.Ref<HTMLInputElement>}
                 type="url"
                 placeholder="Nhập URL ảnh"
                 value={imageUrl}
@@ -1460,6 +1755,7 @@ const ProductCreatePage: React.FC = () => {
                     ...prev,
                     thumbnail: e.target.value,
                   }));
+                  clearError("thumbnail");
                 }}
                 className={`w-full border ${
                   errors.thumbnail
@@ -1499,7 +1795,6 @@ const ProductCreatePage: React.FC = () => {
           )}
         </div>
 
-        {/* --- Vị trí hiển thị --- */}
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Vị trí hiển thị
@@ -1514,7 +1809,6 @@ const ProductCreatePage: React.FC = () => {
           />
         </div>
 
-        {/* --- Trạng thái sản phẩm --- */}
         <div className="pt-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Trạng thái
@@ -1549,7 +1843,6 @@ const ProductCreatePage: React.FC = () => {
           </div>
         </div>
 
-        {/* --- Sản phẩm nổi bật --- */}
         <div className="pt-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Sản phẩm nổi bật
@@ -1582,7 +1875,6 @@ const ProductCreatePage: React.FC = () => {
           </div>
         </div>
 
-        {/* --- Nút hành động --- */}
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             type="button"

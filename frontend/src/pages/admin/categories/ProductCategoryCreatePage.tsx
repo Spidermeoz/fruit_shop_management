@@ -41,7 +41,6 @@ const ProductCategoryCreatePage: React.FC = () => {
   const [imageUrl, setImageUrl] = useState<string>("");
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-
   const [formData, setFormData] = useState<CategoryFormData>({
     parent_id: null,
     title: "",
@@ -202,12 +201,14 @@ const ProductCategoryCreatePage: React.FC = () => {
 
       if (createRes.success) {
         showSuccessToast({ message: "Thêm mới danh mục thành công!" });
-        navigate("/admin/product-category");
+        navigate("/admin/products/categories");
       } else {
         if (createRes.errors) {
           setErrors(createRes.errors);
         } else {
-          showErrorToast((createRes as any).message || "Thêm mới danh mục thất bại.");
+          showErrorToast(
+            (createRes as any).message || "Thêm mới danh mục thất bại.",
+          );
         }
       }
     } catch (err: any) {
@@ -216,7 +217,9 @@ const ProductCategoryCreatePage: React.FC = () => {
       if (err?.message) {
         showErrorToast(err.message);
       } else {
-        showErrorToast("Không thể upload ảnh. Vui lòng kiểm tra định dạng file.");
+        showErrorToast(
+          "Không thể upload ảnh. Vui lòng kiểm tra định dạng file.",
+        );
       }
     } finally {
       setLoading(false);
@@ -230,7 +233,7 @@ const ProductCategoryCreatePage: React.FC = () => {
           Thêm danh mục sản phẩm
         </h1>
         <button
-          onClick={() => navigate("/admin/product-category")}
+          onClick={() => navigate("/admin/products/categories")}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
@@ -444,7 +447,7 @@ const ProductCategoryCreatePage: React.FC = () => {
         <div className="flex justify-end gap-3 mt-6 pt-4">
           <button
             type="button"
-            onClick={() => navigate("/admin/product-category")}
+            onClick={() => navigate("/admin/products/categories")}
             className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
           >
             Hủy

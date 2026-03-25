@@ -1,22 +1,23 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  LayoutDashboard,
-  ShoppingBag,
-  Menu,
-  X,
+  ChevronDown,
+  ChevronRight,
   FolderTree,
-  ShieldCheck,
-  Users,
-  Receipt,
-  type LucideIcon,
-  Settings,
+  LayoutDashboard,
   MapPinned,
+  Menu,
+  Receipt,
+  Settings,
+  ShieldCheck,
+  ShoppingBag,
   Tags,
+  type LucideIcon,
+  Users,
+  X,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
-// 🔹 Update interface to include permission
 interface SidebarItem {
   name: string;
   href: string;
@@ -27,9 +28,7 @@ interface SidebarItem {
   };
 }
 
-// 🔹 Update items with permissions
-const sidebarItems: SidebarItem[] = [
-  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+const productChildren: SidebarItem[] = [
   {
     name: "Products",
     href: "/admin/products",
@@ -38,22 +37,26 @@ const sidebarItems: SidebarItem[] = [
   },
   {
     name: "Origins",
-    href: "/admin/product-origin",
+    href: "/admin/products/origins",
     icon: MapPinned,
     permission: { module: "origin", action: "view" },
   },
   {
-    name: "Product Tags",
-    href: "/admin/product-tags",
+    name: "Tags",
+    href: "/admin/products/tags",
     icon: Tags,
     permission: { module: "product_tag", action: "view" },
   },
   {
     name: "Categories",
-    href: "/admin/product-category",
+    href: "/admin/products/categories",
     icon: FolderTree,
     permission: { module: "product_category", action: "view" },
   },
+];
+
+const sidebarItems: SidebarItem[] = [
+  { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
     name: "Orders",
     href: "/admin/orders",
@@ -84,7 +87,23 @@ const Sidebar: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const location = useLocation();
 
-  // Extract renderMenuItem to keep code DRY
+  const isProductsSectionActive =
+    location.pathname === "/admin/products" ||
+    location.pathname.startsWith("/admin/products/");
+
+  const [isProductsOpen, setIsProductsOpen] = useState(isProductsSectionActive);
+
+  useEffect(() => {
+    if (isCollapsed) {
+      setIsProductsOpen(false);
+      return;
+    }
+
+    if (isProductsSectionActive) {
+      setIsProductsOpen(true);
+    }
+  }, [isCollapsed, isProductsSectionActive]);
+
   const renderMenuItem = (item: SidebarItem) => {
     const Icon = item.icon;
     const isActive =
@@ -100,12 +119,11 @@ const Sidebar: React.FC = () => {
             : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
         }`}
       >
-        <Icon className="w-6 h-6" />
+        <Icon className="w-6 h-6 shrink-0" />
         {!isCollapsed && <span>{item.name}</span>}
       </Link>
     );
 
-    // If item has permission, wrap with Can component
     if (item.permission) {
       return (
         <Can
@@ -118,7 +136,6 @@ const Sidebar: React.FC = () => {
       );
     }
 
-    // Return unwrapped item for Dashboard
     return <div key={item.name}>{menuItem}</div>;
   };
 
@@ -128,7 +145,6 @@ const Sidebar: React.FC = () => {
         isCollapsed ? "w-20" : "w-64"
       } bg-white dark:bg-gray-800 shadow-md flex flex-col transition-all duration-300 ease-in-out`}
     >
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
         {!isCollapsed && (
           <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
@@ -147,9 +163,119 @@ const Sidebar: React.FC = () => {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 px-4 py-6 space-y-2">
-        {sidebarItems.map(renderMenuItem)}
+      <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+        <div className="space-y-2">
+          <Link
+            to="/admin/dashboard"
+            className={`flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              location.pathname === "/admin/dashboard"
+                ? "bg-blue-500 text-white"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <LayoutDashboard className="w-6 h-6 shrink-0" />
+            {!isCollapsed && <span>Dashboard</span>}
+          </Link>
+
+          <div className="rounded-xl">
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin/products"
+                onClick={() => !isCollapsed && setIsProductsOpen(true)}
+                className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  isProductsSectionActive
+                    ? "bg-blue-500 text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <ShoppingBag className="w-6 h-6 shrink-0" />
+                {!isCollapsed && <span>Products</span>}
+              </Link>
+
+              {!isCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setIsProductsOpen((prev) => !prev)}
+                  className={`rounded-lg p-2 transition-colors ${
+                    isProductsSectionActive
+                      ? "text-white hover:bg-blue-600"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+                  aria-label="Toggle products menu"
+                >
+                  {isProductsOpen ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {!isCollapsed && isProductsOpen && (
+              <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                {productChildren.map((item) => {
+                  // Kiểm tra xem đường dẫn hiện tại có khớp chính xác hoặc là đường dẫn con không
+                  const isExactMatch = location.pathname === item.href;
+                  const isSubPathMatch = location.pathname.startsWith(
+                    item.href + "/",
+                  );
+
+                  let isActive = false;
+
+                  // Xử lý ngoại lệ cho menu con "Products" (/admin/products)
+                  if (item.href === "/admin/products") {
+                    isActive =
+                      isExactMatch ||
+                      (isSubPathMatch &&
+                        !location.pathname.startsWith(
+                          "/admin/products/origins",
+                        ) &&
+                        !location.pathname.startsWith("/admin/products/tags") &&
+                        !location.pathname.startsWith(
+                          "/admin/products/categories",
+                        ));
+                  } else {
+                    // Các menu khác (Origins, Tags, Categories) giữ nguyên logic cũ
+                    isActive = isExactMatch || isSubPathMatch;
+                  }
+
+                  const child = (
+                    <Link
+                      to={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        isActive
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+
+                  if (item.permission) {
+                    return (
+                      <Can
+                        key={item.name}
+                        module={item.permission.module}
+                        action={item.permission.action}
+                      >
+                        {child}
+                      </Can>
+                    );
+                  }
+
+                  return <div key={item.name}>{child}</div>;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          {sidebarItems.slice(1).map(renderMenuItem)}
+        </div>
       </nav>
     </div>
   );

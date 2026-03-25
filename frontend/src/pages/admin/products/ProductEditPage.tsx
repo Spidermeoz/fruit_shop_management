@@ -1,8 +1,8 @@
 // src/pages/admin/ProductEditPage.tsx
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Save, ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Loader2, Save, ArrowLeft, Plus, Sparkles, Trash2 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
@@ -149,6 +149,95 @@ const getDerivedProductStockFromVariants = (
   }, 0);
 };
 
+const normalizeTextForCompare = (value: string) =>
+  String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+
+const slugifyVariantPart = (value: string | undefined) =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+
+const buildVariantCombinationKey = (
+  optionValues: ProductVariantSelectedOptionValue[],
+) => {
+  return [...optionValues]
+    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    .map(
+      (item) =>
+        `${normalizeTextForCompare(item.optionName ?? "")}:${normalizeTextForCompare(item.value ?? "")}`,
+    )
+    .join("|");
+};
+
+const buildVariantCartesian = (
+  options: ProductOptionInput[],
+): ProductVariantSelectedOptionValue[][] => {
+  const normalizedOptions = options
+    .map((option, optionIndex) => ({
+      ...option,
+      position: option.position ?? optionIndex,
+      values: (option.values || [])
+        .map((value, valueIndex) => ({
+          ...value,
+          position: value.position ?? valueIndex,
+        }))
+        .filter((value) => String(value.value ?? "").trim()),
+    }))
+    .filter(
+      (option) =>
+        String(option.name ?? "").trim() &&
+        Array.isArray(option.values) &&
+        option.values.length > 0,
+    );
+
+  if (!normalizedOptions.length) {
+    return [];
+  }
+
+  return normalizedOptions.reduce<ProductVariantSelectedOptionValue[][]>(
+    (acc, option, optionIndex) => {
+      const mappedValues = option.values.map((value) => ({
+        id: value.id,
+        value: value.value,
+        optionId: option.id,
+        optionName: option.name,
+        position: option.position ?? optionIndex,
+      }));
+
+      if (!acc.length) {
+        return mappedValues.map((value) => [value]);
+      }
+
+      return acc.flatMap((existing) =>
+        mappedValues.map((value) => [...existing, value]),
+      );
+    },
+    [],
+  );
+};
+
+const getOptionErrorKey = (optionIndex: number, field: "name") =>
+  `options.${optionIndex}.${field}`;
+
+const getOptionValueErrorKey = (optionIndex: number, valueIndex: number) =>
+  `options.${optionIndex}.values.${valueIndex}.value`;
+
+const getVariantErrorKey = (variantIndex: number, field: string) =>
+  `variants.${variantIndex}.${field}`;
+
+const isNonNegativeIntegerString = (value: number | string) => {
+  const normalized = String(value ?? "").trim();
+  return /^\d+$/.test(normalized);
+};
+
 const ProductEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -167,6 +256,7 @@ const ProductEditPage: React.FC = () => {
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof Product | string, string>>
   >({});
+  const fieldRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // file ảnh mới (chưa upload)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -446,6 +536,36 @@ const ProductEditPage: React.FC = () => {
     );
   }, [tags]);
 
+  const registerFieldRef =
+    (key: string) => (element: HTMLDivElement | null) => {
+      fieldRefs.current[key] = element;
+    };
+
+  const clearFormError = (key: string) => {
+    setFormErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const scrollToFirstError = (
+    errors: Partial<Record<keyof Product | string, string>>,
+  ) => {
+    const firstKey = Object.keys(errors)[0];
+    if (!firstKey) return;
+
+    const target = fieldRefs.current[firstKey];
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      const focusable = target.querySelector<HTMLElement>(
+        "input, select, textarea, button, [contenteditable='true']",
+      );
+      window.setTimeout(() => focusable?.focus(), 120);
+    }
+  };
+
   // 🔹 Xử lý input cơ bản
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -462,9 +582,7 @@ const ProductEditPage: React.FC = () => {
         : prev,
     );
 
-    if (formErrors[name]) {
-      setFormErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
+    clearFormError(name);
   };
 
   // 🔹 Handler riêng cho Multi-select Tags
@@ -499,9 +617,8 @@ const ProductEditPage: React.FC = () => {
       newVariants[index] = { ...newVariants[index], [field]: value };
       return { ...prev, variants: newVariants };
     });
-    if (formErrors.price) {
-      setFormErrors((prev) => ({ ...prev, price: undefined }));
-    }
+    clearFormError(getVariantErrorKey(index, String(field)));
+    clearFormError(getVariantErrorKey(index, "optionValues"));
   };
 
   const addVariant = () => {
@@ -524,6 +641,138 @@ const ProductEditPage: React.FC = () => {
         ],
       };
     });
+  };
+
+  const suggestVariants = () => {
+    if (!product) return;
+
+    setProduct((prev) => {
+      if (!prev) return prev;
+
+      const productTitle = String(prev.title ?? "").trim();
+      const combinations = buildVariantCartesian(prev.options || []);
+      const totalOptions = (prev.options || []).filter(
+        (option) =>
+          String(option.name ?? "").trim() &&
+          Array.isArray(option.values) &&
+          option.values.some((value) => String(value.value ?? "").trim()),
+      ).length;
+
+      if (!combinations.length || totalOptions === 0) {
+        return prev;
+      }
+
+      const existingVariants = prev.variants || [];
+
+      const exactVariantMap = new Map<string, ProductVariantInput>();
+      existingVariants.forEach((variant) => {
+        const optionValues = variant.optionValues || [];
+        if (optionValues.length === totalOptions) {
+          exactVariantMap.set(
+            buildVariantCombinationKey(optionValues),
+            variant,
+          );
+        }
+      });
+
+      const findBestTemplateVariant = (
+        combination: ProductVariantSelectedOptionValue[],
+      ) => {
+        const combinationMap = new Map(
+          combination.map((item) => [
+            normalizeTextForCompare(item.optionName ?? ""),
+            normalizeTextForCompare(item.value ?? ""),
+          ]),
+        );
+
+        let bestMatch: ProductVariantInput | null = null;
+        let bestScore = -1;
+
+        existingVariants.forEach((variant) => {
+          const optionValues = (variant.optionValues || []).filter(
+            (item) =>
+              String(item.optionName ?? "").trim() &&
+              String(item.value ?? "").trim(),
+          );
+
+          if (!optionValues.length) {
+            return;
+          }
+
+          const isSubset = optionValues.every((item) => {
+            const optionName = normalizeTextForCompare(item.optionName ?? "");
+            const optionValue = normalizeTextForCompare(item.value ?? "");
+            return combinationMap.get(optionName) === optionValue;
+          });
+
+          if (!isSubset) {
+            return;
+          }
+
+          if (optionValues.length > bestScore) {
+            bestMatch = variant;
+            bestScore = optionValues.length;
+          }
+        });
+
+        return bestMatch;
+      };
+
+      const nextVariants: ProductVariantInput[] = combinations.map(
+        (combination, index) => {
+          const key = buildVariantCombinationKey(combination);
+          const exactVariant = exactVariantMap.get(key);
+          const templateVariant =
+            exactVariant || findBestTemplateVariant(combination);
+          const combinationLabel = combination
+            .map((item) => `${item.optionName}: ${item.value}`)
+            .join(" - ");
+          const autoTitle = [productTitle, combinationLabel]
+            .filter(Boolean)
+            .join(" - ");
+          const skuParts = [
+            productTitle,
+            ...combination.flatMap((item) => [item.optionName, item.value]),
+          ]
+            .map(slugifyVariantPart)
+            .filter(Boolean);
+          const autoSku = skuParts.join("-");
+
+          return {
+            id: exactVariant?.id,
+            title:
+              autoTitle ||
+              templateVariant?.title ||
+              exactVariant?.title ||
+              `Biến thể ${index + 1}`,
+            sku: autoSku || templateVariant?.sku || exactVariant?.sku || null,
+            price: templateVariant?.price ?? prev.price ?? "0",
+            compareAtPrice: templateVariant?.compareAtPrice ?? "",
+            stock: templateVariant?.stock ?? "0",
+            status: templateVariant?.status ?? "active",
+            sortOrder: index,
+            optionValueIds: combination
+              .map((item, optionIndex) => item.id ?? optionIndex)
+              .filter(
+                (valueId): valueId is number => typeof valueId === "number",
+              ),
+            optionValues: combination,
+          };
+        },
+      );
+
+      return {
+        ...prev,
+        variants: nextVariants,
+      };
+    });
+
+    setFormErrors((prev) => ({
+      ...prev,
+      options: undefined,
+      variants: undefined,
+      price: undefined,
+    }));
   };
 
   const removeVariant = (index: number) => {
@@ -572,6 +821,8 @@ const ProductEditPage: React.FC = () => {
         variants: nextVariants,
       };
     });
+
+    clearFormError(getOptionErrorKey(optionIndex, "name"));
   };
 
   const handleOptionValueChange = (
@@ -613,6 +864,8 @@ const ProductEditPage: React.FC = () => {
         variants: nextVariants,
       };
     });
+
+    clearFormError(getOptionValueErrorKey(optionIndex, valueIndex));
   };
 
   const addOption = () => {
@@ -681,6 +934,8 @@ const ProductEditPage: React.FC = () => {
       nextOptions[optionIndex] = option;
       return { ...prev, options: nextOptions };
     });
+
+    clearFormError(getOptionErrorKey(optionIndex, "name"));
   };
 
   const removeOptionValue = (optionIndex: number, valueIndex: number) => {
@@ -768,6 +1023,8 @@ const ProductEditPage: React.FC = () => {
 
       return { ...prev, variants: nextVariants };
     });
+
+    clearFormError(getVariantErrorKey(variantIndex, "optionValues"));
   };
 
   // 🔹 Chọn ảnh mới → chỉ preview
@@ -813,69 +1070,194 @@ const ProductEditPage: React.FC = () => {
 
     const newErrors: Partial<Record<keyof Product | string, string>> = {};
 
-    if (!product.title.trim()) {
+    if (!String(product.title ?? "").trim()) {
       newErrors.title = "Vui lòng nhập tên sản phẩm.";
     }
+
     if (!product.product_category_id) {
       newErrors.product_category_id = "Vui lòng chọn danh mục.";
     }
 
-    const invalidOption = (product.options || []).find(
-      (option) =>
-        !option.name.trim() ||
-        !option.values.length ||
-        option.values.some((value) => !value.value.trim()),
+    const normalizedOptions = (product.options || []).map(
+      (option, optionIndex) => ({
+        ...option,
+        name: String(option.name ?? "").trim(),
+        values: (option.values || []).map((value, valueIndex) => ({
+          ...value,
+          value: String(value.value ?? "").trim(),
+          position: value.position ?? valueIndex,
+        })),
+        position: option.position ?? optionIndex,
+      }),
     );
 
-    if (invalidOption) {
-      newErrors.options =
-        "Mỗi tùy chọn phải có tên và ít nhất 1 giá trị hợp lệ.";
-    }
+    normalizedOptions.forEach((option, optionIndex) => {
+      if (!option.name) {
+        newErrors[getOptionErrorKey(optionIndex, "name")] =
+          "Vui lòng nhập tên tùy chọn.";
+      }
 
-    const invalidVariantOptionMapping = (product.variants || []).find(
-      (variant) => {
-        return (product.options || []).some((option) => {
-          const optionName = String(option.name ?? "").trim();
-          if (!optionName) return true;
+      if (!option.values.length) {
+        newErrors[getOptionErrorKey(optionIndex, "name")] =
+          newErrors[getOptionErrorKey(optionIndex, "name")] ||
+          "Mỗi tùy chọn phải có ít nhất 1 giá trị.";
+      }
 
-          const matches = (variant.optionValues || []).filter(
-            (ov) => String(ov.optionName ?? "").trim() === optionName,
-          );
+      const seenValues = new Set<string>();
+      option.values.forEach((value, valueIndex) => {
+        const valueKey = getOptionValueErrorKey(optionIndex, valueIndex);
+        const normalizedValue = normalizeTextForCompare(value.value);
 
-          return (
-            matches.length !== 1 || !String(matches[0]?.value ?? "").trim()
-          );
-        });
-      },
+        if (!value.value) {
+          newErrors[valueKey] = "Vui lòng nhập giá trị tùy chọn.";
+          return;
+        }
+
+        if (seenValues.has(normalizedValue)) {
+          newErrors[valueKey] =
+            "Giá trị này đang bị trùng trong cùng tùy chọn.";
+          return;
+        }
+
+        seenValues.add(normalizedValue);
+      });
+    });
+
+    const activeOptions = normalizedOptions.filter(
+      (option) => option.name && option.values.some((value) => value.value),
     );
 
-    if (invalidVariantOptionMapping) {
-      newErrors.variants =
-        "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
-    }
+    const activeOptionNames = activeOptions.map((option) => option.name);
+    const duplicateOptionNames = new Set<string>();
+    const optionNameTracker = new Set<string>();
+    activeOptionNames.forEach((name) => {
+      const normalizedName = normalizeTextForCompare(name);
+      if (optionNameTracker.has(normalizedName)) {
+        duplicateOptionNames.add(normalizedName);
+      }
+      optionNameTracker.add(normalizedName);
+    });
 
-    if (invalidVariantOptionMapping) {
-      newErrors.variants =
-        "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
-    }
+    activeOptions.forEach((option, optionIndex) => {
+      if (duplicateOptionNames.has(normalizeTextForCompare(option.name))) {
+        newErrors[getOptionErrorKey(optionIndex, "name")] =
+          "Tên tùy chọn đang bị trùng.";
+      }
+    });
 
-    // Validate theo variant
     const variants = product.variants || [];
     if (!variants.length) {
-      newErrors.price = "Cần ít nhất 1 biến thể.";
-    } else {
-      const invalidVariant = variants.find(
-        (v) =>
-          Number(v.price) <= 0 ||
-          Number(v.stock) < 0 ||
-          String(v.price) === "" ||
-          String(v.stock) === "",
-      );
-
-      if (invalidVariant) {
-        newErrors.price = "Mỗi biến thể phải có giá > 0 và tồn kho >= 0.";
-      }
+      newErrors[getVariantErrorKey(0, "title")] = "Cần ít nhất 1 biến thể.";
     }
+
+    const combinationMap = new Map<string, number>();
+
+    variants.forEach((variant, variantIndex) => {
+      const title = String(variant.title ?? "").trim();
+      const priceRaw = String(variant.price ?? "").trim();
+      const compareAtRaw = String(variant.compareAtPrice ?? "").trim();
+      const stockRaw = String(variant.stock ?? "").trim();
+      const price = Number(variant.price);
+      const compareAtPrice =
+        compareAtRaw === "" ? null : Number(variant.compareAtPrice);
+      const stock = Number(variant.stock);
+
+      if (!title) {
+        newErrors[getVariantErrorKey(variantIndex, "title")] =
+          "Vui lòng nhập tên biến thể.";
+      }
+
+      if (priceRaw === "" || !Number.isFinite(price) || price <= 0) {
+        newErrors[getVariantErrorKey(variantIndex, "price")] =
+          "Giá bán phải lớn hơn 0.";
+      }
+
+      if (compareAtRaw !== "") {
+        if (!Number.isFinite(compareAtPrice) || Number(compareAtPrice) < 0) {
+          newErrors[getVariantErrorKey(variantIndex, "compareAtPrice")] =
+            "Giá so sánh phải lớn hơn hoặc bằng 0.";
+        } else if (Number.isFinite(price) && Number(compareAtPrice) < price) {
+          newErrors[getVariantErrorKey(variantIndex, "compareAtPrice")] =
+            "Giá so sánh không được nhỏ hơn giá bán.";
+        }
+      }
+
+      if (
+        !isNonNegativeIntegerString(stockRaw) ||
+        !Number.isFinite(stock) ||
+        stock < 0
+      ) {
+        newErrors[getVariantErrorKey(variantIndex, "stock")] =
+          "Tồn kho phải là số nguyên không âm.";
+      }
+
+      const selectedOptionValues = (variant.optionValues || [])
+        .map((item) => ({
+          ...item,
+          optionName: String(item.optionName ?? "").trim(),
+          value: String(item.value ?? "").trim(),
+        }))
+        .filter((item) => item.optionName && item.value);
+
+      if (activeOptions.length) {
+        const perOptionCount = new Map<string, number>();
+        selectedOptionValues.forEach((item) => {
+          const normalizedOptionName = normalizeTextForCompare(
+            item.optionName ?? "",
+          );
+          perOptionCount.set(
+            normalizedOptionName,
+            (perOptionCount.get(normalizedOptionName) ?? 0) + 1,
+          );
+        });
+
+        const hasInvalidMapping = activeOptions.some((option) => {
+          const normalizedOptionName = normalizeTextForCompare(option.name);
+          const count = perOptionCount.get(normalizedOptionName) ?? 0;
+          if (count !== 1) return true;
+
+          const matched = selectedOptionValues.find(
+            (item) =>
+              normalizeTextForCompare(item.optionName ?? "") ===
+              normalizedOptionName,
+          );
+
+          return !option.values.some(
+            (value) =>
+              normalizeTextForCompare(value.value) ===
+              normalizeTextForCompare(matched?.value ?? ""),
+          );
+        });
+
+        if (hasInvalidMapping) {
+          newErrors[getVariantErrorKey(variantIndex, "optionValues")] =
+            "Mỗi biến thể phải chọn đúng 1 giá trị hợp lệ cho mỗi tùy chọn.";
+        }
+
+        if (!newErrors[getVariantErrorKey(variantIndex, "optionValues")]) {
+          const combinationKey = buildVariantCombinationKey(
+            selectedOptionValues.map((item, selectedIndex) => ({
+              ...item,
+              position: item.position ?? selectedIndex,
+            })),
+          );
+
+          if (combinationMap.has(combinationKey)) {
+            newErrors[getVariantErrorKey(variantIndex, "optionValues")] =
+              "Tổ hợp tùy chọn của biến thể này đang bị trùng.";
+
+            const firstIndex = combinationMap.get(combinationKey);
+            if (typeof firstIndex === "number") {
+              newErrors[getVariantErrorKey(firstIndex, "optionValues")] =
+                newErrors[getVariantErrorKey(firstIndex, "optionValues")] ||
+                "Tổ hợp tùy chọn của biến thể này đang bị trùng.";
+            }
+          } else {
+            combinationMap.set(combinationKey, variantIndex);
+          }
+        }
+      }
+    });
 
     const discount = Number(product.discount_percentage);
     if (
@@ -887,6 +1269,10 @@ const ProductEditPage: React.FC = () => {
     }
 
     setFormErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      window.setTimeout(() => scrollToFirstError(newErrors), 50);
+    }
+
     return Object.keys(newErrors).length === 0;
   };
 
@@ -1282,19 +1668,6 @@ const ProductEditPage: React.FC = () => {
 
           {/* --- Block Quản Lý Biến Thể --- */}
           <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                Danh sách biến thể <span className="text-red-500">*</span>
-              </h3>
-              <button
-                type="button"
-                onClick={addVariant}
-                className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
-              >
-                <Plus className="w-4 h-4" /> Thêm biến thể
-              </button>
-            </div>
-
             {/* Block Tùy chọn sản phẩm */}
             <div className="mt-8 border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50">
               <div className="flex items-center justify-between mb-4">
@@ -1310,16 +1683,13 @@ const ProductEditPage: React.FC = () => {
                 </button>
               </div>
 
-              {formErrors.options && (
-                <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-                  {formErrors.options}
-                </div>
-              )}
-
               <div className="space-y-4">
                 {(product.options || []).map((option, optionIndex) => (
                   <div
                     key={option.id ?? `option-${optionIndex}`}
+                    ref={registerFieldRef(
+                      getOptionErrorKey(optionIndex, "name"),
+                    )}
                     className="border border-gray-200 dark:border-gray-700 rounded-md p-4 bg-white dark:bg-gray-800"
                   >
                     <div className="flex items-center gap-3 mb-3">
@@ -1334,7 +1704,7 @@ const ProductEditPage: React.FC = () => {
                           )
                         }
                         placeholder="Tên tùy chọn, ví dụ: Size"
-                        className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
+                        className={`flex-1 border ${formErrors[getOptionErrorKey(optionIndex, "name")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white`}
                       />
                       <button
                         type="button"
@@ -1345,36 +1715,60 @@ const ProductEditPage: React.FC = () => {
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
+                    {formErrors[getOptionErrorKey(optionIndex, "name")] && (
+                      <p className="mb-3 text-sm text-red-600 dark:text-red-400">
+                        {formErrors[getOptionErrorKey(optionIndex, "name")]}
+                      </p>
+                    )}
 
                     <div className="space-y-2">
                       {option.values.map((value, valueIndex) => (
                         <div
                           key={value.id ?? `value-${valueIndex}`}
-                          className="flex gap-2"
+                          ref={registerFieldRef(
+                            getOptionValueErrorKey(optionIndex, valueIndex),
+                          )}
+                          className="flex flex-col gap-1"
                         >
-                          <input
-                            type="text"
-                            value={value.value}
-                            onChange={(e) =>
-                              handleOptionValueChange(
-                                optionIndex,
-                                valueIndex,
-                                e.target.value,
-                              )
-                            }
-                            placeholder="Giá trị, ví dụ: S / M / L"
-                            className="flex-1 border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              removeOptionValue(optionIndex, valueIndex)
-                            }
-                            disabled={option.values.length === 1}
-                            className="bg-red-100 text-red-600 px-3 rounded-md hover:bg-red-200 disabled:opacity-50"
-                          >
-                            Xóa
-                          </button>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={value.value}
+                              onChange={(e) =>
+                                handleOptionValueChange(
+                                  optionIndex,
+                                  valueIndex,
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Giá trị, ví dụ: S / M / L"
+                              className={`flex-1 border ${formErrors[getOptionErrorKey(optionIndex, "name")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeOptionValue(optionIndex, valueIndex)
+                              }
+                              disabled={option.values.length === 1}
+                              className="bg-red-100 text-red-600 px-3 rounded-md hover:bg-red-200 disabled:opacity-50"
+                            >
+                              Xóa
+                            </button>
+                          </div>
+                          {formErrors[
+                            getOptionValueErrorKey(optionIndex, valueIndex)
+                          ] && (
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              {
+                                formErrors[
+                                  getOptionValueErrorKey(
+                                    optionIndex,
+                                    valueIndex,
+                                  )
+                                ]
+                              }
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -1391,28 +1785,30 @@ const ProductEditPage: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex items-center justify-between mb-4 mt-8 gap-3 flex-wrap">
+              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
+                Danh sách biến thể <span className="text-red-500">*</span>
+              </h3>
+              <button
+                type="button"
+                onClick={suggestVariants}
+                className="flex items-center gap-1 text-sm bg-amber-100 dark:bg-amber-900 text-amber-700 dark:text-amber-200 px-3 py-1.5 rounded-md hover:bg-amber-200 dark:hover:bg-amber-800 transition-colors"
+              >
+                <Sparkles className="w-4 h-4" /> Gợi ý biến thể
+              </button>
+            </div>
+
             {/* 🔹 Thêm UI Text hiển thị Tồn kho tổng hợp */}
-            <div className="mb-4 mt-8 text-sm text-gray-600 dark:text-gray-300">
+            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
               Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
               <span className="font-semibold">{derivedProductStock}</span>
             </div>
-
-            {formErrors.variants && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-                {formErrors.variants}
-              </div>
-            )}
-
-            {formErrors.price && (
-              <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md text-sm border border-red-200">
-                {formErrors.price}
-              </div>
-            )}
 
             <div className="space-y-4">
               {(product.variants || []).map((variant, index) => (
                 <div
                   key={variant.id || `temp-${index}`}
+                  ref={registerFieldRef(getVariantErrorKey(index, "title"))}
                   className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md relative group"
                 >
                   {/* Nút xóa biến thể */}
@@ -1438,8 +1834,13 @@ const ProductEditPage: React.FC = () => {
                         handleVariantChange(index, "title", e.target.value)
                       }
                       placeholder="VD: Đỏ - Size L"
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                      className={`w-full border ${formErrors[getVariantErrorKey(index, "title")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                     />
+                    {formErrors[getVariantErrorKey(index, "title")] && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors[getVariantErrorKey(index, "title")]}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-1 md:col-span-2">
@@ -1458,10 +1859,21 @@ const ProductEditPage: React.FC = () => {
                   </div>
 
                   {/* Block gán tùy chọn cho biến thể */}
-                  <div className="col-span-1 md:col-span-12">
+                  <div
+                    ref={registerFieldRef(
+                      getVariantErrorKey(index, "optionValues"),
+                    )}
+                    className="col-span-1 md:col-span-12"
+                  >
                     <label className="block text-xs font-medium text-gray-500 mb-2">
                       Gán tùy chọn cho biến thể
                     </label>
+
+                    {formErrors[getVariantErrorKey(index, "optionValues")] && (
+                      <p className="mb-2 text-sm text-red-600 dark:text-red-400">
+                        {formErrors[getVariantErrorKey(index, "optionValues")]}
+                      </p>
+                    )}
 
                     <div className="space-y-3">
                       {(product.options || []).map((option, optionIndex) => (
@@ -1520,8 +1932,13 @@ const ProductEditPage: React.FC = () => {
                       onChange={(e) =>
                         handleVariantChange(index, "price", e.target.value)
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                      className={`w-full border ${formErrors[getVariantErrorKey(index, "price")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                     />
+                    {formErrors[getVariantErrorKey(index, "price")] && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors[getVariantErrorKey(index, "price")]}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-1 md:col-span-2">
@@ -1538,8 +1955,19 @@ const ProductEditPage: React.FC = () => {
                           e.target.value,
                         )
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                      className={`w-full border ${formErrors[getVariantErrorKey(index, "compareAtPrice")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                     />
+                    {formErrors[
+                      getVariantErrorKey(index, "compareAtPrice")
+                    ] && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {
+                          formErrors[
+                            getVariantErrorKey(index, "compareAtPrice")
+                          ]
+                        }
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-1 md:col-span-2">
@@ -1552,8 +1980,13 @@ const ProductEditPage: React.FC = () => {
                       onChange={(e) =>
                         handleVariantChange(index, "stock", e.target.value)
                       }
-                      className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
+                      className={`w-full border ${formErrors[getVariantErrorKey(index, "stock")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
                     />
+                    {formErrors[getVariantErrorKey(index, "stock")] && (
+                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                        {formErrors[getVariantErrorKey(index, "stock")]}
+                      </p>
+                    )}
                   </div>
 
                   <div className="col-span-1 md:col-span-1 flex items-end mb-[2px]">
@@ -1577,6 +2010,16 @@ const ProductEditPage: React.FC = () => {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={addVariant}
+                className="flex items-center gap-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200 px-3 py-1.5 rounded-md hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Thêm biến thể
+              </button>
             </div>
           </div>
 

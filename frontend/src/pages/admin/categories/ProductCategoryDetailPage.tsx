@@ -98,13 +98,13 @@ const ProductCategoryDetailPage: React.FC = () => {
         </h1>
         <div className="flex gap-3">
           <button
-            onClick={() => navigate(`/admin/product-category/edit/${id}`)}
+            onClick={() => navigate(`/admin/products/categories/edit/${id}`)}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
           >
             <Edit className="w-4 h-4" /> Chỉnh sửa
           </button>
           <button
-            onClick={() => navigate("/admin/product-category")}
+            onClick={() => navigate("/admin/products/categories")}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại

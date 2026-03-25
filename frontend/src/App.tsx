@@ -12,10 +12,10 @@ import ProductsPage from "./pages/admin/products/ProductsPage";
 import ProductEditPage from "./pages/admin/products/ProductEditPage";
 import ProductDetailPage from "./pages/admin/products/ProductDetailPage";
 import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
-import ProductCategoryPage from "./pages/admin/product-category/ProductCategoryPage";
-import ProductCategoryCreatePage from "./pages/admin/product-category/ProductCategoryCreatePage";
-import ProductCategoryDetailPage from "./pages/admin/product-category/ProductCategoryDetailPage";
-import ProductCategoryEditPage from "./pages/admin/product-category/ProductCategoryEditPage";
+import ProductCategoryPage from "./pages/admin/categories/ProductCategoryPage";
+import ProductCategoryCreatePage from "./pages/admin/categories/ProductCategoryCreatePage";
+import ProductCategoryDetailPage from "./pages/admin/categories/ProductCategoryDetailPage";
+import ProductCategoryEditPage from "./pages/admin/categories/ProductCategoryEditPage";
 import RolesPage from "./pages/admin/roles/RolesPage";
 import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
@@ -30,8 +30,8 @@ import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
 import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
 import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 import { AdminToastProvider } from "./context/AdminToastContext";
-import ProductOriginPage from "./pages/admin/product-origin/ProductOriginPage";
-import ProductTagPage from "./pages/admin/product-tags/ProductTagPage";
+import ProductOriginPage from "./pages/admin/origins/ProductOriginPage";
+import ProductTagPage from "./pages/admin/tags/ProductTagPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -81,6 +81,7 @@ const App: React.FC = () => {
                                 path="dashboard"
                                 element={<DashboardPage />}
                               />
+
                               <Route
                                 path="products"
                                 element={<ProductsPage />}
@@ -94,25 +95,32 @@ const App: React.FC = () => {
                                 element={<ProductEditPage />}
                               />
                               <Route
-                                path="products/:id"
-                                element={<ProductDetailPage />}
+                                path="products/origins"
+                                element={<ProductOriginPage />}
                               />
-
                               <Route
-                                path="product-category"
+                                path="products/tags"
+                                element={<ProductTagPage />}
+                              />
+                              <Route
+                                path="products/categories"
                                 element={<ProductCategoryPage />}
                               />
                               <Route
-                                path="product-category/create"
+                                path="products/categories/create"
                                 element={<ProductCategoryCreatePage />}
                               />
                               <Route
-                                path="product-category/detail/:id"
+                                path="products/categories/detail/:id"
                                 element={<ProductCategoryDetailPage />}
                               />
                               <Route
-                                path="product-category/edit/:id"
+                                path="products/categories/edit/:id"
                                 element={<ProductCategoryEditPage />}
+                              />
+                              <Route
+                                path="products/:id"
+                                element={<ProductDetailPage />}
                               />
 
                               <Route path="roles" element={<RolesPage />} />
@@ -159,14 +167,6 @@ const App: React.FC = () => {
                               <Route
                                 path="settings/general"
                                 element={<SettingsGeneralPage />}
-                              />
-                              <Route
-                                path="product-origin"
-                                element={<ProductOriginPage />}
-                              />
-                              <Route
-                                path="product-tags"
-                                element={<ProductTagPage />}
                               />
                             </Routes>
                           </main>
