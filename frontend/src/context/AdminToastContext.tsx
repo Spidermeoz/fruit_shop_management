@@ -30,26 +30,26 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 export const useAdminToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
-    throw new Error("useAdminToast must be used within a AdminToastProvider");
+    throw new Error("useAdminToast must be used within an AdminToastProvider");
   }
   return context;
 };
 
 // ==========================
-// ICONS
+// ICONS (Gọn gàng, tối giản hơn)
 // ==========================
 const SuccessIcon = () => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
-    className="h-7 w-7"
+    className="h-5 w-5"
     stroke="currentColor"
-    strokeWidth="2.2"
+    strokeWidth="2.5"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <circle cx="12" cy="12" r="9" />
-    <path d="M8.5 12.5l2.3 2.3 4.7-5.3" />
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+    <polyline points="22 4 12 14.01 9 11.01" />
   </svg>
 );
 
@@ -57,15 +57,30 @@ const ErrorIcon = () => (
   <svg
     viewBox="0 0 24 24"
     fill="none"
-    className="h-7 w-7"
+    className="h-5 w-5"
     stroke="currentColor"
-    strokeWidth="2.2"
+    strokeWidth="2.5"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 8v5" />
-    <path d="M12 16h.01" />
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="12" />
+    <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const CloseIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    className="h-4 w-4"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <line x1="18" y1="6" x2="6" y2="18" />
+    <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
 
@@ -75,38 +90,55 @@ const ErrorIcon = () => (
 export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
-  const [show, setShow] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [show, setShow] = useState(false); // Quản lý việc render component vào DOM
+  const [visible, setVisible] = useState(false); // Quản lý hiệu ứng animation CSS
   const [type, setType] = useState<ToastType>(null);
   const [toastContent, setToastContent] = useState<ToastOptions>({
     message: "",
   });
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Dùng để reset animation của progress bar khi bị "spam click"
+  const [toastKey, setToastKey] = useState(0);
+
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const TOAST_DURATION = 3000; // Thời gian hiển thị (2 giây)
+  const ANIM_DURATION = 300; // Khớp với duration-300 của Tailwind
 
   const triggerToast = (newType: ToastType, options: ToastOptions) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
+    // 1. Dọn dẹp các timer cũ nếu đang có toast hiển thị (xử lý spam click)
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
 
+    // 2. Cập nhật nội dung và loại toast
     setType(newType);
     setToastContent({
       title:
         options.title ||
-        (newType === "success" ? "Thao tác thành công" : "Có lỗi xảy ra"),
+        (newType === "success" ? "Thành công" : "Có lỗi xảy ra"),
       message: options.message,
     });
 
+    // Tăng key để ép React render lại Progress Bar từ đầu
+    setToastKey((prev) => prev + 1);
+
+    // 3. Mount component (nếu chưa)
     setShow(true);
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setVisible(true);
-      });
-    });
+    // 4. Kích hoạt animation trượt vào
+    // Dùng setTimeout nhỏ để đảm bảo DOM đã render xong state `show` trước khi thêm class `visible`
+    setTimeout(() => setVisible(true), 10);
 
-    timerRef.current = setTimeout(() => {
-      setVisible(false);
-      setTimeout(() => setShow(false), 280);
-    }, 2000);
+    // 5. Cài đặt hẹn giờ tự động ẩn
+    hideTimerRef.current = setTimeout(() => {
+      setVisible(false); // Kích hoạt animation trượt ra
+
+      // Chờ animation hoàn tất rồi mới unmount khỏi DOM
+      removeTimerRef.current = setTimeout(() => {
+        setShow(false);
+      }, ANIM_DURATION);
+    }, TOAST_DURATION);
   };
 
   const showSuccessToast = (options: ToastOptions) =>
@@ -115,9 +147,22 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
   const showErrorToast = (message: string, title?: string) =>
     triggerToast("error", { message, title });
 
+  // Đóng toast thủ công bằng nút X
+  const handleClose = () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
+
+    setVisible(false);
+    removeTimerRef.current = setTimeout(() => {
+      setShow(false);
+    }, ANIM_DURATION);
+  };
+
+  // Cleanup cẩn thận khi unmount Provider để tránh memory leak
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      if (removeTimerRef.current) clearTimeout(removeTimerRef.current);
     };
   }, []);
 
@@ -125,84 +170,80 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
     <ToastContext.Provider value={{ showSuccessToast, showErrorToast }}>
       {children}
 
+      {/* Inline style cho thanh tiến trình (để không phải cấu hình tailwind.config) */}
+      <style>{`
+        @keyframes shrink-progress {
+          0% { transform: scaleX(1); }
+          100% { transform: scaleX(0); }
+        }
+      `}</style>
+
       {show && (
         <div
-          className={`fixed inset-0 z-[9999] flex items-center justify-center px-4 backdrop-blur-[4px] ${
-            type === "success" ? "bg-slate-950/20" : "bg-slate-950/25"
-          }`}
+          // Lớp vỏ chứa cố định ở góc trên bên phải
+          className="fixed top-6 right-6 z-[9999] flex flex-col items-end pointer-events-none"
         >
           <div
-            className="relative w-full max-w-[440px] overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.18)]"
-            style={{
-              opacity: visible ? 1 : 0,
-              transform: visible
-                ? "translateY(0) scale(1)"
-                : "translateY(14px) scale(0.96)",
-              transition:
-                "opacity 0.28s ease, transform 0.28s cubic-bezier(0.22,1,0.36,1)",
-            }}
+            // Animation trượt ngang & mờ
+            className={`pointer-events-auto relative flex w-80 sm:w-96 flex-col overflow-hidden rounded-lg border bg-white shadow-xl transition-all duration-300 ease-in-out ${
+              visible
+                ? "translate-x-0 opacity-100"
+                : "translate-x-[120%] opacity-0"
+            } ${
+              type === "success"
+                ? "border-emerald-100/80"
+                : "border-rose-100/80"
+            }`}
           >
-            {/* Accent top bar */}
+            {/* Thanh accent mảnh bên trái */}
             <div
-              className={`h-1.5 w-full ${
-                type === "success"
-                  ? "bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500"
-                  : "bg-gradient-to-r from-rose-500 via-red-500 to-orange-500"
+              className={`absolute bottom-0 left-0 top-0 w-1 ${
+                type === "success" ? "bg-emerald-500" : "bg-rose-500"
               }`}
             />
 
-            {/* Background glow */}
-            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            {/* Nội dung Toast */}
+            <div className="flex items-start gap-3 p-4 pl-5">
+              {/* Icon */}
               <div
-                className={`absolute -top-16 right-[-20px] h-36 w-36 rounded-full blur-3xl ${
-                  type === "success" ? "bg-emerald-100" : "bg-rose-100"
-                } opacity-70`}
-              />
-              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-slate-50 to-transparent" />
-            </div>
+                className={`mt-0.5 shrink-0 ${
+                  type === "success" ? "text-emerald-500" : "text-rose-500"
+                }`}
+              >
+                {type === "success" ? <SuccessIcon /> : <ErrorIcon />}
+              </div>
 
-            <div className="relative z-10 p-6 sm:p-7">
-              <div className="flex items-start gap-4">
-                <div
-                  className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border shadow-sm ${
-                    type === "success"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                      : "border-rose-200 bg-rose-50 text-rose-600"
-                  }`}
-                >
-                  {type === "success" ? <SuccessIcon /> : <ErrorIcon />}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
-                    {toastContent.title}
-                  </h3>
-
-                  <div className="mt-2 text-sm sm:text-[15px] leading-6 text-slate-600">
-                    {toastContent.message}
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        type === "success"
-                          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                          : "bg-rose-50 text-rose-700 ring-1 ring-rose-200"
-                      }`}
-                    >
-                      {type === "success" ? "Success" : "Error"}
-                    </span>
-
-                    <span className="text-xs text-slate-400">
-                      Hệ thống quản trị
-                    </span>
-                  </div>
+              {/* Text: Title & Message */}
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-slate-800">
+                  {toastContent.title}
+                </h4>
+                <div className="mt-1 text-sm text-slate-500 leading-snug break-words">
+                  {toastContent.message}
                 </div>
               </div>
+
+              {/* Nút đóng */}
+              <button
+                onClick={handleClose}
+                className="inline-flex shrink-0 rounded-md p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors focus:outline-none"
+              >
+                <CloseIcon />
+              </button>
             </div>
 
-            {/* Bottom subtle line */}
-            <div className="h-px w-full bg-gradient-to-r from-transparent via-slate-200 to-transparent" />
+            {/* Thanh Progress bar chạy lùi tự động ẩn */}
+            <div className="h-[3px] w-full bg-slate-100">
+              <div
+                key={toastKey} // Đổi key ép React reset lại div & keyframes khi spam click
+                className={`h-full w-full origin-left ${
+                  type === "success" ? "bg-emerald-500" : "bg-rose-500"
+                }`}
+                style={{
+                  animation: `shrink-progress ${TOAST_DURATION}ms linear forwards`,
+                }}
+              />
+            </div>
           </div>
         </div>
       )}

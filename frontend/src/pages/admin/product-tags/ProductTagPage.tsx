@@ -630,13 +630,6 @@ const ProductTagPage: React.FC = () => {
 
                       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                         {groupItems.length} tag
-                        {group.slug ? (
-                          <>
-                            {" "}
-                            • slug:{" "}
-                            <span className="font-medium">{group.slug}</span>
-                          </>
-                        ) : null}
                       </p>
                     </div>
 

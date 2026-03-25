@@ -31,9 +31,6 @@ import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelin
 import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 import { AdminToastProvider } from "./context/AdminToastContext";
 import ProductOriginPage from "./pages/admin/product-origin/ProductOriginPage";
-import ProductOriginCreatePage from "./pages/admin/product-origin/ProductOriginCreatePage";
-import ProductOriginDetailPage from "./pages/admin/product-origin/ProductOriginDetailPage";
-import ProductOriginEditPage from "./pages/admin/product-origin/ProductOriginEditPage";
 import ProductTagPage from "./pages/admin/product-tags/ProductTagPage";
 
 // Client Layout & Pages
@@ -166,18 +163,6 @@ const App: React.FC = () => {
                               <Route
                                 path="product-origin"
                                 element={<ProductOriginPage />}
-                              />
-                              <Route
-                                path="product-origin/create"
-                                element={<ProductOriginCreatePage />}
-                              />
-                              <Route
-                                path="product-origin/detail/:id"
-                                element={<ProductOriginDetailPage />}
-                              />
-                              <Route
-                                path="product-origin/edit/:id"
-                                element={<ProductOriginEditPage />}
                               />
                               <Route
                                 path="product-tags"

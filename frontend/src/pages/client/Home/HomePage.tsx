@@ -15,23 +15,62 @@ import {
   Star,
   Quote,
   ArrowUp,
+  Flame,
 } from "lucide-react";
 import { slides, testimonials } from "./content";
+
+interface Category {
+  id: number;
+  title: string;
+  slug: string;
+}
+
+interface ProductVariantInventory {
+  id: number;
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+interface ProductVariant {
+  id: number;
+  title?: string | null;
+  stock: number;
+  availableStock?: number;
+  inventory?: ProductVariantInventory | null;
+  price: number;
+  status?: string;
+}
+
+interface ProductOrigin {
+  id: number;
+  name: string;
+  slug: string;
+  countryCode?: string | null;
+}
 
 interface Product {
   id: number;
   title: string;
   slug?: string;
   price: number;
-  discountPercentage?: number;
-  effectivePrice?: number;
+  effectivePrice?: number | null;
+  discountPercentage?: number | null;
+  effective_price?: number;
+  discount_percentage?: number;
   thumbnail?: string;
   stock?: number;
-  category?: {
-    id: number;
-    title: string;
-    slug?: string;
-  } | null;
+  totalStock?: number;
+  featured?: boolean;
+  priceRange?: { min: number; max: number } | null;
+  variants?: ProductVariant[];
+  category?: Category | null;
+  origin?: ProductOrigin | null;
+  averageRating?: number;
+  reviewCount?: number;
+  shortDescription?: string | null;
 }
 
 const HomePage: React.FC = () => {
@@ -47,7 +86,7 @@ const HomePage: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-      const url = `/api/v1/client/products?page=1&limit=8&sortBy=position&order=ASC`;
+      const url = `/api/v1/client/products?page=1&limit=8&featured=true&sortBy=position&order=ASC`;
       const json = await http<any>("GET", url);
       if (json?.success && Array.isArray(json.data)) {
         setProducts(json.data);
@@ -94,25 +133,241 @@ const HomePage: React.FC = () => {
     setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
   const goToSlide = (index: number) => setCurrentSlide(index);
 
-  const getFinalPrice = (product: Product) => {
-    if (
-      typeof product.effectivePrice === "number" &&
-      !Number.isNaN(product.effectivePrice)
-    ) {
-      return product.effectivePrice;
-    }
-    if (
-      typeof product.price === "number" &&
-      typeof product.discountPercentage === "number" &&
-      product.discountPercentage > 0
-    ) {
-      return Math.round(product.price * (1 - product.discountPercentage / 100));
-    }
-    return product.price;
-  };
-
   const formatPrice = (value: number) => {
     return value.toLocaleString("vi-VN") + " đ";
+  };
+
+  const hasRealPriceRange = (product: Product) => {
+    return (
+      !!product.priceRange &&
+      typeof product.priceRange.min === "number" &&
+      typeof product.priceRange.max === "number" &&
+      product.priceRange.max > product.priceRange.min
+    );
+  };
+
+  const getDisplayPrice = (product: Product) => {
+    if (product.priceRange?.min !== undefined) return product.priceRange.min;
+    if (typeof product.effectivePrice === "number")
+      return product.effectivePrice;
+    if (typeof product.effective_price === "number")
+      return product.effective_price;
+    return product.price ?? 0;
+  };
+
+  const getDisplayComparePrice = (product: Product) => {
+    if (hasRealPriceRange(product)) {
+      return 0;
+    }
+    return product.price ?? 0;
+  };
+
+  const getDiscountPercent = (product: Product) => {
+    if (hasRealPriceRange(product)) {
+      return 0;
+    }
+
+    if (typeof product.discountPercentage === "number") {
+      return Math.max(0, Number(product.discountPercentage));
+    }
+
+    if (typeof product.discount_percentage === "number") {
+      return Math.max(0, Number(product.discount_percentage));
+    }
+
+    const displayPrice = getDisplayPrice(product);
+    const comparePrice = getDisplayComparePrice(product);
+
+    if (comparePrice > displayPrice && comparePrice > 0) {
+      return Math.round(((comparePrice - displayPrice) / comparePrice) * 100);
+    }
+
+    return 0;
+  };
+  const getDisplayStock = (product: Product) => {
+    if (typeof product.totalStock === "number") {
+      return Math.max(0, Number(product.totalStock));
+    }
+
+    if (Array.isArray(product.variants) && product.variants.length > 0) {
+      return product.variants.reduce((sum, variant) => {
+        return (
+          sum +
+          Math.max(
+            0,
+            Number(
+              variant.availableStock ??
+                variant.inventory?.availableQuantity ??
+                variant.stock ??
+                0,
+            ),
+          )
+        );
+      }, 0);
+    }
+
+    return Math.max(0, Number(product.stock ?? 0));
+  };
+
+  const getPriceRangeLabel = (product: Product) => {
+    if (!hasRealPriceRange(product) || !product.priceRange) {
+      return formatPrice(getDisplayPrice(product));
+    }
+
+    const min = Number(product.priceRange.min || 0);
+    const max = Number(product.priceRange.max || 0);
+
+    if (min === max) {
+      return formatPrice(min);
+    }
+
+    return `${formatPrice(min)} - ${formatPrice(max)}`;
+  };
+
+  const firstRowProducts = products.slice(0, 5);
+  const secondRowProducts = products.slice(5, 8);
+
+  const renderProductCard = (product: Product, index: number) => {
+    const displayPrice = getDisplayPrice(product);
+    const comparePrice = getDisplayComparePrice(product);
+    const discountPercent = getDiscountPercent(product);
+    const hasDiscount = discountPercent > 0;
+    const stock = getDisplayStock(product);
+    const isPriceRangeProduct = hasRealPriceRange(product);
+    const priceLabel = getPriceRangeLabel(product);
+
+    // Highlight sản phẩm đầu tiên
+    const isHighlighted = index === 0;
+
+    return (
+      <div
+        key={product.id}
+        // Thêm animation fade & slide up với delay theo index
+        className={`group flex flex-col bg-white rounded-[2rem] p-3 shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_rgba(22,101,52,0.12)] transition-all duration-500 h-full relative ${
+          isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"
+        } ${
+          isHighlighted
+            ? "border-2 border-green-400 ring-4 ring-green-50 lg:-translate-y-2"
+            : "border border-slate-100 hover:-translate-y-2"
+        }`}
+        style={{ transitionDelay: `${index * 100}ms` }}
+      >
+        <div className="relative aspect-square rounded-[1.5rem] bg-slate-50 overflow-hidden mb-4">
+          <img
+            src={
+              product.thumbnail ||
+              "https://via.placeholder.com/300x300?text=No+Image"
+            }
+            alt={product.title}
+            // Zoom mượt hơn
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 mix-blend-multiply"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src =
+                "https://via.placeholder.com/300x300?text=No+Image";
+            }}
+          />
+
+          {/* Overlay gradient nhẹ khi hover */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-900/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"></div>
+
+          <div className="absolute top-3 left-3 flex flex-col gap-2 z-10">
+            {product.featured && (
+              <span className="bg-gradient-to-r from-yellow-400 to-amber-500 text-yellow-950 text-[10px] font-black uppercase tracking-wider px-3 py-1.5 rounded-full shadow-[0_0_15px_rgba(251,191,36,0.6)] animate-pulse">
+                Nổi bật
+              </span>
+            )}
+            {!isPriceRangeProduct && hasDiscount && (
+              <span className="bg-red-500 text-white text-[10px] font-black px-3 py-1.5 rounded-full shadow-md">
+                -{discountPercent}%
+              </span>
+            )}
+          </div>
+
+          {/* Overlay hết hàng mượt và rõ ràng hơn */}
+          {stock <= 0 && (
+            <div className="absolute inset-0 bg-white/40 backdrop-blur-md flex items-center justify-center z-20">
+              <span className="bg-slate-900/90 text-white font-bold text-sm px-6 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                Tạm hết hàng
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="px-2 pb-2 flex-1 flex flex-col relative z-10">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-green-600 mb-1.5 line-clamp-1">
+            {product.category?.title || "Sản phẩm tươi"}
+          </span>
+
+          <Link
+            to={
+              product.slug
+                ? `/products/${product.slug}`
+                : `/products/${product.id}`
+            }
+            className="text-lg font-bold text-slate-900 mb-2 line-clamp-2 leading-tight group-hover:text-green-700 transition-colors"
+          >
+            {product.title}
+          </Link>
+
+          {typeof product.averageRating === "number" &&
+            typeof product.reviewCount === "number" &&
+            product.reviewCount > 0 && (
+              <div className="flex items-center gap-1.5 mb-2 text-sm">
+                <span className="flex items-center gap-1 text-yellow-500 font-bold">
+                  <Star className="h-4 w-4 fill-current" />
+                  {product.averageRating.toFixed(1)}
+                </span>
+                <span className="text-slate-400">({product.reviewCount})</span>
+              </div>
+            )}
+
+          {product.shortDescription && (
+            <p className="text-sm text-slate-500 font-medium line-clamp-2 mb-2">
+              {product.shortDescription}
+            </p>
+          )}
+
+          {product.origin?.name && (
+            <p className="text-xs font-bold text-slate-400 mb-2">
+              Xuất xứ: {product.origin.name}
+            </p>
+          )}
+
+          <div className="mt-auto flex flex-col gap-1 mb-5">
+            <div className="flex items-end gap-2 flex-wrap">
+              {/* Giá được tinh chỉnh nhỏ gọn hơn */}
+              <span className="text-base md:text-lg font-black text-green-700 leading-none">
+                {isPriceRangeProduct ? priceLabel : formatPrice(displayPrice)}
+              </span>
+
+              {!isPriceRangeProduct &&
+                hasDiscount &&
+                comparePrice > displayPrice && (
+                  <span className="text-sm font-medium text-slate-400 line-through decoration-slate-300 mb-0.5">
+                    {formatPrice(comparePrice)}
+                  </span>
+                )}
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl">
+            <Link
+              to={
+                product.slug
+                  ? `/products/${product.slug}`
+                  : `/products/${product.id}`
+              }
+              // Đổi thành translate-y-full (trượt từ dưới lên)
+              className="w-full flex items-center justify-center gap-2 bg-slate-900 text-white py-3.5 rounded-xl font-bold hover:bg-green-600 active:scale-[0.98] transition-all duration-500 shadow-sm hover:shadow-lg hover:shadow-green-600/20 opacity-0 translate-y-full group-hover:opacity-100 group-hover:translate-y-0"
+            >
+              <ShoppingBag className="h-5 w-5" />
+              Xem chi tiết
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -136,7 +391,6 @@ const HomePage: React.FC = () => {
                   index === currentSlide ? "scale-105" : "scale-100"
                 }`}
               />
-              {/* Gradient Overlay mềm mại hơn */}
               <div className="absolute inset-0 bg-gradient-to-r from-slate-900/80 via-slate-900/40 to-transparent"></div>
 
               <div className="absolute inset-0 flex items-center">
@@ -223,7 +477,7 @@ const HomePage: React.FC = () => {
           </div>
         </section>
 
-        {/* ================== 2. QUICK ABOUT (Giới thiệu nhanh) ================== */}
+        {/* ================== 2. QUICK ABOUT ================== */}
         <section className="py-20 relative">
           <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-100/50 rounded-full blur-[100px] pointer-events-none"></div>
           <div className="container mx-auto px-4 lg:px-8">
@@ -280,7 +534,6 @@ const HomePage: React.FC = () => {
                     className="rounded-[2rem] w-full h-[300px] object-cover shadow-xl"
                   />
                 </div>
-                {/* Decorative shape */}
                 <div className="absolute -bottom-6 -left-6 w-32 h-32 bg-green-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
                 <div className="absolute -top-6 -right-6 w-32 h-32 bg-yellow-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
               </div>
@@ -288,7 +541,7 @@ const HomePage: React.FC = () => {
           </div>
         </section>
 
-        {/* ================== 3. WHY CHOOSE US (Lý do chọn) ================== */}
+        {/* ================== 3. WHY CHOOSE US ================== */}
         <section className="py-20 bg-slate-50">
           <div className="container mx-auto px-4 lg:px-8">
             <div className="max-w-7xl mx-auto">
@@ -344,27 +597,27 @@ const HomePage: React.FC = () => {
           </div>
         </section>
 
-        {/* ================== 4. FEATURED PRODUCTS (Sản phẩm nổi bật) ================== */}
+        {/* ================== 4. FEATURED PRODUCTS (Đã Nâng Cấp) ================== */}
         <section className="py-24 relative overflow-hidden">
-          <div className="absolute top-1/2 left-0 w-[800px] h-[800px] bg-green-50/50 rounded-full blur-[100px] -translate-y-1/2 -translate-x-1/2 pointer-events-none"></div>
+          <div className="absolute top-1/2 left-0 w-[800px] h-[800px] bg-green-50/50 rounded-full blur-[100px] -translate-y-1/2 -translate-x-1/2 pointer-events-none z-0"></div>
 
           <div className="container mx-auto px-4 lg:px-8 relative z-10">
             <div className="max-w-7xl mx-auto">
               <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
                 <div className="max-w-2xl">
-                  <span className="text-green-600 font-bold tracking-wider uppercase text-sm mb-2 block">
-                    Top Bán Chạy
-                  </span>
-                  <h2 className="text-3xl md:text-4xl font-black text-slate-900">
+                  {/* Label tạo hiệu ứng FOMO */}
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-green-600 font-bold tracking-wider uppercase text-sm">
+                      Top Bán Chạy Tuần Này
+                    </span>
+                    <span className="bg-red-100 text-red-600 text-xs font-bold px-2.5 py-1 rounded-full animate-pulse flex items-center gap-1 shadow-sm">
+                      <Flame className="w-3 h-3" /> Đang được yêu thích
+                    </span>
+                  </div>
+                  <h2 className="text-3xl md:text-5xl font-black text-slate-900">
                     Sản Phẩm Nổi Bật
                   </h2>
                 </div>
-                <Link
-                  to="/products"
-                  className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-6 py-3 rounded-2xl font-bold hover:bg-slate-200 transition-colors shrink-0"
-                >
-                  Xem tất cả <ArrowRight className="w-4 h-4" />
-                </Link>
               </div>
 
               {loading ? (
@@ -380,103 +633,69 @@ const HomePage: React.FC = () => {
                   Chưa có sản phẩm nào.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
-                  {products.map((p) => {
-                    const hasDiscount =
-                      typeof p.discountPercentage === "number" &&
-                      p.discountPercentage > 0;
-                    const finalPrice = getFinalPrice(p);
-                    const isOutOfStock =
-                      typeof p.stock === "number" && p.stock <= 0;
+                <div className="space-y-6">
+                  {/* Hàng 1: 5 sản phẩm */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                    {firstRowProducts.map((product, index) =>
+                      renderProductCard(product, index),
+                    )}
+                  </div>
 
-                    return (
-                      <div
-                        key={p.id}
-                        className="group bg-white rounded-[2rem] overflow-hidden border border-slate-100 shadow-sm hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-500 hover:-translate-y-1 flex flex-col"
+                  {/* Hàng 2: 3 sản phẩm + Khu vực nút xem tất cả (Glassmorphism CTA) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                    {secondRowProducts.map((product, index) =>
+                      renderProductCard(product, index + 5),
+                    )}
+
+                    {/* Nút Xem Tất Cả - Nâng cấp dạng CTA Mini Card */}
+                    <div className="hidden lg:flex lg:col-span-2 relative">
+                      <Link
+                        to="/products"
+                        className={`group w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50/50 to-teal-50 rounded-[2rem] p-6 border border-green-100/50 shadow-sm hover:shadow-xl hover:shadow-green-900/10 transition-all duration-500 hover:-translate-y-1 relative overflow-hidden ${
+                          isVisible
+                            ? "opacity-100 translate-y-0"
+                            : "opacity-0 translate-y-12"
+                        }`}
+                        style={{ transitionDelay: "800ms" }}
                       >
-                        {/* Image Box */}
-                        <div className="relative h-60 bg-slate-50 overflow-hidden">
-                          <img
-                            src={p.thumbnail || "/placeholder.jpg"}
-                            alt={p.title}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src =
-                                "/placeholder.jpg";
-                            }}
-                          />
+                        {/* Background decor */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-green-200/50 rounded-full blur-3xl group-hover:bg-green-300/50 transition-colors duration-500"></div>
+                        <div className="absolute bottom-0 left-0 w-24 h-24 bg-teal-200/50 rounded-full blur-2xl group-hover:bg-teal-300/50 transition-colors duration-500"></div>
 
-                          {/* Badges */}
-                          <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-                            {hasDiscount && (
-                              <span className="bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm">
-                                -{p.discountPercentage}%
-                              </span>
-                            )}
-                            {p.category?.title && (
-                              <span className="bg-white/90 backdrop-blur-sm text-green-700 border border-green-100 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
-                                {p.category.title}
-                              </span>
-                            )}
-                          </div>
-
-                          {isOutOfStock && (
-                            <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-20">
-                              <span className="bg-white text-slate-900 px-4 py-2 rounded-xl font-bold text-sm">
-                                Hết hàng
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Quick Action Hover - ĐÃ SỬA THÀNH p.slug || p.id */}
-                          {!isOutOfStock && (
-                            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 translate-y-12 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 z-10 w-11/12">
-                              <Link
-                                to={`/products/${p.slug || p.id}`}
-                                className="block w-full bg-slate-900/90 backdrop-blur text-white text-center py-3 rounded-2xl font-bold text-sm hover:bg-green-600 transition-colors"
-                              >
-                                Xem chi tiết
-                              </Link>
-                            </div>
-                          )}
+                        {/* Content */}
+                        <div className="w-16 h-16 bg-white shadow-sm rounded-full flex items-center justify-center mb-4 text-green-600 group-hover:scale-110 group-hover:bg-green-600 group-hover:text-white transition-all duration-500 relative z-10">
+                          <ArrowRight className="w-8 h-8 group-hover:translate-x-1 transition-transform" />
                         </div>
+                        <h3 className="text-xl font-black text-slate-900 mb-2 relative z-10">
+                          Xem tất cả sản phẩm
+                        </h3>
+                        <p className="text-sm font-medium text-slate-500 text-center mb-5 relative z-10 max-w-[200px]">
+                          Khám phá thêm 100+ trái cây tươi ngon đang chờ bạn
+                        </p>
+                        <span className="inline-flex items-center gap-2 text-green-600 font-bold text-sm bg-white/80 backdrop-blur-sm px-5 py-2.5 rounded-xl relative z-10 shadow-sm group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                          Khám phá ngay
+                        </span>
+                      </Link>
+                    </div>
+                  </div>
 
-                        {/* Content Box */}
-                        <div className="p-5 flex flex-col flex-grow">
-                          {/* ĐÃ SỬA THÀNH p.slug || p.id */}
-                          <Link
-                            to={`/products/${p.slug || p.id}`}
-                            className="text-lg font-bold text-slate-900 hover:text-green-600 transition-colors line-clamp-2 mb-4 h-14"
-                          >
-                            {p.title}
-                          </Link>
-
-                          <div className="mt-auto">
-                            <div className="flex items-end gap-2 flex-wrap mb-1">
-                              <span className="text-xl font-black text-green-600">
-                                {formatPrice(finalPrice)}
-                              </span>
-                              {hasDiscount && (
-                                <span className="text-sm font-medium text-slate-400 line-through mb-0.5">
-                                  {formatPrice(p.price)}
-                                </span>
-                              )}
-                            </div>
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                              Đơn vị: 1 KG
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {/* Nút xem tất cả cho màn hình nhỏ */}
+                  <div className="flex justify-center lg:hidden pt-4">
+                    <Link
+                      to="/products"
+                      className="inline-flex items-center gap-2 bg-slate-900 text-white px-8 py-4 rounded-2xl text-sm font-bold hover:bg-green-600 transition-colors shadow-lg active:scale-95"
+                    >
+                      Khám phá thêm 100+ sản phẩm{" "}
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </section>
 
-        {/* ================== 5. CATEGORY SHOWCASE (Tĩnh) ================== */}
+        {/* ================== 5. CATEGORY SHOWCASE ================== */}
         <section className="py-10">
           <div className="container mx-auto px-4 lg:px-8">
             <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-6">

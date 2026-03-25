@@ -295,19 +295,6 @@ const ProductListPage: React.FC = () => {
     return 0;
   };
 
-  const hasMultipleVariants = (product: Product) =>
-    Array.isArray(product.variants) && product.variants.length > 1;
-
-  const getDiscountAmount = (product: Product) => {
-    if (hasRealPriceRange(product)) {
-      return 0;
-    }
-
-    const displayPrice = getDisplayPrice(product);
-    const comparePrice = getDisplayComparePrice(product);
-    return Math.max(0, comparePrice - displayPrice);
-  };
-
   return (
     <Layout>
       <div className="bg-[#fcfdfc] min-h-screen text-slate-800 font-sans selection:bg-green-200 selection:text-green-900 pb-20">
@@ -660,7 +647,6 @@ const ProductListPage: React.FC = () => {
                     {products.map((product) => {
                       const displayPrice = getDisplayPrice(product);
                       const comparePrice = getDisplayComparePrice(product);
-                      const discountAmount = getDiscountAmount(product);
                       const discountPercent = getDiscountPercent(product);
                       const hasDiscount = discountPercent > 0;
                       const stock = getDisplayStock(product);
@@ -688,11 +674,6 @@ const ProductListPage: React.FC = () => {
                               {!isPriceRangeProduct && hasDiscount && (
                                 <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
                                   -{discountPercent}%
-                                </span>
-                              )}
-                              {product.featured && (
-                                <span className="bg-yellow-400 text-yellow-900 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
-                                  Nổi bật
                                 </span>
                               )}
                             </div>
@@ -759,12 +740,6 @@ const ProductListPage: React.FC = () => {
                               </p>
                             )}
 
-                            {hasMultipleVariants(product) && (
-                              <p className="text-xs font-bold text-slate-400 mb-2">
-                                Nhiều quy cách / size
-                              </p>
-                            )}
-
                             {/* Vùng Giá */}
                             <div className="mt-auto flex flex-col gap-1 mb-5">
                               <div className="flex items-center gap-2 flex-wrap">
@@ -781,21 +756,6 @@ const ProductListPage: React.FC = () => {
                                       {formatPrice(comparePrice)}
                                     </span>
                                   )}
-                              </div>
-
-                              <div className="h-6">
-                                {isPriceRangeProduct ? (
-                                  <span className="inline-flex items-center text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
-                                    Giá theo quy cách
-                                  </span>
-                                ) : (
-                                  hasDiscount &&
-                                  comparePrice > displayPrice && (
-                                    <span className="inline-flex items-center text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">
-                                      Tiết kiệm {formatPrice(discountAmount)}
-                                    </span>
-                                  )
-                                )}
                               </div>
                             </div>
 

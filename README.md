@@ -512,9 +512,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
 │   │   │   │   ├── 📁 product-origin
-│   │   │   │   │   ├── 📄 ProductOriginCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductOriginDetailPage.tsx
-│   │   │   │   │   ├── 📄 ProductOriginEditPage.tsx
 │   │   │   │   │   └── 📄 ProductOriginPage.tsx
 │   │   │   │   ├── 📁 product-tags
 │   │   │   │   │   └── 📄 ProductTagPage.tsx
