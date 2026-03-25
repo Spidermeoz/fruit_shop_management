@@ -12,6 +12,11 @@ const ProductTag = sequelize.define(
       allowNull: false,
     },
 
+    product_tag_group_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false,
+    },
+
     name: {
       type: DataTypes.STRING(255),
       allowNull: false,
@@ -21,27 +26,6 @@ const ProductTag = sequelize.define(
       type: DataTypes.STRING(255),
       allowNull: true,
       unique: true,
-    },
-
-    tag_group: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-    },
-
-    description: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-    },
-
-    status: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      defaultValue: "active",
-    },
-
-    position: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
     },
 
     deleted: {

@@ -117,6 +117,7 @@ export const makeProductsController = (uc: {
           page,
           limit,
           q,
+          keyword,
           categoryId,
           status,
           featured,
@@ -126,11 +127,20 @@ export const makeProductsController = (uc: {
           order,
         } = req.query as Record<string, string>;
 
+        const normalizedPage = Math.max(1, toNum(page) ?? 1);
+        const normalizedLimit = Math.max(1, toNum(limit) ?? 10);
+        const normalizedQuery = String(q ?? keyword ?? "").trim();
+
+        const normalizedCategoryId =
+          categoryId !== undefined && String(categoryId).trim() !== ""
+            ? Number(categoryId)
+            : null;
+
         const data = await uc.list.execute({
-          page: toNum(page) ?? 1,
-          limit: toNum(limit) ?? 10,
-          q,
-          categoryId: categoryId !== undefined ? Number(categoryId) : null,
+          page: normalizedPage,
+          limit: normalizedLimit,
+          q: normalizedQuery,
+          categoryId: normalizedCategoryId,
           status: (status as any) ?? "all",
           featured: toBool(featured),
           minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
@@ -144,8 +154,8 @@ export const makeProductsController = (uc: {
           data: data.rows,
           meta: {
             total: data.count,
-            page: Number(page ?? 1),
-            limit: Number(limit ?? 10),
+            page: normalizedPage,
+            limit: normalizedLimit,
           },
         });
       } catch (e) {

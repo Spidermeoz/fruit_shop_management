@@ -12,7 +12,7 @@ export class ListProductTags {
       page: filter.page ?? 1,
       limit: filter.limit ?? 20,
       q: filter.q,
-      tagGroup: filter.tagGroup ?? "all",
+      productTagGroupId: filter.productTagGroupId ?? "all",
       sortBy: filter.sortBy ?? "name",
       order: filter.order ?? "ASC",
     });

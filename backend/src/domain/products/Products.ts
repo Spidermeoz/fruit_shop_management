@@ -74,7 +74,12 @@ export interface ProductProps {
     id: number;
     name: string;
     slug: string;
-    tagGroup: "season" | "health" | "usage" | "audience";
+    productTagGroupId?: number | null;
+    group?: {
+      id: number;
+      name: string;
+      slug: string | null;
+    } | null;
   }[];
 
   deleted?: boolean;

@@ -20,13 +20,15 @@ export const makeProductTagsController = (uc: {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { page, limit, q, tagGroup, sortBy, order } = req.query as any;
+        const { page, limit, q, productTagGroupId, sortBy, order } =
+          req.query as any;
 
         const data = await uc.list.execute({
           page: toNum(page) ?? 1,
           limit: toNum(limit) ?? 20,
           q,
-          tagGroup: tagGroup ?? "all",
+          productTagGroupId:
+            productTagGroupId !== undefined ? Number(productTagGroupId) : "all",
           sortBy: sortBy ?? "name",
           order: order ?? "ASC",
         });

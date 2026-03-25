@@ -26,8 +26,15 @@ interface Origin {
 interface ProductTag {
   id: number;
   name: string;
-  group: string;
-  status: string;
+  slug?: string | null;
+  productTagGroupId?: number | null;
+  tagGroup?: string | null;
+  group?: {
+    id: number;
+    name: string;
+    slug?: string | null;
+  } | null;
+  deleted?: boolean;
 }
 
 interface ProductCategory {
@@ -97,6 +104,39 @@ interface Product {
   variants?: ProductVariantInput[];
 }
 
+function normalizeProductTag(raw: any): ProductTag {
+  const resolvedGroup =
+    raw.group && typeof raw.group === "object"
+      ? {
+          id: Number(raw.group.id),
+          name: String(raw.group.name ?? ""),
+          slug: raw.group.slug ?? null,
+        }
+      : null;
+
+  const resolvedTagGroupName =
+    typeof raw.tagGroup === "string"
+      ? raw.tagGroup
+      : typeof raw.tag_group === "string"
+        ? raw.tag_group
+        : (resolvedGroup?.name ?? null);
+
+  return {
+    id: Number(raw.id),
+    name: String(raw.name ?? ""),
+    slug: raw.slug ?? null,
+    productTagGroupId:
+      raw.productTagGroupId != null
+        ? Number(raw.productTagGroupId)
+        : raw.product_tag_group_id != null
+          ? Number(raw.product_tag_group_id)
+          : (resolvedGroup?.id ?? null),
+    tagGroup: resolvedTagGroupName,
+    group: resolvedGroup,
+    deleted: Boolean(raw.deleted ?? false),
+  };
+}
+
 // =============================
 // HELPERS
 // =============================
@@ -158,11 +198,15 @@ const ProductEditPage: React.FC = () => {
 
           origin_id: data.origin_id ?? data.originId ?? data.origin?.id ?? "",
 
-          tag_ids:
-            data.tagIds ??
-            (Array.isArray(data.tags)
-              ? data.tags.map((t: any) => Number(t.id))
-              : []),
+          tag_ids: Array.isArray(data.tagIds)
+            ? data.tagIds
+                .map(Number)
+                .filter((id: number) => Number.isInteger(id) && id > 0)
+            : Array.isArray(data.tags)
+              ? data.tags
+                  .map((t: any) => Number(t.id))
+                  .filter((id: number) => Number.isInteger(id) && id > 0)
+              : [],
 
           short_description:
             data.short_description ?? data.shortDescription ?? "",
@@ -341,11 +385,35 @@ const ProductEditPage: React.FC = () => {
           "GET",
           "/api/v1/admin/product-tags?limit=1000",
         );
-        if (json.success && Array.isArray(json.data)) {
-          const activeTags = json.data.filter(
-            (t: any) => t.status === "active",
-          );
-          setTags(activeTags);
+
+        const rows = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.items)
+            ? json.data.items
+            : Array.isArray(json?.items)
+              ? json.items
+              : [];
+
+        if (json.success && rows.length > 0) {
+          const availableTags = rows
+            .map(normalizeProductTag)
+            .filter(
+              (tag: ProductTag) => !tag.deleted && tag.id > 0 && !!tag.name,
+            )
+            .sort((a: ProductTag, b: ProductTag) => {
+              const groupA = a.tagGroup ?? "Khác";
+              const groupB = b.tagGroup ?? "Khác";
+
+              if (groupA !== groupB) {
+                return groupA.localeCompare(groupB, "vi");
+              }
+
+              return a.name.localeCompare(b.name, "vi");
+            });
+
+          setTags(availableTags);
+        } else {
+          setTags([]);
         }
       } catch (err) {
         console.error("fetchTags error:", err);
@@ -365,10 +433,12 @@ const ProductEditPage: React.FC = () => {
   const groupedTags = useMemo(() => {
     return tags.reduce(
       (acc, tag) => {
-        const groupName = tag.group || "Khác";
+        const groupName = tag.tagGroup || "Khác";
+
         if (!acc[groupName]) {
           acc[groupName] = [];
         }
+
         acc[groupName].push(tag);
         return acc;
       },
@@ -401,12 +471,18 @@ const ProductEditPage: React.FC = () => {
   const handleToggleTag = (tagId: number) => {
     setProduct((prev) => {
       if (!prev) return prev;
+
       const currentTags = prev.tag_ids || [];
       const isSelected = currentTags.includes(tagId);
+
       const newTagIds = isSelected
         ? currentTags.filter((id) => id !== tagId)
         : [...currentTags, tagId];
-      return { ...prev, tag_ids: newTagIds };
+
+      return {
+        ...prev,
+        tag_ids: [...new Set(newTagIds)],
+      };
     });
   };
 
@@ -466,11 +542,35 @@ const ProductEditPage: React.FC = () => {
     value: any,
   ) => {
     if (!product) return;
+
     setProduct((prev) => {
       if (!prev) return prev;
-      const next = [...(prev.options || [])];
-      next[optionIndex] = { ...next[optionIndex], [field]: value };
-      return { ...prev, options: next };
+
+      const nextOptions = [...(prev.options || [])];
+      const oldOption = nextOptions[optionIndex];
+      const oldName = oldOption?.name ?? "";
+
+      nextOptions[optionIndex] = {
+        ...oldOption,
+        [field]: value,
+      };
+
+      let nextVariants = prev.variants || [];
+
+      if (field === "name") {
+        nextVariants = nextVariants.map((variant) => ({
+          ...variant,
+          optionValues: (variant.optionValues || []).map((ov) =>
+            ov.optionName === oldName ? { ...ov, optionName: value } : ov,
+          ),
+        }));
+      }
+
+      return {
+        ...prev,
+        options: nextOptions,
+        variants: nextVariants,
+      };
     });
   };
 
@@ -480,18 +580,38 @@ const ProductEditPage: React.FC = () => {
     value: string,
   ) => {
     if (!product) return;
+
     setProduct((prev) => {
       if (!prev) return prev;
+
       const nextOptions = [...(prev.options || [])];
       const option = { ...nextOptions[optionIndex] };
+      const oldValue = option.values[valueIndex]?.value ?? "";
+      const optionName = option.name ?? "";
       const values = [...option.values];
+
       values[valueIndex] = {
         ...values[valueIndex],
         value,
       };
+
       option.values = values;
       nextOptions[optionIndex] = option;
-      return { ...prev, options: nextOptions };
+
+      const nextVariants = (prev.variants || []).map((variant) => ({
+        ...variant,
+        optionValues: (variant.optionValues || []).map((ov) =>
+          ov.optionName === optionName && ov.value === oldValue
+            ? { ...ov, value }
+            : ov,
+        ),
+      }));
+
+      return {
+        ...prev,
+        options: nextOptions,
+        variants: nextVariants,
+      };
     });
   };
 
@@ -614,6 +734,13 @@ const ProductEditPage: React.FC = () => {
 
       if (!option || !targetValue) return prev;
 
+      if (
+        !String(option.name ?? "").trim() ||
+        !String(targetValue.value ?? "").trim()
+      ) {
+        return prev;
+      }
+
       const optionValueKeys = option.values.map((v, idx) => v.id ?? idx);
 
       const nextIds = (current.optionValueIds || []).filter(
@@ -705,14 +832,27 @@ const ProductEditPage: React.FC = () => {
         "Mỗi tùy chọn phải có tên và ít nhất 1 giá trị hợp lệ.";
     }
 
-    const optionCount = (product.options || []).length;
-
     const invalidVariantOptionMapping = (product.variants || []).find(
       (variant) => {
-        const selectedCount = (variant.optionValueIds || []).length;
-        return optionCount > 0 && selectedCount !== optionCount;
+        return (product.options || []).some((option) => {
+          const optionName = String(option.name ?? "").trim();
+          if (!optionName) return true;
+
+          const matches = (variant.optionValues || []).filter(
+            (ov) => String(ov.optionName ?? "").trim() === optionName,
+          );
+
+          return (
+            matches.length !== 1 || !String(matches[0]?.value ?? "").trim()
+          );
+        });
       },
     );
+
+    if (invalidVariantOptionMapping) {
+      newErrors.variants =
+        "Mỗi biến thể phải chọn đúng 1 giá trị cho mỗi tùy chọn.";
+    }
 
     if (invalidVariantOptionMapping) {
       newErrors.variants =
@@ -812,7 +952,9 @@ const ProductEditPage: React.FC = () => {
         usageSuggestions: updatedUsageSuggestions,
         nutritionNotes: updatedNutritionNotes,
         shortDescription: product.short_description || null,
-        tagIds: product.tag_ids,
+        tagIds: [...new Set((product.tag_ids || []).map(Number))].filter(
+          (id) => Number.isInteger(id) && id > 0,
+        ),
         price: Number(product.price),
         stock: derivedStockFromNormalizedVariants, // 🔹 Sử dụng stock tổng hợp
         discountPercentage: Number(product.discount_percentage),
@@ -1332,8 +1474,14 @@ const ProductEditPage: React.FC = () => {
                               const optionKey = option.id ?? optionIndex;
                               const valueKey = value.id ?? valueIndex;
                               const selected = (
-                                variant.optionValueIds || []
-                              ).includes(valueKey);
+                                variant.optionValues || []
+                              ).some(
+                                (ov) =>
+                                  String(ov.optionName ?? "").trim() ===
+                                    String(option.name ?? "").trim() &&
+                                  String(ov.value ?? "").trim() ===
+                                    String(value.value ?? "").trim(),
+                              );
 
                               return (
                                 <button

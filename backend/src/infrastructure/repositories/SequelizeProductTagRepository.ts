@@ -14,8 +14,18 @@ function mapRow(row: any): ProductTag {
     id: Number(row.id),
     name: String(row.name),
     slug: row.slug ? String(row.slug) : null,
-    description: row.description ?? null,
-    tagGroup: row.tag_group,
+    productTagGroupId: Number(row.product_tag_group_id),
+    group: row.group
+      ? {
+          id: Number(row.group.id),
+          name: String(row.group.name),
+          slug: row.group.slug ? String(row.group.slug) : null,
+          deleted: !!row.group.deleted,
+          deletedAt: row.group.deleted_at ?? null,
+          createdAt: row.group.created_at ?? undefined,
+          updatedAt: row.group.updated_at ?? undefined,
+        }
+      : null,
     deleted: !!row.deleted,
     deletedAt: row.deleted_at ?? null,
     createdAt: row.created_at ?? undefined,
@@ -36,15 +46,19 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
     };
 
     if (filter.q?.trim()) {
+      const keyword = filter.q.trim();
       where[Op.or] = [
-        { name: { [Op.like]: `%${filter.q.trim()}%` } },
-        { slug: { [Op.like]: `%${filter.q.trim()}%` } },
-        { description: { [Op.like]: `%${filter.q.trim()}%` } },
+        { name: { [Op.like]: `%${keyword}%` } },
+        { slug: { [Op.like]: `%${keyword}%` } },
       ];
     }
 
-    if (filter.tagGroup && filter.tagGroup !== "all") {
-      where.tag_group = filter.tagGroup;
+    if (
+      filter.productTagGroupId !== undefined &&
+      filter.productTagGroupId !== null &&
+      filter.productTagGroupId !== "all"
+    ) {
+      where.product_tag_group_id = Number(filter.productTagGroupId);
     }
 
     const sortableFields: Record<string, string> = {
@@ -59,6 +73,12 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
 
     const { rows, count } = await this.ProductTagModel.findAndCountAll({
       where,
+      include: [
+        {
+          association: "group",
+          required: false,
+        },
+      ],
       offset,
       limit,
       order: [[sortBy, order]],
@@ -73,22 +93,62 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
   async findById(id: number) {
     const row = await this.ProductTagModel.findOne({
       where: { id, deleted: 0 },
+      include: [
+        {
+          association: "group",
+          required: false,
+        },
+      ],
     });
 
     if (!row) return null;
     return mapRow(row);
   }
 
+  async findActiveByIds(ids: number[]) {
+    const normalizedIds = [...new Set(ids.map(Number))].filter(
+      (id) => Number.isInteger(id) && id > 0,
+    );
+
+    if (normalizedIds.length === 0) return [];
+
+    const rows = await this.ProductTagModel.findAll({
+      where: {
+        id: { [Op.in]: normalizedIds },
+        deleted: 0,
+      },
+      include: [
+        {
+          association: "group",
+          required: false,
+        },
+      ],
+      order: [["id", "ASC"]],
+    });
+
+    return rows.map(mapRow);
+  }
+
   async create(input: CreateProductTagInput) {
     const row = await this.ProductTagModel.create({
       name: input.name,
-      slug: input.slug,
-      description: input.description ?? null,
-      tag_group: input.tagGroup,
+      slug: input.slug ?? null,
+      product_tag_group_id: input.productTagGroupId,
       deleted: 0,
+      deleted_at: null,
     });
 
-    return mapRow(row);
+    const created = await this.ProductTagModel.findOne({
+      where: { id: row.id },
+      include: [
+        {
+          association: "group",
+          required: false,
+        },
+      ],
+    });
+
+    return mapRow(created || row);
   }
 
   async update(id: number, patch: UpdateProductTagPatch) {
@@ -104,13 +164,27 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
 
     if (patch.name !== undefined) nextPatch.name = patch.name;
     if (patch.slug !== undefined) nextPatch.slug = patch.slug;
-    if (patch.description !== undefined)
-      nextPatch.description = patch.description;
-    if (patch.tagGroup !== undefined) nextPatch.tag_group = patch.tagGroup;
+    if (patch.productTagGroupId !== undefined) {
+      nextPatch.product_tag_group_id = patch.productTagGroupId;
+    }
+    if (patch.deleted !== undefined) {
+      nextPatch.deleted = patch.deleted ? 1 : 0;
+      nextPatch.deleted_at = patch.deleted ? new Date() : null;
+    }
 
     await existing.update(nextPatch);
 
-    return mapRow(existing);
+    const updated = await this.ProductTagModel.findOne({
+      where: { id },
+      include: [
+        {
+          association: "group",
+          required: false,
+        },
+      ],
+    });
+
+    return mapRow(updated || existing);
   }
 
   async softDelete(id: number) {
@@ -131,6 +205,12 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
   async bulkSoftDelete(ids: number[]) {
     if (!Array.isArray(ids) || ids.length === 0) return 0;
 
+    const normalizedIds = [...new Set(ids.map(Number))].filter(
+      (id) => Number.isInteger(id) && id > 0,
+    );
+
+    if (normalizedIds.length === 0) return 0;
+
     const [affectedCount] = await this.ProductTagModel.update(
       {
         deleted: 1,
@@ -138,7 +218,7 @@ export class SequelizeProductTagRepository implements ProductTagRepository {
       },
       {
         where: {
-          id: { [Op.in]: ids },
+          id: { [Op.in]: normalizedIds },
           deleted: 0,
         },
       },

@@ -3,11 +3,21 @@ import type {
   ProductRepository,
   UpdateProductPatch,
 } from "../../../domain/products/ProductRepository";
+import type { ProductTagRepository } from "../../../domain/products/ProductTagRepository";
+
+function normalizeTagIds(tagIds?: number[]) {
+  if (!Array.isArray(tagIds)) return [];
+
+  return [...new Set(tagIds.map(Number))].filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
+}
 
 export class EditProduct {
   constructor(
     private repo: ProductRepository,
     private inventoryRepo: any,
+    private productTagRepo: ProductTagRepository,
   ) {}
 
   async execute(id: number, patch: UpdateProductPatch) {
@@ -15,6 +25,20 @@ export class EditProduct {
 
     if (!existingProduct) {
       throw new Error("Product not found");
+    }
+
+    const normalizedTagIds =
+      patch.tagIds !== undefined ? normalizeTagIds(patch.tagIds) : [];
+
+    if (patch.tagIds !== undefined && normalizedTagIds.length > 0) {
+      const validTags =
+        await this.productTagRepo.findActiveByIds(normalizedTagIds);
+
+      if (validTags.length !== normalizedTagIds.length) {
+        throw new Error(
+          "Một hoặc nhiều tag không hợp lệ, đã bị xóa hoặc không còn hoạt động",
+        );
+      }
     }
 
     const normalizedOptions =
@@ -49,7 +73,9 @@ export class EditProduct {
             status: variant.status ?? "active",
             sortOrder: variant.sortOrder ?? index,
             optionValueIds: Array.isArray(variant.optionValueIds)
-              ? variant.optionValueIds.map(Number)
+              ? [...new Set(variant.optionValueIds.map(Number))].filter(
+                  (id) => Number.isInteger(id) && id > 0,
+                )
               : [],
             optionValues: Array.isArray((variant as any).optionValues)
               ? (variant as any).optionValues.map((ov: any) => ({
@@ -83,15 +109,17 @@ export class EditProduct {
         patch.title !== undefined
           ? String(patch.title).trim()
           : existingProduct.props.title,
-
-      // summary / compatibility field
       stock: totalVariantStock,
-
       options: normalizedOptions,
       variants: normalizedVariants,
     });
 
-    const saved = await this.repo.update(id, updatedProduct.props);
+    const updatePayload: UpdateProductPatch = {
+      ...updatedProduct.props,
+      ...(patch.tagIds !== undefined ? { tagIds: normalizedTagIds } : {}),
+    };
+
+    const saved = await this.repo.update(id, updatePayload);
 
     const fresh = await this.repo.findById(id);
 

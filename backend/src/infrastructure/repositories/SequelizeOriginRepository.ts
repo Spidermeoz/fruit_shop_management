@@ -106,10 +106,23 @@ export class SequelizeOriginRepository implements OriginRepository {
   }
 
   async create(input: CreateOriginInput) {
+    const normalizedName = input.name.trim();
+
+    const existed = await this.OriginModel.findOne({
+      where: {
+        name: normalizedName,
+        deleted: 0,
+      },
+    });
+
+    if (existed) {
+      throw new Error("Origin name already exists");
+    }
+
     const position = await this.resolvePosition(input.position);
 
     const row = await this.OriginModel.create({
-      name: input.name,
+      name: normalizedName,
       slug: input.slug ?? null,
       description: input.description ?? null,
       country_code: input.countryCode ?? null,
@@ -131,7 +144,23 @@ export class SequelizeOriginRepository implements OriginRepository {
 
     const values: any = {};
 
-    if (patch.name !== undefined) values.name = patch.name;
+    if (patch.name !== undefined) {
+      const normalizedName = String(patch.name).trim();
+
+      const existed = await this.OriginModel.findOne({
+        where: {
+          name: normalizedName,
+          deleted: 0,
+          id: { [Op.ne]: id },
+        },
+      });
+
+      if (existed) {
+        throw new Error("Origin name already exists");
+      }
+
+      values.name = normalizedName;
+    }
     if (patch.slug !== undefined) values.slug = patch.slug;
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.countryCode !== undefined) {
@@ -162,31 +191,55 @@ export class SequelizeOriginRepository implements OriginRepository {
       throw new Error("Origin not found");
     }
 
+    const now = new Date();
+    const suffix = `__deleted__${id}__${now.getTime()}`;
+
     await this.OriginModel.update(
       {
+        name: `${existing.name}${suffix}`,
+        slug: `${existing.slug ?? "origin"}${suffix}`,
         deleted: 1,
-        deleted_at: new Date(),
+        deleted_at: now,
       },
-      { where: { id } },
+      { where: { id, deleted: 0 } },
     );
   }
 
   async bulkSoftDelete(ids: number[]) {
     if (!Array.isArray(ids) || ids.length === 0) return 0;
 
-    const [affectedCount] = await this.OriginModel.update(
-      {
-        deleted: 1,
-        deleted_at: new Date(),
+    const rows = await this.OriginModel.findAll({
+      where: {
+        id: { [Op.in]: ids },
+        deleted: 0,
       },
-      {
-        where: {
-          id: { [Op.in]: ids },
-          deleted: 0,
-        },
-      },
-    );
+    });
 
-    return Number(affectedCount) || 0;
+    let affected = 0;
+
+    for (const row of rows) {
+      const plain = this.toPlain(row);
+      const now = new Date();
+      const suffix = `__deleted__${plain.id}__${now.getTime()}`;
+
+      await this.OriginModel.update(
+        {
+          name: `${plain.name}${suffix}`,
+          slug: `${plain.slug ?? "origin"}${suffix}`,
+          deleted: 1,
+          deleted_at: now,
+        },
+        {
+          where: {
+            id: plain.id,
+            deleted: 0,
+          },
+        },
+      );
+
+      affected += 1;
+    }
+
+    return affected;
   }
 }

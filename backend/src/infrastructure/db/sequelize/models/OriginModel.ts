@@ -20,7 +20,6 @@ const Origin = sequelize.define(
     slug: {
       type: DataTypes.STRING(255),
       allowNull: true,
-      unique: true,
     },
 
     description: {
@@ -85,21 +84,22 @@ function makeBaseSlug(source: string) {
 }
 
 async function ensureUniqueSlug(base: string, excludeId?: number) {
-  let candidate = base || "xuat-xu";
+  const root = base || "xuat-xu";
+  let candidate = root;
   let i = 1;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const exists = await Origin.count({
       where: {
         slug: candidate,
+        deleted: 0,
         ...(excludeId ? { id: { [Op.ne]: excludeId } } : {}),
       },
     });
 
     if (exists === 0) return candidate;
 
-    candidate = `${candidate.replace(/-\d+$/, "")}-${i++}`;
+    candidate = `${root}-${i++}`;
   }
 }
 

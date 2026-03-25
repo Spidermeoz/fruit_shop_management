@@ -1,18 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Loader2, Plus, Save, Trash2 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
-import { Plus, Loader2, Eye, Edit, Trash2 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface ProductTag {
   id: number;
   name: string;
-  slug?: string;
-  description?: string | null;
-  tagGroup: string;
+  slug?: string | null;
+  productTagGroupId: number;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface ProductTagGroup {
+  id: number;
+  name: string;
+  slug?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  tags?: ProductTag[];
 }
 
 type ApiList<T> = {
@@ -21,319 +28,812 @@ type ApiList<T> = {
   meta?: { total?: number; page?: number; limit?: number; totalPages?: number };
 };
 
-type ApiOk = { success: true; data?: any; meta?: any };
+type ApiOk = {
+  success: true;
+  data?: any;
+  meta?: any;
+  message?: string;
+  errors?: Record<string, string>;
+};
 
 const ProductTagPage: React.FC = () => {
-  const [tags, setTags] = useState<ProductTag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<number[]>([]);
+  const [groups, setGroups] = useState<ProductTagGroup[]>([]);
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [groupFilter, setGroupFilter] = useState<string>("all");
+  const [pageError, setPageError] = useState("");
 
-  const navigate = useNavigate();
+  const [creatingGroup, setCreatingGroup] = useState(false);
+  const [newGroupName, setNewGroupName] = useState("");
+  // State quản lý hiệu ứng nhấp nháy khi thêm group thành công
+  const [flashNewGroup, setFlashNewGroup] = useState(false);
+
+  const [savingGroupIds, setSavingGroupIds] = useState<number[]>([]);
+  const [deletingGroupIds, setDeletingGroupIds] = useState<number[]>([]);
+  const [deleteBlockedGroupIds, setDeleteBlockedGroupIds] = useState<number[]>(
+    [],
+  );
+  const [editingGroupValues, setEditingGroupValues] = useState<
+    Record<number, string>
+  >({});
+
+  const [savingTagIds, setSavingTagIds] = useState<number[]>([]);
+  const [deletingTagIds, setDeletingTagIds] = useState<number[]>([]);
+  const [creatingTagGroupIds, setCreatingTagGroupIds] = useState<number[]>([]);
+  // State quản lý hiệu ứng nhấp nháy khi thêm tag thành công (lưu theo id của group)
+  const [flashingTagGroupIds, setFlashingTagGroupIds] = useState<number[]>([]);
+
+  const [editingTagValues, setEditingTagValues] = useState<
+    Record<number, string>
+  >({});
+  const [createTagValues, setCreateTagValues] = useState<
+    Record<number, string>
+  >({});
+
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  const fetchTags = async () => {
+  const getErrorMessage = (err: any, fallback = "Đã có lỗi xảy ra.") => {
+    return (
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.data?.message ||
+      err?.message ||
+      fallback
+    );
+  };
+
+  const fetchGroups = async () => {
     try {
       setLoading(true);
-      setError("");
+      setPageError("");
 
-      const res = await http<ApiList<ProductTag>>(
+      const res = await http<ApiList<ProductTagGroup>>(
         "GET",
-        "/api/v1/admin/product-tags?limit=1000&sortBy=name&order=ASC",
+        "/api/v1/admin/product-tag-groups?limit=1000&sortBy=name&order=ASC&includeTags=true",
       );
 
-      const rows = Array.isArray(res.data) ? res.data : [];
-      setTags(rows);
-      setSelectedTags([]);
+      const rows = Array.isArray(res?.data) ? res.data : [];
+
+      const normalizedRows = rows.map((group) => ({
+        ...group,
+        tags: Array.isArray(group.tags)
+          ? [...group.tags].sort((a, b) =>
+              (a.name || "").localeCompare(b.name || "", "vi"),
+            )
+          : [],
+      }));
+
+      setGroups(normalizedRows);
+
+      setEditingGroupValues((prev) => {
+        const next = { ...prev };
+        for (const group of normalizedRows) {
+          next[group.id] = group.name ?? "";
+        }
+        return next;
+      });
+
+      setEditingTagValues((prev) => {
+        const next = { ...prev };
+        for (const group of normalizedRows) {
+          for (const tag of group.tags || []) {
+            next[tag.id] = tag.name ?? "";
+          }
+        }
+        return next;
+      });
     } catch (err: any) {
-      console.error(err);
-      setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
+      console.error("fetchGroups error:", err);
+      setPageError(
+        err?.message || "Lỗi kết nối server hoặc API không phản hồi.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchTags();
+    fetchGroups();
   }, []);
 
-  const availableGroups = useMemo(() => {
-    return Array.from(
-      new Set(tags.map((item) => item.tagGroup).filter(Boolean)),
-    ).sort();
-  }, [tags]);
+  const orderedGroups = useMemo(() => {
+    return [...groups].sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", "vi"),
+    );
+  }, [groups]);
 
-  const filteredTags =
-    groupFilter === "all"
-      ? tags
-      : tags.filter((item) => item.tagGroup === groupFilter);
+  const isSavingGroup = (id: number) => savingGroupIds.includes(id);
+  const isDeletingGroup = (id: number) => deletingGroupIds.includes(id);
+  const isDeleteBlockedGroup = (id: number) =>
+    deleteBlockedGroupIds.includes(id);
+  const isSavingTag = (id: number) => savingTagIds.includes(id);
+  const isDeletingTag = (id: number) => deletingTagIds.includes(id);
+  const isCreatingTag = (groupId: number) =>
+    creatingTagGroupIds.includes(groupId);
 
-  const allFilteredSelected =
-    filteredTags.length > 0 &&
-    filteredTags.every((item) => selectedTags.includes(item.id));
+  const markSavingGroup = (id: number, value: boolean) => {
+    setSavingGroupIds((prev) =>
+      value ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
 
-  const handleSelectAllFiltered = () => {
-    if (allFilteredSelected) {
-      setSelectedTags((prev) =>
-        prev.filter((id) => !filteredTags.some((item) => item.id === id)),
+  const markDeletingGroup = (id: number, value: boolean) => {
+    setDeletingGroupIds((prev) =>
+      value ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const markDeleteBlockedGroup = (id: number, value: boolean) => {
+    setDeleteBlockedGroupIds((prev) =>
+      value ? [...new Set([...prev, id])] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const markSavingTag = (id: number, value: boolean) => {
+    setSavingTagIds((prev) =>
+      value ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const markDeletingTag = (id: number, value: boolean) => {
+    setDeletingTagIds((prev) =>
+      value ? [...prev, id] : prev.filter((item) => item !== id),
+    );
+  };
+
+  const markCreatingTag = (groupId: number, value: boolean) => {
+    setCreatingTagGroupIds((prev) =>
+      value ? [...prev, groupId] : prev.filter((item) => item !== groupId),
+    );
+  };
+
+  const handleChangeGroupInlineValue = (id: number, value: string) => {
+    setEditingGroupValues((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+    markDeleteBlockedGroup(id, false);
+  };
+
+  const handleChangeTagInlineValue = (id: number, value: string) => {
+    setEditingTagValues((prev) => ({
+      ...prev,
+      [id]: value,
+    }));
+  };
+
+  const handleChangeCreateTagValue = (groupId: number, value: string) => {
+    setCreateTagValues((prev) => ({
+      ...prev,
+      [groupId]: value,
+    }));
+  };
+
+  const isGroupDirty = (group: ProductTagGroup) => {
+    const current = (editingGroupValues[group.id] ?? "").trim();
+    const original = (group.name ?? "").trim();
+    return current !== original;
+  };
+
+  const isTagDirty = (tag: ProductTag) => {
+    const current = (editingTagValues[tag.id] ?? "").trim();
+    const original = (tag.name ?? "").trim();
+    return current !== original;
+  };
+
+  const handleCreateGroup = async () => {
+    const value = newGroupName.trim();
+
+    if (!value) {
+      showErrorToast("Vui lòng nhập tên group.");
+      return;
+    }
+
+    const duplicated = groups.some(
+      (group) => group.name.trim().toLowerCase() === value.toLowerCase(),
+    );
+
+    if (duplicated) {
+      showErrorToast("Group này đã tồn tại.");
+      return;
+    }
+
+    try {
+      setCreatingGroup(true);
+
+      const res = await http<ApiOk>(
+        "POST",
+        "/api/v1/admin/product-tag-groups/create",
+        {
+          name: value,
+        },
+      );
+
+      if (res?.success) {
+        setNewGroupName("");
+        // Bật hiệu ứng nhấp nháy xanh
+        setFlashNewGroup(true);
+        setTimeout(() => setFlashNewGroup(false), 500);
+
+        await fetchGroups();
+      } else {
+        showErrorToast(res?.message || "Thêm group thất bại.");
+      }
+    } catch (err: any) {
+      console.error("handleCreateGroup error:", err);
+      showErrorToast(err?.message || "Lỗi kết nối server.");
+    } finally {
+      setCreatingGroup(false);
+    }
+  };
+
+  const handleSaveGroup = async (group: ProductTagGroup) => {
+    const nextName = (editingGroupValues[group.id] ?? "").trim();
+
+    if (!nextName) {
+      showErrorToast("Tên group không được để trống.");
+      return;
+    }
+
+    if (!isGroupDirty(group)) return;
+
+    try {
+      markSavingGroup(group.id, true);
+
+      const res = await http<ApiOk>(
+        "PATCH",
+        `/api/v1/admin/product-tag-groups/edit/${group.id}`,
+        {
+          name: nextName,
+        },
+      );
+
+      if (res?.success) {
+        setGroups((prev) =>
+          prev.map((item) =>
+            item.id === group.id ? { ...item, name: nextName } : item,
+          ),
+        );
+        showSuccessToast({ message: "Cập nhật group thành công!" });
+      } else {
+        showErrorToast(res?.message || "Cập nhật group thất bại.");
+      }
+    } catch (err: any) {
+      console.error("handleSaveGroup error:", err);
+      showErrorToast(err?.message || "Lỗi kết nối server.");
+    } finally {
+      markSavingGroup(group.id, false);
+    }
+  };
+
+  const handleDeleteGroup = async (group: ProductTagGroup) => {
+    const tagCount = Array.isArray(group.tags) ? group.tags.length : 0;
+
+    if (tagCount > 0) {
+      markDeleteBlockedGroup(group.id, true);
+      showErrorToast(
+        `Không thể xóa group "${group.name}" vì group này vẫn còn ${tagCount} tag. Vui lòng xóa hoặc chuyển toàn bộ tag sang group khác trước.`,
       );
       return;
     }
 
-    setSelectedTags((prev) => {
-      const merged = new Set([...prev, ...filteredTags.map((item) => item.id)]);
-      return Array.from(merged);
-    });
-  };
+    markDeleteBlockedGroup(group.id, false);
 
-  const handleToggleSelectOne = (id: number) => {
-    setSelectedTags((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xóa group "${group.name}" không?`,
     );
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("Bạn có chắc muốn xóa product tag này không?")) return;
+    if (!confirmed) return;
 
     try {
-      setSubmitting(true);
+      markDeletingGroup(group.id, true);
 
-      await http<ApiOk>("DELETE", `/api/v1/admin/product-tags/${id}`);
+      const res = await http<ApiOk>(
+        "DELETE",
+        `/api/v1/admin/product-tag-groups/${group.id}`,
+      );
 
-      setTags((prev) => prev.filter((item) => item.id !== id));
-      setSelectedTags((prev) => prev.filter((x) => x !== id));
+      if (res?.success) {
+        setGroups((prev) => prev.filter((item) => item.id !== group.id));
 
-      showSuccessToast({ message: "Đã xóa product tag thành công!" });
+        setEditingGroupValues((prev) => {
+          const next = { ...prev };
+          delete next[group.id];
+          return next;
+        });
+
+        setDeleteBlockedGroupIds((prev) =>
+          prev.filter((item) => item !== group.id),
+        );
+
+        showSuccessToast({ message: "Đã xóa group thành công!" });
+      } else {
+        showErrorToast(res?.message || "Xóa group thất bại.");
+      }
     } catch (err: any) {
-      console.error(err);
-      showErrorToast(err?.message || "Không thể xóa product tag!");
+      console.error("handleDeleteGroup error:", err);
+      showErrorToast(getErrorMessage(err, "Không thể xóa group."));
     } finally {
-      setSubmitting(false);
+      markDeletingGroup(group.id, false);
     }
   };
 
-  const handleBulkDelete = async () => {
-    if (selectedTags.length === 0) {
-      showErrorToast("Chưa chọn product tag nào!");
+  const handleSaveTag = async (tag: ProductTag) => {
+    const nextName = (editingTagValues[tag.id] ?? "").trim();
+
+    if (!nextName) {
+      showErrorToast("Tên tag không được để trống.");
       return;
     }
 
-    if (
-      !window.confirm(
-        `Xác nhận xóa ${selectedTags.length} product tag đã chọn?`,
-      )
-    ) {
+    if (!isTagDirty(tag)) return;
+
+    try {
+      markSavingTag(tag.id, true);
+
+      const res = await http<ApiOk>(
+        "PATCH",
+        `/api/v1/admin/product-tags/edit/${tag.id}`,
+        {
+          name: nextName,
+          productTagGroupId: tag.productTagGroupId,
+        },
+      );
+
+      if (res?.success) {
+        setGroups((prev) =>
+          prev.map((group) => ({
+            ...group,
+            tags: (group.tags || []).map((item) =>
+              item.id === tag.id ? { ...item, name: nextName } : item,
+            ),
+          })),
+        );
+        showSuccessToast({ message: "Cập nhật tag thành công!" });
+      } else {
+        showErrorToast(res?.message || "Cập nhật tag thất bại.");
+      }
+    } catch (err: any) {
+      console.error("handleSaveTag error:", err);
+      showErrorToast(err?.message || "Lỗi kết nối server.");
+    } finally {
+      markSavingTag(tag.id, false);
+    }
+  };
+
+  const handleDeleteTag = async (tag: ProductTag) => {
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xóa tag "${tag.name}" không?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      markDeletingTag(tag.id, true);
+
+      const res = await http<ApiOk>(
+        "DELETE",
+        `/api/v1/admin/product-tags/${tag.id}`,
+      );
+
+      if (res?.success) {
+        setGroups((prev) =>
+          prev.map((group) => {
+            if (group.id !== tag.productTagGroupId) return group;
+
+            const nextTags = (group.tags || []).filter(
+              (item) => item.id !== tag.id,
+            );
+
+            if (nextTags.length === 0) {
+              markDeleteBlockedGroup(group.id, false);
+            }
+
+            return {
+              ...group,
+              tags: nextTags,
+            };
+          }),
+        );
+
+        setEditingTagValues((prev) => {
+          const next = { ...prev };
+          delete next[tag.id];
+          return next;
+        });
+
+        showSuccessToast({ message: "Đã xóa tag thành công!" });
+      } else {
+        showErrorToast(res?.message || "Xóa tag thất bại.");
+      }
+    } catch (err: any) {
+      console.error("handleDeleteTag error:", err);
+      showErrorToast(err?.message || "Không thể xóa tag.");
+    } finally {
+      markDeletingTag(tag.id, false);
+    }
+  };
+
+  const handleCreateTag = async (group: ProductTagGroup) => {
+    const value = (createTagValues[group.id] ?? "").trim();
+
+    if (!value) {
+      showErrorToast("Vui lòng nhập giá trị tag.");
+      return;
+    }
+
+    const duplicated = (group.tags || []).some(
+      (item) => item.name.trim().toLowerCase() === value.toLowerCase(),
+    );
+
+    if (duplicated) {
+      showErrorToast("Tag này đã tồn tại trong group.");
       return;
     }
 
     try {
-      setSubmitting(true);
+      markCreatingTag(group.id, true);
 
-      await http<ApiOk>("POST", "/api/v1/admin/product-tags/bulk-delete", {
-        ids: selectedTags,
-      });
+      const res = await http<ApiOk>(
+        "POST",
+        "/api/v1/admin/product-tags/create",
+        {
+          name: value,
+          productTagGroupId: group.id,
+        },
+      );
 
-      setTags((prev) => prev.filter((item) => !selectedTags.includes(item.id)));
-      setSelectedTags([]);
+      if (res?.success) {
+        setCreateTagValues((prev) => ({
+          ...prev,
+          [group.id]: "",
+        }));
 
-      showSuccessToast({
-        message: `Đã xóa ${selectedTags.length} product tag thành công!`,
-      });
+        // Bật hiệu ứng nhấp nháy xanh cho ô input của group này
+        setFlashingTagGroupIds((prev) => [...prev, group.id]);
+        setTimeout(() => {
+          setFlashingTagGroupIds((prev) =>
+            prev.filter((id) => id !== group.id),
+          );
+        }, 500);
+
+        await fetchGroups();
+      } else {
+        showErrorToast(res?.message || "Thêm tag thất bại.");
+      }
     } catch (err: any) {
-      console.error(err);
-      showErrorToast(err?.message || "Xóa nhiều product tag thất bại!");
+      console.error("handleCreateTag error:", err);
+      showErrorToast(err?.message || "Lỗi kết nối server.");
     } finally {
-      setSubmitting(false);
+      markCreatingTag(group.id, false);
     }
   };
 
-  const stripHtml = (value?: string | null) => {
-    if (!value) return "—";
-    return value.replace(/<[^>]+>/g, "").trim() || "—";
+  const handleCreateTagKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    group: ProductTagGroup,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      await handleCreateTag(group);
+    }
+  };
+
+  const handleCreateGroupKeyDown = async (
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      await handleCreateGroup();
+    }
   };
 
   return (
     <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Product Tags
-        </h1>
-
-        <div className="flex items-center gap-3">
-          {selectedTags.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="w-5 h-5" />
-              Xóa đã chọn ({selectedTags.length})
-            </button>
-          )}
-
-          <button
-            onClick={() => navigate("/admin/product-tags/create")}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Thêm product tag
-          </button>
+      <div className="mb-6 flex flex-col gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+            Product Tags
+          </h1>
         </div>
-      </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <button
-          onClick={() => setGroupFilter("all")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            groupFilter === "all"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-          }`}
-        >
-          Tất cả
-        </button>
-
-        {availableGroups.map((group) => (
-          <button
-            key={group}
-            onClick={() => setGroupFilter(group)}
-            className={`px-4 py-2 rounded-md text-sm font-medium border ${
-              groupFilter === group
-                ? "bg-blue-600 text-white border-blue-600"
-                : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            }`}
-          >
-            {group}
-          </button>
-        ))}
-      </div>
-
-      <Card>
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-              <span className="ml-2 text-gray-600 dark:text-gray-400">
-                Đang tải product tags...
-              </span>
+        <Card>
+          <div className="flex flex-col gap-3 p-4 md:flex-row md:items-center">
+            <div className="min-w-0 flex-1">
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={handleCreateGroupKeyDown}
+                disabled={creatingGroup}
+                className={`w-full rounded-md border px-3 py-2 text-gray-900 transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-800 dark:text-white ${
+                  flashNewGroup
+                    ? "border-green-500 ring-2 ring-green-500 dark:border-green-500"
+                    : "border-gray-300 focus:ring-2 focus:ring-green-500 dark:border-gray-600"
+                }`}
+                placeholder="Nhập tên group mới"
+              />
             </div>
-          ) : error ? (
-            <p className="text-center text-red-500 py-6">{error}</p>
-          ) : filteredTags.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">
-              Không có product tag nào.
-            </p>
-          ) : (
-            <table className="min-w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <thead className="bg-gray-100 dark:bg-gray-800">
-                <tr>
-                  <th className="w-[50px] px-3 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={allFilteredSelected}
-                      onChange={handleSelectAllFiltered}
-                    />
-                  </th>
 
-                  <th className="w-[80px] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    STT
-                  </th>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={handleCreateGroup}
+                disabled={creatingGroup}
+                className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50 dark:disabled:bg-gray-600"
+              >
+                {creatingGroup ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang thêm group...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4" />
+                    Thêm group
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </Card>
+      </div>
 
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Tên tag
-                  </th>
+      {loading ? (
+        <Card>
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="h-6 w-6 animate-spin text-gray-500 dark:text-gray-400" />
+            <span className="ml-2 text-gray-600 dark:text-gray-400">
+              Đang tải product tag groups...
+            </span>
+          </div>
+        </Card>
+      ) : pageError ? (
+        <Card>
+          <p className="py-8 text-center text-red-500 dark:text-red-400">
+            {pageError}
+          </p>
+        </Card>
+      ) : orderedGroups.length === 0 ? (
+        <Card>
+          <p className="py-8 text-center text-gray-500 dark:text-gray-400">
+            Chưa có group nào.
+          </p>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {orderedGroups.map((group) => {
+            const groupItems = [...(group.tags || [])].sort((a, b) =>
+              (a.name || "").localeCompare(b.name || "", "vi"),
+            );
 
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Group
-                  </th>
+            const currentGroupValue = editingGroupValues[group.id] ?? "";
+            const groupDirty = isGroupDirty(group);
+            const savingGroup = isSavingGroup(group.id);
+            const deletingGroup = isDeletingGroup(group.id);
+            const hasTags = groupItems.length > 0;
+            const showDeleteBlockedMessage =
+              isDeleteBlockedGroup(group.id) && hasTags;
+            const isFlashingTagInput = flashingTagGroupIds.includes(group.id);
 
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Mô tả
-                  </th>
-
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Hành động
-                  </th>
-                </tr>
-              </thead>
-
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredTags.map((tag, index) => (
-                  <tr
-                    key={tag.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800"
-                  >
-                    <td className="px-3 py-4 text-center">
+            return (
+              <Card key={group.id}>
+                <div className="border-b border-gray-200 p-4 dark:border-gray-700">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0 flex-1">
                       <input
-                        type="checkbox"
-                        checked={selectedTags.includes(tag.id)}
-                        onChange={() => handleToggleSelectOne(tag.id)}
+                        type="text"
+                        value={currentGroupValue}
+                        onChange={(e) =>
+                          handleChangeGroupInlineValue(group.id, e.target.value)
+                        }
+                        disabled={savingGroup || deletingGroup}
+                        className="w-full rounded-md border border-gray-300 px-3 py-2 text-lg font-semibold text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                        placeholder="Nhập tên group"
                       />
-                    </td>
 
-                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {index + 1}
-                    </td>
+                      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        {groupItems.length} tag
+                        {group.slug ? (
+                          <>
+                            {" "}
+                            • slug:{" "}
+                            <span className="font-medium">{group.slug}</span>
+                          </>
+                        ) : null}
+                      </p>
+                    </div>
 
-                    <td className="px-4 py-4">
-                      <div className="font-medium text-gray-900 dark:text-white">
-                        {tag.name}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
-                      <span className="inline-flex px-3 py-1 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 dark:bg-gray-800 dark:text-gray-300">
-                        {tag.tagGroup || "—"}
-                      </span>
-                    </td>
-
-                    <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[320px]">
-                      <div className="line-clamp-2">
-                        {stripHtml(tag.description)}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-4">
+                    <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() =>
-                            navigate(`/admin/product-tags/detail/${tag.id}`)
-                          }
-                          className="p-2 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-                          title="Xem chi tiết"
+                          type="button"
+                          onClick={() => handleSaveGroup(group)}
+                          disabled={!groupDirty || savingGroup || deletingGroup}
+                          className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50 dark:disabled:bg-gray-600"
                         >
-                          <Eye className="w-4 h-4" />
+                          {savingGroup ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Đang lưu...
+                            </>
+                          ) : (
+                            <>
+                              <Save className="h-4 w-4" />
+                              Lưu group
+                            </>
+                          )}
                         </button>
 
                         <button
-                          onClick={() =>
-                            navigate(`/admin/product-tags/edit/${tag.id}`)
+                          type="button"
+                          onClick={() => handleDeleteGroup(group)}
+                          disabled={savingGroup || deletingGroup}
+                          aria-disabled={hasTags}
+                          title={
+                            hasTags
+                              ? "Không thể xóa group khi vẫn còn tag"
+                              : "Xóa group"
                           }
-                          className="p-2 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50"
-                          title="Chỉnh sửa"
+                          className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors
+        ${
+          hasTags
+            ? "bg-gray-200 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-300"
+            : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+        }
+        ${savingGroup || deletingGroup ? "opacity-50 cursor-not-allowed" : ""}
+      `}
                         >
-                          <Edit className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          onClick={() => handleDelete(tag.id)}
-                          disabled={submitting}
-                          className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 disabled:opacity-50"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          {deletingGroup ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Đang xóa...
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4" />
+                              Xóa group
+                            </>
+                          )}
                         </button>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+
+                      {showDeleteBlockedMessage ? (
+                        <p className="text-right text-xs text-red-500 dark:text-red-400">
+                          Không thể xóa group này vì vẫn còn tag bên trong. Hãy
+                          xóa hoặc chuyển hết tag sang group khác trước.
+                        </p>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4">
+                  <div className="space-y-3">
+                    {groupItems.length === 0 ? (
+                      <div className="rounded-md border border-dashed border-gray-300 px-4 py-4 text-sm text-gray-500 dark:border-gray-600 dark:text-gray-400">
+                        Chưa có tag nào trong group này.
+                      </div>
+                    ) : (
+                      groupItems.map((tag) => {
+                        const currentTagValue = editingTagValues[tag.id] ?? "";
+                        const tagDirty = isTagDirty(tag);
+                        const savingTag = isSavingTag(tag.id);
+                        const deletingTag = isDeletingTag(tag.id);
+
+                        return (
+                          <div
+                            key={tag.id}
+                            className="flex flex-col gap-3 rounded-lg border border-gray-200 p-3 dark:border-gray-700 md:flex-row md:items-center"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <input
+                                type="text"
+                                value={currentTagValue}
+                                onChange={(e) =>
+                                  handleChangeTagInlineValue(
+                                    tag.id,
+                                    e.target.value,
+                                  )
+                                }
+                                disabled={savingTag || deletingTag}
+                                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+                                placeholder="Nhập giá trị tag"
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveTag(tag)}
+                                disabled={!tagDirty || savingTag || deletingTag}
+                                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50 dark:disabled:bg-gray-600"
+                              >
+                                {savingTag ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Đang lưu...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Save className="h-4 w-4" />
+                                    Lưu
+                                  </>
+                                )}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTag(tag)}
+                                disabled={savingTag || deletingTag}
+                                className="inline-flex items-center gap-2 rounded-md bg-red-100 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50"
+                              >
+                                {deletingTag ? (
+                                  <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Đang xóa...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Trash2 className="h-4 w-4" />
+                                    Xóa
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    <div className="rounded-lg border border-dashed border-gray-300 p-3 dark:border-gray-600">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center">
+                        <div className="min-w-0 flex-1">
+                          <input
+                            type="text"
+                            value={createTagValues[group.id] ?? ""}
+                            onChange={(e) =>
+                              handleChangeCreateTagValue(
+                                group.id,
+                                e.target.value,
+                              )
+                            }
+                            onKeyDown={(e) => handleCreateTagKeyDown(e, group)}
+                            disabled={isCreatingTag(group.id)}
+                            className={`w-full rounded-md border px-3 py-2 text-gray-900 transition-colors focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-800 dark:text-white ${
+                              isFlashingTagInput
+                                ? "border-green-500 ring-2 ring-green-500 dark:border-green-500"
+                                : "border-gray-300 focus:ring-2 focus:ring-green-500 dark:border-gray-600"
+                            }`}
+                            placeholder={`Thêm tag mới cho group ${currentGroupValue || group.name}`}
+                          />
+                        </div>
+
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleCreateTag(group)}
+                            disabled={isCreatingTag(group.id)}
+                            className="inline-flex items-center gap-2 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-400 disabled:opacity-50 dark:disabled:bg-gray-600"
+                          >
+                            {isCreatingTag(group.id) ? (
+                              <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Đang thêm...
+                              </>
+                            ) : (
+                              <>
+                                <Plus className="h-4 w-4" />
+                                Thêm tag
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })}
         </div>
-      </Card>
+      )}
     </div>
   );
 };

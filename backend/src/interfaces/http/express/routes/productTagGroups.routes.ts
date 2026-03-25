@@ -1,10 +1,10 @@
 import { Router } from "express";
-import type { ProductTagsController } from "../controllers/ProductTagsController";
+import type { ProductTagGroupsController } from "../controllers/ProductTagGroupsController";
 
 type CanFn = (moduleKey: string, actionKey: string) => any;
 
-export const productTagsRoutes = (
-  controller: ProductTagsController,
+export const productTagGroupsRoutes = (
+  controller: ProductTagGroupsController,
   auth: any,
   can: CanFn,
 ) => {
@@ -16,7 +16,6 @@ export const productTagsRoutes = (
   r.patch("/edit/:id", auth, can("product", "edit"), controller.edit);
 
   r.delete("/:id", auth, can("product", "delete"), controller.delete);
-  r.post("/bulk-delete", auth, can("product", "delete"), controller.bulkDelete);
 
   return r;
 };

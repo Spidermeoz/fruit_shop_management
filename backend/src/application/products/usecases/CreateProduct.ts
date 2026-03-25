@@ -2,16 +2,39 @@ import type {
   CreateProductInput,
   ProductRepository,
 } from "../../../domain/products/ProductRepository";
+import type { ProductTagRepository } from "../../../domain/products/ProductTagRepository";
+
+function normalizeTagIds(tagIds?: number[]) {
+  if (!Array.isArray(tagIds)) return [];
+
+  return [...new Set(tagIds.map(Number))].filter(
+    (id) => Number.isInteger(id) && id > 0,
+  );
+}
 
 export class CreateProduct {
   constructor(
     private repo: ProductRepository,
     private inventoryRepo: any,
+    private productTagRepo: ProductTagRepository,
   ) {}
 
   async execute(input: CreateProductInput) {
     if (!input.title?.trim()) {
       throw new Error("Title is required");
+    }
+
+    const normalizedTagIds = normalizeTagIds(input.tagIds);
+
+    if (normalizedTagIds.length > 0) {
+      const validTags =
+        await this.productTagRepo.findActiveByIds(normalizedTagIds);
+
+      if (validTags.length !== normalizedTagIds.length) {
+        throw new Error(
+          "Một hoặc nhiều tag không hợp lệ, đã bị xóa hoặc không còn hoạt động",
+        );
+      }
     }
 
     const normalizedOptions = Array.isArray(input.options)
@@ -44,7 +67,9 @@ export class CreateProduct {
           status: variant.status ?? "active",
           sortOrder: variant.sortOrder ?? index,
           optionValueIds: Array.isArray(variant.optionValueIds)
-            ? variant.optionValueIds.map(Number)
+            ? [...new Set(variant.optionValueIds.map(Number))].filter(
+                (id) => Number.isInteger(id) && id > 0,
+              )
             : [],
           optionValues: Array.isArray(variant.optionValues)
             ? variant.optionValues.map((ov) => ({
@@ -72,8 +97,8 @@ export class CreateProduct {
     const created = await this.repo.create({
       ...input,
       title: input.title.trim(),
+      tagIds: normalizedTagIds,
 
-      // product-level stock chỉ là derived / compatibility
       stock:
         normalizedVariants.length > 0
           ? totalVariantStock

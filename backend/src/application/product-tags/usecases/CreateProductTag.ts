@@ -7,13 +7,25 @@ export class CreateProductTag {
   constructor(private repo: ProductTagRepository) {}
 
   async execute(input: CreateProductTagInput) {
-    if (!input.name?.trim()) throw new Error("Name is required");
-    if (!input.tagGroup) throw new Error("Tag group is required");
+    const name = input.name?.trim();
+
+    if (!name) {
+      throw new Error("Name is required");
+    }
+
+    if (
+      input.productTagGroupId === undefined ||
+      input.productTagGroupId === null ||
+      !Number.isInteger(Number(input.productTagGroupId)) ||
+      Number(input.productTagGroupId) <= 0
+    ) {
+      throw new Error("Product tag group is required");
+    }
 
     const created = await this.repo.create({
-      name: input.name.trim(),
-      tagGroup: input.tagGroup,
-      description: input.description ?? null,
+      name,
+      slug: input.slug?.trim() || null,
+      productTagGroupId: Number(input.productTagGroupId),
     });
 
     return { id: created.id! };

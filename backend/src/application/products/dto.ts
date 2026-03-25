@@ -3,7 +3,6 @@ import type { Product } from "../../domain/products/Products";
 import type {
   ProductPriceRange,
   ProductStatus,
-  ProductTagGroup,
   ProductVariantStatus,
 } from "../../domain/products/types";
 
@@ -90,7 +89,12 @@ export type ProductDTO = {
     id: number;
     name: string;
     slug: string;
-    tagGroup: ProductTagGroup;
+    productTagGroupId?: number | null;
+    group?: {
+      id: number;
+      name: string;
+      slug: string | null;
+    } | null;
   }[];
 
   tagIds?: number[];
@@ -146,7 +150,22 @@ export const toDTO = (p: Product): ProductDTO => {
     usageSuggestions: p.props.usageSuggestions ?? null,
     nutritionNotes: p.props.nutritionNotes ?? null,
 
-    tags: p.props.tags ?? [],
+    tags: (p.props.tags ?? []).map((tag) => ({
+      id: Number(tag.id),
+      name: String(tag.name ?? ""),
+      slug: String(tag.slug ?? ""),
+      productTagGroupId:
+        (tag as any).productTagGroupId !== undefined
+          ? Number((tag as any).productTagGroupId)
+          : null,
+      group: (tag as any).group
+        ? {
+            id: Number((tag as any).group.id),
+            name: String((tag as any).group.name ?? ""),
+            slug: (tag as any).group.slug ?? null,
+          }
+        : null,
+    })),
     tagIds: p.props.tags?.map((t) => t.id) ?? [],
 
     variants: (p.props.variants ?? []).map((variant) => ({

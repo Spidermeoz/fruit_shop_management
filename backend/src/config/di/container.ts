@@ -23,6 +23,7 @@ import ProductTagModel from "../../infrastructure/db/sequelize/models/ProductTag
 import ProductTagMapModel from "../../infrastructure/db/sequelize/models/ProductTagMapModel";
 import InventoryStockModel from "../../infrastructure/db/sequelize/models/InventoryStockModel";
 import InventoryTransactionModel from "../../infrastructure/db/sequelize/models/InventoryTransactionModel";
+import ProductTagGroupModel from "../../infrastructure/db/sequelize/models/ProductTagGroupModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -36,6 +37,7 @@ import { SequelizeUserRepository } from "../../infrastructure/repositories/Seque
 import { SequelizeOriginRepository } from "../../infrastructure/repositories/SequelizeOriginRepository";
 import { SequelizeProductTagRepository } from "../../infrastructure/repositories/SequelizeProductTagRepository";
 import { SequelizeInventoryRepository } from "../../infrastructure/repositories/SequelizeInventoryRepository";
+import { SequelizeProductTagGroupRepository } from "../../infrastructure/repositories/SequelizeProductTagGroupRepository";
 
 // ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
@@ -150,6 +152,12 @@ import { ListProductTags } from "../../application/product-tags/usecases/ListPro
 import { DeleteProductTag } from "../../application/product-tags/usecases/DeleteProductTag";
 import { BulkDeleteProductTags } from "../../application/product-tags/usecases/BulkDeleteProductTags";
 
+// ===== Product tag groups usecases =====
+import { ListProductTagGroups } from "../../application/product-tag-groups/usecases/ListProductTagGroups";
+import { CreateProductTagGroup } from "../../application/product-tag-groups/usecases/CreateProductTagGroup";
+import { EditProductTagGroup } from "../../application/product-tag-groups/usecases/EditProductTagGroup";
+import { DeleteProductTagGroup } from "../../application/product-tag-groups/usecases/DeleteProductTagGroup";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -191,6 +199,8 @@ import { makeOriginsController } from "../../interfaces/http/express/controllers
 import type { OriginsController } from "../../interfaces/http/express/controllers/OriginsController";
 import { makeProductTagsController } from "../../interfaces/http/express/controllers/ProductTagsController";
 import type { ProductTagsController } from "../../interfaces/http/express/controllers/ProductTagsController";
+import { makeProductTagGroupsController } from "../../interfaces/http/express/controllers/ProductTagGroupsController";
+import type { ProductTagGroupsController } from "../../interfaces/http/express/controllers/ProductTagGroupsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -373,6 +383,15 @@ ProductVariantModel.hasMany(InventoryTransactionModel, {
   as: "inventoryTransactions",
   foreignKey: "product_variant_id",
 });
+ProductTagGroupModel.hasMany(ProductTagModel, {
+  foreignKey: "product_tag_group_id",
+  as: "tags",
+});
+
+ProductTagModel.belongsTo(ProductTagGroupModel, {
+  foreignKey: "product_tag_group_id",
+  as: "group",
+});
 
 // Order -> Address
 OrderModel.hasOne(OrderAddressModel, {
@@ -440,6 +459,7 @@ const productModels = {
   ProductCategory: ProductCategoryModel,
   Origin: OriginModel,
   ProductTag: ProductTagModel,
+  ProductTagGroup: ProductTagGroupModel,
   ProductTagMap: ProductTagMapModel,
 };
 const productRepo = new SequelizeProductRepository(productModels);
@@ -512,8 +532,14 @@ const settingModels = {
   SettingGeneral: SettingGeneralModel,
 };
 const settingsRepo = new SequelizeSettingGeneralRepository(settingModels);
+
 const originRepo = new SequelizeOriginRepository(OriginModel);
 const productTagRepo = new SequelizeProductTagRepository(ProductTagModel);
+
+const productTagGroupRepo = new SequelizeProductTagGroupRepository(
+  ProductTagGroupModel,
+  ProductTagModel,
+);
 
 // ===== Usecases =====
 export const usecases = {
@@ -521,8 +547,8 @@ export const usecases = {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo, inventoryRepo),
     detailBySlug: new GetProductDetailBySlug(productRepo, inventoryRepo),
-    create: new CreateProduct(productRepo, inventoryRepo),
-    edit: new EditProduct(productRepo, inventoryRepo),
+    create: new CreateProduct(productRepo, inventoryRepo, productTagRepo),
+    edit: new EditProduct(productRepo, inventoryRepo, productTagRepo),
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
@@ -649,6 +675,13 @@ export const usecases = {
     deleteTag: new DeleteProductTag(productTagRepo),
     bulkDelete: new BulkDeleteProductTags(productTagRepo),
   },
+
+  productTagGroups: {
+    list: new ListProductTagGroups(productTagGroupRepo),
+    create: new CreateProductTagGroup(productTagGroupRepo),
+    edit: new EditProductTagGroup(productTagGroupRepo),
+    deleteGroup: new DeleteProductTagGroup(productTagGroupRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -664,6 +697,7 @@ type Controllers = {
   settings: SettingsGeneralController;
   origins: OriginsController;
   productTags: ProductTagsController;
+  productTagGroups: ProductTagGroupsController;
 };
 
 export const controllers: Controllers = {
@@ -751,6 +785,13 @@ export const controllers: Controllers = {
     edit: usecases.productTags.edit,
     deleteTag: usecases.productTags.deleteTag,
     bulkDelete: usecases.productTags.bulkDelete,
+  }),
+
+  productTagGroups: makeProductTagGroupsController({
+    list: usecases.productTagGroups.list,
+    create: usecases.productTagGroups.create,
+    edit: usecases.productTagGroups.edit,
+    deleteGroup: usecases.productTagGroups.deleteGroup,
   }),
 };
 

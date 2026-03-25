@@ -87,7 +87,9 @@ const ProductsPage: React.FC = () => {
   const currentPage = Number(searchParams.get("page")) || 1;
   const navigate = useNavigate();
 
-  const [sortOrder, setSortOrder] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<string>(
+    searchParams.get("sort") || "",
+  );
 
   const [pendingMap, setPendingMap] = useState<Record<number, number>>({});
 
@@ -284,10 +286,13 @@ const ProductsPage: React.FC = () => {
   };
 
   useEffect(() => {
+    setSelectedProducts([]);
+  }, [currentPage, statusFilter, searchTerm, sortOrder]);
+
+  useEffect(() => {
     fetchProducts();
     fetchPendingReviews();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, currentPage, sortOrder, searchTerm]);
+  }, [currentPage, statusFilter, searchTerm, sortOrder]);
 
   // 🔹 Tự động cập nhật URL khi tìm kiếm
   useEffect(() => {
@@ -302,14 +307,14 @@ const ProductsPage: React.FC = () => {
   }, [searchTerm]);
 
   // 🔹 Lọc hiển thị theo keyword
-  const filteredProducts = products.filter((product) => {
-    // Chỉ còn lại filter theo keyword
-    return (
-      product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  // const filteredProducts = products.filter((product) => {
+  //   // Chỉ còn lại filter theo keyword
+  //   return (
+  //     product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     product.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
+  //   );
+  // });
 
   const handleAddProduct = () => navigate("/admin/products/create");
 
@@ -579,7 +584,7 @@ const ProductsPage: React.FC = () => {
             </div>
           ) : error ? (
             <p className="text-center text-red-500 py-6">{error}</p>
-          ) : filteredProducts.length === 0 ? (
+          ) : products.length === 0 ? (
             <p className="text-center text-gray-500 py-6">No products found.</p>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -590,13 +595,11 @@ const ProductsPage: React.FC = () => {
                       type="checkbox"
                       checked={
                         selectedProducts.length > 0 &&
-                        selectedProducts.length === filteredProducts.length
+                        selectedProducts.length === products.length
                       }
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedProducts(
-                            filteredProducts.map((p) => p.id),
-                          );
+                          setSelectedProducts(products.map((p) => p.id));
                         } else {
                           setSelectedProducts([]);
                         }
@@ -630,7 +633,7 @@ const ProductsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredProducts.map((product, index) => {
+                {products.map((product, index) => {
                   const displayStock = getDisplayStock(product);
 
                   return (

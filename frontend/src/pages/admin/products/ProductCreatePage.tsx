@@ -26,8 +26,15 @@ interface Origin {
 interface ProductTag {
   id: number;
   name: string;
-  group: string;
-  status: string;
+  slug?: string | null;
+  productTagGroupId?: number | null;
+  tagGroup?: string | null;
+  group?: {
+    id: number;
+    name: string;
+    slug?: string | null;
+  } | null;
+  deleted?: boolean;
 }
 
 // =============================
@@ -101,6 +108,39 @@ interface ProductFormData {
   created_by_id: number;
   options: ProductOptionInput[];
   variants: ProductVariantInput[];
+}
+
+function normalizeProductTag(raw: any): ProductTag {
+  const resolvedGroup =
+    raw.group && typeof raw.group === "object"
+      ? {
+          id: Number(raw.group.id),
+          name: String(raw.group.name ?? ""),
+          slug: raw.group.slug ?? null,
+        }
+      : null;
+
+  const resolvedTagGroupName =
+    typeof raw.tagGroup === "string"
+      ? raw.tagGroup
+      : typeof raw.tag_group === "string"
+        ? raw.tag_group
+        : (resolvedGroup?.name ?? null);
+
+  return {
+    id: Number(raw.id),
+    name: String(raw.name ?? ""),
+    slug: raw.slug ?? null,
+    productTagGroupId:
+      raw.productTagGroupId != null
+        ? Number(raw.productTagGroupId)
+        : raw.product_tag_group_id != null
+          ? Number(raw.product_tag_group_id)
+          : (resolvedGroup?.id ?? null),
+    tagGroup: resolvedTagGroupName,
+    group: resolvedGroup,
+    deleted: Boolean(raw.deleted ?? false),
+  };
 }
 
 // 1) Thêm helper tính tồn kho tổng hợp từ variants
@@ -226,12 +266,35 @@ const ProductCreatePage: React.FC = () => {
           "GET",
           "/api/v1/admin/product-tags?limit=1000",
         );
-        if (json.success && Array.isArray(json.data)) {
-          // Lọc chỉ lấy tag active nếu muốn UI gọn hơn
-          const activeTags = json.data.filter(
-            (t: any) => t.status === "active",
-          );
-          setTags(activeTags);
+
+        const rows = Array.isArray(json?.data)
+          ? json.data
+          : Array.isArray(json?.data?.items)
+            ? json.data.items
+            : Array.isArray(json?.items)
+              ? json.items
+              : [];
+
+        if (json.success && rows.length > 0) {
+          const availableTags = rows
+            .map(normalizeProductTag)
+            .filter(
+              (tag: ProductTag) => !tag.deleted && tag.id > 0 && !!tag.name,
+            )
+            .sort((a: ProductTag, b: ProductTag) => {
+              const groupA = a.tagGroup ?? "Khác";
+              const groupB = b.tagGroup ?? "Khác";
+
+              if (groupA !== groupB) {
+                return groupA.localeCompare(groupB, "vi");
+              }
+
+              return a.name.localeCompare(b.name, "vi");
+            });
+
+          setTags(availableTags);
+        } else {
+          setTags([]);
         }
       } catch (err) {
         console.error("fetchTags error:", err);
@@ -247,10 +310,12 @@ const ProductCreatePage: React.FC = () => {
   const groupedTags = useMemo(() => {
     return tags.reduce(
       (acc, tag) => {
-        const groupName = tag.group || "Khác";
+        const groupName = tag.tagGroup || "Khác";
+
         if (!acc[groupName]) {
           acc[groupName] = [];
         }
+
         acc[groupName].push(tag);
         return acc;
       },
@@ -277,10 +342,15 @@ const ProductCreatePage: React.FC = () => {
   const handleToggleTag = (tagId: number) => {
     setFormData((prev) => {
       const isSelected = prev.tag_ids.includes(tagId);
+
       const newTagIds = isSelected
         ? prev.tag_ids.filter((id) => id !== tagId)
         : [...prev.tag_ids, tagId];
-      return { ...prev, tag_ids: newTagIds };
+
+      return {
+        ...prev,
+        tag_ids: [...new Set(newTagIds)],
+      };
     });
   };
 
@@ -783,7 +853,9 @@ const ProductCreatePage: React.FC = () => {
           : null,
         // Map các field mới sang camelCase
         originId: formData.origin_id ? Number(formData.origin_id) : null,
-        tagIds: formData.tag_ids,
+        tagIds: [...new Set(formData.tag_ids.map(Number))].filter(
+          (id) => Number.isInteger(id) && id > 0,
+        ),
         shortDescription: formData.short_description || null,
         storageGuide: updatedStorageGuide,
         usageSuggestions: updatedUsageSuggestions,

@@ -204,6 +204,30 @@ const ProductListPage: React.FC = () => {
     return value.toLocaleString("vi-VN") + " đ";
   };
 
+  const hasRealPriceRange = (product: Product) => {
+    return (
+      !!product.priceRange &&
+      typeof product.priceRange.min === "number" &&
+      typeof product.priceRange.max === "number" &&
+      product.priceRange.max > product.priceRange.min
+    );
+  };
+
+  const getPriceRangeLabel = (product: Product) => {
+    if (!hasRealPriceRange(product) || !product.priceRange) {
+      return formatPrice(getDisplayPrice(product));
+    }
+
+    const min = Number(product.priceRange.min || 0);
+    const max = Number(product.priceRange.max || 0);
+
+    if (min === max) {
+      return formatPrice(min);
+    }
+
+    return `${formatPrice(min)} - ${formatPrice(max)}`;
+  };
+
   const getDisplayPrice = (product: Product) => {
     if (product.priceRange?.min !== undefined) return product.priceRange.min;
     if (typeof product.effectivePrice === "number")
@@ -214,12 +238,11 @@ const ProductListPage: React.FC = () => {
   };
 
   const getDisplayComparePrice = (product: Product) => {
-    if (
-      product.priceRange?.max !== undefined &&
-      product.priceRange.max > getDisplayPrice(product)
-    ) {
-      return product.priceRange.max;
+    // Với sản phẩm có khoảng giá từ variants, max không phải giá gốc
+    if (hasRealPriceRange(product)) {
+      return 0;
     }
+
     return product.price ?? 0;
   };
 
@@ -249,9 +272,15 @@ const ProductListPage: React.FC = () => {
   };
 
   const getDiscountPercent = (product: Product) => {
+    // Nếu là khoảng giá giữa các variants thì không coi là giảm giá
+    if (hasRealPriceRange(product)) {
+      return 0;
+    }
+
     if (typeof product.discountPercentage === "number") {
       return Math.max(0, Number(product.discountPercentage));
     }
+
     if (typeof product.discount_percentage === "number") {
       return Math.max(0, Number(product.discount_percentage));
     }
@@ -270,6 +299,10 @@ const ProductListPage: React.FC = () => {
     Array.isArray(product.variants) && product.variants.length > 1;
 
   const getDiscountAmount = (product: Product) => {
+    if (hasRealPriceRange(product)) {
+      return 0;
+    }
+
     const displayPrice = getDisplayPrice(product);
     const comparePrice = getDisplayComparePrice(product);
     return Math.max(0, comparePrice - displayPrice);
@@ -631,6 +664,8 @@ const ProductListPage: React.FC = () => {
                       const discountPercent = getDiscountPercent(product);
                       const hasDiscount = discountPercent > 0;
                       const stock = getDisplayStock(product);
+                      const isPriceRangeProduct = hasRealPriceRange(product);
+                      const priceLabel = getPriceRangeLabel(product);
 
                       return (
                         <div
@@ -650,7 +685,7 @@ const ProductListPage: React.FC = () => {
 
                             {/* Badges */}
                             <div className="absolute top-3 left-3 flex flex-col gap-2">
-                              {hasDiscount && (
+                              {!isPriceRangeProduct && hasDiscount && (
                                 <span className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
                                   -{discountPercent}%
                                 </span>
@@ -732,23 +767,34 @@ const ProductListPage: React.FC = () => {
 
                             {/* Vùng Giá */}
                             <div className="mt-auto flex flex-col gap-1 mb-5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xl font-black text-green-700">
-                                  {formatPrice(displayPrice)}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-base font-black text-green-700">
+                                  {isPriceRangeProduct
+                                    ? priceLabel
+                                    : formatPrice(displayPrice)}
                                 </span>
-                                {hasDiscount && (
-                                  <span className="text-xs font-medium text-slate-400 line-through decoration-slate-300">
-                                    {formatPrice(comparePrice)}
-                                  </span>
-                                )}
+
+                                {!isPriceRangeProduct &&
+                                  hasDiscount &&
+                                  comparePrice > displayPrice && (
+                                    <span className="text-xs font-medium text-slate-400 line-through decoration-slate-300">
+                                      {formatPrice(comparePrice)}
+                                    </span>
+                                  )}
                               </div>
 
-                              {/* Cục Tiết kiệm */}
                               <div className="h-6">
-                                {hasDiscount && (
-                                  <span className="inline-flex items-center text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">
-                                    Tiết kiệm {formatPrice(discountAmount)}
+                                {isPriceRangeProduct ? (
+                                  <span className="inline-flex items-center text-[11px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
+                                    Giá theo quy cách
                                   </span>
+                                ) : (
+                                  hasDiscount &&
+                                  comparePrice > displayPrice && (
+                                    <span className="inline-flex items-center text-[11px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">
+                                      Tiết kiệm {formatPrice(discountAmount)}
+                                    </span>
+                                  )
                                 )}
                               </div>
                             </div>

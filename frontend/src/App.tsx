@@ -35,9 +35,6 @@ import ProductOriginCreatePage from "./pages/admin/product-origin/ProductOriginC
 import ProductOriginDetailPage from "./pages/admin/product-origin/ProductOriginDetailPage";
 import ProductOriginEditPage from "./pages/admin/product-origin/ProductOriginEditPage";
 import ProductTagPage from "./pages/admin/product-tags/ProductTagPage";
-import ProductTagCreatePage from "./pages/admin/product-tags/ProductTagCreatePage";
-import ProductTagDetailPage from "./pages/admin/product-tags/ProductTagDetailPage";
-import ProductTagEditPage from "./pages/admin/product-tags/ProductTagEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -185,18 +182,6 @@ const App: React.FC = () => {
                               <Route
                                 path="product-tags"
                                 element={<ProductTagPage />}
-                              />
-                              <Route
-                                path="product-tags/create"
-                                element={<ProductTagCreatePage />}
-                              />
-                              <Route
-                                path="product-tags/detail/:id"
-                                element={<ProductTagDetailPage />}
-                              />
-                              <Route
-                                path="product-tags/edit/:id"
-                                element={<ProductTagEditPage />}
                               />
                             </Routes>
                           </main>

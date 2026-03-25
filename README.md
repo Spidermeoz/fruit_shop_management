@@ -237,6 +237,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ListOrigins.ts
 │   │   │   │   │   └── 📄 SoftDeleteOrigin.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 product-tag-groups
+│   │   │   │   ├── 📁 usecases
+│   │   │   │   │   ├── 📄 CreateProductTagGroup.ts
+│   │   │   │   │   ├── 📄 DeleteProductTagGroup.ts
+│   │   │   │   │   ├── 📄 EditProductTagGroup.ts
+│   │   │   │   │   ├── 📄 GetProductTagGroupDetail.ts
+│   │   │   │   │   └── 📄 ListProductTagGroups.ts
+│   │   │   │   └── 📄 dto.ts
 │   │   │   ├── 📁 product-tags
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 BulkDeleteProductTags.ts
@@ -320,6 +328,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 products
 │   │   │   │   ├── 📄 OriginRepository.ts
 │   │   │   │   ├── 📄 ProductRepository.ts
+│   │   │   │   ├── 📄 ProductTagGroupRepository.ts
 │   │   │   │   ├── 📄 ProductTagRepository.ts
 │   │   │   │   ├── 📄 Products.ts
 │   │   │   │   └── 📄 types.ts
@@ -362,6 +371,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 ProductOptionModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionValueModel.ts
 │   │   │   │       │   ├── 📄 ProductReviewModel.ts
+│   │   │   │       │   ├── 📄 ProductTagGroupModel.ts
 │   │   │   │       │   ├── 📄 ProductTagMapModel.ts
 │   │   │   │       │   ├── 📄 ProductTagModel.ts
 │   │   │   │       │   ├── 📄 ProductVariantModel.ts
@@ -379,6 +389,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeOriginRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductCategoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductRepository.ts
+│   │   │   │   ├── 📄 SequelizeProductTagGroupRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagRepository.ts
 │   │   │   │   ├── 📄 SequelizeReviewRepository.ts
 │   │   │   │   ├── 📄 SequelizeRoleRepository.ts
@@ -406,6 +417,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 OrdersController.ts
 │   │   │           │   ├── 📄 OriginsController.ts
 │   │   │           │   ├── 📄 ProductCategoriesController.ts
+│   │   │           │   ├── 📄 ProductTagGroupsController.ts
 │   │   │           │   ├── 📄 ProductTagsController.ts
 │   │   │           │   ├── 📄 ProductsController.ts
 │   │   │           │   ├── 📄 RolesController.ts
@@ -433,6 +445,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 orders.routes.ts
 │   │   │               ├── 📄 origins.routes.ts
 │   │   │               ├── 📄 productCategories.routes.ts
+│   │   │               ├── 📄 productTagGroups.routes.ts
 │   │   │               ├── 📄 productTags.routes.ts
 │   │   │               ├── 📄 products.routes.ts
 │   │   │               ├── 📄 roles.routes.ts
@@ -504,9 +517,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ProductOriginEditPage.tsx
 │   │   │   │   │   └── 📄 ProductOriginPage.tsx
 │   │   │   │   ├── 📁 product-tags
-│   │   │   │   │   ├── 📄 ProductTagCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductTagDetailPage.tsx
-│   │   │   │   │   ├── 📄 ProductTagEditPage.tsx
 │   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 products
 │   │   │   │   │   ├── 📄 ProductCreatePage.tsx

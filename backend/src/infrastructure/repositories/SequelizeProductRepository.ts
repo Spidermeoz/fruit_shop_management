@@ -19,8 +19,9 @@ type Models = {
   ProductCategory?: any;
   Origin?: any;
   ProductTag?: any;
+  ProductTagGroup?: any;
   ProductTagMap?: any;
-  InventoryStock?: any; // A. Mở rộng Models thêm InventoryStock
+  InventoryStock?: any;
 };
 
 type OptionValueRef = {
@@ -215,9 +216,19 @@ export class SequelizeProductRepository implements ProductRepository {
       tags: Array.isArray(r.tags)
         ? r.tags.map((t: any) => ({
             id: Number(t.id),
-            name: t.name,
-            slug: t.slug,
-            tagGroup: t.tag_group,
+            name: String(t.name ?? ""),
+            slug: String(t.slug ?? ""),
+            productTagGroupId:
+              t.product_tag_group_id != null
+                ? Number(t.product_tag_group_id)
+                : null,
+            group: t.group
+              ? {
+                  id: Number(t.group.id),
+                  name: String(t.group.name ?? ""),
+                  slug: t.group.slug ?? null,
+                }
+              : null,
           }))
         : [],
 
@@ -389,9 +400,19 @@ export class SequelizeProductRepository implements ProductRepository {
       includes.push({
         model: this.models.ProductTag,
         as: "tags",
-        attributes: ["id", "name", "slug", "tag_group"],
+        attributes: ["id", "name", "slug", "product_tag_group_id"],
         through: { attributes: [] },
         required: false,
+        include: this.models.ProductTagGroup
+          ? [
+              {
+                model: this.models.ProductTagGroup,
+                as: "group",
+                attributes: ["id", "name", "slug"],
+                required: false,
+              },
+            ]
+          : [],
       });
     }
 
@@ -714,6 +735,9 @@ export class SequelizeProductRepository implements ProductRepository {
       order = "DESC",
     } = filter;
 
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.max(1, Number(limit) || 10);
+
     const where: WhereOptions = { deleted: 0 };
 
     if (categoryId !== null) {
@@ -739,8 +763,6 @@ export class SequelizeProductRepository implements ProductRepository {
       ];
     }
 
-    // C. Ghi chú rõ ràng: Contract backend list hiện đang dùng products.price làm derived/fallback price.
-    // Tương lai nếu muốn chuẩn xác cho Phase 2 thì cần join bảng variant để filter trực tiếp trên variant price.
     if (minPrice != null || maxPrice != null) {
       (where as any).price = {};
       if (minPrice != null) (where as any).price[Op.gte] = Number(minPrice);
@@ -761,17 +783,40 @@ export class SequelizeProductRepository implements ProductRepository {
     };
 
     const col = sortColMap[sortBy] || "id";
-    const orderBy: any[] = [[literal(col), order]];
-    const offset = (page - 1) * limit;
+    const safeOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
+    const offset = (safePage - 1) * safeLimit;
 
-    const { rows, count } = await this.models.Product.findAndCountAll({
+    // 1) Đếm tổng số product thật
+    const count = await this.models.Product.count({ where });
+
+    // 2) Lấy đúng ids của page hiện tại, chỉ từ bảng products
+    const baseRows = await this.models.Product.findAll({
       where,
-      limit,
+      attributes: ["id"],
+      limit: safeLimit,
       offset,
+      order: [[col, safeOrder]],
+      subQuery: false,
+    });
+
+    const ids = baseRows.map((row: any) => Number(row.id));
+
+    if (!ids.length) {
+      return { rows: [], count };
+    }
+
+    // 3) Query full data theo ids đã phân trang sẵn
+    const preserveOrderLiteral = literal(`FIELD(Product.id, ${ids.join(",")})`);
+
+    const rows = await this.models.Product.findAll({
+      where: {
+        id: { [Op.in]: ids },
+        deleted: 0,
+      },
+      include: this.buildIncludes(false),
       distinct: true,
       subQuery: false,
-      order: orderBy,
-      include: this.buildIncludes(false),
+      order: [[preserveOrderLiteral, "ASC"]],
     });
 
     return { rows: rows.map(this.mapRow), count };

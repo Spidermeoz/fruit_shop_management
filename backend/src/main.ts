@@ -28,6 +28,7 @@ import { uploadRoutes } from "./interfaces/http/express/routes/upload.routes";
 import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
 import { adminReviewsRoutes } from "./interfaces/http/express/routes/adminReviews.routes";
 import { adminSettingsRoutes } from "./interfaces/http/express/routes/adminSettings.routes";
+import { productTagGroupsRoutes } from "./interfaces/http/express/routes/productTagGroups.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -114,6 +115,10 @@ app.use(
   "/api/v1/admin/product-tags",
   productTagsRoutes(controllers.productTags, auth, can),
 );
+app.use(
+  "/api/v1/admin/product-tag-groups",
+  productTagGroupsRoutes(controllers.productTagGroups, auth, can),
+);
 app.use("/api/v1/admin/roles", rolesRoutes(controllers.roles, auth, can));
 app.use("/api/v1/admin/users", usersRoutes(controllers.users, auth, can));
 app.use("/api/v1/admin/upload", uploadRoutes(controllers.upload, auth, can));
@@ -160,8 +165,6 @@ app.use(
 );
 
 app.use("/api/v1/client/upload", clientUploadRoutes(controllers.upload, auth));
-
-// ⭐⭐⭐ NEW — CLIENT GENERAL SETTINGS ⭐⭐⭐
 app.use(
   "/api/v1/client/settings",
   clientSettingsRoutes(clientControllers.clientSettings),
@@ -193,8 +196,6 @@ app.use(
 // ------------------------------------
 (async () => {
   try {
-    // await sequelize.authenticate();
-    // console.log("✅ DB connected");
   } catch (e) {
     console.error("❌ DB connection error:", e);
   }
