@@ -33,11 +33,6 @@ export class SequelizeCartRepository implements CartRepository {
           title: String(productRow.title),
           thumbnail: productRow.thumbnail ?? null,
           slug: productRow.slug ?? null,
-          discountPercentage:
-            productRow.discount_percentage !== null &&
-            productRow.discount_percentage !== undefined
-              ? Number(productRow.discount_percentage)
-              : null,
         }
       : null;
 
@@ -118,7 +113,7 @@ export class SequelizeCartRepository implements CartRepository {
       {
         model: this.models.Product,
         as: "product",
-        attributes: ["id", "title", "thumbnail", "slug", "discount_percentage"],
+        attributes: ["id", "title", "thumbnail", "slug"],
       },
     ];
 

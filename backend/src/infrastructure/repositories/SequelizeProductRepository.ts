@@ -232,15 +232,10 @@ export class SequelizeProductRepository implements ProductRepository {
           }))
         : [],
 
-      // Transitional fallback fields
       price:
         r.price !== undefined && r.price !== null
           ? Number(r.price)
           : derivedMinPrice,
-      discountPercentage:
-        r.discount_percentage !== undefined && r.discount_percentage !== null
-          ? Number(r.discount_percentage)
-          : null,
       stock:
         r.stock !== undefined && r.stock !== null
           ? Number(r.stock)
@@ -859,7 +854,6 @@ export class SequelizeProductRepository implements ProductRepository {
           title: input.title,
           description: input.description ?? null,
           price,
-          discount_percentage: input.discountPercentage ?? null,
           stock,
           thumbnail: input.thumbnail ?? null,
           slug: input.slug ?? null,
@@ -937,10 +931,6 @@ export class SequelizeProductRepository implements ProductRepository {
         title: merged.title,
         description: merged.description ?? null,
         price,
-        discount_percentage:
-          merged.discountPercentage !== undefined
-            ? merged.discountPercentage
-            : null,
         stock,
         thumbnail: merged.thumbnail ?? null,
         slug: merged.slug ?? null,
@@ -1031,9 +1021,6 @@ export class SequelizeProductRepository implements ProductRepository {
     if (patch.title !== undefined) values.title = patch.title;
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.price !== undefined) values.price = patch.price;
-    if (patch.discountPercentage !== undefined) {
-      values.discount_percentage = patch.discountPercentage;
-    }
     if (patch.stock !== undefined) values.stock = patch.stock;
     if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;
     if (patch.slug !== undefined) values.slug = patch.slug;

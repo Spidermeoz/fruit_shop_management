@@ -5,7 +5,6 @@ export type CartItemProduct = {
   title: string;
   thumbnail: string | null;
   slug: string | null;
-  discountPercentage: number | null;
 };
 
 export type CartItemVariantOptionValue = {

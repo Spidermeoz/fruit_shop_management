@@ -88,7 +88,6 @@ interface ProductFormData {
   title: string;
   description: string;
   price: number | string;
-  discount_percentage: number | string;
   stock: number | string;
   thumbnail: string;
   status: string;
@@ -248,7 +247,6 @@ const ProductCreatePage: React.FC = () => {
     title: "",
     description: "",
     price: "",
-    discount_percentage: "",
     stock: "",
     thumbnail: "",
     status: "active",
@@ -1053,12 +1051,6 @@ const ProductCreatePage: React.FC = () => {
         title: formData.title,
         description: updatedDescription,
         price: formData.price === "" ? fallbackPrice : Number(formData.price),
-        discountPercentage:
-          formData.discount_percentage === undefined ||
-          formData.discount_percentage === null ||
-          formData.discount_percentage === ""
-            ? null
-            : Number(formData.discount_percentage),
         stock: fallbackStock,
         thumbnail: uploadedThumbnailUrl,
         status: formData.status,
@@ -1682,24 +1674,6 @@ const ProductCreatePage: React.FC = () => {
             >
               <Plus className="w-4 h-4" /> Thêm biến thể
             </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 hidden">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Giảm giá (%)
-            </label>
-            <input
-              type="number"
-              name="discount_percentage"
-              value={formData.discount_percentage}
-              onChange={handleInputChange}
-              min="0"
-              max="100"
-              step="0.1"
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-            />
           </div>
         </div>
 

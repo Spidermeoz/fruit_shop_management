@@ -15,7 +15,6 @@ interface Product {
   title: string;
   description: string;
   price: number;
-  discount_percentage: number;
   stock: number;
   thumbnail: string;
   status: string;
@@ -230,14 +229,6 @@ const ProductsPage: React.FC = () => {
               raw.price !== undefined && raw.price !== null
                 ? Number(raw.price)
                 : 0,
-            discount_percentage:
-              raw.discount_percentage !== undefined &&
-              raw.discount_percentage !== null
-                ? Number(raw.discount_percentage)
-                : raw.discountPercentage !== undefined &&
-                    raw.discountPercentage !== null
-                  ? Number(raw.discountPercentage)
-                  : 0,
             stock:
               raw.stock !== undefined && raw.stock !== null
                 ? Number(raw.stock)

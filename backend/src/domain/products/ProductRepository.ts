@@ -12,7 +12,6 @@ export type CreateProductInput = {
   title: string;
   description?: string | null;
   price?: number | null;
-  discountPercentage?: number | null;
   stock?: number;
   thumbnail?: string | null;
   slug?: string | null;

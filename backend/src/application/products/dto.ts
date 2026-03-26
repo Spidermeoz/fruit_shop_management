@@ -54,7 +54,6 @@ export type ProductDTO = {
 
   // product-level summary / fallback fields
   price: number | null;
-  discountPercentage: number | null;
   stock: number;
   totalStock: number;
   defaultVariantId: number | null;
@@ -73,8 +72,6 @@ export type ProductDTO = {
   updatedAt?: Date;
   createdById?: number | null;
   updatedById?: number | null;
-
-  effectivePrice: number | null;
 
   category: { id: number; title: string } | null;
   originId?: number | null;
@@ -105,10 +102,6 @@ export type ProductDTO = {
 
 export const toDTO = (p: Product): ProductDTO => {
   const price = p.props.price ?? null;
-  const discount = p.props.discountPercentage ?? 0;
-
-  const effectivePrice =
-    price === null ? null : Math.round(price * (100 - discount)) / 100;
 
   return {
     product_category_id: p.props.categoryId ?? null,
@@ -119,7 +112,6 @@ export const toDTO = (p: Product): ProductDTO => {
 
     // summary / fallback product-level fields
     price,
-    discountPercentage: p.props.discountPercentage ?? null,
     stock: p.props.stock ?? 0,
     totalStock: p.props.totalStock ?? p.props.stock ?? 0,
     defaultVariantId: p.props.defaultVariantId ?? null,
@@ -138,8 +130,6 @@ export const toDTO = (p: Product): ProductDTO => {
     updatedAt: p.props.updatedAt,
     createdById: p.props.createdById ?? null,
     updatedById: p.props.updatedById ?? null,
-
-    effectivePrice,
 
     category: p.props.category ?? null,
     originId: p.props.originId ?? null,

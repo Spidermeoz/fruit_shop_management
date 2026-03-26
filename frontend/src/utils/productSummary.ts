@@ -24,7 +24,6 @@ export function summarizeProducts(products: Product[]) {
   };
 
   const getUnitPrice = (p: Product) => {
-    if (typeof p.effective_price === "number") return p.effective_price;
     if (p.priceRange?.min !== undefined) return p.priceRange.min;
     return p.price ?? 0;
   };

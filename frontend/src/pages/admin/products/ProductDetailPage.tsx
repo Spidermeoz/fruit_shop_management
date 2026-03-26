@@ -45,7 +45,6 @@ interface Product {
 
   thumbnail?: string;
   price: number;
-  discount_percentage?: number;
   stock: number;
   totalStock?: number;
   total_stock?: number;
@@ -345,9 +344,6 @@ const normalizeProductDetail = (data: any): Product => {
     nutrition_notes: data.nutrition_notes ?? data.nutritionNotes ?? "",
 
     price: Number(data.price ?? 0),
-    discount_percentage: Number(
-      data.discount_percentage ?? data.discountPercentage ?? 0,
-    ),
     stock: Number(data.stock ?? 0),
     totalStock,
     total_stock: totalStock,
@@ -592,12 +588,6 @@ const ProductDetailPage: React.FC = () => {
                   Vị trí:
                 </span>{" "}
                 {product.position ?? "—"}
-              </p>
-              <p>
-                <span className="font-medium text-gray-600 dark:text-gray-400">
-                  Giảm giá:
-                </span>{" "}
-                {product.discount_percentage ?? 0}%
               </p>
               <p>
                 <span className="font-medium text-gray-600 dark:text-gray-400">

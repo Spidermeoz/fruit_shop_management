@@ -139,18 +139,6 @@ export function mapProduct(raw: any) {
       ? Number(p.price)
       : (minVariantPrice ?? 0);
 
-  const discountPercentage =
-    p.discountPercentage !== undefined && p.discountPercentage !== null
-      ? Number(p.discountPercentage)
-      : p.discount_percentage !== undefined && p.discount_percentage !== null
-        ? Number(p.discount_percentage)
-        : 0;
-
-  const effectivePrice =
-    discountPercentage > 0
-      ? basePrice * (1 - discountPercentage / 100)
-      : basePrice;
-
   return {
     id: Number(p.id),
 
@@ -185,10 +173,6 @@ export function mapProduct(raw: any) {
     thumbnail: p.thumbnail ?? p.image ?? null,
 
     price: basePrice,
-    effective_price: effectivePrice,
-    discount_percentage: discountPercentage,
-    discountPercentage,
-
     stock: mirroredProductStock,
     totalStock,
 
@@ -224,10 +208,6 @@ export function mapProduct(raw: any) {
     storageGuide: p.storageGuide ?? p.storage_guide ?? null,
     usageSuggestions: p.usageSuggestions ?? p.usage_suggestions ?? null,
     nutritionNotes: p.nutritionNotes ?? p.nutrition_notes ?? null,
-    effectivePrice:
-      p.effectivePrice !== undefined && p.effectivePrice !== null
-        ? Number(p.effectivePrice)
-        : effectivePrice,
     reviewCount: Number(p.reviewCount ?? p.review_count ?? 0),
     averageRating: Number(p.averageRating ?? p.average_rating ?? 0),
 

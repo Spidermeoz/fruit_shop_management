@@ -94,7 +94,6 @@ interface Product {
   nutrition_notes: string;
   // -----------------------
   price: number | string;
-  discount_percentage: number | string;
   stock: number | string;
   thumbnail: string;
   status: "active" | "inactive";
@@ -385,8 +384,6 @@ const ProductEditPage: React.FC = () => {
       String(product.product_category_id) !==
         String(initialProduct.product_category_id) ||
       Number(product.price) !== Number(initialProduct.price) ||
-      Number(product.discount_percentage) !==
-        Number(initialProduct.discount_percentage) ||
       derivedProductStock !== initialStockComparable || // Dùng derivedProductStock thay vì product.stock
       product.status !== initialProduct.status ||
       Number(product.featured) !== Number(initialProduct.featured) ||
@@ -1259,15 +1256,6 @@ const ProductEditPage: React.FC = () => {
       }
     });
 
-    const discount = Number(product.discount_percentage);
-    if (
-      product.discount_percentage !== "" &&
-      (discount < 0 || discount > 100)
-    ) {
-      newErrors.discount_percentage =
-        "Giảm giá phải nằm trong khoảng từ 0 đến 100%.";
-    }
-
     setFormErrors(newErrors);
     if (Object.keys(newErrors).length > 0) {
       window.setTimeout(() => scrollToFirstError(newErrors), 50);
@@ -1343,7 +1331,6 @@ const ProductEditPage: React.FC = () => {
         ),
         price: Number(product.price),
         stock: derivedStockFromNormalizedVariants, // 🔹 Sử dụng stock tổng hợp
-        discountPercentage: Number(product.discount_percentage),
         position: product.position === "" ? null : Number(product.position),
         featured: Boolean(Number(product.featured)),
       };
@@ -2036,25 +2023,6 @@ const ProductEditPage: React.FC = () => {
               placeholder="Nếu bỏ trống sẽ tự xếp cuối"
               className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
             />
-          </div>
-
-          {/* Giảm giá (Ẩn do logic chuyển sang fallback) */}
-          <div className="mt-4 hidden">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Giảm giá (%)
-            </label>
-            <input
-              type="number"
-              name="discount_percentage"
-              value={product.discount_percentage || "0"}
-              onChange={handleChange}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-            />
-            {formErrors.discount_percentage && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {formErrors.discount_percentage}
-              </p>
-            )}
           </div>
 
           {/* Ảnh sản phẩm */}

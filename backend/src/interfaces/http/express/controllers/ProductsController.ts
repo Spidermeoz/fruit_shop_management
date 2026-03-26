@@ -179,7 +179,6 @@ export const makeProductsController = (uc: {
 
             // product-level summary fields
             price: dto.price ?? 0,
-            discount_percentage: dto.discountPercentage ?? 0,
             stock: dto.stock ?? 0,
             total_stock: dto.totalStock ?? dto.stock ?? 0,
             default_variant_id: dto.defaultVariantId ?? null,
@@ -224,7 +223,6 @@ export const makeProductsController = (uc: {
           title: string;
           description?: string | null;
           price?: number | null;
-          discountPercentage?: number | null;
           stock?: number;
           thumbnail?: string | null;
           slug?: string | null;
@@ -297,7 +295,6 @@ export const makeProductsController = (uc: {
 
             // product-level summary fields
             price: dto.price ?? 0,
-            discount_percentage: dto.discountPercentage ?? 0,
             stock: dto.stock ?? 0,
             total_stock: dto.totalStock ?? dto.stock ?? 0,
             default_variant_id: dto.defaultVariantId ?? null,

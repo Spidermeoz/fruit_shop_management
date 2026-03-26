@@ -86,7 +86,6 @@ interface Product {
   title: string;
   slug: string;
   price: number;
-  discountPercentage?: number | null;
   thumbnail: string;
   stock: number;
   totalStock?: number;
@@ -113,8 +112,6 @@ interface Product {
 
   averageRating?: number;
   reviewCount?: number;
-
-  effectivePrice?: number | null;
 }
 
 interface ReviewUser {
@@ -176,7 +173,7 @@ const getProductCardPrice = (product: Product) => {
     return product.priceRange;
   }
 
-  const price = Number(product.effectivePrice ?? product.price ?? 0);
+  const price = Number(product.price ?? 0);
   return { min: price, max: price };
 };
 
@@ -1341,7 +1338,6 @@ const ProductDetailPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                   {relatedProducts.map((p) => {
-                    const hasDiscount = Number(p.discountPercentage ?? 0) > 0;
 
                     // 2.E Dùng helper Price Range mới cho thẻ sản phẩm thay vì getFinalPrice
                     const priceRange = getProductCardPrice(p);
@@ -1365,13 +1361,6 @@ const ProductDetailPage: React.FC = () => {
                                 "/placeholder.jpg";
                             }}
                           />
-                          <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
-                            {hasDiscount && (
-                              <span className="bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-sm">
-                                -{Number(p.discountPercentage ?? 0)}%
-                              </span>
-                            )}
-                          </div>
                           {isOutOfStock && (
                             <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-[2px] flex items-center justify-center z-20">
                               <span className="bg-white text-slate-900 px-4 py-2 rounded-xl font-bold text-sm">
@@ -1409,7 +1398,7 @@ const ProductDetailPage: React.FC = () => {
                                   ? `${priceRange.min.toLocaleString("vi-VN")} - ${priceRange.max.toLocaleString("vi-VN")} đ`
                                   : `${priceRange.min.toLocaleString("vi-VN")} đ`}
                               </span>
-                              {hasDiscount && !isRange && (
+                              {!isRange && (
                                 <span className="text-sm font-medium text-slate-400 line-through mb-0.5">
                                   {Number(p.price).toLocaleString("vi-VN")} đ
                                 </span>

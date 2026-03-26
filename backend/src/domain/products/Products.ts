@@ -50,7 +50,6 @@ export interface ProductProps {
 
   // Transitional fallback fields
   price?: number | null;
-  discountPercentage?: number | null;
   stock: number;
 
   thumbnail?: string | null;
@@ -130,10 +129,6 @@ export class Product {
     return this._props.stock;
   }
 
-  get discountPercentage() {
-    return this._props.discountPercentage;
-  }
-
   get variants() {
     return this._props.variants ?? [];
   }
@@ -153,12 +148,6 @@ export class Product {
 
     if (p.price != null && p.price < 0) {
       throw new Error("Product.price must be >= 0");
-    }
-
-    if (p.discountPercentage != null) {
-      if (p.discountPercentage < 0 || p.discountPercentage > 100) {
-        throw new Error("Product.discountPercentage must be between 0 and 100");
-      }
     }
 
     if (
@@ -259,13 +248,6 @@ export class Product {
     });
   }
 
-  applyDiscount(percent: number | null) {
-    this._props = Product.validate({
-      ...this._props,
-      discountPercentage: percent ?? null,
-    });
-  }
-
   updateStock(newStock: number) {
     if (newStock < 0) {
       throw new Error("Stock cannot be negative");
@@ -302,7 +284,6 @@ export type CreateProductWithVariantsInput = {
   status?: ProductStatus;
   featured?: boolean;
   position?: number | null;
-  discountPercentage?: number | null;
   createdById?: number | null;
   options?: ProductOptionInput[];
   variants?: ProductVariantInput[];

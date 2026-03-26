@@ -36,10 +36,6 @@ const Product = sequelize.define(
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
     },
-    discount_percentage: {
-      type: DataTypes.DECIMAL(5, 2),
-      allowNull: true, // 0..100 (ràng buộc ở DB)
-    },
     stock: {
       type: DataTypes.INTEGER.UNSIGNED,
       allowNull: false,

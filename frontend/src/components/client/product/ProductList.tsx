@@ -25,6 +25,7 @@ interface ProductVariant {
   stock: number;
   availableStock?: number;
   inventory?: ProductVariantInventory | null;
+  compareAtPrice?: number | null;
   price: number;
   status?: string;
 }
@@ -48,10 +49,6 @@ interface Product {
   title: string;
   slug: string;
   price: number;
-  effectivePrice?: number | null;
-  discountPercentage?: number | null;
-  effective_price?: number;
-  discount_percentage?: number;
   thumbnail: string;
   stock: number;
   totalStock?: number;
@@ -230,20 +227,23 @@ const ProductListPage: React.FC = () => {
 
   const getDisplayPrice = (product: Product) => {
     if (product.priceRange?.min !== undefined) return product.priceRange.min;
-    if (typeof product.effectivePrice === "number")
-      return product.effectivePrice;
-    if (typeof product.effective_price === "number")
-      return product.effective_price;
     return product.price ?? 0;
   };
 
   const getDisplayComparePrice = (product: Product) => {
-    // Với sản phẩm có khoảng giá từ variants, max không phải giá gốc
     if (hasRealPriceRange(product)) {
       return 0;
     }
 
-    return product.price ?? 0;
+    const firstVariantWithComparePrice = Array.isArray(product.variants)
+      ? product.variants.find((variant: any) => {
+          const compare = Number(variant.compareAtPrice ?? 0);
+          const price = Number(variant.price ?? 0);
+          return compare > price && compare > 0;
+        })
+      : null;
+
+    return Number(firstVariantWithComparePrice?.compareAtPrice ?? 0);
   };
 
   const getDisplayStock = (product: Product) => {
@@ -272,24 +272,22 @@ const ProductListPage: React.FC = () => {
   };
 
   const getDiscountPercent = (product: Product) => {
-    // Nếu là khoảng giá giữa các variants thì không coi là giảm giá
     if (hasRealPriceRange(product)) {
       return 0;
     }
 
-    if (typeof product.discountPercentage === "number") {
-      return Math.max(0, Number(product.discountPercentage));
-    }
+    const firstVariantWithComparePrice = Array.isArray(product.variants)
+      ? product.variants.find((variant) => {
+          const compare = Number((variant as any).compareAtPrice ?? 0);
+          const price = Number(variant.price ?? 0);
+          return compare > price && compare > 0;
+        })
+      : null;
 
-    if (typeof product.discount_percentage === "number") {
-      return Math.max(0, Number(product.discount_percentage));
-    }
-
-    const displayPrice = getDisplayPrice(product);
-    const comparePrice = getDisplayComparePrice(product);
-
-    if (comparePrice > displayPrice && comparePrice > 0) {
-      return Math.round(((comparePrice - displayPrice) / comparePrice) * 100);
+    if (firstVariantWithComparePrice) {
+      const compare = Number(firstVariantWithComparePrice.compareAtPrice ?? 0);
+      const price = Number(firstVariantWithComparePrice.price ?? 0);
+      return Math.round(((compare - price) / compare) * 100);
     }
 
     return 0;

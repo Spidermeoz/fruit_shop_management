@@ -79,9 +79,6 @@ export interface Product {
   category?: ProductCategoryLite | null;
 
   price: number;
-  effective_price?: number;
-  discount_percentage?: number | null;
-  discountPercentage?: number | null;
 
   origin?: {
     id: number;
@@ -102,7 +99,6 @@ export interface Product {
   usageSuggestions?: string | null;
   nutritionNotes?: string | null;
 
-  effectivePrice?: number | null;
   reviewCount?: number;
   averageRating?: number;
 
