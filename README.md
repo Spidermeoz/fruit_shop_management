@@ -194,6 +194,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 UpdateMyProfile.ts
 │   │   │   │   │   └── 📄 VerifyResetOtp.ts
 │   │   │   │   └── 📄 index.ts
+│   │   │   ├── 📁 branches
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 ChangeBranchStatus.ts
+│   │   │   │       ├── 📄 CreateBranch.ts
+│   │   │   │       ├── 📄 EditBranch.ts
+│   │   │   │       ├── 📄 GetBranchDetail.ts
+│   │   │   │       ├── 📄 ListBranches.ts
+│   │   │   │       └── 📄 SoftDeleteBranch.ts
 │   │   │   ├── 📁 carts
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 AddToCart.ts
@@ -214,6 +222,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ReorderCategoryPositions.ts
 │   │   │   │   │   └── 📄 SoftDeleteCategory.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 inventory
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 GetInventoryAllocation.ts
+│   │   │   │       └── 📄 SetInventoryStock.ts
 │   │   │   ├── 📁 orders
 │   │   │   │   ├── 📁 admin
 │   │   │   │   │   ├── 📄 AddDeliveryHistory.ts
@@ -312,6 +324,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   ├── 📁 domain
 │   │   │   ├── 📁 auth
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 branches
+│   │   │   │   ├── 📄 Branch.ts
+│   │   │   │   ├── 📄 BranchRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 carts
 │   │   │   │   ├── 📄 CartRepository.ts
 │   │   │   │   └── 📄 types.ts
@@ -355,6 +371,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 db
 │   │   │   │   └── 📁 sequelize
 │   │   │   │       ├── 📁 models
+│   │   │   │       │   ├── 📄 BranchModel.ts
 │   │   │   │       │   ├── 📄 CartItemModel.ts
 │   │   │   │       │   ├── 📄 CartModel.ts
 │   │   │   │       │   ├── 📄 DeliveryStatusHistoryModel.ts
@@ -378,11 +395,13 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 ProductVariantValueModel.ts
 │   │   │   │       │   ├── 📄 RoleModel.ts
 │   │   │   │       │   ├── 📄 SettingGeneralModel.ts
+│   │   │   │       │   ├── 📄 UserBranchModel.ts
 │   │   │   │       │   └── 📄 UserModel.ts
 │   │   │   │       └── 📄 index.ts
 │   │   │   ├── 📁 email
 │   │   │   │   └── 📄 EmailService.ts
 │   │   │   ├── 📁 repositories
+│   │   │   │   ├── 📄 SequelizeBranchRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
@@ -414,6 +433,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   └── 📄 ClientVerifyOtpController.ts
 │   │   │           │   ├── 📄 AdminReviewsController.ts
 │   │   │           │   ├── 📄 AuthController.ts
+│   │   │           │   ├── 📄 BranchesController.ts
+│   │   │           │   ├── 📄 InventoryController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
 │   │   │           │   ├── 📄 OriginsController.ts
 │   │   │           │   ├── 📄 ProductCategoriesController.ts
@@ -442,6 +463,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 adminReviews.routes.ts
 │   │   │               ├── 📄 adminSettings.routes.ts
 │   │   │               ├── 📄 auth.routes.ts
+│   │   │               ├── 📄 branches.routes.ts
+│   │   │               ├── 📄 inventory.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
 │   │   │               ├── 📄 origins.routes.ts
 │   │   │               ├── 📄 productCategories.routes.ts
@@ -502,19 +525,27 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   └── 📄 useTheme.ts
 │   │   ├── 📁 pages
 │   │   │   ├── 📁 admin
-│   │   │   │   ├── 📁 orders
-│   │   │   │   │   ├── 📄 OrderDeliveryTimelinePage.tsx
-│   │   │   │   │   ├── 📄 OrdersDetailPageAdmin.tsx
-│   │   │   │   │   └── 📄 OrdersPage.tsx
-│   │   │   │   ├── 📁 product-category
+│   │   │   │   ├── 📁 branches
+│   │   │   │   │   ├── 📄 BranchCreatePage.tsx
+│   │   │   │   │   ├── 📄 BranchDetailPage.tsx
+│   │   │   │   │   ├── 📄 BranchEditPage.tsx
+│   │   │   │   │   └── 📄 BranchesPage.tsx
+│   │   │   │   ├── 📁 categories
 │   │   │   │   │   ├── 📄 ProductCategoryCreatePage.tsx
 │   │   │   │   │   ├── 📄 ProductCategoryDetailPage.tsx
 │   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
-│   │   │   │   ├── 📁 product-origin
+│   │   │   │   ├── 📁 inventory
+│   │   │   │   │   └── 📄 InventoryPage.tsx
+│   │   │   │   ├── 📁 orders
+│   │   │   │   │   ├── 📄 OrderDeliveryTimelinePage.tsx
+│   │   │   │   │   ├── 📄 OrdersDetailPageAdmin.tsx
+│   │   │   │   │   └── 📄 OrdersPage.tsx
+│   │   │   │   ├── 📁 origins
+│   │   │   │   │   ├── 📄 ProductOriginCreatePage.tsx
+│   │   │   │   │   ├── 📄 ProductOriginDetailPage.tsx
+│   │   │   │   │   ├── 📄 ProductOriginEditPage.tsx
 │   │   │   │   │   └── 📄 ProductOriginPage.tsx
-│   │   │   │   ├── 📁 product-tags
-│   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 products
 │   │   │   │   │   ├── 📄 ProductCreatePage.tsx
 │   │   │   │   │   ├── 📄 ProductDetailPage.tsx
@@ -528,6 +559,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   └── 📄 RolesPage.tsx
 │   │   │   │   ├── 📁 settings
 │   │   │   │   │   └── 📄 SettingsGeneralPage.tsx
+│   │   │   │   ├── 📁 tags
+│   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 users
 │   │   │   │   │   ├── 📄 UserCreatePage.tsx
 │   │   │   │   │   ├── 📄 UserDetailPage.tsx

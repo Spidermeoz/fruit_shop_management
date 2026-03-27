@@ -1209,4 +1209,24 @@ export class SequelizeProductRepository implements ProductRepository {
     variant.stock = Number(variant.stock ?? 0) + quantity;
     await variant.save({ transaction });
   }
+
+  async updateVariantMirrorStock(
+    variantId: number,
+    stock: number,
+  ): Promise<void> {
+    await this.models.ProductVariant.update(
+      { stock: Math.max(0, Number(stock || 0)) },
+      { where: { id: variantId } },
+    );
+  }
+
+  async updateProductMirrorStock(
+    productId: number,
+    stock: number,
+  ): Promise<void> {
+    await this.models.Product.update(
+      { stock: Math.max(0, Number(stock || 0)) },
+      { where: { id: productId } },
+    );
+  }
 }

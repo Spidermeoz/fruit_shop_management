@@ -54,6 +54,9 @@ type ApiOk = {
   errors?: any;
 };
 
+const isStaffRole = (roleId: number | "" | null | undefined) =>
+  roleId !== "" && roleId !== null && roleId !== undefined;
+
 const UserEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -226,10 +229,35 @@ const UserEditPage: React.FC = () => {
       newValue = value === "" ? "" : Number(value);
     }
 
-    setUser((prev) => (prev ? { ...prev, [name]: newValue } : prev));
+    setUser((prev) => {
+      if (!prev) return prev;
+
+      const nextUser = { ...prev, [name]: newValue };
+
+      if (name === "role_id" && !isStaffRole(newValue)) {
+        setSelectedBranchIds([]);
+        setPrimaryBranchId("");
+        setErrors((prevErrors) => ({
+          ...prevErrors,
+          branches: undefined,
+          primaryBranchId: undefined,
+        }));
+      }
+
+      return nextUser;
+    });
 
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+
+    if (name === "role_id") {
+      setErrors((prev) => ({
+        ...prev,
+        role_id: undefined,
+        branches: undefined,
+        primaryBranchId: undefined,
+      }));
     }
   };
 
@@ -299,6 +327,7 @@ const UserEditPage: React.FC = () => {
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
+    const isStaff = !!user && isStaffRole(user.role_id);
 
     if (!user?.full_name?.trim()) {
       newErrors.full_name = "Vui lòng nhập họ và tên.";
@@ -325,15 +354,18 @@ const UserEditPage: React.FC = () => {
       }
     }
 
-    if (selectedBranchIds.length === 0) {
-      newErrors.branches = "Vui lòng chọn ít nhất 1 chi nhánh.";
-    }
+    if (isStaff) {
+      if (selectedBranchIds.length === 0) {
+        newErrors.branches = "Vui lòng chọn ít nhất 1 chi nhánh.";
+      }
 
-    if (
-      selectedBranchIds.length > 0 &&
-      (!primaryBranchId || !selectedBranchIds.includes(Number(primaryBranchId)))
-    ) {
-      newErrors.primaryBranchId = "Vui lòng chọn chi nhánh chính hợp lệ.";
+      if (
+        selectedBranchIds.length > 0 &&
+        (!primaryBranchId ||
+          !selectedBranchIds.includes(Number(primaryBranchId)))
+      ) {
+        newErrors.primaryBranchId = "Vui lòng chọn chi nhánh chính hợp lệ.";
+      }
     }
 
     setErrors(newErrors);
@@ -379,12 +411,15 @@ const UserEditPage: React.FC = () => {
         avatarUrl = user.avatar;
       }
 
+      const isStaff = isStaffRole(user.role_id);
+
       const body: any = {
         ...user,
+        role_id: user.role_id === "" ? null : Number(user.role_id),
         avatar: avatarUrl,
-        branchIds: selectedBranchIds,
+        branchIds: isStaff ? selectedBranchIds : [],
         primaryBranchId:
-          primaryBranchId === "" ? null : Number(primaryBranchId),
+          isStaff && primaryBranchId !== "" ? Number(primaryBranchId) : null,
       };
 
       if (newPassword.trim()) {
@@ -427,6 +462,8 @@ const UserEditPage: React.FC = () => {
   if (!user) return null;
 
   const isSelf = currentUser?.id === user.id;
+  const isStaffUser = isStaffRole(user.role_id);
+
   const selectedBranches = branches.filter((b) =>
     selectedBranchIds.includes(b.id),
   );
@@ -573,79 +610,97 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                Gán chi nhánh <span className="text-red-500">*</span>
-              </h3>
-            </div>
+          {isStaffUser ? (
+            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+                  Gán chi nhánh <span className="text-red-500">*</span>
+                </h3>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {branches.map((branch) => {
-                const checked = selectedBranchIds.includes(branch.id);
-                return (
-                  <label
-                    key={branch.id}
-                    className={`flex items-center justify-between rounded-md border p-3 cursor-pointer transition-colors ${
-                      checked
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-300 dark:border-gray-600"
-                    }`}
-                  >
-                    <div>
-                      <p className="font-medium text-gray-800 dark:text-white">
-                        {branch.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {branch.code}
-                      </p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => handleToggleBranch(branch.id)}
-                    />
-                  </label>
-                );
-              })}
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {branches.map((branch) => {
+                  const checked = selectedBranchIds.includes(branch.id);
+                  return (
+                    <label
+                      key={branch.id}
+                      className={`flex items-center justify-between rounded-md border p-3 cursor-pointer transition-colors ${
+                        checked
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white">
+                          {branch.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {branch.code}
+                        </p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => handleToggleBranch(branch.id)}
+                      />
+                    </label>
+                  );
+                })}
+              </div>
 
-            {errors.branches && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                {errors.branches}
-              </p>
-            )}
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Chi nhánh chính <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={primaryBranchId}
-                onChange={(e) =>
-                  setPrimaryBranchId(
-                    e.target.value ? Number(e.target.value) : "",
-                  )
-                }
-                className={`w-full border ${
-                  errors.primaryBranchId ? "border-red-500" : "border-gray-300"
-                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
-              >
-                <option value="">-- Chọn chi nhánh chính --</option>
-                {selectedBranches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name} ({branch.code})
-                  </option>
-                ))}
-              </select>
-              {errors.primaryBranchId && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.primaryBranchId}
+              {errors.branches && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                  {errors.branches}
                 </p>
               )}
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Chi nhánh chính <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={primaryBranchId}
+                  onChange={(e) =>
+                    setPrimaryBranchId(
+                      e.target.value ? Number(e.target.value) : "",
+                    )
+                  }
+                  className={`w-full border ${
+                    errors.primaryBranchId
+                      ? "border-red-500"
+                      : "border-gray-300"
+                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
+                >
+                  <option value="">-- Chọn chi nhánh chính --</option>
+                  {selectedBranches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </option>
+                  ))}
+                </select>
+                {errors.primaryBranchId && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                    {errors.primaryBranchId}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/40">
+              <div className="flex items-center gap-2 mb-2">
+                <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+                  Gán chi nhánh
+                </h3>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                User hiện là customer nên không cần gán chi nhánh. Khi chọn vai
+                trò staff/admin, phần gán chi nhánh sẽ xuất hiện và trở thành
+                bắt buộc.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

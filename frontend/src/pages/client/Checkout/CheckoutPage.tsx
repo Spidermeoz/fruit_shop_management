@@ -180,7 +180,7 @@ const CheckoutPage: React.FC = () => {
       try {
         const res = await http(
           "GET",
-          "/api/v1/admin/branches?limit=100&status=active",
+          "/api/v1/client/orders/branches",
         );
 
         if (res?.success) {

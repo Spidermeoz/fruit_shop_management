@@ -153,7 +153,7 @@ const BranchCreatePage: React.FC = () => {
         status: formData.status,
       };
 
-      const res = await http<any>("POST", "/api/v1/admin/branches", payload);
+      const res = await http<any>("POST", "/api/v1/admin/branches/create", payload);
 
       if (res?.success) {
         showSuccessToast({ message: "Tạo chi nhánh thành công!" });

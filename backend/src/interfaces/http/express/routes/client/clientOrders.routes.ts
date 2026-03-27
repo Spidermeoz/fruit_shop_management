@@ -7,6 +7,7 @@ export const clientOrdersRoutes = (
 ) => {
   const r = Router();
 
+  r.get("/branches", auth, controller.branches);
   r.post("/checkout", auth, controller.checkout);
   r.get("/", auth, controller.list);
   r.get("/addresses", auth, controller.addresses);

@@ -744,6 +744,7 @@ export const usecases = {
     addDeliveryStatus: new AddDeliveryHistory(orderRepo),
     addPayment: new AddPayment(orderRepo),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
+    listBranches: new ListBranches(branchRepo),
   },
 
   reviews: {
@@ -875,6 +876,7 @@ export const controllers: Controllers = {
     updateStatus: usecases.orders.updateStatus,
     addDeliveryStatus: usecases.orders.addDeliveryStatus,
     addPayment: usecases.orders.addPayment,
+
   }),
 
   reviews: makeAdminReviewsController({
@@ -960,6 +962,7 @@ export const clientControllers = {
     myOrderDetail: usecases.orders.myOrderDetail,
     cancelMyOrder: usecases.orders.cancelMyOrder,
     listMyOrderAddresses: usecases.orders.listMyOrderAddresses,
+    listBranches: usecases.orders.listBranches,
   }),
 
   reviews: makeClientReviewsController({

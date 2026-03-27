@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import Card from "../../components/admin/layouts/Card";
 import { http } from "../../services/http";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../auth/AuthContext";
 
 type DashboardOrder = {
   id: number;

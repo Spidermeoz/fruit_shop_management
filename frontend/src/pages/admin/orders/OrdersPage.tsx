@@ -5,7 +5,7 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 
 type OrderStatus =
   | "pending"

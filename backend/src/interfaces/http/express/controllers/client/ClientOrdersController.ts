@@ -6,8 +6,27 @@ export const makeClientOrdersController = (uc: {
   myOrders: any;
   myOrderDetail: any;
   cancelMyOrder: any;
+  listBranches: any;
 }) => {
   return {
+    branches: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const data = await uc.listBranches.execute({
+          status: "active",
+          includeDeleted: false,
+          limit: 100,
+          offset: 0,
+        });
+
+        res.json({
+          success: true,
+          data: data.rows,
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+    
     checkout: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;

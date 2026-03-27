@@ -97,7 +97,7 @@ const BranchEditPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiDetail<any>>(
         "GET",
-        `/api/v1/admin/branches/${id}`,
+        `/api/v1/admin/branches/edit/${id}`,
       );
 
       if (res?.success && res.data) {
@@ -210,7 +210,7 @@ const BranchEditPage: React.FC = () => {
 
       const res = await http<any>(
         "PATCH",
-        `/api/v1/admin/branches/${formData.id}`,
+        `/api/v1/admin/branches/edit/${formData.id}`,
         payload,
       );
 

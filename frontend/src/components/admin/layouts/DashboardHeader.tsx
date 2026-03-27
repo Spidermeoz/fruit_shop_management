@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Moon, Sun, Bell, LogOut, ChevronDown, GitBranch } from "lucide-react";
 import { useTheme } from "../../../context/ThemeContext";
-import { http } from "../../../services/http";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../../auth/AuthContext";
 
 const DashboardHeader: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -32,14 +31,8 @@ const DashboardHeader: React.FC = () => {
   }, []);
 
   const handleLogout = async () => {
-    try {
-      await http("POST", "/api/v1/admin/auth/logout");
-    } catch {
-      // ignore server logout errors
-    } finally {
-      await logout();
-      navigate("/admin/auth/login", { replace: true });
-    }
+    await logout();
+    navigate("/admin/auth/login", { replace: true });
   };
 
   const userAvatar = useMemo(() => {

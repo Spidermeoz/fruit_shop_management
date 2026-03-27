@@ -25,7 +25,11 @@ export class SequelizeCartRepository implements CartRepository {
 
     const variantRow = row.variant ?? row.ProductVariant ?? null;
 
-    const inventoryRow = variantRow?.inventoryStock ?? null;
+    const inventoryRows = Array.isArray(variantRow?.inventoryStocks)
+      ? variantRow.inventoryStocks
+      : variantRow?.inventoryStocks
+        ? [variantRow.inventoryStocks]
+        : [];
 
     const product = productRow
       ? {
@@ -52,9 +56,25 @@ export class SequelizeCartRepository implements CartRepository {
           }))
       : [];
 
-    const quantity = Number(inventoryRow?.quantity ?? variantRow?.stock ?? 0);
-    const reservedQuantity = Number(inventoryRow?.reserved_quantity ?? 0);
-    const availableStock = Math.max(0, quantity - reservedQuantity);
+    const totalQuantity = inventoryRows.reduce(
+      (sum: number, stockRow: any) => sum + Number(stockRow?.quantity ?? 0),
+      0,
+    );
+
+    const totalReservedQuantity = inventoryRows.reduce(
+      (sum: number, stockRow: any) =>
+        sum + Number(stockRow?.reserved_quantity ?? 0),
+      0,
+    );
+
+    const fallbackStock = Number(variantRow?.stock ?? 0);
+    const effectiveQuantity =
+      inventoryRows.length > 0 ? totalQuantity : fallbackStock;
+
+    const availableStock = Math.max(
+      0,
+      effectiveQuantity - totalReservedQuantity,
+    );
 
     const variant = variantRow
       ? {
@@ -68,9 +88,9 @@ export class SequelizeCartRepository implements CartRepository {
             variantRow.compare_at_price !== undefined
               ? Number(variantRow.compare_at_price)
               : null,
-          stock: Number(variantRow.stock ?? 0), // mirror
+          stock: fallbackStock,
           availableStock,
-          reservedQuantity,
+          reservedQuantity: totalReservedQuantity,
           status: variantRow.status ?? "active",
           optionValues,
         }
@@ -120,7 +140,7 @@ export class SequelizeCartRepository implements CartRepository {
     if (this.models.InventoryStock) {
       variantInclude.push({
         model: this.models.InventoryStock,
-        as: "inventoryStock",
+        as: "inventoryStocks",
         attributes: ["id", "quantity", "reserved_quantity"],
         required: false,
       });
@@ -204,6 +224,7 @@ export class SequelizeCartRepository implements CartRepository {
     if (!variant) {
       throw new Error("Product variant not found");
     }
+
     if (variant.status !== "active") {
       throw new Error("Product variant is inactive");
     }

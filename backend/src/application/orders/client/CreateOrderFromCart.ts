@@ -130,7 +130,6 @@ export class CreateOrderFromCart {
           shippingFee,
           discountAmount,
           totalPrice: subtotal,
-          finalPrice,
           userInfo: userInfo ?? null,
         },
         transaction,

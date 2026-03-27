@@ -65,6 +65,8 @@ export interface ProductRepository {
     variantId: number,
     transaction?: any,
   ): Promise<ProductVariantStockInfo | null>;
+  updateVariantMirrorStock(variantId: number, stock: number): Promise<void>;
+  updateProductMirrorStock(productId: number, stock: number): Promise<void>;
   findBySlug(slug: string): Promise<Product | null>;
 
   create(input: CreateProductInput): Promise<Product>;

@@ -1,4 +1,3 @@
-// src/interfaces/http/express/controllers/RolesController.ts
 import { Request, Response, NextFunction } from "express";
 
 import type { ListRoles } from "../../../../application/roles/usecases/ListRoles";
@@ -9,13 +8,38 @@ import type { SoftDeleteRole } from "../../../../application/roles/usecases/Soft
 import type { GetRolePermissions } from "../../../../application/roles/usecases/GetRolePermissions";
 import type { UpdateRolePermissions } from "../../../../application/roles/usecases/UpdateRolePermissions";
 import type { ListRolesForPermissions } from "../../../../application/roles/usecases/ListRolesForPermissions";
-import type { UpdateRolePermissions as BulkUpdateRolePermissions } from "../../../../application/roles/usecases/UpdateRolePermissions";
 
 const toBool = (v: any) =>
   v === undefined
     ? undefined
     : v === "true" || v === true || v === 1 || v === "1";
-const toNum = (v: any) => (v === undefined ? undefined : Number(v));
+
+const toNum = (v: any) =>
+  v === null || v === undefined || v === "" ? undefined : Number(v);
+
+const normalizePermissions = (
+  input: unknown,
+): Record<string, string[]> | undefined => {
+  if (input === undefined || input === null) return undefined;
+
+  if (typeof input !== "object" || Array.isArray(input)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(input as Record<string, any>).reduce(
+    (acc, [k, v]) => {
+      if (Array.isArray(v)) {
+        acc[k] = v.map((x) => String(x));
+      } else if (v != null) {
+        acc[k] = [String(v)];
+      }
+      return acc;
+    },
+    {} as Record<string, string[]>,
+  );
+
+  return entries;
+};
 
 export const makeRolesController = (uc: {
   list: ListRoles;
@@ -26,28 +50,23 @@ export const makeRolesController = (uc: {
   getPermissions: GetRolePermissions;
   updatePermissions: UpdateRolePermissions;
   listForPermissions: ListRolesForPermissions;
-  bulkUpdatePermissions: BulkUpdateRolePermissions;
+  bulkUpdatePermissions: UpdateRolePermissions;
 }) => {
   return {
-    // GET /api/v1/admin/roles
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { page, limit, q, includeDeleted } = req.query as Record<
           string,
           string
         >;
+
         const pg = toNum(page) ?? 1;
         const lm = toNum(limit) ?? 10;
 
-        // cast to any to avoid strict mismatch with ListRolesInput shape
-        const listInput: any = {
-          page: pg,
-          limit: lm,
+        const result = await uc.list.execute({
           q: q?.trim() || undefined,
           includeDeleted: toBool(includeDeleted),
-        };
-
-        const result = await uc.list.execute(listInput);
+        });
 
         res.json({
           success: true,
@@ -59,18 +78,17 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // GET /api/v1/admin/roles/detail/:id
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const role = await uc.detail.execute(id);
+
         if (!role) {
           return res
             .status(404)
             .json({ success: false, message: "Role not found" });
         }
 
-        // map createdAt/updatedAt -> created_at/updated_at for frontend
         const out = {
           ...(role as any),
           created_at:
@@ -89,43 +107,20 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // POST /api/v1/admin/roles/create
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const payload = req.body as {
           title: string;
           description?: string | null;
-          permissions?: unknown; // optional khi tạo mới
+          permissions?: unknown;
         };
 
-        // Normalize permissions -> Record<string, string[]> | null
-        let normalizedPermissions: Record<string, string[]> | null = null;
-        if (
-          payload.permissions &&
-          typeof payload.permissions === "object" &&
-          !Array.isArray(payload.permissions)
-        ) {
-          const entries = Object.entries(
-            payload.permissions as Record<string, any>,
-          ).reduce(
-            (acc, [k, v]) => {
-              if (Array.isArray(v)) {
-                acc[k] = v.map((x) => String(x));
-              } else if (v != null) {
-                // single value -> convert to single-element array
-                acc[k] = [String(v)];
-              }
-              return acc;
-            },
-            {} as Record<string, string[]>,
-          );
-          normalizedPermissions = Object.keys(entries).length ? entries : null;
-        }
+        const normalizedPermissions = normalizePermissions(payload.permissions);
 
         const created = await uc.create.execute({
           title: payload.title,
           description: payload.description ?? null,
-          permissions: normalizedPermissions,
+          permissions: normalizedPermissions ?? {},
         });
 
         res.status(201).json({
@@ -138,11 +133,11 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // GET /api/v1/admin/roles/edit/:id  (giống detail để FE lấy form)
     getEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const role = await uc.detail.execute(id);
+
         if (!role) {
           return res
             .status(404)
@@ -167,7 +162,6 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // PATCH /api/v1/admin/roles/edit/:id
     edit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -177,50 +171,30 @@ export const makeRolesController = (uc: {
           permissions: unknown;
         }>;
 
-        // Normalize permissions if provided
-        let normalizedPermissions: Record<string, string[]> | null | undefined =
-          undefined;
+        const normalizedPermissions = normalizePermissions(body.permissions);
+
+        const patch: Partial<{
+          title: string;
+          description: string | null;
+          permissions: Record<string, string[]>;
+        }> = {};
+
+        if (body.title !== undefined) patch.title = String(body.title);
+        if (body.description !== undefined) {
+          patch.description = body.description ?? null;
+        }
         if (body.permissions !== undefined) {
-          if (body.permissions === null) {
-            normalizedPermissions = null;
-          } else if (
-            typeof body.permissions === "object" &&
-            !Array.isArray(body.permissions)
-          ) {
-            const entries = Object.entries(
-              body.permissions as Record<string, any>,
-            ).reduce(
-              (acc, [k, v]) => {
-                if (Array.isArray(v)) acc[k] = v.map((x) => String(x));
-                else if (v != null) acc[k] = [String(v)];
-                return acc;
-              },
-              {} as Record<string, string[]>,
-            );
-            normalizedPermissions = Object.keys(entries).length
-              ? entries
-              : null;
-          } else {
+          if (normalizedPermissions === undefined) {
             return res.status(400).json({
               success: false,
               message: "Invalid permissions format",
             });
           }
+          patch.permissions = normalizedPermissions;
         }
 
-        // Build patch matching Partial<CreateRoleInput>
-        const patch: Partial<{
-          title: string;
-          description: string | null;
-          permissions: Record<string, string[]> | null;
-        }> = {};
-        if (body.title !== undefined) patch.title = String(body.title);
-        if (body.description !== undefined)
-          patch.description = body.description ?? null;
-        if (normalizedPermissions !== undefined)
-          patch.permissions = normalizedPermissions;
-
         const updated = await uc.update.execute(id, patch);
+
         res.json({
           success: true,
           data: updated,
@@ -231,11 +205,11 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // DELETE /api/v1/admin/roles/delete/:id (soft delete)
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const result = await uc.softDelete.execute(id);
+
         res.json({
           success: true,
           data: result,
@@ -246,12 +220,11 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // GET /api/v1/admin/roles/:id/permissions
     getPermissions: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const permissions = await uc.getPermissions.execute(id);
-        // Giữ format như controller cũ: { success, data: permissions }
+
         res.json({
           success: true,
           data: permissions,
@@ -262,7 +235,6 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // PUT /api/v1/admin/roles/:id/permissions
     updatePermissions: async (
       req: Request,
       res: Response,
@@ -270,23 +242,20 @@ export const makeRolesController = (uc: {
     ) => {
       try {
         const id = Number(req.params.id);
-        let { permissions } = req.body as { permissions: unknown };
+        const { permissions } = req.body as { permissions: unknown };
 
-        const invalid =
-          permissions === undefined ||
-          permissions === null ||
-          (typeof permissions !== "object" && !Array.isArray(permissions));
-        if (invalid) {
+        const normalizedPermissions = normalizePermissions(permissions);
+
+        if (normalizedPermissions === undefined) {
           return res.status(400).json({
             success: false,
             message: "Invalid permissions format",
           });
         }
 
-        // Pass a single object argument (id + permissions) — works with typical signatures
-        const updated = await (uc.updatePermissions as any).execute({
+        const updated = await uc.updatePermissions.execute({
           id,
-          permissions,
+          permissions: normalizedPermissions,
         });
 
         res.json({
@@ -300,16 +269,35 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // GET /api/v1/admin/roles/permissions  (GLOBAL)
     permissionsMatrix: async (
       req: Request,
       res: Response,
       next: NextFunction,
     ) => {
       try {
-        const roles = await uc.listForPermissions.execute(); // [{id,title,permissions}]
-        // Danh sách module & action — copy đúng cấu trúc cũ
+        const roles = await uc.listForPermissions.execute();
+
         const modules = [
+          {
+            group: "Chi nhánh",
+            key: "branch",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
+          {
+            group: "Kho hàng",
+            key: "inventory",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
           {
             group: "Danh mục sản phẩm",
             key: "product_category",
@@ -406,12 +394,14 @@ export const makeRolesController = (uc: {
               const checked = !!perms[mod.key]?.includes(action.key);
               return { role_id: r.id, role_title: r.title, checked };
             });
+
             return {
               action_key: action.key,
               action_label: action.label,
               roles: rolesStatus,
             };
           });
+
           return { group: mod.group, key: mod.key, actions };
         });
 
@@ -429,7 +419,6 @@ export const makeRolesController = (uc: {
       }
     },
 
-    // PATCH /api/v1/admin/roles/permissions  (GLOBAL)
     permissionsPatchMatrix: async (
       req: Request,
       res: Response,
@@ -439,13 +428,13 @@ export const makeRolesController = (uc: {
         const { roles } = req.body as {
           roles: Array<{ id: number; permissions: any }>;
         };
+
         if (!Array.isArray(roles)) {
           return res
             .status(400)
             .json({ success: false, message: "Invalid roles data" });
         }
 
-        // Chuẩn hoá permissions: string JSON -> object
         const norm = roles
           .filter((r) => r && r.id)
           .map((r) => {
@@ -459,11 +448,13 @@ export const makeRolesController = (uc: {
             }
             return {
               id: Number(r.id),
-              permissions: p && typeof p === "object" ? p : {},
+              permissions:
+                p && typeof p === "object" && !Array.isArray(p) ? p : {},
             };
           });
 
         await uc.bulkUpdatePermissions.execute(norm);
+
         return res.json({
           success: true,
           message: "Permissions updated successfully",

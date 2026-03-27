@@ -157,7 +157,7 @@ const BranchesPage: React.FC = () => {
     if (!ok) return;
 
     try {
-      await http("DELETE", `/api/v1/admin/branches/${branch.id}`);
+      await http("DELETE", `/api/v1/admin/branches/delete/${branch.id}`);
       showSuccessToast({ message: "Đã xóa chi nhánh thành công!" });
       fetchBranches();
     } catch (err: any) {

@@ -5,47 +5,32 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { http } from "../services/http";
+import { http, tokenStore } from "../services/http";
 
-export interface AdminBranch {
+type ClientUser = {
   id: number;
-  name: string | null;
-  code: string | null;
-  status?: string | null;
-  is_primary?: boolean;
-}
+  full_name: string | null;
+  email: string;
+  phone: string | null;
+  avatar: string | null;
+};
 
-export interface AdminUser {
-  id: number;
-  email?: string;
-  full_name?: string | null;
-  avatar?: string | null;
-  role_id?: number | null;
-  branch_ids?: number[];
-  primary_branch_id?: number | null;
-  branches?: AdminBranch[];
-}
-
-interface AuthContextType {
-  user: AdminUser | null;
+type AuthState = {
+  loading: boolean;
+  user: ClientUser | null;
   isAuthenticated: boolean;
-  isLoading: boolean;
-  permissions: Record<string, string[]>;
-  branches: AdminBranch[];
-  currentBranchId: number | null;
-  currentBranch: AdminBranch | null;
-  setCurrentBranchId: (branchId: number | null) => void;
-  refreshMe: () => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => Promise<void>;
   logout: () => Promise<void>;
-}
+  refreshSession: () => Promise<void>;
+};
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const Ctx = createContext<AuthState | undefined>(undefined);
 
-const ACCESS_TOKEN_KEY = "accessToken";
-const REFRESH_TOKEN_KEY = "refreshToken";
-const CURRENT_USER_KEY = "currentUser";
-const PERMISSIONS_KEY = "permissions";
-const CURRENT_BRANCH_ID_KEY = "currentBranchId";
+const CLIENT_USER_KEY = "client.currentUser";
 
 const safeJsonParse = <T,>(value: string | null, fallback: T): T => {
   if (!value) return fallback;
@@ -56,235 +41,135 @@ const safeJsonParse = <T,>(value: string | null, fallback: T): T => {
   }
 };
 
-const getStoredUser = (): AdminUser | null => {
-  return safeJsonParse<AdminUser | null>(
-    localStorage.getItem(CURRENT_USER_KEY),
-    null,
-  );
-};
-
-const getStoredPermissions = (): Record<string, string[]> => {
-  return safeJsonParse<Record<string, string[]>>(
-    localStorage.getItem(PERMISSIONS_KEY),
-    {},
-  );
-};
-
-const normalizeUser = (raw: any): AdminUser | null => {
+const normalizeUser = (raw: any): ClientUser | null => {
   if (!raw) return null;
-
   return {
     id: Number(raw.id),
-    email: raw.email,
     full_name: raw.full_name ?? raw.fullName ?? null,
+    email: String(raw.email ?? ""),
+    phone: raw.phone ?? null,
     avatar: raw.avatar ?? null,
-    role_id:
-      raw.role_id !== undefined && raw.role_id !== null
-        ? Number(raw.role_id)
-        : null,
-    branch_ids: Array.isArray(raw.branch_ids)
-      ? raw.branch_ids
-          .map((x: any) => Number(x))
-          .filter((x: number) => Number.isFinite(x) && x > 0)
-      : [],
-    primary_branch_id:
-      raw.primary_branch_id !== undefined && raw.primary_branch_id !== null
-        ? Number(raw.primary_branch_id)
-        : null,
-    branches: Array.isArray(raw.branches)
-      ? raw.branches.map((b: any) => ({
-          id: Number(b.id),
-          name: b.name ?? null,
-          code: b.code ?? null,
-          status: b.status ?? null,
-          is_primary: !!b.is_primary,
-        }))
-      : [],
   };
+};
+
+export const useAuth = () => {
+  const ctx = useContext(Ctx);
+  if (!ctx) {
+    throw new Error("useAuth must be used within client AuthProvider");
+  }
+  return ctx;
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<AdminUser | null>(() => getStoredUser());
-  const [permissions, setPermissions] = useState<Record<string, string[]>>(() =>
-    getStoredPermissions(),
-  );
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [currentBranchId, setCurrentBranchIdState] = useState<number | null>(
-    () => {
-      const raw = localStorage.getItem(CURRENT_BRANCH_ID_KEY);
-      return raw ? Number(raw) : null;
-    },
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<ClientUser | null>(() =>
+    safeJsonParse<ClientUser | null>(
+      localStorage.getItem(CLIENT_USER_KEY),
+      null,
+    ),
   );
 
-  const persistUser = (nextUser: AdminUser | null) => {
+  const isAuthenticated = !!user;
+
+  const persistUser = (nextUser: ClientUser | null) => {
     setUser(nextUser);
     if (nextUser) {
-      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
+      localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(nextUser));
     } else {
-      localStorage.removeItem(CURRENT_USER_KEY);
+      localStorage.removeItem(CLIENT_USER_KEY);
     }
   };
 
-  const persistPermissions = (nextPermissions: Record<string, string[]>) => {
-    setPermissions(nextPermissions);
-    localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(nextPermissions));
-  };
+  const login = async (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+  ) => {
+    const res = await http<any>("POST", "/api/v1/client/auth/login", {
+      email,
+      password,
+      rememberMe: !!rememberMe,
+    });
 
-  const setCurrentBranchId = (branchId: number | null) => {
-    setCurrentBranchIdState(branchId);
-    if (branchId && Number.isFinite(branchId)) {
-      localStorage.setItem(CURRENT_BRANCH_ID_KEY, String(branchId));
-    } else {
-      localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
-    }
-  };
+    const accessToken = res?.data?.accessToken;
+    const refreshToken = res?.data?.refreshToken;
+    const nextUser = normalizeUser(res?.data?.user ?? null);
 
-  const refreshMe = async () => {
-    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-    if (!accessToken) {
-      persistUser(null);
-      persistPermissions({});
-      setCurrentBranchId(null);
-      return;
+    if (!accessToken || !refreshToken || !nextUser) {
+      throw new Error("Dữ liệu đăng nhập client không hợp lệ");
     }
 
-    const res = await http<any>("GET", "/api/v1/admin/auth/me");
-    const nextUser = normalizeUser(res?.data?.user ?? res?.data ?? null);
-    const nextPermissions = (res?.data?.permissions ?? {}) as Record<
-      string,
-      string[]
-    >;
-
+    tokenStore.setAccess(accessToken);
+    tokenStore.setRefresh(refreshToken);
     persistUser(nextUser);
-    persistPermissions(nextPermissions);
-
-    const availableBranchIds = Array.isArray(nextUser?.branch_ids)
-      ? nextUser!.branch_ids!
-      : [];
-
-    const primaryBranchId =
-      nextUser?.primary_branch_id ??
-      nextUser?.branches?.find((x) => x.is_primary)?.id ??
-      null;
-
-    if (
-      currentBranchId &&
-      availableBranchIds.length > 0 &&
-      availableBranchIds.includes(currentBranchId)
-    ) {
-      setCurrentBranchId(currentBranchId);
-    } else {
-      setCurrentBranchId(primaryBranchId);
-    }
   };
 
   const logout = async () => {
     try {
-      await http("POST", "/api/v1/admin/auth/logout");
+      await http("POST", "/api/v1/client/auth/logout");
     } catch {
       // ignore
     } finally {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
-      localStorage.removeItem(CURRENT_USER_KEY);
-      localStorage.removeItem(PERMISSIONS_KEY);
-      localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
+      tokenStore.setAccess(null);
+      tokenStore.setRefresh(null);
       persistUser(null);
-      persistPermissions({});
-      setCurrentBranchIdState(null);
     }
+  };
+
+  const refreshSession = async () => {
+    const rt = tokenStore.getRefresh();
+    if (!rt) throw new Error("No refresh token");
+
+    const res = await http<any>("POST", "/api/v1/client/auth/refresh", {
+      refreshToken: rt,
+    });
+
+    const accessToken = res?.data?.accessToken;
+    if (!accessToken) {
+      throw new Error("Invalid refresh response");
+    }
+    tokenStore.setAccess(accessToken);
   };
 
   useEffect(() => {
     (async () => {
       try {
-        const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
-        if (!accessToken) {
-          persistUser(null);
-          persistPermissions({});
-          setCurrentBranchId(null);
-          return;
+        const rt = tokenStore.getRefresh();
+        const at = tokenStore.getAccess();
+
+        if (!at && rt) {
+          await refreshSession();
         }
 
-        await refreshMe();
-      } catch (err) {
-        console.warn("Admin auto-auth failed:", err);
-        localStorage.removeItem(ACCESS_TOKEN_KEY);
-        localStorage.removeItem(REFRESH_TOKEN_KEY);
-        localStorage.removeItem(CURRENT_USER_KEY);
-        localStorage.removeItem(PERMISSIONS_KEY);
-        localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
+        if (tokenStore.getAccess()) {
+          const me = await http<any>("GET", "/api/v1/client/auth/me");
+          persistUser(normalizeUser(me?.data?.user ?? me?.data ?? null));
+        } else {
+          persistUser(null);
+        }
+      } catch {
+        tokenStore.setAccess(null);
+        tokenStore.setRefresh(null);
         persistUser(null);
-        persistPermissions({});
-        setCurrentBranchIdState(null);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     })();
   }, []);
 
-  const branches = useMemo(() => user?.branches ?? [], [user]);
-
-  const currentBranch = useMemo(() => {
-    if (!branches.length) return null;
-    if (currentBranchId) {
-      return branches.find((b) => b.id === currentBranchId) ?? null;
-    }
-    const primary =
-      branches.find((b) => b.is_primary) ??
-      (user?.primary_branch_id
-        ? branches.find((b) => b.id === user.primary_branch_id)
-        : null);
-
-    return primary ?? branches[0] ?? null;
-  }, [branches, currentBranchId, user?.primary_branch_id]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    const availableBranchIds = branches.map((b) => b.id);
-    if (!availableBranchIds.length) {
-      setCurrentBranchId(null);
-      return;
-    }
-
-    if (currentBranchId && availableBranchIds.includes(currentBranchId)) return;
-
-    const fallback =
-      user.primary_branch_id ??
-      branches.find((b) => b.is_primary)?.id ??
-      branches[0]?.id ??
-      null;
-
-    setCurrentBranchId(fallback);
-  }, [user, branches]);
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        isLoading,
-        permissions,
-        branches,
-        currentBranchId: currentBranch?.id ?? null,
-        currentBranch,
-        setCurrentBranchId,
-        refreshMe,
-        logout,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthState>(
+    () => ({
+      loading,
+      user,
+      isAuthenticated,
+      login,
+      logout,
+      refreshSession,
+    }),
+    [loading, user, isAuthenticated],
   );
-};
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return ctx;
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 };

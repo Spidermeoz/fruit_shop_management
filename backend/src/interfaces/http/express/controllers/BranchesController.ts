@@ -7,11 +7,23 @@ import { EditBranch } from "../../../../application/branches/usecases/EditBranch
 import { ChangeBranchStatus } from "../../../../application/branches/usecases/ChangeBranchStatus";
 import { SoftDeleteBranch } from "../../../../application/branches/usecases/SoftDeleteBranch";
 
-const toNum = (v: any) => (v === undefined ? undefined : Number(v));
-const toBool = (v: any) =>
-  v === undefined
-    ? undefined
-    : v === "true" || v === true || v === 1 || v === "1";
+const toNum = (v: any) => {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  return Number.isNaN(n) ? undefined : n;
+};
+
+const toBool = (v: any) => {
+  if (v === undefined) return undefined;
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v === 1;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on"].includes(s)) return true;
+    if (["false", "0", "no", "n", "off"].includes(s)) return false;
+  }
+  return undefined;
+};
 
 export const makeBranchesController = (uc: {
   list: ListBranches;
@@ -45,7 +57,7 @@ export const makeBranchesController = (uc: {
           status: (status as any) ?? "all",
           includeDeleted: toBool(includeDeleted) ?? false,
           limit: normalizedLimit,
-          offset: offset,
+          offset,
           sort: sortBy
             ? {
                 column: sortBy as any,
@@ -73,9 +85,17 @@ export const makeBranchesController = (uc: {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
 
+        if (!dto) {
+          return res.status(404).json({
+            success: false,
+            message: "Branch not found",
+          });
+        }
+
         return res.json({
           success: true,
           data: dto,
+          meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
         next(e);
@@ -84,7 +104,7 @@ export const makeBranchesController = (uc: {
 
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const payload = req.body;
+        const payload = req.body ?? {};
 
         const result = await uc.create.execute({
           name: payload.name,
@@ -100,14 +120,8 @@ export const makeBranchesController = (uc: {
           longitude: toNum(payload.longitude) ?? null,
           openTime: payload.openTime ?? null,
           closeTime: payload.closeTime ?? null,
-          supportsPickup:
-            payload.supportsPickup !== undefined
-              ? Boolean(payload.supportsPickup)
-              : true,
-          supportsDelivery:
-            payload.supportsDelivery !== undefined
-              ? Boolean(payload.supportsDelivery)
-              : true,
+          supportsPickup: toBool(payload.supportsPickup) ?? true,
+          supportsDelivery: toBool(payload.supportsDelivery) ?? true,
           status: payload.status ?? "active",
         });
 
@@ -126,6 +140,13 @@ export const makeBranchesController = (uc: {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
 
+        if (!dto) {
+          return res.status(404).json({
+            success: false,
+            message: "Branch not found",
+          });
+        }
+
         return res.json({
           success: true,
           data: dto,
@@ -139,7 +160,7 @@ export const makeBranchesController = (uc: {
     edit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const payload = req.body;
+        const payload = req.body ?? {};
 
         const result = await uc.edit.execute(id, {
           name: payload.name,
@@ -153,22 +174,16 @@ export const makeBranchesController = (uc: {
           province: payload.province,
           latitude:
             payload.latitude !== undefined
-              ? toNum(payload.latitude)
+              ? (toNum(payload.latitude) ?? null)
               : undefined,
           longitude:
             payload.longitude !== undefined
-              ? toNum(payload.longitude)
+              ? (toNum(payload.longitude) ?? null)
               : undefined,
           openTime: payload.openTime,
           closeTime: payload.closeTime,
-          supportsPickup:
-            payload.supportsPickup !== undefined
-              ? Boolean(payload.supportsPickup)
-              : undefined,
-          supportsDelivery:
-            payload.supportsDelivery !== undefined
-              ? Boolean(payload.supportsDelivery)
-              : undefined,
+          supportsPickup: toBool(payload.supportsPickup),
+          supportsDelivery: toBool(payload.supportsDelivery),
           status: payload.status,
         });
 

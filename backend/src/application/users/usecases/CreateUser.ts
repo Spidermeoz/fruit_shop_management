@@ -50,23 +50,74 @@ const mapUserView = (u: any) => ({
     : [],
 });
 
+type BranchAssignmentInput = {
+  branchId: number;
+  isPrimary?: boolean;
+};
+
+const normalizeBranchAssignments = (
+  assignments?: BranchAssignmentInput[],
+): Array<{ branchId: number; isPrimary: boolean }> => {
+  if (!Array.isArray(assignments)) return [];
+
+  const deduped = new Map<number, { branchId: number; isPrimary: boolean }>();
+
+  for (const item of assignments) {
+    const branchId = Number(item?.branchId);
+    if (!Number.isFinite(branchId) || branchId <= 0) continue;
+
+    const prev = deduped.get(branchId);
+    deduped.set(branchId, {
+      branchId,
+      isPrimary: !!item?.isPrimary || !!prev?.isPrimary,
+    });
+  }
+
+  return Array.from(deduped.values());
+};
+
+const ensureValidStaffBranches = (
+  assignments: Array<{ branchId: number; isPrimary: boolean }>,
+) => {
+  if (assignments.length === 0) {
+    throw new Error("Staff/Admin bắt buộc phải được gán ít nhất 1 chi nhánh.");
+  }
+
+  const primaryCount = assignments.filter((x) => x.isPrimary).length;
+
+  if (primaryCount !== 1) {
+    throw new Error("Staff/Admin bắt buộc phải có đúng 1 chi nhánh chính.");
+  }
+};
+
 export class CreateUser {
   constructor(private repo: UserRepository) {}
 
   async execute(input: CreateUserInput) {
+    const roleId = input.roleId ?? null;
+    const normalizedAssignments = normalizeBranchAssignments(
+      input.branchAssignments,
+    );
+
+    const finalBranchAssignments =
+      roleId === null
+        ? []
+        : (() => {
+            ensureValidStaffBranches(normalizedAssignments);
+            return normalizedAssignments;
+          })();
+
     const passwordHash = await bcrypt.hash(input.password, 10);
 
     const created = await this.repo.create({
-      roleId: input.roleId ?? null,
+      roleId,
       fullName: input.fullName ?? null,
       email: input.email.trim().toLowerCase(),
       passwordHash,
       phone: input.phone ?? null,
       avatar: input.avatar ?? null,
       status: (input.status as any) ?? "active",
-      branchAssignments: Array.isArray(input.branchAssignments)
-        ? input.branchAssignments
-        : [],
+      branchAssignments: finalBranchAssignments,
     });
 
     return mapUserView(created);

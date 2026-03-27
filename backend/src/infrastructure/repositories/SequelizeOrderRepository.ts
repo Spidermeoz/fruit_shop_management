@@ -87,7 +87,6 @@ export class SequelizeOrderRepository implements OrderRepository {
           discount_amount: data.discountAmount,
           branch_id: data.branchId,
           fulfillment_type: data.fulfillmentType,
-          final_price: data.finalPrice,
           total_price: data.totalPrice,
           tracking_token: crypto.randomUUID(),
           inventory_applied: 0,

@@ -53,7 +53,7 @@ const BranchDetailPage: React.FC = () => {
       setLoading(true);
       const res = await http<ApiDetail<Branch>>(
         "GET",
-        `/api/v1/admin/branches/${id}`,
+        `/api/v1/admin/branches/detail/${id}`,
       );
 
       if (res?.success && res.data) {

@@ -22,21 +22,25 @@ export const makeAuthController = (uc: {
     login: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { email, password } = req.body || {};
+
         if (!email || !password) {
           return fail(res, "Email and password are required", 400);
         }
+
         const out = await uc.login.execute({ email, password });
         return ok(res, out);
       } catch (e: any) {
         const msg = String(e?.message || "Invalid credentials");
-        const isAuthErr = /invalid credentials|account is not active/i.test(
-          msg,
-        );
-        return fail(
-          res,
-          isAuthErr ? "Invalid credentials" : msg,
-          isAuthErr ? 401 : 500,
-        );
+
+        if (/invalid credentials/i.test(msg)) {
+          return fail(res, "Invalid credentials", 401);
+        }
+
+        if (/account is not active/i.test(msg)) {
+          return fail(res, "Account is not active", 403);
+        }
+
+        return fail(res, msg, 500);
       }
     },
 
@@ -44,6 +48,7 @@ export const makeAuthController = (uc: {
       try {
         const user = req.user;
         if (!user) return fail(res, "Unauthorized", 401);
+
         await uc.logout.execute(user.id);
         return ok(res, { ok: true });
       } catch (e) {
@@ -55,6 +60,7 @@ export const makeAuthController = (uc: {
       try {
         const { refreshToken } = req.body || {};
         if (!refreshToken) return fail(res, "refreshToken is required", 400);
+
         const out = await uc.refresh.execute({ refreshToken });
         return ok(res, out);
       } catch (e: any) {
@@ -65,10 +71,12 @@ export const makeAuthController = (uc: {
     me: async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (!req.user) return fail(res, "Unauthorized", 401);
+
         const out = await uc.me.execute(req.user.id);
         return ok(res, out);
       } catch (e: any) {
-        return fail(res, "Internal server error", 500);
+        const msg = String(e?.message || "Internal server error");
+        return fail(res, msg, /not found/i.test(msg) ? 404 : 500);
       }
     },
   };
