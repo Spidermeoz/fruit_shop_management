@@ -9,6 +9,7 @@ export type InventoryTransactionType =
 
 export type InventoryStock = {
   id?: number;
+  branchId: number;
   productVariantId: number;
   quantity: number;
   reservedQuantity: number;
@@ -18,6 +19,7 @@ export type InventoryStock = {
 };
 
 export type CreateInventoryTransactionInput = {
+  branchId: number;
   productVariantId: number;
   transactionType: InventoryTransactionType;
   quantityDelta: number;
@@ -30,24 +32,28 @@ export type CreateInventoryTransactionInput = {
 };
 
 export interface InventoryRepository {
-  findStockByVariantId(
+  findStock(
+    branchId: number,
     productVariantId: number,
     transaction?: Transaction,
   ): Promise<InventoryStock | null>;
 
-  ensureStockForVariant(
+  ensureStock(
+    branchId: number,
     productVariantId: number,
     fallbackQuantity?: number,
     transaction?: Transaction,
   ): Promise<InventoryStock>;
 
-  getAvailableStockByVariantId(
+  getAvailableStock(
+    branchId: number,
     productVariantId: number,
     fallbackQuantity?: number,
     transaction?: Transaction,
   ): Promise<number>;
 
-  setStockByVariantId(
+  setStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -60,7 +66,8 @@ export interface InventoryRepository {
     },
   ): Promise<InventoryStock>;
 
-  increaseStockByVariantId(
+  increaseStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -73,7 +80,8 @@ export interface InventoryRepository {
     },
   ): Promise<InventoryStock>;
 
-  decreaseStockByVariantId(
+  decreaseStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -85,11 +93,6 @@ export interface InventoryRepository {
       createdById?: number | null;
     },
   ): Promise<InventoryStock>;
-
-  recalculateProductStockFromVariants(
-    productId: number,
-    transaction?: Transaction,
-  ): Promise<number>;
 
   createTransaction(
     input: CreateInventoryTransactionInput,

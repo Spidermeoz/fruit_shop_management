@@ -10,7 +10,8 @@ type InventoryModels = {
   InventoryStock: any;
   InventoryTransaction: any;
   ProductVariant: any;
-  Product: any;
+  Product?: any;
+  Branch?: any;
 };
 
 const toStock = (row: any): InventoryStock => {
@@ -19,6 +20,7 @@ const toStock = (row: any): InventoryStock => {
 
   return {
     id: Number(row.id),
+    branchId: Number(row.branch_id),
     productVariantId: Number(row.product_variant_id),
     quantity,
     reservedQuantity,
@@ -31,33 +33,55 @@ const toStock = (row: any): InventoryStock => {
 export class SequelizeInventoryRepository implements InventoryRepository {
   constructor(private models: InventoryModels) {}
 
-  async findStockByVariantId(
+  async findStock(
+    branchId: number,
     productVariantId: number,
     transaction?: Transaction,
   ): Promise<InventoryStock | null> {
     const row = await this.models.InventoryStock.findOne({
-      where: { product_variant_id: productVariantId },
+      where: {
+        branch_id: branchId,
+        product_variant_id: productVariantId,
+      },
       transaction,
     });
 
     return row ? toStock(row) : null;
   }
 
-  async ensureStockForVariant(
+  async ensureStock(
+    branchId: number,
     productVariantId: number,
     fallbackQuantity = 0,
     transaction?: Transaction,
   ): Promise<InventoryStock> {
+    const safeFallback = Math.max(0, Number(fallbackQuantity || 0));
+
+    const variant = await this.models.ProductVariant.findByPk(
+      productVariantId,
+      {
+        transaction,
+      },
+    );
+
+    if (!variant) {
+      throw new Error("Product variant not found");
+    }
+
     let row = await this.models.InventoryStock.findOne({
-      where: { product_variant_id: productVariantId },
+      where: {
+        branch_id: branchId,
+        product_variant_id: productVariantId,
+      },
       transaction,
     });
 
     if (!row) {
       row = await this.models.InventoryStock.create(
         {
+          branch_id: branchId,
           product_variant_id: productVariantId,
-          quantity: Math.max(0, Number(fallbackQuantity || 0)),
+          quantity: safeFallback,
           reserved_quantity: 0,
         },
         { transaction },
@@ -65,14 +89,16 @@ export class SequelizeInventoryRepository implements InventoryRepository {
 
       await this.createTransaction(
         {
+          branchId,
           productVariantId,
           transactionType: "initial",
-          quantityDelta: Math.max(0, Number(fallbackQuantity || 0)),
+          quantityDelta: safeFallback,
           quantityBefore: 0,
-          quantityAfter: Math.max(0, Number(fallbackQuantity || 0)),
+          quantityAfter: safeFallback,
           referenceType: "inventory_seed",
           referenceId: productVariantId,
           note: "Initial stock row created",
+          createdById: null,
         },
         transaction,
       );
@@ -81,12 +107,14 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     return toStock(row);
   }
 
-  async getAvailableStockByVariantId(
+  async getAvailableStock(
+    branchId: number,
     productVariantId: number,
     fallbackQuantity = 0,
     transaction?: Transaction,
   ): Promise<number> {
-    const stock = await this.ensureStockForVariant(
+    const stock = await this.ensureStock(
+      branchId,
       productVariantId,
       fallbackQuantity,
       transaction,
@@ -95,7 +123,8 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     return Math.max(0, Number(stock.quantity) - Number(stock.reservedQuantity));
   }
 
-  async setStockByVariantId(
+  async setStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -110,46 +139,27 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     const transaction = meta?.transaction;
     const safeQuantity = Math.max(0, Number(quantity || 0));
 
-    const variant = await this.models.ProductVariant.findByPk(
+    const current = await this.ensureStock(
+      branchId,
       productVariantId,
-      {
-        transaction,
-      },
-    );
-
-    if (!variant) {
-      throw new Error("Product variant not found");
-    }
-
-    const current = await this.ensureStockForVariant(
-      productVariantId,
-      Number(variant.stock ?? 0),
+      0,
       transaction,
     );
 
     await this.models.InventoryStock.update(
       { quantity: safeQuantity },
       {
-        where: { product_variant_id: productVariantId },
+        where: {
+          branch_id: branchId,
+          product_variant_id: productVariantId,
+        },
         transaction,
       },
-    );
-
-    await this.models.ProductVariant.update(
-      { stock: safeQuantity },
-      {
-        where: { id: productVariantId },
-        transaction,
-      },
-    );
-
-    await this.recalculateProductStockFromVariants(
-      Number(variant.product_id),
-      transaction,
     );
 
     await this.createTransaction(
       {
+        branchId,
         productVariantId,
         transactionType: meta?.transactionType ?? "manual_update",
         quantityDelta: safeQuantity - current.quantity,
@@ -173,7 +183,8 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     };
   }
 
-  async increaseStockByVariantId(
+  async increaseStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -188,20 +199,10 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     const transaction = meta?.transaction;
     const delta = Math.max(0, Number(quantity || 0));
 
-    const variant = await this.models.ProductVariant.findByPk(
+    const current = await this.ensureStock(
+      branchId,
       productVariantId,
-      {
-        transaction,
-      },
-    );
-
-    if (!variant) {
-      throw new Error("Product variant not found");
-    }
-
-    const current = await this.ensureStockForVariant(
-      productVariantId,
-      Number(variant.stock ?? 0),
+      0,
       transaction,
     );
 
@@ -210,26 +211,17 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     await this.models.InventoryStock.update(
       { quantity: nextQuantity },
       {
-        where: { product_variant_id: productVariantId },
+        where: {
+          branch_id: branchId,
+          product_variant_id: productVariantId,
+        },
         transaction,
       },
-    );
-
-    await this.models.ProductVariant.update(
-      { stock: nextQuantity },
-      {
-        where: { id: productVariantId },
-        transaction,
-      },
-    );
-
-    await this.recalculateProductStockFromVariants(
-      Number(variant.product_id),
-      transaction,
     );
 
     await this.createTransaction(
       {
+        branchId,
         productVariantId,
         transactionType: meta?.transactionType ?? "adjustment",
         quantityDelta: delta,
@@ -253,7 +245,8 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     };
   }
 
-  async decreaseStockByVariantId(
+  async decreaseStock(
+    branchId: number,
     productVariantId: number,
     quantity: number,
     meta?: {
@@ -268,20 +261,10 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     const transaction = meta?.transaction;
     const delta = Math.max(0, Number(quantity || 0));
 
-    const variant = await this.models.ProductVariant.findByPk(
+    const current = await this.ensureStock(
+      branchId,
       productVariantId,
-      {
-        transaction,
-      },
-    );
-
-    if (!variant) {
-      throw new Error("Product variant not found");
-    }
-
-    const current = await this.ensureStockForVariant(
-      productVariantId,
-      Number(variant.stock ?? 0),
+      0,
       transaction,
     );
 
@@ -299,26 +282,17 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     await this.models.InventoryStock.update(
       { quantity: nextQuantity },
       {
-        where: { product_variant_id: productVariantId },
+        where: {
+          branch_id: branchId,
+          product_variant_id: productVariantId,
+        },
         transaction,
       },
-    );
-
-    await this.models.ProductVariant.update(
-      { stock: nextQuantity },
-      {
-        where: { id: productVariantId },
-        transaction,
-      },
-    );
-
-    await this.recalculateProductStockFromVariants(
-      Number(variant.product_id),
-      transaction,
     );
 
     await this.createTransaction(
       {
+        branchId,
         productVariantId,
         transactionType: meta?.transactionType ?? "adjustment",
         quantityDelta: -delta,
@@ -342,38 +316,13 @@ export class SequelizeInventoryRepository implements InventoryRepository {
     };
   }
 
-  async recalculateProductStockFromVariants(
-    productId: number,
-    transaction?: Transaction,
-  ): Promise<number> {
-    const variants = await this.models.ProductVariant.findAll({
-      where: { product_id: productId },
-      attributes: ["stock"],
-      transaction,
-    });
-
-    const total = variants.reduce(
-      (sum: number, v: any) => sum + Number(v.stock ?? 0),
-      0,
-    );
-
-    await this.models.Product.update(
-      { stock: total },
-      {
-        where: { id: productId },
-        transaction,
-      },
-    );
-
-    return total;
-  }
-
   async createTransaction(
     input: CreateInventoryTransactionInput,
     transaction?: Transaction,
   ): Promise<void> {
     await this.models.InventoryTransaction.create(
       {
+        branch_id: input.branchId,
         product_variant_id: input.productVariantId,
         transaction_type: input.transactionType,
         quantity_delta: input.quantityDelta,

@@ -8,7 +8,6 @@ export const makeClientOrdersController = (uc: {
   cancelMyOrder: any;
 }) => {
   return {
-    // POST /client/orders/checkout
     checkout: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
@@ -23,7 +22,6 @@ export const makeClientOrdersController = (uc: {
       }
     },
 
-    // GET /client/orders
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
@@ -36,7 +34,7 @@ export const makeClientOrdersController = (uc: {
 
         res.json({
           success: true,
-          data: data.rows,
+          data: data.rows.map((row: any) => row.props ?? row),
           meta: {
             total: data.count,
             page: Number(page ?? 1),
@@ -48,7 +46,6 @@ export const makeClientOrdersController = (uc: {
       }
     },
 
-    // GET /client/orders/:id
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
@@ -58,14 +55,13 @@ export const makeClientOrdersController = (uc: {
 
         res.json({
           success: true,
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);
       }
     },
 
-    // POST /client/orders/:id/cancel
     cancel: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
@@ -77,7 +73,7 @@ export const makeClientOrdersController = (uc: {
 
         res.json({
           success: true,
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);
@@ -87,7 +83,6 @@ export const makeClientOrdersController = (uc: {
     addresses: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;
-
         const list = await uc.listMyOrderAddresses.execute(userId);
 
         res.json({

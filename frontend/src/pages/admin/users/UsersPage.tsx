@@ -10,6 +10,7 @@ import {
   Shield,
   User,
   Calendar,
+  GitBranch,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
@@ -17,21 +18,31 @@ import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-interface User {
+interface BranchSummary {
+  id: number;
+  name?: string | null;
+  code?: string | null;
+  status?: string | null;
+  is_primary?: boolean;
+}
+
+interface UserRow {
   id: number;
   full_name?: string | null;
   email: string;
   avatar?: string | null;
-  status: "active" | "inactive" | string;
+  status: "active" | "inactive" | "banned" | string;
   role?: {
     id: number;
     title: string;
   } | null;
   created_at?: string;
+  primary_branch_id?: number | null;
+  branch_ids?: number[];
+  branches?: BranchSummary[];
 }
 
-// Component Badge cho vai trò
-const RoleBadge: React.FC<{ user: User }> = ({ user }) => {
+const RoleBadge: React.FC<{ user: UserRow }> = ({ user }) => {
   const isAdmin = !!user.role;
 
   return (
@@ -57,7 +68,6 @@ const RoleBadge: React.FC<{ user: User }> = ({ user }) => {
   );
 };
 
-// Component Badge cho trạng thái
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusConfig = {
     active: {
@@ -90,8 +100,38 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+const BranchBadgeList: React.FC<{ user: UserRow }> = ({ user }) => {
+  const branches = Array.isArray(user.branches) ? user.branches : [];
+
+  if (!branches.length) {
+    return <span className="text-xs text-gray-500 dark:text-gray-400">—</span>;
+  }
+
+  const primary =
+    branches.find((b) => b.is_primary) ??
+    branches.find((b) => b.id === user.primary_branch_id) ??
+    branches[0];
+
+  const secondaryCount = Math.max(0, branches.length - 1);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 w-fit">
+        <GitBranch className="w-3 h-3" />
+        {primary?.name || primary?.code || `Branch #${primary?.id}`}
+        <span className="opacity-80">(chính)</span>
+      </div>
+      {secondaryCount > 0 && (
+        <span className="text-xs text-gray-500 dark:text-gray-400">
+          +{secondaryCount} chi nhánh phụ
+        </span>
+      )}
+    </div>
+  );
+};
+
 const UsersPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserRow[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [bulkAction, setBulkAction] = useState<string>("");
 
@@ -108,14 +148,11 @@ const UsersPage: React.FC = () => {
   const navigate = useNavigate();
 
   const { user: currentUser } = useAuth();
-
   const [sortOrder, setSortOrder] = useState<string>(
     searchParams.get("sort") || "",
   );
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-
-  // Gọi API danh sách users
   const fetchUsers = async () => {
     try {
       setLoading(true);
@@ -156,10 +193,8 @@ const UsersPage: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, currentPage, sortOrder, searchTerm]);
 
-  // Tự động cập nhật URL khi tìm kiếm
   useEffect(() => {
     const delay = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
@@ -171,12 +206,16 @@ const UsersPage: React.FC = () => {
     return () => clearTimeout(delay);
   }, [searchTerm]);
 
-  // Lọc client theo keyword (phụ – vẫn ưu tiên filter từ API)
   const filteredUsers = users.filter(
     (u) =>
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.full_name || "")?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (u.role?.title || "")?.toLowerCase().includes(searchTerm.toLowerCase()),
+      (u.role?.title || "")?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (u.branches || []).some((b) =>
+        `${b.name || ""} ${b.code || ""}`
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()),
+      ),
   );
 
   const handleAddUser = () => navigate("/admin/users/create");
@@ -193,13 +232,15 @@ const UsersPage: React.FC = () => {
       showSuccessToast({ message: "Đã xóa người dùng thành công!" });
     } catch (err) {
       console.error("Delete user error:", err);
-      showErrorToast(err instanceof Error ? err.message : "Không thể xóa người dùng!");
+      showErrorToast(
+        err instanceof Error ? err.message : "Không thể xóa người dùng!",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleStatus = async (user: User) => {
+  const handleToggleStatus = async (user: UserRow) => {
     const newStatus =
       user.status.toLowerCase() === "active" ? "inactive" : "active";
 
@@ -211,6 +252,8 @@ const UsersPage: React.FC = () => {
       setUsers((prev) =>
         prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u)),
       );
+
+      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
     } catch (err) {
       console.error(err);
       showErrorToast(
@@ -220,19 +263,15 @@ const UsersPage: React.FC = () => {
   };
 
   const handleFilterChange = (status: "all" | "active" | "inactive") => {
-    // reset trang & ghi status vào URL để useEffect -> fetchUsers()
     const params = new URLSearchParams(searchParams);
     if (status === "all") params.delete("status");
     else params.set("status", status);
 
-    params.delete("page"); // về trang 1 khi đổi filter
+    params.delete("page");
     setSearchParams(params);
-
-    // Xoá lựa chọn bulk đang có (nếu muốn)
     setSelectedUsers([]);
   };
 
-  // Format ngày tạo
   const formatDate = (dateString?: string) => {
     if (!dateString) return "—";
     const date = new Date(dateString);
@@ -244,19 +283,16 @@ const UsersPage: React.FC = () => {
   };
 
   const selectableUsers = filteredUsers.filter((u) => u.id !== currentUser?.id);
-
   const safeIds = selectedUsers.filter((id) => id !== currentUser?.id);
 
   return (
     <div>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
           Quản lý người dùng
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto relative">
-          {/* Search */}
           <div className="relative w-full sm:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-gray-400" />
@@ -279,7 +315,6 @@ const UsersPage: React.FC = () => {
             )}
           </div>
 
-          {/* Add User */}
           <button
             onClick={handleAddUser}
             className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
@@ -290,7 +325,6 @@ const UsersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Bộ lọc trạng thái */}
       <div className="flex gap-3 mb-4">
         <button
           onClick={() => handleFilterChange("all")}
@@ -326,7 +360,6 @@ const UsersPage: React.FC = () => {
         </button>
       </div>
 
-      {/* Thanh sắp xếp */}
       <div className="flex items-center gap-2 mb-3">
         <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
           Sắp xếp:
@@ -353,7 +386,6 @@ const UsersPage: React.FC = () => {
         </select>
       </div>
 
-      {/* Thanh bulk actions khi có user được chọn */}
       {selectedUsers.length > 0 && (
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
           <p className="text-sm text-gray-700 dark:text-gray-300">
@@ -417,7 +449,6 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Users Table */}
       <Card>
         <div className="overflow-x-auto">
           {loading ? (
@@ -461,7 +492,7 @@ const UsersPage: React.FC = () => {
                       }}
                     />
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     STT
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -469,6 +500,9 @@ const UsersPage: React.FC = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Vai trò
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Chi nhánh
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Email
@@ -490,7 +524,6 @@ const UsersPage: React.FC = () => {
                     key={user.id}
                     className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                   >
-                    {/* checkbox */}
                     <td className="px-4 py-4 text-center">
                       <input
                         type="checkbox"
@@ -508,12 +541,10 @@ const UsersPage: React.FC = () => {
                       />
                     </td>
 
-                    {/* STT */}
                     <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700 dark:text-gray-300">
                       {(currentPage - 1) * 10 + index + 1}
                     </td>
 
-                    {/* User (avatar + name + id) */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <img
@@ -537,17 +568,18 @@ const UsersPage: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Role */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <RoleBadge user={user} />
                     </td>
 
-                    {/* Email */}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <BranchBadgeList user={user} />
+                    </td>
+
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {user.email}
                     </td>
 
-                    {/* Status */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div
                         onClick={() => {
@@ -564,7 +596,6 @@ const UsersPage: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Created Date */}
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       <div className="flex items-center">
                         <Calendar className="w-4 h-4 mr-1" />
@@ -572,7 +603,6 @@ const UsersPage: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* Actions */}
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end gap-2">
                         <button
@@ -610,7 +640,6 @@ const UsersPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Pagination */}
       <Pagination
         currentPage={currentPage}
         totalPages={totalPages}

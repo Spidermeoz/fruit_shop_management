@@ -15,6 +15,7 @@ import {
   type LucideIcon,
   Users,
   X,
+  Store,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -57,6 +58,12 @@ const productChildren: SidebarItem[] = [
 
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  {
+    name: "Branches",
+    href: "/admin/branches",
+    icon: Store,
+    permission: { module: "branch", action: "view" },
+  },
   {
     name: "Orders",
     href: "/admin/orders",
@@ -215,7 +222,6 @@ const Sidebar: React.FC = () => {
             {!isCollapsed && isProductsOpen && (
               <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
                 {productChildren.map((item) => {
-                  // Kiểm tra xem đường dẫn hiện tại có khớp chính xác hoặc là đường dẫn con không
                   const isExactMatch = location.pathname === item.href;
                   const isSubPathMatch = location.pathname.startsWith(
                     item.href + "/",
@@ -223,7 +229,6 @@ const Sidebar: React.FC = () => {
 
                   let isActive = false;
 
-                  // Xử lý ngoại lệ cho menu con "Products" (/admin/products)
                   if (item.href === "/admin/products") {
                     isActive =
                       isExactMatch ||
@@ -236,7 +241,6 @@ const Sidebar: React.FC = () => {
                           "/admin/products/categories",
                         ));
                   } else {
-                    // Các menu khác (Origins, Tags, Categories) giữ nguyên logic cũ
                     isActive = isExactMatch || isSubPathMatch;
                   }
 

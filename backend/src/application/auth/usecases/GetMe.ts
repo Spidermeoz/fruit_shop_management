@@ -1,4 +1,3 @@
-// src/application/auth/usecases/GetMe.ts
 import type { UserRepository } from "../../../domain/users/UserRepository";
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
 import type { Permissions } from "../../../domain/auth/types";
@@ -7,7 +6,7 @@ import { toAuthUserView } from "../mappers/toAuthUserView";
 export class GetMe {
   constructor(
     private users: UserRepository,
-    private roles: RoleRepository
+    private roles: RoleRepository,
   ) {}
 
   async execute(userId: number) {
@@ -17,7 +16,7 @@ export class GetMe {
     let permissions: Permissions = {};
     if (u.props.roleId != null) {
       const role = await this.roles.findById(u.props.roleId);
-      if (role && role.props.permissions) {
+      if (role?.props.permissions) {
         permissions = role.props.permissions as Permissions;
       }
     }

@@ -39,4 +39,16 @@ export class Order {
   get address() {
     return this.props.address;
   }
+
+  get branchId() {
+    return this.props.branchId;
+  }
+
+  get fulfillmentType() {
+    return this.props.fulfillmentType;
+  }
+
+  get branch() {
+    return this.props.branch ?? null;
+  }
 }

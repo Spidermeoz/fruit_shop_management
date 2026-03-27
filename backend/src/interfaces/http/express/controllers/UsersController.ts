@@ -27,7 +27,41 @@ const mapSort = (sortBy?: string, order?: string): UserSort | undefined => {
   return { column: col, dir };
 };
 
-// camel -> legacy (snake) for FE
+const normalizeBranchAssignments = (body: any) => {
+  if (Array.isArray(body?.branchAssignments)) {
+    return body.branchAssignments
+      .map((x: any) => ({
+        branchId: Number(x?.branchId ?? x?.branch_id),
+        isPrimary:
+          x?.isPrimary === true ||
+          x?.is_primary === true ||
+          x?.isPrimary === "true" ||
+          x?.is_primary === "true" ||
+          x?.isPrimary === 1 ||
+          x?.is_primary === 1,
+      }))
+      .filter((x: any) => Number.isFinite(x.branchId) && x.branchId > 0);
+  }
+
+  const branchIds = Array.isArray(body?.branchIds)
+    ? body.branchIds
+    : Array.isArray(body?.branch_ids)
+      ? body.branch_ids
+      : [];
+
+  const primaryBranchId = Number(
+    body?.primaryBranchId ?? body?.primary_branch_id ?? 0,
+  );
+
+  return branchIds
+    .map((id: any) => Number(id))
+    .filter((id: number) => Number.isFinite(id) && id > 0)
+    .map((branchId: number) => ({
+      branchId,
+      isPrimary: branchId === primaryBranchId,
+    }));
+};
+
 const toLegacy = (u: any) => ({
   id: u.id,
   role_id: u.roleId,
@@ -41,6 +75,19 @@ const toLegacy = (u: any) => ({
   created_at: u.createdAt,
   updated_at: u.updatedAt,
   role: u.role ? { id: u.role.id, title: u.role.title } : null,
+  primary_branch_id: u.primaryBranchId ?? null,
+  branch_ids: Array.isArray(u.branchAssignments)
+    ? u.branchAssignments.map((x: any) => x.branchId)
+    : [],
+  branches: Array.isArray(u.branchAssignments)
+    ? u.branchAssignments.map((x: any) => ({
+        id: x.branch?.id ?? x.branchId,
+        name: x.branch?.name ?? null,
+        code: x.branch?.code ?? null,
+        status: x.branch?.status ?? null,
+        is_primary: !!x.isPrimary,
+      }))
+    : [],
 });
 
 export const makeUsersController = (uc: {
@@ -53,7 +100,6 @@ export const makeUsersController = (uc: {
   bulkEdit: BulkEditUsers;
 }) => {
   return {
-    // GET /
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const {
@@ -89,7 +135,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // GET /detail/:id
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -109,7 +154,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // POST /create
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const b = req.body as any;
@@ -117,11 +161,13 @@ export const makeUsersController = (uc: {
           roleId: b.roleId ?? b.role_id ?? null,
           fullName: b.fullName ?? b.full_name ?? null,
           email: b.email,
-          password: b.password, // plain
+          password: b.password,
           phone: b.phone ?? null,
           avatar: b.avatar ?? null,
           status: b.status ?? "active",
+          branchAssignments: normalizeBranchAssignments(b),
         });
+
         res.status(201).json({
           success: true,
           data: toLegacy(created),
@@ -132,7 +178,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // GET /edit/:id
     getEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -152,7 +197,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // PATCH /edit/:id
     edit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -172,10 +216,19 @@ export const makeUsersController = (uc: {
                 ? b.full_name
                 : undefined,
           email: b.email,
-          password: b.password, // plain (optional)
+          password: b.password,
           phone: b.phone,
           avatar: b.avatar,
           status: b.status,
+          branchAssignments:
+            b.branchAssignments !== undefined ||
+            b.branch_assignments !== undefined ||
+            b.branchIds !== undefined ||
+            b.branch_ids !== undefined ||
+            b.primaryBranchId !== undefined ||
+            b.primary_branch_id !== undefined
+              ? normalizeBranchAssignments(b)
+              : undefined,
         });
 
         res.json({
@@ -188,7 +241,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // PATCH /:id/status
     updateStatus: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -218,7 +270,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // DELETE /delete/:id  (soft-delete)
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
@@ -233,7 +284,6 @@ export const makeUsersController = (uc: {
       }
     },
 
-    // PATCH /bulk-edit
     bulkEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const b = req.body as any;

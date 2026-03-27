@@ -50,9 +50,19 @@ export interface DeliveryHistoryProps {
   createdAt: Date;
 }
 
+export type FulfillmentType = "pickup" | "delivery";
+
+export interface OrderBranchProps {
+  id: number;
+  name: string;
+  code?: string | null;
+}
+
 export interface OrderProps {
   id?: number;
   userId: number;
+  branchId: number;
+  fulfillmentType: FulfillmentType;
   code: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -63,6 +73,7 @@ export interface OrderProps {
   trackingToken: string;
   inventoryApplied: boolean;
   userInfo?: any | null;
+  branch?: OrderBranchProps | null;
   address?: OrderAddressProps | null;
   items: OrderItemProps[];
   deliveryHistory?: DeliveryHistoryProps[];

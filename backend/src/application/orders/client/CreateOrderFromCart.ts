@@ -1,5 +1,3 @@
-// src/application/orders/client/CreateOrderFromCart.ts
-
 export class CreateOrderFromCart {
   constructor(
     private orderRepo: any,
@@ -9,10 +7,31 @@ export class CreateOrderFromCart {
   ) {}
 
   async execute(userId: number, payload: any) {
-    const { productVariantIds, address } = payload;
+    const {
+      productVariantIds,
+      address,
+      branchId: rawBranchId,
+      fulfillmentType: rawFulfillmentType,
+      shippingFee: rawShippingFee,
+      discountAmount: rawDiscountAmount,
+      userInfo,
+    } = payload ?? {};
 
-    if (!productVariantIds?.length) {
+    const branchId = Number(rawBranchId);
+    const fulfillmentType = String(
+      rawFulfillmentType || "delivery",
+    ).toLowerCase();
+
+    if (!Array.isArray(productVariantIds) || productVariantIds.length === 0) {
       throw new Error("Bạn chưa chọn sản phẩm để thanh toán");
+    }
+
+    if (!Number.isFinite(branchId) || branchId <= 0) {
+      throw new Error("Bạn chưa chọn chi nhánh");
+    }
+
+    if (!["pickup", "delivery"].includes(fulfillmentType)) {
+      throw new Error("Hình thức nhận hàng không hợp lệ");
     }
 
     const cartItems = await this.cartRepo.listSelectedItems(
@@ -20,7 +39,7 @@ export class CreateOrderFromCart {
       productVariantIds,
     );
 
-    if (!cartItems.length) {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
       throw new Error("Không tìm thấy sản phẩm trong giỏ hàng");
     }
 
@@ -43,40 +62,45 @@ export class CreateOrderFromCart {
           );
         }
 
-        if (variant.status !== "active") {
+        if (
+          variant.status &&
+          String(variant.status).toLowerCase() !== "active"
+        ) {
           throw new Error(
-            `Variant không khả dụng (${variant.title || "variant"})`,
+            `Variant không khả dụng (${variant.title || variant.name || "variant"})`,
           );
         }
 
+        const fallbackStock = Number(
+          variant.availableStock ?? variant.stock ?? 0,
+        );
+
         const availableStock =
-          typeof this.inventoryRepo.getAvailableStockByVariantId === "function"
-            ? await this.inventoryRepo.getAvailableStockByVariantId(
+          typeof this.inventoryRepo.getAvailableStock === "function"
+            ? await this.inventoryRepo.getAvailableStock(
+                branchId,
                 item.productVariantId,
-                Number(variant.stock ?? 0),
+                fallbackStock,
                 transaction,
               )
-            : (() => {
-                const fallback = Number(
-                  variant.availableStock ?? variant.stock ?? 0,
-                );
-                return Math.max(0, fallback);
-              })();
+            : Math.max(0, fallbackStock);
 
-        if (availableStock < item.quantity) {
+        if (availableStock < Number(item.quantity)) {
           throw new Error(
-            `Không đủ tồn kho khả dụng (${variant.title || "variant"})`,
+            `Không đủ tồn kho tại chi nhánh đã chọn (${
+              variant.title || variant.name || "variant"
+            })`,
           );
         }
       }
 
       const subtotal = cartItems.reduce((sum: number, item: any) => {
-        const price = Number(item.variant?.price ?? 0);
-        return sum + price * item.quantity;
+        const price = Number(item.variant?.price ?? item.price ?? 0);
+        return sum + price * Number(item.quantity ?? 0);
       }, 0);
 
-      const shippingFee = Number(payload.shippingFee ?? 20000);
-      const discountAmount = Number(payload.discountAmount ?? 0);
+      const shippingFee = Number(rawShippingFee ?? 0);
+      const discountAmount = Number(rawDiscountAmount ?? 0);
       const finalPrice = subtotal + shippingFee - discountAmount;
 
       if (finalPrice < 0) {
@@ -86,32 +110,37 @@ export class CreateOrderFromCart {
       const order = await this.orderRepo.create(
         {
           userId,
+          branchId,
+          fulfillmentType,
           items: cartItems.map((i: any) => ({
-            productId: i.productId,
-            productVariantId: i.productVariantId,
-            quantity: i.quantity,
-            price: Number(i.variant?.price ?? 0),
-            title: i.product?.title ?? "(deleted)",
-            variantTitle: i.variant?.title ?? null,
-            variantSku: i.variant?.sku ?? null,
-            thumbnail: i.product?.thumbnail ?? null,
+            productId: i.productId ?? null,
+            productVariantId: i.productVariantId ?? null,
+            quantity: Number(i.quantity ?? 0),
+            price: Number(i.variant?.price ?? i.price ?? 0),
+            title: i.product?.title ?? i.title ?? "(deleted)",
+            variantTitle: i.variant?.title ?? i.variantTitle ?? null,
+            variantSku: i.variant?.sku ?? i.variantSku ?? null,
+            variantLabel: i.variant?.title ?? i.variantLabel ?? null,
+            thumbnail: i.product?.thumbnail ?? i.thumbnail ?? null,
             optionSummary: Array.isArray(i.variant?.optionValues)
               ? i.variant.optionValues.map((x: any) => x.value).join(" / ")
-              : null,
+              : (i.optionSummary ?? null),
           })),
           address,
           shippingFee,
           discountAmount,
           totalPrice: subtotal,
-          userInfo: payload.userInfo ?? null,
+          finalPrice,
+          userInfo: userInfo ?? null,
         },
         transaction,
       );
 
       for (const item of cartItems) {
-        await this.inventoryRepo.decreaseStockByVariantId(
-          item.productVariantId,
-          item.quantity,
+        await this.inventoryRepo.decreaseStock(
+          branchId,
+          Number(item.productVariantId),
+          Number(item.quantity),
           {
             transaction,
             transactionType: "order_created",
@@ -135,6 +164,8 @@ export class CreateOrderFromCart {
         id: order.props.id,
         code: order.props.code,
         trackingToken: order.props.trackingToken,
+        branchId: order.props.branchId,
+        fulfillmentType: order.props.fulfillmentType,
       };
     } catch (err) {
       await transaction.rollback();

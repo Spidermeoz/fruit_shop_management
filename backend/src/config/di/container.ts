@@ -18,6 +18,8 @@ import ProductVariantValueModel from "../../infrastructure/db/sequelize/models/P
 import RoleModel from "../../infrastructure/db/sequelize/models/RoleModel";
 import SettingGeneralModel from "../../infrastructure/db/sequelize/models/SettingGeneralModel";
 import UserModel from "../../infrastructure/db/sequelize/models/UserModel";
+import BranchModel from "../../infrastructure/db/sequelize/models/BranchModel"; // Added Branch
+import UserBranchModel from "../../infrastructure/db/sequelize/models/UserBranchModel"; // Added UserBranch
 import OriginModel from "../../infrastructure/db/sequelize/models/OriginModel";
 import ProductTagModel from "../../infrastructure/db/sequelize/models/ProductTagModel";
 import ProductTagMapModel from "../../infrastructure/db/sequelize/models/ProductTagMapModel";
@@ -34,6 +36,7 @@ import { SequelizeReviewRepository } from "../../infrastructure/repositories/Seq
 import { SequelizeRoleRepository } from "../../infrastructure/repositories/SequelizeRoleRepository";
 import { SequelizeSettingGeneralRepository } from "../../infrastructure/repositories/SequelizeSettingGeneralRepository";
 import { SequelizeUserRepository } from "../../infrastructure/repositories/SequelizeUserRepository";
+import { SequelizeBranchRepository } from "../../infrastructure/repositories/SequelizeBranchRepository"; // Added Branch Repo
 import { SequelizeOriginRepository } from "../../infrastructure/repositories/SequelizeOriginRepository";
 import { SequelizeProductTagRepository } from "../../infrastructure/repositories/SequelizeProductTagRepository";
 import { SequelizeInventoryRepository } from "../../infrastructure/repositories/SequelizeInventoryRepository";
@@ -122,6 +125,14 @@ import { ListUsers } from "../../application/users/usecases/ListUsers";
 import { SoftDeleteUser } from "../../application/users/usecases/SoftDeleteUser";
 import { UpdateUserStatus } from "../../application/users/usecases/UpdateUserStatus";
 
+// ===== Branch usecases =====
+import { CreateBranch } from "../../application/branches/usecases/CreateBranch";
+import { ListBranches } from "../../application/branches/usecases/ListBranches";
+import { GetBranchDetail } from "../../application/branches/usecases/GetBranchDetail";
+import { EditBranch } from "../../application/branches/usecases/EditBranch";
+import { ChangeBranchStatus } from "../../application/branches/usecases/ChangeBranchStatus";
+import { SoftDeleteBranch } from "../../application/branches/usecases/SoftDeleteBranch";
+
 // ===== Auth usecases =====
 import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
 import { GetMe } from "../../application/auth/usecases/GetMe";
@@ -201,6 +212,8 @@ import { makeProductTagsController } from "../../interfaces/http/express/control
 import type { ProductTagsController } from "../../interfaces/http/express/controllers/ProductTagsController";
 import { makeProductTagGroupsController } from "../../interfaces/http/express/controllers/ProductTagGroupsController";
 import type { ProductTagGroupsController } from "../../interfaces/http/express/controllers/ProductTagGroupsController";
+import { makeBranchesController } from "../../interfaces/http/express/controllers/BranchesController";
+import type { BranchesController } from "../../interfaces/http/express/controllers/BranchesController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -253,6 +266,36 @@ UserModel.belongsTo(RoleModel, {
 RoleModel.hasMany(UserModel, {
   as: "users",
   foreignKey: "role_id",
+});
+
+// User <-> UserBranch <-> Branch
+UserModel.hasMany(UserBranchModel, {
+  as: "userBranches",
+  foreignKey: "user_id",
+});
+UserBranchModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+BranchModel.hasMany(UserBranchModel, {
+  as: "userBranches",
+  foreignKey: "branch_id",
+});
+UserBranchModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+UserModel.belongsToMany(BranchModel, {
+  through: UserBranchModel,
+  as: "branches",
+  foreignKey: "user_id",
+  otherKey: "branch_id",
+});
+BranchModel.belongsToMany(UserModel, {
+  through: UserBranchModel,
+  as: "users",
+  foreignKey: "branch_id",
+  otherKey: "user_id",
 });
 
 // User -> Cart
@@ -345,6 +388,16 @@ UserModel.hasMany(OrderModel, {
   foreignKey: "user_id",
 });
 
+// Order -> Branch
+OrderModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+BranchModel.hasMany(OrderModel, {
+  as: "orders",
+  foreignKey: "branch_id",
+});
+
 // Order -> Items
 OrderModel.hasMany(OrderItemModel, {
   as: "items",
@@ -365,24 +418,55 @@ OrderItemModel.belongsTo(ProductVariantModel, {
   foreignKey: "product_variant_id",
 });
 
-// Inventory -> Variant
+// Inventory -> Variant (Branch-aware: hasMany thay vì hasOne)
 InventoryStockModel.belongsTo(ProductVariantModel, {
-  as: "variant",
+  as: "productVariant",
   foreignKey: "product_variant_id",
 });
-ProductVariantModel.hasOne(InventoryStockModel, {
-  as: "inventoryStock",
+ProductVariantModel.hasMany(InventoryStockModel, {
+  as: "inventoryStocks",
   foreignKey: "product_variant_id",
 });
 
 InventoryTransactionModel.belongsTo(ProductVariantModel, {
-  as: "variant",
+  as: "productVariant",
   foreignKey: "product_variant_id",
 });
 ProductVariantModel.hasMany(InventoryTransactionModel, {
   as: "inventoryTransactions",
   foreignKey: "product_variant_id",
 });
+
+// Branch -> InventoryStock
+InventoryStockModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+BranchModel.hasMany(InventoryStockModel, {
+  as: "inventoryStocks",
+  foreignKey: "branch_id",
+});
+
+// Branch -> InventoryTransaction
+InventoryTransactionModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+BranchModel.hasMany(InventoryTransactionModel, {
+  as: "inventoryTransactions",
+  foreignKey: "branch_id",
+});
+
+// User -> InventoryTransaction (Người tạo transaction)
+InventoryTransactionModel.belongsTo(UserModel, {
+  as: "createdBy",
+  foreignKey: "created_by_id",
+});
+UserModel.hasMany(InventoryTransactionModel, {
+  as: "createdInventoryTransactions",
+  foreignKey: "created_by_id",
+});
+
 ProductTagGroupModel.hasMany(ProductTagModel, {
   foreignKey: "product_tag_group_id",
   as: "tags",
@@ -469,6 +553,7 @@ const inventoryModels = {
   InventoryTransaction: InventoryTransactionModel,
   ProductVariant: ProductVariantModel,
   Product: ProductModel,
+  Branch: BranchModel, // Added Branch
 };
 const inventoryRepo = new SequelizeInventoryRepository(inventoryModels);
 
@@ -477,6 +562,12 @@ const categoryModels = {
   ProductCategory: ProductCategoryModel,
 };
 const categoryRepo = new SequelizeProductCategoryRepository(categoryModels);
+
+// Branch
+const branchModels = {
+  Branch: BranchModel,
+};
+const branchRepo = new SequelizeBranchRepository(branchModels);
 
 // Roles (export để dùng ở main.ts/middlewares)
 const roleModels = {
@@ -488,6 +579,8 @@ export const rolesRepo = new SequelizeRoleRepository(roleModels);
 const userModels = {
   User: UserModel,
   Role: RoleModel,
+  UserBranch: UserBranchModel, // Added UserBranch
+  Branch: BranchModel, // Added Branch
 };
 export const userRepo = new SequelizeUserRepository(userModels);
 
@@ -513,6 +606,7 @@ const orderModels = {
   DeliveryStatusHistory: DeliveryStatusHistoryModel,
   Product: ProductModel,
   ProductVariant: ProductVariantModel,
+  Branch: BranchModel, // Added Branch
 };
 const orderRepo = new SequelizeOrderRepository(orderModels);
 
@@ -590,6 +684,15 @@ export const usecases = {
     updateStatus: new UpdateUserStatus(userRepo),
     softDelete: new SoftDeleteUser(userRepo),
     bulkEdit: new BulkEditUsers(userRepo),
+  },
+
+  branches: {
+    list: new ListBranches(branchRepo),
+    detail: new GetBranchDetail(branchRepo),
+    create: new CreateBranch(branchRepo),
+    edit: new EditBranch(branchRepo),
+    changeStatus: new ChangeBranchStatus(branchRepo),
+    softDelete: new SoftDeleteBranch(branchRepo),
   },
 
   auth: {
@@ -691,6 +794,7 @@ type Controllers = {
   categories: ProductCategoriesController;
   roles: RolesController;
   users: UsersController;
+  branches: BranchesController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -747,6 +851,15 @@ export const controllers: Controllers = {
     updateStatus: usecases.users.updateStatus,
     softDelete: usecases.users.softDelete,
     bulkEdit: usecases.users.bulkEdit,
+  }),
+
+  branches: makeBranchesController({
+    list: usecases.branches.list,
+    detail: usecases.branches.detail,
+    create: usecases.branches.create,
+    edit: usecases.branches.edit,
+    changeStatus: usecases.branches.changeStatus,
+    softDelete: usecases.branches.softDelete,
   }),
 
   auth: makeAuthController({

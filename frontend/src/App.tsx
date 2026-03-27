@@ -32,6 +32,10 @@ import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 import { AdminToastProvider } from "./context/AdminToastContext";
 import ProductOriginPage from "./pages/admin/origins/ProductOriginPage";
 import ProductTagPage from "./pages/admin/tags/ProductTagPage";
+import BranchesPage from "./pages/admin/branches/BranchesPage";
+import BranchCreatePage from "./pages/admin/branches/BranchCreatePage";
+import BranchDetailPage from "./pages/admin/branches/BranchDetailPage";
+import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -56,7 +60,6 @@ import FAQPage from "./pages/client/Other/FAQPage";
 import ReturnPolicyPage from "./pages/client/Other/ReturnPolicyPage";
 import ShippingPolicyPage from "./pages/client/Other/ShippingPolicyPage";
 import { ToastProvider } from "./context/ToastContext";
-// import Footer from "./components/client/layout/Footer"; //
 
 const App: React.FC = () => {
   return (
@@ -155,6 +158,23 @@ const App: React.FC = () => {
                                 element={<UserDetailPage />}
                               />
 
+                              <Route
+                                path="branches"
+                                element={<BranchesPage />}
+                              />
+                              <Route
+                                path="branches/create"
+                                element={<BranchCreatePage />}
+                              />
+                              <Route
+                                path="branches/detail/:id"
+                                element={<BranchDetailPage />}
+                              />
+                              <Route
+                                path="branches/edit/:id"
+                                element={<BranchEditPage />}
+                              />
+
                               <Route path="orders" element={<OrdersPage />} />
                               <Route
                                 path="orders/detail/:id"
@@ -176,7 +196,6 @@ const App: React.FC = () => {
                   }
                 />
 
-                {/* === Admin Login (Public) === */}
                 <Route path="/admin/auth/login" element={<LoginPageAdmin />} />
 
                 {/* ================= CLIENT ================= */}
@@ -231,7 +250,6 @@ const App: React.FC = () => {
                           />
                         </Routes>
                       </main>
-                      {/* <Footer /> */}
                     </>
                   }
                 />

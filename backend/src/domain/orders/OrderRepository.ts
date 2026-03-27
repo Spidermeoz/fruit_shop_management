@@ -1,11 +1,14 @@
 import type { Order } from "./Order";
-import type { OrderStatus, PaymentStatus } from "./types";
+import type { FulfillmentType, OrderStatus, PaymentStatus } from "./types";
 
 export interface OrderListFilter {
   page?: number;
   limit?: number;
   status?: string;
   userId?: number;
+  branchId?: number;
+  allowedBranchIds?: number[];
+  fulfillmentType?: FulfillmentType;
   q?: string;
 }
 
@@ -17,8 +20,6 @@ export interface OrderCreateItemInput {
   title: string;
   variantTitle?: string | null;
   variantSku?: string | null;
-
-  // optional richer snapshot fields
   variantLabel?: string | null;
   optionSummary?: string | null;
   thumbnail?: string | null;
@@ -34,6 +35,8 @@ export interface OrderRepository {
   create(
     data: {
       userId: number;
+      branchId: number;
+      fulfillmentType: FulfillmentType;
       items: OrderCreateItemInput[];
       address: any;
       shippingFee: number;
@@ -51,6 +54,8 @@ export interface OrderRepository {
     id: number,
     filter: OrderListFilter,
   ): Promise<{ rows: Order[]; count: number }>;
+
+  list(filter: OrderListFilter): Promise<{ rows: Order[]; count: number }>;
 
   updateStatus(
     id: number,

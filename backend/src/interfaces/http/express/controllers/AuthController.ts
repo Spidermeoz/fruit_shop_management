@@ -19,7 +19,6 @@ export const makeAuthController = (uc: {
   me: GetMe;
 }) => {
   return {
-    // POST /api/v1/auth/login
     login: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { email, password } = req.body || {};
@@ -31,17 +30,16 @@ export const makeAuthController = (uc: {
       } catch (e: any) {
         const msg = String(e?.message || "Invalid credentials");
         const isAuthErr = /invalid credentials|account is not active/i.test(
-          msg
+          msg,
         );
         return fail(
           res,
           isAuthErr ? "Invalid credentials" : msg,
-          isAuthErr ? 401 : 500
+          isAuthErr ? 401 : 500,
         );
       }
     },
 
-    // POST /api/v1/auth/logout  (require auth)
     logout: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const user = req.user;
@@ -53,7 +51,6 @@ export const makeAuthController = (uc: {
       }
     },
 
-    // POST /api/v1/auth/refresh
     refresh: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { refreshToken } = req.body || {};
@@ -61,12 +58,10 @@ export const makeAuthController = (uc: {
         const out = await uc.refresh.execute({ refreshToken });
         return ok(res, out);
       } catch (e: any) {
-        const msg = String(e?.message || "Invalid refresh token");
         return fail(res, "Invalid refresh token", 401);
       }
     },
 
-    // GET /api/v1/auth/me  (require auth)
     me: async (req: Request, res: Response, next: NextFunction) => {
       try {
         if (!req.user) return fail(res, "Unauthorized", 401);

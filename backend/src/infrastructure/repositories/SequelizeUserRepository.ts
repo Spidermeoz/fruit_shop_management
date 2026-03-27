@@ -1,4 +1,3 @@
-// src/infrastructure/repositories/SequelizeUserRepository.ts
 import { Op, WhereOptions, OrderItem } from "sequelize";
 import { User } from "../../domain/users/User";
 import type {
@@ -8,7 +7,12 @@ import type {
 } from "../../domain/users/UserRepository";
 import type { ListUsersFilter, UserSort } from "../../domain/users/types";
 
-type Models = { User: any; Role?: any };
+type Models = {
+  User: any;
+  Role?: any;
+  UserBranch?: any;
+  Branch?: any;
+};
 
 const toBool = (v: any) => v === true || v === 1 || v === "1";
 
@@ -31,14 +35,40 @@ const mapSort = (sort?: UserSort): OrderItem[] => {
 export class SequelizeUserRepository implements UserRepository {
   constructor(private models: Models) {}
 
-  // Sequelize → Domain
+  private roleInclude() {
+    if (!this.models.Role) return [];
+    return [
+      { model: this.models.Role, as: "role", attributes: ["id", "title"] },
+    ];
+  }
+
+  private branchInclude() {
+    if (!this.models.UserBranch || !this.models.Branch) return [];
+    return [
+      {
+        model: this.models.UserBranch,
+        as: "userBranches",
+        include: [
+          {
+            model: this.models.Branch,
+            as: "branch",
+            attributes: ["id", "name", "code", "status"],
+          },
+        ],
+      },
+    ];
+  }
+
+  private buildIncludes() {
+    return [...this.roleInclude(), ...this.branchInclude()];
+  }
+
   private mapRow = (r: any): User =>
     User.create({
       id: Number(r.id),
       roleId: r.role_id ?? null,
       fullName: r.full_name ?? null,
       email: r.email,
-      // password: không map ra domain (không trả về)
       apiToken: r.api_token ?? null,
       phone: r.phone ?? null,
       avatar: r.avatar ?? null,
@@ -47,9 +77,28 @@ export class SequelizeUserRepository implements UserRepository {
       deletedAt: r.deleted_at ?? r.deletedAt ?? null,
       createdAt: r.created_at ?? r.createdAt,
       updatedAt: r.updated_at ?? r.updatedAt,
-      // embed role (include: {as:"role"})
       role: r.role
         ? { id: Number(r.role.id), title: String(r.role.title) }
+        : null,
+      branchAssignments: Array.isArray(r.userBranches)
+        ? r.userBranches.map((ub: any) => ({
+            branchId: Number(ub.branch_id),
+            isPrimary: toBool(ub.is_primary),
+            branch: ub.branch
+              ? {
+                  id: Number(ub.branch.id),
+                  name: String(ub.branch.name),
+                  code: String(ub.branch.code),
+                  status: ub.branch.status,
+                }
+              : null,
+          }))
+        : [],
+      primaryBranchId: Array.isArray(r.userBranches)
+        ? Number(
+            r.userBranches.find((ub: any) => toBool(ub.is_primary))
+              ?.branch_id ?? 0,
+          ) || null
         : null,
     });
 
@@ -70,13 +119,10 @@ export class SequelizeUserRepository implements UserRepository {
       ];
     }
 
-    const include = this.models.Role
-      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-      : [];
-
     const { rows, count } = await this.models.User.findAndCountAll({
       where,
-      include,
+      include: this.buildIncludes(),
+      distinct: true,
       order: mapSort(filter?.sort),
       limit: filter?.limit ?? 10,
       offset: filter?.offset ?? 0,
@@ -89,20 +135,18 @@ export class SequelizeUserRepository implements UserRepository {
     const where: WhereOptions = { id };
     if (!includeDeleted) (where as any).deleted = 0;
 
-    const include = this.models.Role
-      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-      : [];
+    const r = await this.models.User.findOne({
+      where,
+      include: this.buildIncludes(),
+    });
 
-    const r = await this.models.User.findOne({ where, include });
     return r ? this.mapRow(r) : null;
   }
 
   async findByEmail(email: string) {
     const r = await this.models.User.findOne({
       where: { email: email.trim().toLowerCase(), deleted: 0 },
-      include: this.models.Role
-        ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-        : [],
+      include: this.buildIncludes(),
     });
     return r ? this.mapRow(r) : null;
   }
@@ -112,7 +156,7 @@ export class SequelizeUserRepository implements UserRepository {
       role_id: input.roleId ?? null,
       full_name: input.fullName ?? null,
       email: input.email.trim().toLowerCase(),
-      password: input.passwordHash, // hash đã được tạo ở use case
+      password: input.passwordHash,
       phone: input.phone ?? null,
       avatar: input.avatar ?? null,
       status: input.status ?? "active",
@@ -120,11 +164,12 @@ export class SequelizeUserRepository implements UserRepository {
       deleted_at: null,
     });
 
-    // Lấy lại với include role để trả về đúng embed
+    if (input.branchAssignments !== undefined) {
+      await this.setUserBranches(Number(r.id), input.branchAssignments);
+    }
+
     const found = await this.models.User.findByPk(r.id, {
-      include: this.models.Role
-        ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-        : [],
+      include: this.buildIncludes(),
     });
     if (!found) throw new Error("User not found after create");
     return this.mapRow(found);
@@ -134,10 +179,11 @@ export class SequelizeUserRepository implements UserRepository {
     const values: any = {};
     if (patch.roleId !== undefined) values.role_id = patch.roleId;
     if (patch.fullName !== undefined) values.full_name = patch.fullName ?? null;
-    if (patch.email !== undefined)
+    if (patch.email !== undefined) {
       values.email = patch.email.trim().toLowerCase();
+    }
     if (patch.passwordHash !== undefined) {
-      if (patch.passwordHash) values.password = patch.passwordHash; // chỉ khi có hash mới
+      if (patch.passwordHash) values.password = patch.passwordHash;
     }
     if (patch.phone !== undefined) values.phone = patch.phone ?? null;
     if (patch.avatar !== undefined) values.avatar = patch.avatar ?? null;
@@ -145,13 +191,61 @@ export class SequelizeUserRepository implements UserRepository {
 
     await this.models.User.update(values, { where: { id } });
 
+    if (patch.branchAssignments !== undefined) {
+      await this.setUserBranches(id, patch.branchAssignments);
+    }
+
     const r = await this.models.User.findByPk(id, {
-      include: this.models.Role
-        ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-        : [],
+      include: this.buildIncludes(),
     });
     if (!r) throw new Error("User not found after update");
     return this.mapRow(r);
+  }
+
+  async setUserBranches(
+    userId: number,
+    assignments: { branchId: number; isPrimary?: boolean }[],
+  ): Promise<void> {
+    if (!this.models.UserBranch) return;
+
+    const normalizedInput = Array.isArray(assignments)
+      ? assignments
+          .filter((x) => Number(x?.branchId) > 0)
+          .map((x) => ({
+            branchId: Number(x.branchId),
+            isPrimary: x.isPrimary === true,
+          }))
+      : [];
+
+    const hasPrimary = normalizedInput.some((x) => x.isPrimary);
+    const normalized = normalizedInput.map((x, idx) => ({
+      user_id: userId,
+      branch_id: x.branchId,
+      is_primary: x.isPrimary || (!hasPrimary && idx === 0),
+    }));
+
+    await this.models.UserBranch.destroy({ where: { user_id: userId } });
+
+    if (normalized.length) {
+      await this.models.UserBranch.bulkCreate(normalized);
+    }
+  }
+
+  async getUserBranches(userId: number) {
+    if (!this.models.UserBranch) return [];
+
+    const rows = await this.models.UserBranch.findAll({
+      where: { user_id: userId },
+      order: [
+        ["is_primary", "DESC"],
+        ["id", "ASC"],
+      ],
+    });
+
+    return rows.map((r: any) => ({
+      branchId: Number(r.branch_id),
+      isPrimary: toBool(r.is_primary),
+    }));
   }
 
   async updateStatus(id: number, status: "active" | "inactive") {
@@ -175,7 +269,7 @@ export class SequelizeUserRepository implements UserRepository {
 
     await this.models.User.update(
       { deleted: 1, deleted_at: now },
-      { where: { id } }
+      { where: { id } },
     );
 
     return {
@@ -186,11 +280,10 @@ export class SequelizeUserRepository implements UserRepository {
     };
   }
 
-  // Bulk: 'status' | 'role' | 'delete' | 'restore'
   async bulkEdit(
     ids: number[],
     action: "status" | "role" | "delete" | "restore",
-    value?: any
+    value?: any,
   ) {
     if (!Array.isArray(ids) || !ids.length) return { affected: 0 };
 
@@ -203,16 +296,15 @@ export class SequelizeUserRepository implements UserRepository {
         }
         const [affected] = await this.models.User.update(
           { status: String(value) },
-          { where }
+          { where },
         );
         return { affected: affected ?? 0 };
       }
 
       case "role": {
-        // value: roleId (number | null)
         const [affected] = await this.models.User.update(
           { role_id: value ?? null },
-          { where }
+          { where },
         );
         return { affected: affected ?? 0 };
       }
@@ -221,7 +313,7 @@ export class SequelizeUserRepository implements UserRepository {
         const now = new Date();
         const [affected] = await this.models.User.update(
           { deleted: 1, deleted_at: now },
-          { where }
+          { where },
         );
         return { affected: affected ?? 0 };
       }
@@ -229,7 +321,7 @@ export class SequelizeUserRepository implements UserRepository {
       case "restore": {
         const [affected] = await this.models.User.update(
           { deleted: 0, deleted_at: null },
-          { where }
+          { where },
         );
         return { affected: affected ?? 0 };
       }
@@ -238,25 +330,20 @@ export class SequelizeUserRepository implements UserRepository {
 
   async updateApiToken(
     userId: number,
-    tokenHash: string | null
+    tokenHash: string | null,
   ): Promise<void> {
     await this.models.User.update(
       { api_token: tokenHash ?? null },
-      { where: { id: userId } }
+      { where: { id: userId } },
     );
   }
 
   async findAuthByEmail(email: string) {
     const where: any = { email: email.trim().toLowerCase(), deleted: 0 };
-    const include = this.models.Role
-      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-      : [];
 
-    // cần lấy cột password để so khớp
     const r = await this.models.User.findOne({
       where,
-      include,
-      // attributes: không loại bỏ password
+      include: this.buildIncludes(),
     });
 
     if (!r) return null;
@@ -267,13 +354,9 @@ export class SequelizeUserRepository implements UserRepository {
   }
 
   async findByApiTokenHash(hash: string) {
-    const include = this.models.Role
-      ? [{ model: this.models.Role, as: "role", attributes: ["id", "title"] }]
-      : [];
-
     const r = await this.models.User.findOne({
       where: { api_token: hash, deleted: 0 },
-      include,
+      include: this.buildIncludes(),
     });
 
     return r ? this.mapRow(r) : null;

@@ -1,4 +1,3 @@
-// src/application/auth/usecases/Login.ts
 import type { UserRepository } from "../../../domain/users/UserRepository";
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
 import type { TokenService } from "../../auth/services/TokenService";
@@ -13,7 +12,7 @@ export class Login {
     private roles: RoleRepository,
     private token: TokenService,
     private refresh: RefreshTokenService,
-    private password: PasswordService
+    private password: PasswordService,
   ) {}
 
   async execute(input: { email: string; password: string }) {
@@ -40,18 +39,17 @@ export class Login {
     const { raw: refreshToken, hash } = this.refresh.generate();
     await this.users.updateApiToken(u.props.id!, hash);
 
-    // Lấy permissions từ role (nếu có)
     let permissions: Permissions = {};
     if (u.props.roleId != null) {
       const role = await this.roles.findById(u.props.roleId);
-      if (role && role.props.permissions) {
+      if (role?.props.permissions) {
         permissions = role.props.permissions as Permissions;
       }
     }
 
     return {
       accessToken,
-      refreshToken, // raw gửi FE, hash đã lưu DB
+      refreshToken,
       user: toAuthUserView(u),
       permissions,
     };

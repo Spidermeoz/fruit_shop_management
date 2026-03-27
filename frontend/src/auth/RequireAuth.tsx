@@ -9,7 +9,7 @@ const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) return null; // hoặc spinner global
 
   if (!isAuthenticated) {
-    // ✅ redirect đúng trang login admin
+    // redirect đúng trang login admin
     return <Navigate to="/admin/auth/login" replace state={{ from: loc }} />;
   }
   return <>{children}</>;

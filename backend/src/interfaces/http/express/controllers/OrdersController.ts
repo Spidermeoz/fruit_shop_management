@@ -8,25 +8,27 @@ export const makeOrdersController = (uc: {
   addPayment: any;
 }) => {
   return {
-    // GET /admin/orders
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { page, limit, q, status, userId } = req.query as Record<
-          string,
-          string
-        >;
+        const { page, limit, q, status, userId, branchId, fulfillmentType } =
+          req.query as Record<string, string>;
 
-        const data = await uc.list.execute({
-          page: page ? Number(page) : 1,
-          limit: limit ? Number(limit) : 10,
-          q,
-          status,
-          userId: userId ? Number(userId) : undefined,
-        });
+        const data = await uc.list.execute(
+          {
+            page: page ? Number(page) : 1,
+            limit: limit ? Number(limit) : 10,
+            q,
+            status,
+            userId: userId ? Number(userId) : undefined,
+            branchId: branchId ? Number(branchId) : undefined,
+            fulfillmentType: fulfillmentType || undefined,
+          },
+          req.user,
+        );
 
         res.json({
           success: true,
-          data: data.rows,
+          data: data.rows.map((row: any) => row.props ?? row),
           meta: {
             total: data.count,
             page: Number(page ?? 1),
@@ -38,59 +40,68 @@ export const makeOrdersController = (uc: {
       }
     },
 
-    // GET /admin/orders/detail/:id
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const order = await uc.detail.execute(id);
+        const order = await uc.detail.execute(id, req.user);
 
         res.json({
           success: true,
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);
       }
     },
 
-    // PATCH /admin/orders/:id/status
     updateStatus: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
         const { status } = req.body;
 
-        await uc.updateStatus.execute(id, status);
+        await uc.updateStatus.execute(id, status, req.user);
 
-        const order = await uc.detail.execute(id);
+        const order = await uc.detail.execute(id, req.user);
 
         res.json({
           success: true,
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);
       }
     },
 
-    // POST /admin/orders/:id/delivery
     addDelivery: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
 
+        const orderBefore = await uc.detail.execute(id, req.user);
+
+        if (
+          req.user?.branchIds?.length &&
+          orderBefore.props.branchId &&
+          !req.user.branchIds.includes(Number(orderBefore.props.branchId))
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: "Forbidden: branch scope denied",
+          });
+        }
+
         await uc.addDeliveryStatus.execute(id, req.body);
 
-        const order = await uc.detail.execute(id);
+        const order = await uc.detail.execute(id, req.user);
 
         res.json({
           success: true,
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);
       }
     },
 
-    // POST /admin/orders/:id/payment
     addPayment: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const orderId = Number(req.params.id);
@@ -103,14 +114,27 @@ export const makeOrdersController = (uc: {
           });
         }
 
+        const orderBefore = await uc.detail.execute(orderId, req.user);
+
+        if (
+          req.user?.branchIds?.length &&
+          orderBefore.props.branchId &&
+          !req.user.branchIds.includes(Number(orderBefore.props.branchId))
+        ) {
+          return res.status(403).json({
+            success: false,
+            message: "Forbidden: branch scope denied",
+          });
+        }
+
         await uc.addPayment.execute({ orderId, amount });
 
-        const order = await uc.detail.execute(orderId);
+        const order = await uc.detail.execute(orderId, req.user);
 
         return res.json({
           success: true,
           message: "Xác nhận thanh toán thành công",
-          data: order.props,
+          data: order.props ?? order,
         });
       } catch (e) {
         next(e);

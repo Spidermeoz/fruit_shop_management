@@ -5,6 +5,13 @@ export interface OrdersSummary {
   pendingOrders: number;
 }
 
+export interface BranchSummary {
+  id: number;
+  name?: string | null;
+  code?: string | null;
+  status?: string | null;
+}
+
 // =========================
 // Admin/list-oriented raw types
 // =========================
@@ -18,11 +25,13 @@ export interface OrderItem {
   variant_title?: string | null;
   variant_sku?: string | null;
   thumbnail?: string | null;
+  slug?: string | null;
 }
 
 export interface OrderAddress {
   full_name?: string | null;
   phone?: string | null;
+  email?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
   ward?: string | null;
@@ -40,11 +49,15 @@ export interface Order {
   final_price: number;
   total_price?: number;
   discount_amount?: number;
+  shipping_fee?: number;
   status: string;
   payment_status?: string;
   created_at: string;
   code?: string;
   phone?: string | null;
+  branch_id?: number | null;
+  fulfillment_type?: "pickup" | "delivery" | string | null;
+  branch?: BranchSummary | null;
   items?: OrderItem[];
   address?: OrderAddress | null;
 }
@@ -63,6 +76,7 @@ export interface ClientOrderItem {
   variantTitle?: string | null;
   variantSku?: string | null;
   thumbnail?: string | null;
+  _reviewed?: boolean;
 }
 
 export interface ClientOrderAddress {
@@ -92,6 +106,9 @@ export interface ClientOrder {
   createdAt: string;
   code?: string;
   phone?: string | null;
+  branchId?: number | null;
+  fulfillmentType?: "pickup" | "delivery" | string | null;
+  branch?: BranchSummary | null;
   items?: ClientOrderItem[];
   address?: ClientOrderAddress | null;
 }

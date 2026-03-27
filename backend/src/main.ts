@@ -14,8 +14,6 @@ import {
 import { makeAuthMiddleware } from "./interfaces/http/express/middlewares/auth";
 import { makeCan } from "./interfaces/http/express/middlewares/permissions";
 
-import { uploadMulter } from "./interfaces/http/express/middlewares/multer";
-
 // ===== Admin routes =====
 import { authRoutes } from "./interfaces/http/express/routes/auth.routes";
 import { productsRoutes } from "./interfaces/http/express/routes/products.routes";
@@ -29,6 +27,7 @@ import { ordersRoutes } from "./interfaces/http/express/routes/orders.routes";
 import { adminReviewsRoutes } from "./interfaces/http/express/routes/adminReviews.routes";
 import { adminSettingsRoutes } from "./interfaces/http/express/routes/adminSettings.routes";
 import { productTagGroupsRoutes } from "./interfaces/http/express/routes/productTagGroups.routes";
+import { branchesRoutes } from "./interfaces/http/express/routes/branches.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -131,6 +130,10 @@ app.use(
 app.use(
   "/api/v1/admin/settings",
   adminSettingsRoutes(controllers.settings, auth, can),
+);
+app.use(
+  "/api/v1/admin/branches",
+  branchesRoutes(controllers.branches, auth, can),
 );
 
 // ------------------------------------

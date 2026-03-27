@@ -11,6 +11,7 @@ import { http, tokenStore } from "../services/http";
 import { useAuth } from "./AuthContext";
 
 export interface CartItem {
+  productTitle: string | undefined;
   id: number;
   cartId: number;
   productId: number | null;

@@ -1,17 +1,57 @@
-// src/application/users/usecases/EditUser.ts
 import bcrypt from "bcryptjs";
-import type { UserRepository, UpdateUserPatch } from "../../../domain/users/UserRepository";
-import { toUserDTO } from "../../users/dto";
+import type {
+  UserRepository,
+  UpdateUserPatch,
+} from "../../../domain/users/UserRepository";
 
 export type EditUserInput = Partial<{
   roleId: number | null;
   fullName: string | null;
   email: string;
-  password: string | null;     // plain; nếu null/undefined → không đổi
+  password: string | null;
   phone: string | null;
   avatar: string | null;
   status: "active" | "inactive" | "banned";
+  branchAssignments: Array<{
+    branchId: number;
+    isPrimary?: boolean;
+  }>;
 }>;
+
+const mapUserView = (u: any) => ({
+  id: u.props.id!,
+  roleId: u.props.roleId ?? null,
+  fullName: u.props.fullName ?? null,
+  email: u.props.email,
+  phone: u.props.phone ?? null,
+  avatar: u.props.avatar ?? null,
+  status: u.props.status!,
+  deleted: !!u.props.deleted,
+  deletedAt: u.props.deletedAt ?? null,
+  createdAt: u.props.createdAt!,
+  updatedAt: u.props.updatedAt!,
+  role: u.props.role
+    ? { id: u.props.role.id, title: u.props.role.title }
+    : null,
+  primaryBranchId:
+    u.props.primaryBranchId ??
+    u.props.branchAssignments?.find((x: any) => x.isPrimary)?.branchId ??
+    null,
+  branchAssignments: Array.isArray(u.props.branchAssignments)
+    ? u.props.branchAssignments.map((x: any) => ({
+        branchId: Number(x.branchId),
+        isPrimary: !!x.isPrimary,
+        branch: x.branch
+          ? {
+              id: Number(x.branch.id),
+              name: x.branch.name,
+              code: x.branch.code,
+              status: x.branch.status,
+            }
+          : null,
+      }))
+    : [],
+});
 
 export class EditUser {
   constructor(private repo: UserRepository) {}
@@ -26,17 +66,19 @@ export class EditUser {
     if (patch.phone !== undefined) outPatch.phone = patch.phone;
     if (patch.avatar !== undefined) outPatch.avatar = patch.avatar;
     if (patch.status !== undefined) outPatch.status = patch.status;
+    if (patch.branchAssignments !== undefined) {
+      outPatch.branchAssignments = patch.branchAssignments;
+    }
 
-    // hash nếu có password mới và không rỗng
     if (patch.password !== undefined) {
       if (patch.password && patch.password.trim() !== "") {
         outPatch.passwordHash = await bcrypt.hash(patch.password, 10);
       } else {
-        outPatch.passwordHash = undefined; // không đổi
+        outPatch.passwordHash = undefined;
       }
     }
 
     const updated = await this.repo.update(id, outPatch);
-    return { id: updated.props.id!, user: toUserDTO(updated) };
+    return { id: updated.props.id!, user: mapUserView(updated) };
   }
 }

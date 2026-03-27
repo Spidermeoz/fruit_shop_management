@@ -16,13 +16,12 @@ import {
   Filter,
   RefreshCw,
   Home,
+  GitBranch,
+  Store,
 } from "lucide-react";
 import Footer from "../../../components/client/layouts/Footer";
 import { useToast } from "../../../context/ToastContext";
 
-// =============================
-// IMPORT TYPE & MAPPER TỪ BACKEND
-// =============================
 import type { ClientOrder } from "../../../types/orders";
 import { mapClientOrder } from "../../../utils/mapOrder";
 
@@ -33,17 +32,12 @@ const OrderHistoryPage: React.FC = () => {
   const [isCancelling, setIsCancelling] = useState<number | null>(null);
   const [reviewingOrderId, setReviewingOrderId] = useState<number | null>(null);
   const [reviewsData, setReviewsData] = useState<any>({});
-
   const [submittingReviewId, setSubmittingReviewId] = useState<string | null>(
     null,
   );
 
-  // SỬ DỤNG TOAST
   const { showSuccessToast, showErrorToast } = useToast();
 
-  // =============================
-  // LOAD ORDERS FROM API
-  // =============================
   const loadOrders = async () => {
     try {
       const res = await http("GET", "/api/v1/client/orders");
@@ -92,9 +86,6 @@ const OrderHistoryPage: React.FC = () => {
     loadOrders();
   }, []);
 
-  // =============================
-  // CANCEL ORDER
-  // =============================
   const handleCancelOrder = async (orderId: number) => {
     const ok = window.confirm("Bạn có chắc chắn muốn hủy đơn hàng này không?");
     if (!ok) return;
@@ -120,17 +111,11 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
-  // =============================
-  // FILTER ORDERS
-  // =============================
   const filteredOrders =
     filterStatus === "all"
       ? orders
       : orders.filter((o) => o.status === filterStatus);
 
-  // =============================
-  // STATUS UI
-  // =============================
   const statusFormat: Record<
     string,
     { text: string; bg: string; color: string; icon: React.ReactNode }
@@ -196,6 +181,24 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
+  const getFulfillmentBadge = (type?: string | null) => {
+    if (type === "pickup") {
+      return {
+        text: "Nhận tại chi nhánh",
+        bg: "bg-blue-50",
+        color: "text-blue-700",
+        icon: <Store className="w-4 h-4" />,
+      };
+    }
+
+    return {
+      text: "Giao tận nơi",
+      bg: "bg-purple-50",
+      color: "text-purple-700",
+      icon: <Truck className="w-4 h-4" />,
+    };
+  };
+
   const getReviewKey = (
     orderId: number,
     item: {
@@ -217,9 +220,6 @@ const OrderHistoryPage: React.FC = () => {
     }));
   };
 
-  // =============================
-  // SUBMIT SINGLE REVIEW
-  // =============================
   const submitSingleReview = async (
     orderId: number,
     productId: number | null,
@@ -274,9 +274,6 @@ const OrderHistoryPage: React.FC = () => {
     }
   };
 
-  // =============================
-  // RENDER LOADING
-  // =============================
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-[#fcfdfc]">
@@ -289,13 +286,9 @@ const OrderHistoryPage: React.FC = () => {
     );
   }
 
-  // =============================
-  // RENDER MAIN
-  // =============================
   return (
     <div className="flex flex-col min-h-screen bg-[#fcfdfc]">
       <Layout>
-        {/* Banner Section */}
         <section className="relative overflow-hidden bg-gradient-to-b from-green-100/50 to-transparent py-10 text-center">
           <div className="container mx-auto relative z-10 px-4">
             <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight flex items-center justify-center gap-3">
@@ -316,7 +309,6 @@ const OrderHistoryPage: React.FC = () => {
         </section>
 
         <div className="container mx-auto px-4 lg:px-8 py-6 pb-20 max-w-6xl">
-          {/* Bộ lọc đơn hàng */}
           <div className="bg-white rounded-[2rem] shadow-[0_20px_60px_rgba(0,0,0,0.04)] border border-slate-50 p-4 md:p-6 mb-8">
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wider mb-4">
               <Filter className="w-5 h-5 text-green-600" />
@@ -370,7 +362,6 @@ const OrderHistoryPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Danh sách đơn hàng */}
           {filteredOrders.length === 0 ? (
             <div className="bg-white rounded-[2.5rem] p-12 text-center shadow-[0_30px_80px_rgba(0,0,0,0.06)] border border-slate-50">
               <div className="w-24 h-24 bg-slate-50 text-slate-400 rounded-[2rem] flex items-center justify-center mx-auto mb-6">
@@ -397,6 +388,9 @@ const OrderHistoryPage: React.FC = () => {
                 const st =
                   statusFormat[order.status] || statusFormat["pending"];
                 const paymentInfo = getPaymentMethod(order.paymentStatus);
+                const fulfillmentInfo = getFulfillmentBadge(
+                  order.fulfillmentType,
+                );
                 const canCancel =
                   order.status === "pending" || order.status === "processing";
 
@@ -405,7 +399,6 @@ const OrderHistoryPage: React.FC = () => {
                     key={order.id}
                     className="bg-white rounded-[2rem] shadow-[0_10px_40px_rgba(0,0,0,0.04)] border border-slate-50 overflow-hidden hover:shadow-[0_20px_60px_rgba(22,101,52,0.08)] transition-all duration-500"
                   >
-                    {/* ORDER HEADER */}
                     <div className="bg-slate-50/50 p-6 border-b border-slate-100 flex flex-col md:flex-row justify-between gap-4">
                       <div>
                         <div className="flex flex-wrap items-center gap-3 mb-3">
@@ -422,6 +415,7 @@ const OrderHistoryPage: React.FC = () => {
                             {st.icon} {st.text}
                           </span>
                         </div>
+
                         <div className="flex flex-wrap items-center gap-4 text-sm font-medium text-slate-500">
                           <span className="flex items-center gap-1.5">
                             <Calendar className="w-4 h-4" />
@@ -430,17 +424,46 @@ const OrderHistoryPage: React.FC = () => {
                               "vi-VN",
                             )}
                           </span>
+
                           <span className="hidden sm:inline text-slate-300">
                             |
                           </span>
+
                           <span
                             className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${paymentInfo.bg} ${paymentInfo.color}`}
                           >
-                            <CreditCard className="w-4 h-4" />{" "}
+                            <CreditCard className="w-4 h-4" />
                             {paymentInfo.text}
                           </span>
+
+                          <span className="hidden sm:inline text-slate-300">
+                            |
+                          </span>
+
+                          <span
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${fulfillmentInfo.bg} ${fulfillmentInfo.color}`}
+                          >
+                            {fulfillmentInfo.icon}
+                            {fulfillmentInfo.text}
+                          </span>
                         </div>
+
+                        {(order.branch?.name || order.branchId) && (
+                          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 text-slate-700 text-sm font-semibold">
+                            <GitBranch className="w-4 h-4 text-slate-500" />
+                            <span>
+                              {order.branch?.name ||
+                                `Chi nhánh #${order.branchId}`}
+                            </span>
+                            {order.branch?.code && (
+                              <span className="text-slate-400">
+                                ({order.branch.code})
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
+
                       <div className="md:text-right">
                         <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
                           Tổng thanh toán
@@ -451,7 +474,6 @@ const OrderHistoryPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* ORDER ITEMS */}
                     <div className="p-6">
                       <div className="space-y-4">
                         {(order.items || []).slice(0, 2).map((i: any) => (
@@ -460,11 +482,7 @@ const OrderHistoryPage: React.FC = () => {
                             className="flex items-center gap-4 p-3 rounded-2xl border border-slate-100 hover:border-green-200 transition-colors bg-white"
                           >
                             <Link
-                              to={
-                                i.productSlug
-                                  ? `/products/${i.productSlug}`
-                                  : "/products"
-                              }
+                              to={i.slug ? `/products/${i.slug}` : "/products"}
                               className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-slate-50"
                             >
                               <img
@@ -476,9 +494,7 @@ const OrderHistoryPage: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <Link
                                 to={
-                                  i.productSlug
-                                    ? `/products/${i.productSlug}`
-                                    : "/products"
+                                  i.slug ? `/products/${i.slug}` : "/products"
                                 }
                                 className="font-bold text-slate-900 text-lg hover:text-green-600 transition-colors block truncate"
                               >
@@ -514,6 +530,7 @@ const OrderHistoryPage: React.FC = () => {
                             </div>
                           </div>
                         ))}
+
                         {(order.items || []).length > 2 && (
                           <div className="text-center">
                             <Link
@@ -527,7 +544,6 @@ const OrderHistoryPage: React.FC = () => {
                         )}
                       </div>
 
-                      {/* REVIEW SECTION */}
                       {order.status === "completed" && (
                         <div className="mt-6 border-t border-slate-100 pt-6">
                           <button
@@ -538,7 +554,7 @@ const OrderHistoryPage: React.FC = () => {
                             }
                             className="px-6 py-3 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-xl flex items-center justify-center gap-2 font-bold transition-colors w-full sm:w-auto"
                           >
-                            <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" />{" "}
+                            <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" />
                             Đánh giá sản phẩm
                           </button>
 
@@ -570,7 +586,7 @@ const OrderHistoryPage: React.FC = () => {
                                           {item.productTitle}
                                         </p>
                                         <p className="text-sm font-bold text-green-600 flex items-center gap-1.5">
-                                          <CheckCircle className="w-4 h-4" />{" "}
+                                          <CheckCircle className="w-4 h-4" />
                                           Bạn đã đánh giá sản phẩm này
                                         </p>
                                       </div>
@@ -645,7 +661,7 @@ const OrderHistoryPage: React.FC = () => {
                                         >
                                           {submittingReviewId === reviewKey ? (
                                             <span className="flex items-center gap-2">
-                                              <RefreshCw className="w-4 h-4 animate-spin" />{" "}
+                                              <RefreshCw className="w-4 h-4 animate-spin" />
                                               Đang gửi...
                                             </span>
                                           ) : (
@@ -663,7 +679,6 @@ const OrderHistoryPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* ORDER FOOTER ACTIONS */}
                     <div className="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-t border-slate-100">
                       <Link
                         to={`/orders/${order.id}`}
@@ -681,7 +696,7 @@ const OrderHistoryPage: React.FC = () => {
                           >
                             {isCancelling === order.id ? (
                               <>
-                                <RefreshCw className="w-4 h-4 animate-spin" />{" "}
+                                <RefreshCw className="w-4 h-4 animate-spin" />
                                 Đang hủy...
                               </>
                             ) : (
@@ -695,8 +710,8 @@ const OrderHistoryPage: React.FC = () => {
                         {order.items && order.items.length > 0 ? (
                           <Link
                             to={
-                              (order.items[0] as any)?.productSlug
-                                ? `/products/${(order.items[0] as any).productSlug}`
+                              (order.items[0] as any)?.slug
+                                ? `/products/${(order.items[0] as any).slug}`
                                 : "/products"
                             }
                             className="flex-1 sm:flex-none px-6 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-green-700 transition-colors flex items-center justify-center gap-2 shadow-sm"

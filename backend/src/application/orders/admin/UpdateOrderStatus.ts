@@ -4,12 +4,33 @@ export class UpdateOrderStatus {
     private inventoryRepo: any,
   ) {}
 
-  async execute(orderId: number, nextStatus: string) {
+  async execute(orderId: number, nextStatus: string, actor?: any) {
     const order = await this.orderRepo.findById(orderId);
-    if (!order) throw new Error("Order not found");
+
+    if (!order) {
+      throw new Error("Order not found");
+    }
+
+    const allowedBranchIds = Array.isArray(actor?.branchIds)
+      ? actor.branchIds
+          .map(Number)
+          .filter((x: number) => Number.isFinite(x) && x > 0)
+      : [];
+
+    if (
+      allowedBranchIds.length > 0 &&
+      order.props.branchId &&
+      !allowedBranchIds.includes(Number(order.props.branchId))
+    ) {
+      throw new Error("Bạn không có quyền cập nhật đơn hàng của chi nhánh này");
+    }
 
     const currentStatus = String(order.props.status || "").toLowerCase();
     const normalizedNextStatus = String(nextStatus || "").toLowerCase();
+
+    if (!normalizedNextStatus) {
+      throw new Error("Trạng thái đơn hàng không hợp lệ");
+    }
 
     if (currentStatus === normalizedNextStatus) {
       return { success: true };
@@ -19,7 +40,14 @@ export class UpdateOrderStatus {
 
     try {
       const freshOrder = await this.orderRepo.findById(orderId, transaction);
-      if (!freshOrder) throw new Error("Order not found");
+      if (!freshOrder) {
+        throw new Error("Order not found");
+      }
+
+      const branchId = Number(freshOrder.props.branchId);
+      if (!Number.isFinite(branchId) || branchId <= 0) {
+        throw new Error("Order chưa có branch hợp lệ");
+      }
 
       const freshCurrentStatus = String(
         freshOrder.props.status || "",
@@ -32,7 +60,8 @@ export class UpdateOrderStatus {
         for (const item of freshOrder.props.items ?? []) {
           if (!item.productVariantId || !item.quantity) continue;
 
-          await this.inventoryRepo.increaseStockByVariantId(
+          await this.inventoryRepo.increaseStock(
+            branchId,
             Number(item.productVariantId),
             Number(item.quantity),
             {
@@ -41,7 +70,7 @@ export class UpdateOrderStatus {
               referenceType: "order",
               referenceId: Number(orderId),
               note: `Hoàn kho khi admin hủy đơn ${freshOrder.props.code}`,
-              createdById: null,
+              createdById: actor?.id ?? null,
             },
           );
         }

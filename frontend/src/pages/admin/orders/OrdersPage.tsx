@@ -1,14 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Card from "../../../components/admin/layouts/Card";
-import { Search, Eye, Loader2, Edit } from "lucide-react";
+import { Search, Eye, Loader2, Edit, GitBranch } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
+import { useAuth } from "../../../context/AuthContext";
 
-// =======================
-// 🟦 Kiểu dữ liệu Order
-// =======================
 type OrderStatus =
   | "pending"
   | "processing"
@@ -19,7 +17,8 @@ type OrderStatus =
 
 type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
 
-// Cập nhật type OrderItem theo Phase 1
+type FulfillmentType = "pickup" | "delivery";
+
 interface OrderItem {
   productId: number | null;
   productVariantId?: number | null;
@@ -30,9 +29,18 @@ interface OrderItem {
   quantity: number;
 }
 
+interface BranchInfo {
+  id: number;
+  name: string;
+  code?: string | null;
+}
+
 interface OrderProps {
   id: number;
   userId: number;
+  branchId?: number;
+  fulfillmentType?: FulfillmentType;
+  branch?: BranchInfo | null;
   code: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
@@ -42,7 +50,6 @@ interface OrderProps {
   finalPrice: number;
   trackingToken?: string;
   createdAt: string;
-  // Cập nhật type address chặt chẽ hơn
   address: {
     fullName?: string | null;
     phone?: string | null;
@@ -73,7 +80,6 @@ const statusColors: Record<OrderStatus, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
 };
 
-// Đã cập nhật lại luồng trạng thái chặt chẽ hơn theo Backend rule
 const editableStatusMap: Record<OrderStatus, OrderStatus[]> = {
   pending: ["processing", "cancelled"],
   processing: ["shipping", "cancelled"],
@@ -87,26 +93,20 @@ const isStatusOptionDisabled = (
   order: OrderProps,
   optionStatus: OrderStatus,
 ) => {
-  // luôn cho phép giữ nguyên trạng thái hiện tại để select hiển thị bình thường
   if (optionStatus === order.status) return false;
 
-  // completed và cancelled thì modal đã chặn mở từ trước,
-  // nhưng cứ chặn cứng thêm cho an toàn
   if (order.status === "completed" || order.status === "cancelled") {
     return true;
   }
 
-  // Không cho hoàn thành nếu chưa thanh toán
   if (optionStatus === "completed" && order.paymentStatus !== "paid") {
     return true;
   }
 
-  // Không cho hủy nếu đơn đã thanh toán
   if (optionStatus === "cancelled" && order.paymentStatus === "paid") {
     return true;
   }
 
-  // Chỉ cho phép các trạng thái nằm trong map
   return !editableStatusMap[order.status].includes(optionStatus);
 };
 
@@ -118,6 +118,7 @@ const OrdersPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchTerm = searchParams.get("q") || "";
   const statusFilter = searchParams.get("status") || "all";
+  const fulfillmentFilter = searchParams.get("fulfillmentType") || "all";
 
   const navigate = useNavigate();
 
@@ -125,20 +126,31 @@ const OrdersPage: React.FC = () => {
   const [totalPages, setTotalPages] = useState(1);
 
   const { showSuccessToast, showErrorToast } = useAdminToast();
+  const { branches, currentBranchId } = useAuth();
 
-  // ============================
-  // Modal cập nhật trạng thái
-  // ============================
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderProps | null>(null);
   const [originalStatus, setOriginalStatus] = useState<OrderStatus | null>(
     null,
   );
 
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [, setPaymentAmount] = useState("");
+  const [confirmCompleteModal, setConfirmCompleteModal] = useState(false);
+
   const closeStatusModal = () => {
     setShowStatusModal(false);
     setSelectedOrder(null);
     setOriginalStatus(null);
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setSelectedOrder(null);
+  };
+
+  const closeConfirmCompleteModal = () => {
+    setConfirmCompleteModal(false);
   };
 
   const openUpdateStatusModal = (order: OrderProps) => {
@@ -155,17 +167,6 @@ const OrdersPage: React.FC = () => {
     setSelectedOrder(order);
     setOriginalStatus(order.status);
     setShowStatusModal(true);
-  };
-
-  // ============================
-  // Modal Thanh toán COD
-  // ============================
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [, setPaymentAmount] = useState("");
-
-  const closePaymentModal = () => {
-    setShowPaymentModal(false);
-    setSelectedOrder(null);
   };
 
   const openPaymentModal = (order: OrderProps) => {
@@ -189,14 +190,25 @@ const OrdersPage: React.FC = () => {
     setShowPaymentModal(true);
   };
 
-  // Popup hỏi hoàn tất đơn hàng
-  const [confirmCompleteModal, setConfirmCompleteModal] = useState(false);
+  const saveStatusChange = async (order: OrderProps, status: OrderStatus) => {
+    try {
+      await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
+        status,
+      });
 
-  const closeConfirmCompleteModal = () => {
-    setConfirmCompleteModal(false);
+      showSuccessToast({
+        message: "Cập nhật trạng thái thành công!",
+      });
+      setShowStatusModal(false);
+      setConfirmCompleteModal(false);
+      setSelectedOrder(null);
+      setOriginalStatus(null);
+      fetchOrders();
+    } catch (err: any) {
+      showErrorToast(err?.message || "Không thể cập nhật trạng thái");
+    }
   };
 
-  // Hàm gọi khi admin chọn "Đã giao"
   const requestChangeToDelivered = (
     order: OrderProps,
     newStatus: OrderStatus,
@@ -208,27 +220,6 @@ const OrdersPage: React.FC = () => {
     }
   };
 
-  // Hàm lưu thay đổi trạng thái
-  const saveStatusChange = async (order: OrderProps, status: OrderStatus) => {
-    try {
-      await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
-        status,
-      });
-
-      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
-      setShowStatusModal(false);
-      setConfirmCompleteModal(false);
-      setSelectedOrder(null);
-      setOriginalStatus(null);
-      fetchOrders();
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể cập nhật trạng thái");
-    }
-  };
-
-  // ============================
-  // Gọi API danh sách Orders
-  // ============================
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -240,14 +231,21 @@ const OrdersPage: React.FC = () => {
         url += `&status=${encodeURIComponent(statusFilter)}`;
       }
 
+      if (fulfillmentFilter !== "all") {
+        url += `&fulfillmentType=${encodeURIComponent(fulfillmentFilter)}`;
+      }
+
       if (searchTerm.trim()) {
         url += `&q=${encodeURIComponent(searchTerm.trim())}`;
+      }
+
+      if (currentBranchId) {
+        url += `&branchId=${encodeURIComponent(String(currentBranchId))}`;
       }
 
       const json = await http<any>("GET", url);
 
       if (json.success) {
-        // Hỗ trợ cả trường hợp BE trả object hay OrderWrapper
         const mapped = Array.isArray(json.data)
           ? json.data.map((item: any) => item?.props ?? item).filter(Boolean)
           : [];
@@ -268,7 +266,13 @@ const OrdersPage: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-  }, [statusFilter, currentPage, searchTerm]);
+  }, [
+    statusFilter,
+    fulfillmentFilter,
+    currentPage,
+    searchTerm,
+    currentBranchId,
+  ]);
 
   const [searchInput, setSearchInput] = useState(searchTerm);
 
@@ -292,22 +296,56 @@ const OrdersPage: React.FC = () => {
     setSearchParams(params);
   };
 
+  const handleFulfillmentChange = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value === "all") params.delete("fulfillmentType");
+    else params.set("fulfillmentType", value);
+    params.delete("page");
+    setSearchParams(params);
+  };
+
+  const branchName = useMemo(() => {
+    if (!currentBranchId) return "Tất cả chi nhánh được gán";
+    return (
+      branches.find((b) => b.id === currentBranchId)?.name ||
+      `Chi nhánh #${currentBranchId}`
+    );
+  }, [branches, currentBranchId]);
+
   return (
     <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Orders
-        </h1>
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+            Orders
+          </h1>
+          <div className="mt-2 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <GitBranch className="w-4 h-4" />
+            <span>{branchName}</span>
+          </div>
+        </div>
 
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Tìm kiếm mã đơn hàng..."
-            className="w-full pl-10 pr-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+        <div className="w-full xl:w-auto flex flex-col sm:flex-row gap-3">
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm mã đơn hàng..."
+              className="w-full pl-10 pr-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </div>
+
+          <select
+            value={fulfillmentFilter}
+            onChange={(e) => handleFulfillmentChange(e.target.value)}
+            className="px-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="all">Tất cả hình thức</option>
+            <option value="pickup">Pickup</option>
+            <option value="delivery">Delivery</option>
+          </select>
         </div>
       </div>
 
@@ -366,6 +404,12 @@ const OrdersPage: React.FC = () => {
                     Người nhận
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Chi nhánh
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                    Hình thức
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
                     SP
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
@@ -407,7 +451,29 @@ const OrdersPage: React.FC = () => {
                       </p>
                     </td>
 
-                    {/* Cột SP mới */}
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      <div className="font-medium">
+                        {order.branch?.name || "—"}
+                      </div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500">
+                        {order.branch?.code || ""}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          order.fulfillmentType === "pickup"
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                            : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                        }`}
+                      >
+                        {order.fulfillmentType === "pickup"
+                          ? "Pickup"
+                          : "Delivery"}
+                      </span>
+                    </td>
+
                     <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
                       {order.items?.length ?? 0}
                     </td>
@@ -518,9 +584,15 @@ const OrdersPage: React.FC = () => {
       {showStatusModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
               Cập nhật trạng thái đơn hàng
             </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              Chi nhánh:{" "}
+              <span className="font-medium text-gray-700 dark:text-gray-300">
+                {selectedOrder.branch?.name || "—"}
+              </span>
+            </p>
 
             <select
               className="w-full border dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -529,10 +601,7 @@ const OrdersPage: React.FC = () => {
                 const newStatus = e.target.value as OrderStatus;
 
                 if (newStatus === selectedOrder.status) return;
-
-                if (isStatusOptionDisabled(selectedOrder, newStatus)) {
-                  return;
-                }
+                if (isStatusOptionDisabled(selectedOrder, newStatus)) return;
 
                 if (newStatus === "completed") {
                   const ok = window.confirm(
@@ -617,9 +686,7 @@ const OrdersPage: React.FC = () => {
                     showSuccessToast({
                       message: "Cập nhật trạng thái thành công!",
                     });
-                    setShowStatusModal(false);
-                    setSelectedOrder(null);
-                    setOriginalStatus(null);
+                    closeStatusModal();
                     fetchOrders();
                   } catch (err: any) {
                     showErrorToast(
@@ -658,6 +725,15 @@ const OrdersPage: React.FC = () => {
                 </span>
                 <span className="font-semibold text-gray-900 dark:text-white">
                   {selectedOrder.address?.fullName || "—"}
+                </span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Chi nhánh
+                </span>
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {selectedOrder.branch?.name || "—"}
                 </span>
               </div>
 

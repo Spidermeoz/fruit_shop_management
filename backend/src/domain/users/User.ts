@@ -61,6 +61,11 @@ export class User {
       fullName: p.fullName ?? null,
       apiToken: p.apiToken ?? null,
       phone: p.phone ?? null,
+      branchAssignments: p.branchAssignments ?? [],
+      primaryBranchId:
+        p.primaryBranchId ??
+        p.branchAssignments?.find((x) => x.isPrimary)?.branchId ??
+        null,
       avatar: p.avatar ?? null,
       deleted: p.deleted ?? false,
       deletedAt: p.deletedAt ?? null,
@@ -82,4 +87,35 @@ export class User {
   setPasswordHash(hash: string) {
     this._props = User.validate({ ...this._props, passwordHash: hash });
   }
+}
+
+export interface UserBranchAssignment {
+  branchId: number;
+  isPrimary: boolean;
+  branch?: {
+    id: number;
+    name: string;
+    code: string;
+    status?: string;
+  } | null;
+}
+
+export interface UserProps {
+  id?: number;
+  roleId?: number | null;
+  fullName?: string | null;
+  email: string;
+  passwordHash?: string;
+  apiToken?: string | null;
+  phone?: string | null;
+  avatar?: string | null;
+  status?: UserStatus;
+  deleted?: boolean;
+  deletedAt?: Date | null;
+  createdAt?: Date;
+  updatedAt?: Date;
+  role?: { id: number; title: string } | null;
+
+  branchAssignments?: UserBranchAssignment[];
+  primaryBranchId?: number | null;
 }

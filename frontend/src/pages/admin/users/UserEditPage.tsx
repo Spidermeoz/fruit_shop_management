@@ -1,4 +1,3 @@
-// src/pages/admin/users/UserEditPage.tsx
 import React, {
   useEffect,
   useState,
@@ -6,7 +5,7 @@ import React, {
   type FormEvent,
 } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Loader2, Save, ArrowLeft } from "lucide-react";
+import { Loader2, Save, ArrowLeft, GitBranch } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../auth/AuthContext";
@@ -17,14 +16,32 @@ interface Role {
   title: string;
 }
 
+interface Branch {
+  id: number;
+  name: string;
+  code: string;
+  status?: string;
+}
+
+interface UserBranch {
+  id: number;
+  name?: string | null;
+  code?: string | null;
+  status?: string | null;
+  is_primary?: boolean;
+}
+
 interface User {
   id: number;
   full_name: string;
   email: string;
   role_id: number | "";
   phone: string;
-  avatar?: string;
+  avatar?: string | null;
   status: "active" | "inactive";
+  primary_branch_id?: number | null;
+  branch_ids?: number[];
+  branches?: UserBranch[];
 }
 
 type ApiDetail<T> = { success: true; data: T; meta?: any };
@@ -44,6 +61,16 @@ const UserEditPage: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [initialUser, setInitialUser] = useState<User | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
+  const [initialSelectedBranchIds, setInitialSelectedBranchIds] = useState<
+    number[]
+  >([]);
+  const [primaryBranchId, setPrimaryBranchId] = useState<number | "">("");
+  const [initialPrimaryBranchId, setInitialPrimaryBranchId] = useState<
+    number | ""
+  >("");
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewImage, setPreviewImage] = useState<string>("");
   const [newPassword, setNewPassword] = useState<string>("");
@@ -54,16 +81,18 @@ const UserEditPage: React.FC = () => {
     Partial<Record<keyof User, string>> & {
       password?: string;
       confirmPassword?: string;
+      branches?: string;
+      primaryBranchId?: string;
     }
   >({});
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
     "keep",
   );
   const [imageUrl, setImageUrl] = useState<string>("");
+
   const { user: currentUser } = useAuth();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // Lấy dữ liệu user
   const fetchUser = async () => {
     try {
       setLoading(true);
@@ -76,6 +105,22 @@ const UserEditPage: React.FC = () => {
         setUser(data);
         setInitialUser(data);
         setPreviewImage(data.avatar || "");
+
+        const ids = Array.isArray(data.branch_ids)
+          ? data.branch_ids.map(Number)
+          : Array.isArray(data.branches)
+            ? data.branches.map((b) => Number(b.id))
+            : [];
+
+        const primary =
+          data.primary_branch_id ??
+          data.branches?.find((b) => b.is_primary)?.id ??
+          "";
+
+        setSelectedBranchIds(ids);
+        setInitialSelectedBranchIds(ids);
+        setPrimaryBranchId(primary === null ? "" : Number(primary));
+        setInitialPrimaryBranchId(primary === null ? "" : Number(primary));
       }
     } catch (err: any) {
       console.error(err);
@@ -85,7 +130,6 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // Lấy danh sách roles
   const fetchRoles = async () => {
     try {
       const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
@@ -97,10 +141,26 @@ const UserEditPage: React.FC = () => {
     }
   };
 
+  const fetchBranches = async () => {
+    try {
+      const res = await http<ApiList<Branch>>(
+        "GET",
+        "/api/v1/admin/branches?limit=100&status=active",
+      );
+      if (res.success && Array.isArray(res.data)) {
+        setBranches(res.data);
+      }
+    } catch (err) {
+      console.error("fetchBranches error:", err);
+    }
+  };
+
   const isDirty = React.useMemo(() => {
     if (!user || !initialUser) return false;
 
-    // 1. Kiểm tra thay đổi các trường cơ bản
+    const normalizeIds = (arr: number[]) =>
+      [...arr].map(Number).sort((a, b) => a - b);
+
     const hasFieldChanges =
       user.full_name !== initialUser.full_name ||
       user.email !== initialUser.email ||
@@ -108,18 +168,26 @@ const UserEditPage: React.FC = () => {
       (user.phone || "") !== (initialUser.phone || "") ||
       user.status !== initialUser.status;
 
-    // 2. Kiểm tra thay đổi ảnh đại diện
     const hasImageChanges =
       (imageMethod === "upload" && selectedFile !== null) ||
       (imageMethod === "url" &&
         imageUrl !== "" &&
-        imageUrl !== initialUser.avatar);
+        imageUrl !== (initialUser.avatar || ""));
 
-    // 3. Kiểm tra nếu người dùng có nhập mật khẩu mới
     const hasPasswordChanges =
       newPassword.length > 0 || confirmPassword.length > 0;
 
-    return hasFieldChanges || hasImageChanges || hasPasswordChanges;
+    const hasBranchChanges =
+      JSON.stringify(normalizeIds(selectedBranchIds)) !==
+        JSON.stringify(normalizeIds(initialSelectedBranchIds)) ||
+      Number(primaryBranchId || 0) !== Number(initialPrimaryBranchId || 0);
+
+    return (
+      hasFieldChanges ||
+      hasImageChanges ||
+      hasPasswordChanges ||
+      hasBranchChanges
+    );
   }, [
     user,
     initialUser,
@@ -128,12 +196,16 @@ const UserEditPage: React.FC = () => {
     imageUrl,
     newPassword,
     confirmPassword,
+    selectedBranchIds,
+    initialSelectedBranchIds,
+    primaryBranchId,
+    initialPrimaryBranchId,
   ]);
 
   useEffect(() => {
     fetchUser();
     fetchRoles();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchBranches();
   }, [id]);
 
   useEffect(() => {
@@ -144,14 +216,12 @@ const UserEditPage: React.FC = () => {
     };
   }, [previewImage]);
 
-  // Xử lý input
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
 
     let newValue: any = value;
-
     if (name === "role_id") {
       newValue = value === "" ? "" : Number(value);
     }
@@ -163,14 +233,37 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // Chọn ảnh mới → preview
+  const handleToggleBranch = (branchId: number) => {
+    setSelectedBranchIds((prev) => {
+      const exists = prev.includes(branchId);
+      const next = exists
+        ? prev.filter((id) => id !== branchId)
+        : [...prev, branchId];
+
+      if (!next.length) {
+        setPrimaryBranchId("");
+      } else if (!next.includes(Number(primaryBranchId))) {
+        setPrimaryBranchId(next[0]);
+      }
+
+      return next;
+    });
+
+    if (errors.branches || errors.primaryBranchId) {
+      setErrors((prev) => ({
+        ...prev,
+        branches: undefined,
+        primaryBranchId: undefined,
+      }));
+    }
+  };
+
   const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-    // Sai định dạng
     if (!allowedTypes.includes(file.type)) {
       setErrors((prev) => ({
         ...prev,
@@ -183,9 +276,7 @@ const UserEditPage: React.FC = () => {
       return;
     }
 
-    // Quá dung lượng
     const maxSize = 5 * 1024 * 1024;
-
     if (file.size > maxSize) {
       setErrors((prev) => ({
         ...prev,
@@ -198,7 +289,6 @@ const UserEditPage: React.FC = () => {
       return;
     }
 
-    // File hợp lệ
     setSelectedFile(file);
     setPreviewImage(URL.createObjectURL(file));
 
@@ -207,7 +297,6 @@ const UserEditPage: React.FC = () => {
     }
   };
 
-  // Validate form
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
@@ -227,10 +316,6 @@ const UserEditPage: React.FC = () => {
       newErrors.phone = "Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số.";
     }
 
-    // if (!user?.role_id) {
-    //   newErrors.role_id = "Vui lòng chọn vai trò.";
-    // }
-
     if (newPassword || confirmPassword) {
       if (newPassword.length < 6) {
         newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
@@ -240,15 +325,26 @@ const UserEditPage: React.FC = () => {
       }
     }
 
+    if (selectedBranchIds.length === 0) {
+      newErrors.branches = "Vui lòng chọn ít nhất 1 chi nhánh.";
+    }
+
+    if (
+      selectedBranchIds.length > 0 &&
+      (!primaryBranchId || !selectedBranchIds.includes(Number(primaryBranchId)))
+    ) {
+      newErrors.primaryBranchId = "Vui lòng chọn chi nhánh chính hợp lệ.";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  // Lưu thay đổi
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    const isSelf = currentUser?.id === user.id;
     if (isSelf && user.status === "inactive") {
       showErrorToast("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.");
       return;
@@ -261,7 +357,6 @@ const UserEditPage: React.FC = () => {
 
       let avatarUrl = user.avatar;
 
-      // 🖼 Upload avatar mới nếu có chọn (dùng http + FormData)
       if (imageMethod === "upload" && selectedFile) {
         const formDataImg = new FormData();
         formDataImg.append("file", selectedFile);
@@ -278,20 +373,20 @@ const UserEditPage: React.FC = () => {
           return;
         }
         avatarUrl = url;
-      }
-      // 🖼 Sử dụng URL trực tiếp nếu chọn phương thức URL
-      else if (imageMethod === "url" && imageUrl) {
+      } else if (imageMethod === "url" && imageUrl) {
         avatarUrl = imageUrl;
-      }
-      // 🖼 Giữ nguyên URL hiện tại nếu chọn phương thức keep
-      else if (imageMethod === "keep") {
+      } else if (imageMethod === "keep") {
         avatarUrl = user.avatar;
       }
 
       const body: any = {
         ...user,
         avatar: avatarUrl,
+        branchIds: selectedBranchIds,
+        primaryBranchId:
+          primaryBranchId === "" ? null : Number(primaryBranchId),
       };
+
       if (newPassword.trim()) {
         body.password = newPassword.trim();
       }
@@ -332,6 +427,9 @@ const UserEditPage: React.FC = () => {
   if (!user) return null;
 
   const isSelf = currentUser?.id === user.id;
+  const selectedBranches = branches.filter((b) =>
+    selectedBranchIds.includes(b.id),
+  );
 
   return (
     <div>
@@ -349,7 +447,6 @@ const UserEditPage: React.FC = () => {
 
       <Card>
         <form onSubmit={handleSave} className="space-y-4 p-2">
-          {/* Họ và tên */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Họ và tên <span className="text-red-500">*</span>
@@ -370,7 +467,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Email */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Email <span className="text-red-500">*</span>
@@ -391,7 +487,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Mật khẩu mới */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Mật khẩu mới (tuỳ chọn)
@@ -412,7 +507,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Xác nhận mật khẩu */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Xác nhận mật khẩu mới
@@ -433,7 +527,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Số điện thoại */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Số điện thoại <span className="text-red-500">*</span>
@@ -454,7 +547,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Vai trò */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Vai trò
@@ -481,13 +573,85 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Ảnh đại diện */}
+          <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
+                Gán chi nhánh <span className="text-red-500">*</span>
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {branches.map((branch) => {
+                const checked = selectedBranchIds.includes(branch.id);
+                return (
+                  <label
+                    key={branch.id}
+                    className={`flex items-center justify-between rounded-md border p-3 cursor-pointer transition-colors ${
+                      checked
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  >
+                    <div>
+                      <p className="font-medium text-gray-800 dark:text-white">
+                        {branch.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {branch.code}
+                      </p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => handleToggleBranch(branch.id)}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+
+            {errors.branches && (
+              <p className="text-sm text-red-600 dark:text-red-400 mt-2">
+                {errors.branches}
+              </p>
+            )}
+
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Chi nhánh chính <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={primaryBranchId}
+                onChange={(e) =>
+                  setPrimaryBranchId(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
+                }
+                className={`w-full border ${
+                  errors.primaryBranchId ? "border-red-500" : "border-gray-300"
+                } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
+              >
+                <option value="">-- Chọn chi nhánh chính --</option>
+                {selectedBranches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} ({branch.code})
+                  </option>
+                ))}
+              </select>
+              {errors.primaryBranchId && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.primaryBranchId}
+                </p>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Ảnh đại diện
             </label>
 
-            {/* Tab chọn phương thức - Đã sửa khoảng cách bằng gap-3 */}
             <div className="flex flex-wrap gap-3 mb-4">
               <button
                 type="button"
@@ -527,7 +691,6 @@ const UserEditPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Nội dung theo phương thức */}
             {imageMethod === "upload" ? (
               <div>
                 <input
@@ -592,7 +755,6 @@ const UserEditPage: React.FC = () => {
             )}
           </div>
 
-          {/* Trạng thái */}
           <div className="pt-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Trạng thái
@@ -634,11 +796,10 @@ const UserEditPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Nút lưu */}
           <div className="flex justify-end pt-4">
             <button
               type="submit"
-              disabled={saving || !isDirty} // Vô hiệu hóa khi không có thay đổi
+              disabled={saving || !isDirty}
               className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
             >
               {saving ? (

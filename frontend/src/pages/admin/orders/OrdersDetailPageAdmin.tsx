@@ -1,13 +1,16 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, Printer } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Printer,
+  GitBranch,
+  ShoppingBag,
+} from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// ====================================
-// 🔹 Kiểu dữ liệu Order
-// ====================================
 interface OrderItem {
   productId: number | null;
   productVariantId?: number | null;
@@ -31,6 +34,12 @@ interface OrderAddress {
   notes?: string;
 }
 
+interface BranchInfo {
+  id: number;
+  name: string;
+  code?: string | null;
+}
+
 interface Order {
   id: number;
   code: string;
@@ -43,6 +52,9 @@ interface Order {
   trackingToken?: string;
   inventoryApplied: boolean;
   createdAt: string;
+  branchId?: number;
+  fulfillmentType?: "pickup" | "delivery";
+  branch?: BranchInfo | null;
   address: OrderAddress | null;
   items: OrderItem[];
 }
@@ -55,18 +67,9 @@ const OrdersDetailPageAdmin: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const { showErrorToast } = useAdminToast();
-
-  // ====================================
-  // 🔥 NEW: Trạng thái modal preview
-  // ====================================
   const [showInvoice, setShowInvoice] = useState(false);
-
-  // 🔥 NEW: Ref chứa nội dung hóa đơn
   const printRef = useRef<HTMLDivElement>(null);
 
-  // ====================================
-  // 🔹 Fetch Order Detail
-  // ====================================
   const fetchDetail = async () => {
     try {
       setLoading(true);
@@ -88,7 +91,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
     fetchDetail();
   }, [id]);
 
-  // Thêm class dark mode cho các badge trạng thái
   const statusMap: any = {
     pending: {
       label: "Chờ duyệt",
@@ -120,9 +122,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
     },
   };
 
-  // ====================================
-  // 🔥 NEW: Hàm in hóa đơn
-  // ====================================
   const handlePrint = () => {
     if (!printRef.current) return;
 
@@ -151,9 +150,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
     win.print();
   };
 
-  // ====================================
-  // PAGE RENDER
-  // ====================================
   if (loading) {
     return (
       <div className="flex justify-center items-center h-[70vh] dark:text-gray-300">
@@ -186,18 +182,14 @@ const OrdersDetailPageAdmin: React.FC = () => {
 
   return (
     <div className="p-4">
-      {/* ==================================== */}
-      {/* 🔹 Header */}
-      {/* ==================================== */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
             Chi tiết đơn hàng
           </h1>
         </div>
 
-        <div className="flex gap-3">
-          {/* 🔥 NEW: Nút in hóa đơn */}
+        <div className="flex gap-3 flex-wrap">
           <button
             onClick={() => navigate(`/admin/orders/${order.id}/timeline`)}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
@@ -222,9 +214,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
         </div>
       </div>
 
-      {/* ==================================== */}
-      {/* 🔹 Toàn bộ nội dung chi tiết đơn hàng */}
-      {/* ==================================== */}
       <Card className="mb-4">
         <div className="p-6">
           <div className="flex flex-col md:flex-row justify-between gap-4">
@@ -236,11 +225,23 @@ const OrdersDetailPageAdmin: React.FC = () => {
                 Ngày đặt: {new Date(order.createdAt).toLocaleString()}
               </p>
 
-              <span
-                className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.color}`}
-              >
-                {statusInfo.label}
-              </span>
+              <div className="flex flex-wrap gap-2 mt-3">
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.color}`}
+                >
+                  {statusInfo.label}
+                </span>
+
+                <span
+                  className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+                    order.fulfillmentType === "pickup"
+                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                      : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
+                  }`}
+                >
+                  {order.fulfillmentType === "pickup" ? "Pickup" : "Delivery"}
+                </span>
+              </div>
             </div>
 
             <div className="text-right">
@@ -265,10 +266,35 @@ const OrdersDetailPageAdmin: React.FC = () => {
         </div>
       </Card>
 
-      {/* ==================================== */}
-      {/* 🔹 Thông tin giao hàng */}
-      {/* ==================================== */}
-      <Card>
+      <Card className="mb-4">
+        <div className="p-6">
+          <h2 className="text-lg font-semibold mb-3 dark:text-white">
+            Thông tin chi nhánh xử lý
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-700 dark:text-gray-300">
+            <p className="flex items-center gap-2">
+              <GitBranch className="w-4 h-4 text-gray-400" />
+              <span className="font-medium">Chi nhánh:</span>
+              {order.branch?.name || "—"}
+            </p>
+            <p>
+              <span className="font-medium">Mã chi nhánh:</span>{" "}
+              {order.branch?.code || "—"}
+            </p>
+            <p>
+              <span className="font-medium">Branch ID:</span>{" "}
+              {order.branchId || order.branch?.id || "—"}
+            </p>
+            <p>
+              <span className="font-medium">Fulfillment:</span>{" "}
+              {order.fulfillmentType === "pickup" ? "Pickup" : "Delivery"}
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mb-4">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-3 dark:text-white">
             Thông tin giao hàng
@@ -307,10 +333,7 @@ const OrdersDetailPageAdmin: React.FC = () => {
         </div>
       </Card>
 
-      {/* ==================================== */}
-      {/* 🔹 Sản phẩm */}
-      {/* ==================================== */}
-      <Card>
+      <Card className="mb-4">
         <div className="p-6">
           <h2 className="text-lg font-semibold mb-3 dark:text-white">
             Sản phẩm trong đơn
@@ -332,8 +355,9 @@ const OrdersDetailPageAdmin: React.FC = () => {
                   className="border-b dark:border-gray-700"
                 >
                   <td className="py-2">
-                    <div className="font-medium text-gray-900 dark:text-gray-100">
-                      {item.productTitle}
+                    <div className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                      <ShoppingBag className="w-4 h-4 text-gray-400" />
+                      <span>{item.productTitle}</span>
                     </div>
 
                     {item.variantTitle && (
@@ -361,9 +385,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
         </div>
       </Card>
 
-      {/* ==================================== */}
-      {/* 🔹 Chi tiết thanh toán */}
-      {/* ==================================== */}
       <Card>
         <div className="p-6 text-sm dark:text-gray-300">
           <h2 className="text-lg font-semibold mb-3 dark:text-white">
@@ -395,9 +416,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
         </div>
       </Card>
 
-      {/* ==================================== */}
-      {/* 🔥 NEW: Modal Preview hóa đơn */}
-      {/* ==================================== */}
       {showInvoice && (
         <div className="fixed inset-0 bg-black bg-opacity-40 dark:bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded shadow-lg w-full max-w-lg p-6 relative">
@@ -405,7 +423,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
               Xem trước hóa đơn
             </h2>
 
-            {/* HÓA ĐƠN PREVIEW - Luôn giữ nền trắng chữ đen để mô phỏng bản in */}
             <div
               ref={printRef}
               className="border p-4 text-sm bg-white text-gray-900"
@@ -420,6 +437,13 @@ const OrdersDetailPageAdmin: React.FC = () => {
               <p>
                 <strong>Ngày:</strong>{" "}
                 {new Date(order.createdAt).toLocaleString()}
+              </p>
+              <p>
+                <strong>Chi nhánh:</strong> {order.branch?.name || "—"}
+              </p>
+              <p>
+                <strong>Hình thức:</strong>{" "}
+                {order.fulfillmentType === "pickup" ? "Pickup" : "Delivery"}
               </p>
 
               <hr className="my-2 border-gray-300" />
@@ -512,7 +536,6 @@ const OrdersDetailPageAdmin: React.FC = () => {
               </p>
             </div>
 
-            {/* BUTTONS */}
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => setShowInvoice(false)}

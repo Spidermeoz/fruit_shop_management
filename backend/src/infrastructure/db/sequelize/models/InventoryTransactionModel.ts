@@ -3,6 +3,7 @@ import sequelize from "../index";
 
 type InventoryTransactionAttributes = {
   id: number;
+  branch_id: number;
   product_variant_id: number;
   transaction_type: string;
   quantity_delta: number;
@@ -33,6 +34,7 @@ class InventoryTransactionModel
   implements InventoryTransactionAttributes
 {
   declare id: number;
+  declare branch_id: number;
   declare product_variant_id: number;
   declare transaction_type: string;
   declare quantity_delta: number;
@@ -51,6 +53,10 @@ InventoryTransactionModel.init(
       type: DataTypes.BIGINT.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
+    },
+    branch_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false,
     },
     product_variant_id: {
       type: DataTypes.BIGINT.UNSIGNED,
@@ -103,6 +109,16 @@ InventoryTransactionModel.init(
     tableName: "inventory_transactions",
     modelName: "InventoryTransaction",
     timestamps: false,
+    indexes: [
+      {
+        fields: ["branch_id"],
+        name: "idx_inventory_transactions_branch",
+      },
+      {
+        fields: ["branch_id", "product_variant_id", "created_at"],
+        name: "idx_inventory_transactions_branch_variant_created",
+      },
+    ],
   },
 );
 

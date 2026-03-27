@@ -3,6 +3,7 @@ import sequelize from "../index";
 
 type InventoryStockAttributes = {
   id: number;
+  branch_id: number;
   product_variant_id: number;
   quantity: number;
   reserved_quantity: number;
@@ -20,6 +21,7 @@ class InventoryStockModel
   implements InventoryStockAttributes
 {
   declare id: number;
+  declare branch_id: number;
   declare product_variant_id: number;
   declare quantity: number;
   declare reserved_quantity: number;
@@ -34,10 +36,13 @@ InventoryStockModel.init(
       autoIncrement: true,
       primaryKey: true,
     },
+    branch_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: false,
+    },
     product_variant_id: {
       type: DataTypes.BIGINT.UNSIGNED,
       allowNull: false,
-      unique: true,
     },
     quantity: {
       type: DataTypes.INTEGER.UNSIGNED,
@@ -67,6 +72,17 @@ InventoryStockModel.init(
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
+    indexes: [
+      {
+        fields: ["branch_id"],
+        name: "idx_inventory_stocks_branch",
+      },
+      {
+        unique: true,
+        fields: ["branch_id", "product_variant_id"],
+        name: "uq_inventory_stocks_branch_variant",
+      },
+    ],
   },
 );
 

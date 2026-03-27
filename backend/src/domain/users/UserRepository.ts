@@ -1,43 +1,50 @@
-// src/domain/users/UserRepository.ts
 import type { User } from "./User";
 import type { ListUsersFilter, UserStatus } from "./types";
+
+export type UserBranchAssignmentInput = {
+  branchId: number;
+  isPrimary?: boolean;
+};
 
 export type CreateUserInput = {
   roleId?: number | null;
   fullName?: string | null;
   email: string;
-  passwordHash: string; // hash sẵn ở use case
+  passwordHash: string;
   phone?: string | null;
   avatar?: string | null;
   status?: UserStatus;
+  branchAssignments?: UserBranchAssignmentInput[];
 };
 
 export type UpdateUserPatch = Partial<{
   roleId: number | null;
   fullName: string | null;
   email: string;
-  passwordHash: string | null; // nếu không đổi pass → undefined
+  passwordHash: string | null;
   phone: string | null;
   avatar: string | null;
   status: UserStatus;
+  branchAssignments: UserBranchAssignmentInput[];
 }>;
 
 export interface UserRepository {
-  // List + count (để trả meta.total)
   list(filter: ListUsersFilter): Promise<{ rows: User[]; count: number }>;
-
-  // includeDeleted mặc định false
   findById(id: number, includeDeleted?: boolean): Promise<User | null>;
-
   findByEmail(email: string): Promise<User | null>;
-
   create(input: CreateUserInput): Promise<User>;
-
   update(id: number, patch: UpdateUserPatch): Promise<User>;
+
+  setUserBranches(
+    userId: number,
+    assignments: UserBranchAssignmentInput[],
+  ): Promise<void>;
+
+  getUserBranches(userId: number): Promise<UserBranchAssignmentInput[]>;
 
   updateStatus(
     id: number,
-    status: Extract<UserStatus, "active" | "inactive">
+    status: Extract<UserStatus, "active" | "inactive">,
   ): Promise<{
     id: number;
     fullName: string | null;
@@ -52,21 +59,17 @@ export interface UserRepository {
     deletedAt: Date;
   }>;
 
-  // Bulk: action = 'status' | 'delete'
   bulkEdit(
     ids: number[],
     action: "status" | "role" | "delete" | "restore",
-    value?: any
+    value?: any,
   ): Promise<{ affected: number }>;
 
-  // đặt/clear hash của refresh token (lưu ở cột api_token)
   updateApiToken(userId: number, tokenHash: string | null): Promise<void>;
 
-  // Truy vấn cho đăng nhập: trả cả hash mật khẩu
   findAuthByEmail(
-    email: string
+    email: string,
   ): Promise<{ user: User; passwordHash: string } | null>;
 
-  // Tìm user theo refresh token (hash lưu ở users.api_token)
   findByApiTokenHash(hash: string): Promise<User | null>;
 }

@@ -1,9 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2, CheckCircle, Clock } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle,
+  Clock,
+  GitBranch,
+} from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
+
 interface DeliveryItem {
   id: number;
   status: string;
@@ -12,9 +19,18 @@ interface DeliveryItem {
   createdAt: string;
 }
 
+interface BranchInfo {
+  id: number;
+  name: string;
+  code?: string | null;
+}
+
 interface OrderDetail {
   id: number;
   code: string;
+  branchId?: number;
+  fulfillmentType?: "pickup" | "delivery";
+  branch?: BranchInfo | null;
   deliveryHistory: DeliveryItem[];
 }
 
@@ -27,7 +43,6 @@ const statusLabels: Record<string, string> = {
   cancelled: "Đã hủy",
 };
 
-// Đã cập nhật thêm màu cho Dark Mode
 const statusColors: Record<string, string> = {
   pending: "text-gray-500 dark:text-gray-400",
   processing: "text-blue-600 dark:text-blue-400",
@@ -77,15 +92,25 @@ const OrderDeliveryTimelinePage: React.FC = () => {
 
   return (
     <div className="p-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
-          Lịch sử giao hàng
-        </h1>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white">
+            Lịch sử giao hàng
+          </h1>
+          <div className="mt-2 flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-400">
+            <span>Mã đơn: {order.code}</span>
+            <span className="inline-flex items-center gap-1">
+              <GitBranch className="w-4 h-4" />
+              {order.branch?.name || "—"}
+            </span>
+            <span>
+              {order.fulfillmentType === "pickup" ? "Pickup" : "Delivery"}
+            </span>
+          </div>
+        </div>
 
         <button
           onClick={() => navigate(`/admin/orders/detail/${order.id}`)}
-          // Thêm dark mode cho nút quay lại
           className="flex items-center gap-2 px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white rounded transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại chi tiết đơn
@@ -98,8 +123,6 @@ const OrderDeliveryTimelinePage: React.FC = () => {
             Mã đơn: {order.code}
           </h2>
 
-          {/* Timeline */}
-          {/* Thêm dark mode cho đường kẻ dọc */}
           <div className="relative border-l-2 border-gray-300 dark:border-gray-700 ml-3">
             {order.deliveryHistory.length === 0 && (
               <p className="text-gray-500 dark:text-gray-400">
@@ -112,9 +135,7 @@ const OrderDeliveryTimelinePage: React.FC = () => {
 
               return (
                 <div key={log.id} className="mb-8 ml-4 relative">
-                  {/* Dot */}
                   <div
-                    // Thêm dark mode cho nền và viền của chấm tròn
                     className={`absolute -left-5 top-1 w-3 h-3 rounded-full bg-white dark:bg-gray-800 border-2 ${
                       isLast
                         ? "border-green-600 dark:border-green-400"
@@ -122,7 +143,6 @@ const OrderDeliveryTimelinePage: React.FC = () => {
                     }`}
                   ></div>
 
-                  {/* Icon */}
                   <div className="flex items-center gap-2">
                     {isLast ? (
                       <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -140,19 +160,16 @@ const OrderDeliveryTimelinePage: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Timestamp */}
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     {new Date(log.createdAt).toLocaleString()}
                   </p>
 
-                  {/* Note */}
                   {log.note && (
                     <p className="mt-2 text-gray-700 dark:text-gray-300 text-sm">
                       📝 {log.note}
                     </p>
                   )}
 
-                  {/* Location */}
                   {log.location && (
                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       📍 {log.location}
