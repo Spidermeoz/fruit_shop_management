@@ -224,8 +224,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📄 dto.ts
 │   │   │   ├── 📁 inventory
 │   │   │   │   └── 📁 usecases
-│   │   │   │       ├── 📄 GetInventoryAllocation.ts
-│   │   │   │       └── 📄 SetInventoryStock.ts
+│   │   │   │       ├── 📄 ListInventoryStocks.ts
+│   │   │   │       ├── 📄 ListInventoryTransactions.ts
+│   │   │   │       ├── 📄 SetInventoryStock.ts
+│   │   │   │       └── 📄 TransferInventoryStock.ts
 │   │   │   ├── 📁 orders
 │   │   │   │   ├── 📁 admin
 │   │   │   │   │   ├── 📄 AddDeliveryHistory.ts
@@ -536,7 +538,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
 │   │   │   │   ├── 📁 inventory
-│   │   │   │   │   └── 📄 InventoryPage.tsx
+│   │   │   │   │   ├── 📄 InventoryPage.tsx
+│   │   │   │   │   └── 📄 InventoryTransactionHistoryPage.tsx
 │   │   │   │   ├── 📁 orders
 │   │   │   │   │   ├── 📄 OrderDeliveryTimelinePage.tsx
 │   │   │   │   │   ├── 📄 OrdersDetailPageAdmin.tsx
@@ -603,6 +606,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📄 dashboardProductService.ts
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types
+│   │   │   ├── 📄 inventory.ts
 │   │   │   ├── 📄 orders.ts
 │   │   │   └── 📄 products.ts
 │   │   ├── 📁 utils

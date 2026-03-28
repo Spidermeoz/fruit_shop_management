@@ -555,6 +555,7 @@ const productModels = {
   ProductTag: ProductTagModel,
   ProductTagGroup: ProductTagGroupModel,
   ProductTagMap: ProductTagMapModel,
+  InventoryStock: InventoryStockModel,
 };
 const productRepo = new SequelizeProductRepository(productModels);
 
@@ -651,8 +652,13 @@ export const usecases = {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo, inventoryRepo),
     detailBySlug: new GetProductDetailBySlug(productRepo, inventoryRepo),
-    create: new CreateProduct(productRepo, inventoryRepo, productTagRepo),
-    edit: new EditProduct(productRepo, productTagRepo),
+    create: new CreateProduct(
+      productRepo,
+      inventoryRepo,
+      productTagRepo,
+      branchRepo,
+    ),
+    edit: new EditProduct(productRepo, productTagRepo, inventoryRepo, branchRepo),
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),

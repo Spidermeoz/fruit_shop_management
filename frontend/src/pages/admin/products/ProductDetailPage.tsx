@@ -326,7 +326,14 @@ const normalizeProductDetail = (data: any): Product => {
         ? Number(data.total_stock)
         : variants.length
           ? variants.reduce(
-              (sum: number, v: { stock: number }) => sum + Number(v.stock ?? 0),
+              (sum: number, v: any) =>
+                sum +
+                Number(
+                  v.availableStock ??
+                    v.inventory?.availableQuantity ??
+                    v.stock ??
+                    0,
+                ),
               0,
             )
           : Number(data.stock ?? 0);

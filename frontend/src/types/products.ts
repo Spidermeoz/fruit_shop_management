@@ -43,6 +43,11 @@ export interface ProductVariant {
 
   // mirror
   stock: number;
+  inventorySummary?: {
+    totalQuantity: number;
+    totalReservedQuantity: number;
+    availableQuantity: number;
+  };
 
   // phase 3
   availableStock?: number;

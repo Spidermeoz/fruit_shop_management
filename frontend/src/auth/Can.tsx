@@ -1,7 +1,11 @@
 import React from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "../context/AuthContextAdmin";
 
-const Can: React.FC<{ module: string; action: string; children: React.ReactNode }> = ({ module, action, children }) => {
+const Can: React.FC<{
+  module: string;
+  action: string;
+  children: React.ReactNode;
+}> = ({ module, action, children }) => {
   const { hasPermission } = useAuth();
   if (!hasPermission(module, action)) return null;
   return <>{children}</>;

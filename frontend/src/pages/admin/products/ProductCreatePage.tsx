@@ -61,7 +61,6 @@ interface ProductVariantInput {
   title?: string | null;
   price: number | string;
   compareAtPrice?: number | string | null;
-  stock: number | string;
   status?: string;
   sortOrder?: number;
   optionValueIds?: number[];
@@ -135,15 +134,6 @@ function normalizeProductTag(raw: any): ProductTag {
     deleted: Boolean(raw.deleted ?? false),
   };
 }
-
-const getDerivedProductStockFromVariants = (
-  variants: ProductVariantInput[],
-) => {
-  return variants.reduce((sum, variant) => {
-    const stock = Number(variant.stock ?? 0);
-    return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
-  }, 0);
-};
 
 const normalizeTextForCompare = (value: string) =>
   String(value ?? "")
@@ -267,7 +257,6 @@ const ProductCreatePage: React.FC = () => {
       {
         title: "Mặc định",
         price: "0",
-        stock: "0",
         status: "active",
         sortOrder: 0,
         optionValueIds: [0],
@@ -402,10 +391,6 @@ const ProductCreatePage: React.FC = () => {
     );
   }, [tags]);
 
-  const derivedProductStock = useMemo(() => {
-    return getDerivedProductStockFromVariants(formData.variants);
-  }, [formData.variants]);
-
   const handleInputChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
   ) => {
@@ -452,7 +437,6 @@ const ProductCreatePage: React.FC = () => {
         {
           title: "",
           price: "0",
-          stock: "0",
           status: "active",
           sortOrder: prev.variants.length,
           optionValueIds: [],
@@ -503,7 +487,6 @@ const ProductCreatePage: React.FC = () => {
             sku: autoSku || existingVariant?.sku || null,
             price: existingVariant?.price ?? prev.price ?? "0",
             compareAtPrice: existingVariant?.compareAtPrice ?? "",
-            stock: existingVariant?.stock ?? "0",
             status: existingVariant?.status ?? "active",
             sortOrder: index,
             optionValueIds: combination
@@ -825,10 +808,8 @@ const ProductCreatePage: React.FC = () => {
     formData.variants.forEach((variant, index) => {
       const variantTitle = String(variant.title ?? "").trim();
       const priceRaw = String(variant.price ?? "").trim();
-      const stockRaw = String(variant.stock ?? "").trim();
       const compareAtPriceRaw = String(variant.compareAtPrice ?? "").trim();
       const priceNumber = Number(variant.price);
-      const stockNumber = Number(variant.stock);
       const compareAtPriceNumber = Number(variant.compareAtPrice);
       const cardKey = `variant-card-${index}`;
 
@@ -840,18 +821,6 @@ const ProductCreatePage: React.FC = () => {
 
       if (!priceRaw || !Number.isFinite(priceNumber) || priceNumber <= 0) {
         newErrors[`variants.${index}.price`] = "Giá bán phải lớn hơn 0.";
-        newErrors[cardKey] =
-          newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
-      }
-
-      if (
-        !stockRaw ||
-        !Number.isFinite(stockNumber) ||
-        stockNumber < 0 ||
-        !Number.isInteger(stockNumber)
-      ) {
-        newErrors[`variants.${index}.stock`] =
-          "Tồn kho phải là số nguyên lớn hơn hoặc bằng 0.";
         newErrors[cardKey] =
           newErrors[cardKey] || "Biến thể này còn thiếu thông tin.";
       }
@@ -1011,7 +980,6 @@ const ProductCreatePage: React.FC = () => {
           variant.compareAtPrice !== ""
             ? Number(variant.compareAtPrice)
             : null,
-        stock: Number(variant.stock),
         status: variant.status ?? "active",
         sortOrder: variant.sortOrder ?? index,
         optionValueIds: Array.isArray(variant.optionValueIds)
@@ -1031,11 +999,6 @@ const ProductCreatePage: React.FC = () => {
       const fallbackPrice =
         normalizedVariants.length > 0 ? normalizedVariants[0].price : null;
 
-      const fallbackStock = normalizedVariants.reduce((sum, variant) => {
-        const stock = Number(variant.stock ?? 0);
-        return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
-      }, 0);
-
       const json = await http<any>("POST", "/api/v1/admin/products/create", {
         categoryId: formData.product_category_id
           ? Number(formData.product_category_id)
@@ -1051,7 +1014,6 @@ const ProductCreatePage: React.FC = () => {
         title: formData.title,
         description: updatedDescription,
         price: formData.price === "" ? fallbackPrice : Number(formData.price),
-        stock: fallbackStock,
         thumbnail: uploadedThumbnailUrl,
         status: formData.status,
         featured: Boolean(Number(formData.featured)),
@@ -1411,10 +1373,6 @@ const ProductCreatePage: React.FC = () => {
           </div>
 
           <div className="mb-4 space-y-1 text-sm text-gray-600 dark:text-gray-300">
-            <div>
-              Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
-              <span className="font-semibold">{derivedProductStock}</span>
-            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               Sau khi thêm hoặc sửa tùy chọn, bấm{" "}
               <span className="font-semibold">Gợi ý biến thể</span> để tự tạo
@@ -1611,34 +1569,6 @@ const ProductCreatePage: React.FC = () => {
                   {errors[`variants.${index}.compareAtPrice`] && (
                     <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                       {errors[`variants.${index}.compareAtPrice`]}
-                    </p>
-                  )}
-                </div>
-
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Tồn kho *
-                  </label>
-                  <input
-                    ref={
-                      setFieldRef(
-                        `variants.${index}.stock`,
-                      ) as React.Ref<HTMLInputElement>
-                    }
-                    type="number"
-                    value={variant.stock}
-                    onChange={(e) =>
-                      handleVariantChange(index, "stock", e.target.value)
-                    }
-                    className={`w-full border ${
-                      errors[`variants.${index}.stock`]
-                        ? "border-red-500"
-                        : "border-gray-300 dark:border-gray-600"
-                    } rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
-                  />
-                  {errors[`variants.${index}.stock`] && (
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                      {errors[`variants.${index}.stock`]}
                     </p>
                   )}
                 </div>

@@ -2,7 +2,7 @@ import React from "react";
 import { Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider as ClientAuthProvider } from "./context/AuthContext";
-import { AuthProvider as AdminAuthProvider } from "./auth/AuthContext";
+import { AuthProvider as AdminAuthProvider } from "./context/AuthContextAdmin";
 import { CartProvider } from "./context/CartContext";
 
 // Admin Layout & Pages
@@ -79,9 +79,15 @@ const AdminShell: React.FC = () => {
                 <Route path="products" element={<ProductsPage />} />
                 <Route path="products/create" element={<ProductCreatePage />} />
                 <Route path="products/edit/:id" element={<ProductEditPage />} />
-                <Route path="products/origins" element={<ProductOriginPage />} />
+                <Route
+                  path="products/origins"
+                  element={<ProductOriginPage />}
+                />
                 <Route path="products/tags" element={<ProductTagPage />} />
-                <Route path="products/categories" element={<ProductCategoryPage />} />
+                <Route
+                  path="products/categories"
+                  element={<ProductCategoryPage />}
+                />
                 <Route
                   path="products/categories/create"
                   element={<ProductCategoryCreatePage />}
@@ -109,14 +115,23 @@ const AdminShell: React.FC = () => {
 
                 <Route path="branches" element={<BranchesPage />} />
                 <Route path="branches/create" element={<BranchCreatePage />} />
-                <Route path="branches/detail/:id" element={<BranchDetailPage />} />
+                <Route
+                  path="branches/detail/:id"
+                  element={<BranchDetailPage />}
+                />
                 <Route path="branches/edit/:id" element={<BranchEditPage />} />
 
                 <Route path="inventory" element={<InventoryPage />} />
-                <Route path="inventory/history" element={<InventoryTransactionHistoryPage />} />
+                <Route
+                  path="inventory/history"
+                  element={<InventoryTransactionHistoryPage />}
+                />
 
                 <Route path="orders" element={<OrdersPage />} />
-                <Route path="orders/detail/:id" element={<OrdersDetailPageAdmin />} />
+                <Route
+                  path="orders/detail/:id"
+                  element={<OrdersDetailPageAdmin />}
+                />
                 <Route
                   path="orders/:id/timeline"
                   element={<OrderDeliveryTimelinePage />}
@@ -145,12 +160,18 @@ const ClientShell: React.FC = () => {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/products" element={<ProductListPage />} />
-                <Route path="/products/:slug" element={<ProductClientDetailPage />} />
+                <Route
+                  path="/products/:slug"
+                  element={<ProductClientDetailPage />}
+                />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
-                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route
+                  path="/forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
                 <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/orders" element={<OrderHistoryPage />} />
                 <Route path="/orders/:id" element={<OrderDetailPage />} />
@@ -160,7 +181,10 @@ const ClientShell: React.FC = () => {
                 <Route path="/terms" element={<TermsOfUsePage />} />
                 <Route path="/faq" element={<FAQPage />} />
                 <Route path="/return-policy" element={<ReturnPolicyPage />} />
-                <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
+                <Route
+                  path="/shipping-policy"
+                  element={<ShippingPolicyPage />}
+                />
               </Routes>
             </main>
           </>

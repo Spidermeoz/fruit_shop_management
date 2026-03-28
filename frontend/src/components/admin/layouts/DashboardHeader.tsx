@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Moon, Sun, Bell, LogOut, ChevronDown, GitBranch } from "lucide-react";
 import { useTheme } from "../../../context/ThemeContext";
-import { useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../context/AuthContextAdmin";
 
 const DashboardHeader: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
@@ -43,37 +43,16 @@ const DashboardHeader: React.FC = () => {
     )}&background=0D8ABC&color=fff`;
   }, [user]);
 
+  // Kiểm tra xem có cần disable select hay không (nếu số lượng branch <= 1)
+  const isBranchSelectDisabled = branches.length <= 1;
+
   return (
     <header className="bg-white dark:bg-gray-800 shadow-sm z-10">
       <div className="flex items-center justify-between px-6 py-4 gap-4">
+        {/* Vùng bên trái trống (có thể chèn Logo/Menu toggle sau) */}
         <div className="flex items-center space-x-4" />
 
         <div className="flex items-center space-x-4">
-          {branches.length > 0 && (
-            <div className="hidden md:flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 bg-gray-50 dark:bg-gray-900/30">
-              <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-              <select
-                value={currentBranchId ?? ""}
-                onChange={(e) => {
-                  const next = e.target.value ? Number(e.target.value) : null;
-                  setCurrentBranchId(next);
-                }}
-                className="bg-transparent text-sm text-gray-700 dark:text-gray-200 focus:outline-none"
-              >
-                {branches.map((branch) => (
-                  <option
-                    key={branch.id}
-                    value={branch.id}
-                    className="text-gray-800"
-                  >
-                    {branch.name || `Branch #${branch.id}`}
-                    {branch.is_primary ? " (Mặc định)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
@@ -146,13 +125,18 @@ const DashboardHeader: React.FC = () => {
                             : null;
                           setCurrentBranchId(next);
                         }}
-                        className="w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-2 text-sm text-gray-800 dark:text-white"
+                        disabled={isBranchSelectDisabled}
+                        className={`w-full rounded-md border border-gray-300 dark:border-gray-600 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isBranchSelectDisabled
+                            ? "bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                            : "bg-white dark:bg-gray-700 text-gray-800 dark:text-white cursor-pointer"
+                        }`}
                       >
                         {branches.map((branch) => (
                           <option
                             key={branch.id}
                             value={branch.id}
-                            className="text-gray-800"
+                            className="text-gray-800 dark:text-white"
                           >
                             {branch.name || `Branch #${branch.id}`}
                             {branch.is_primary ? " (Mặc định)" : ""}
@@ -166,7 +150,7 @@ const DashboardHeader: React.FC = () => {
                 <div className="p-2">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md"
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-md transition-colors"
                     role="menuitem"
                   >
                     <LogOut className="w-4 h-4" />

@@ -50,7 +50,6 @@ const normalizeVariants = (
     title?: string | null;
     price?: number | null;
     compareAtPrice?: number | null;
-    stock?: number;
     status?: ProductStatus;
     sortOrder?: number;
     optionValueIds?: number[];
@@ -73,7 +72,6 @@ const normalizeVariants = (
           v.compareAtPrice !== undefined && v.compareAtPrice !== null
             ? Number(v.compareAtPrice)
             : null,
-        stock: Number(v.stock ?? 0), // sửa dòng này
         status: v.status ?? "active",
         sortOrder: v.sortOrder ?? index,
         optionValueIds: Array.isArray(v.optionValueIds)
@@ -221,7 +219,6 @@ export const makeProductsController = (uc: {
           title: string;
           description?: string | null;
           price?: number | null;
-          stock?: number;
           thumbnail?: string | null;
           slug?: string | null;
           status?: ProductStatus;
@@ -249,7 +246,6 @@ export const makeProductsController = (uc: {
             title?: string | null;
             price?: number | null;
             compareAtPrice?: number | null;
-            stock?: number;
             status?: ProductStatus;
             sortOrder?: number;
             optionValueIds?: number[];

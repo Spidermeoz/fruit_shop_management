@@ -73,7 +73,6 @@ interface ProductVariantInput {
   title?: string | null;
   price: number | string;
   compareAtPrice?: number | string | null;
-  stock: number | string;
   status?: string;
   sortOrder?: number;
   optionValueIds?: number[];
@@ -139,15 +138,6 @@ function normalizeProductTag(raw: any): ProductTag {
 // =============================
 // HELPERS
 // =============================
-const getDerivedProductStockFromVariants = (
-  variants: ProductVariantInput[],
-) => {
-  return variants.reduce((sum, variant) => {
-    const stock = Number(variant.stock ?? 0);
-    return sum + (Number.isFinite(stock) ? Math.max(0, stock) : 0);
-  }, 0);
-};
-
 const normalizeTextForCompare = (value: string) =>
   String(value ?? "")
     .trim()
@@ -232,11 +222,6 @@ const getOptionValueErrorKey = (optionIndex: number, valueIndex: number) =>
 const getVariantErrorKey = (variantIndex: number, field: string) =>
   `variants.${variantIndex}.${field}`;
 
-const isNonNegativeIntegerString = (value: number | string) => {
-  const normalized = String(value ?? "").trim();
-  return /^\d+$/.test(normalized);
-};
-
 const ProductEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -265,11 +250,6 @@ const ProductEditPage: React.FC = () => {
   );
   const [imageUrl, setImageUrl] = useState<string>("");
   const { showSuccessToast, showErrorToast } = useAdminToast();
-
-  // 🔹 Tính toán derived product stock từ variants
-  const derivedProductStock = useMemo(() => {
-    return getDerivedProductStockFromVariants(product?.variants || []);
-  }, [product?.variants]);
 
   // Lấy dữ liệu sản phẩm
   const fetchProduct = async () => {
@@ -332,7 +312,9 @@ const ProductEditPage: React.FC = () => {
                 title: v.title ?? null,
                 price: v.price ?? 0,
                 compareAtPrice: v.compareAtPrice ?? v.compare_at_price ?? null,
-                stock: v.stock ?? 0,
+                availableStock: v.availableStock ?? v.available_stock ?? 0,
+                reservedQuantity:
+                  v.reservedQuantity ?? v.reserved_quantity ?? 0,
                 status: v.status ?? "active",
                 sortOrder: v.sortOrder ?? v.sort_order ?? index,
                 optionValueIds: Array.isArray(v.optionValueIds)
@@ -352,6 +334,16 @@ const ProductEditPage: React.FC = () => {
         };
 
         setProduct(normalized);
+        setProduct((prev) => {
+          if (!prev) return prev;
+
+          const validTagIds = new Set(tags.map((t) => t.id));
+
+          return {
+            ...prev,
+            tag_ids: (prev.tag_ids || []).filter((id) => validTagIds.has(id)),
+          };
+        });
         setInitialProduct(normalized);
         setPreviewImage(normalized.thumbnail);
       } else {
@@ -370,13 +362,6 @@ const ProductEditPage: React.FC = () => {
   const isDirty = React.useMemo(() => {
     if (!product || !initialProduct) return false;
 
-    // Lấy tồn kho chuẩn hóa để compare
-    const initialStockComparable =
-      Array.isArray(initialProduct.variants) &&
-      initialProduct.variants.length > 0
-        ? getDerivedProductStockFromVariants(initialProduct.variants)
-        : Number(initialProduct.stock ?? 0);
-
     // So sánh dữ liệu cơ bản
     const hasFieldChanges =
       product.title !== initialProduct.title ||
@@ -384,7 +369,6 @@ const ProductEditPage: React.FC = () => {
       String(product.product_category_id) !==
         String(initialProduct.product_category_id) ||
       Number(product.price) !== Number(initialProduct.price) ||
-      derivedProductStock !== initialStockComparable || // Dùng derivedProductStock thay vì product.stock
       product.status !== initialProduct.status ||
       Number(product.featured) !== Number(initialProduct.featured) ||
       String(product.position) !== String(initialProduct.position) ||
@@ -424,14 +408,7 @@ const ProductEditPage: React.FC = () => {
       hasOptionChanges ||
       hasVariantChanges
     );
-  }, [
-    product,
-    initialProduct,
-    selectedFile,
-    imageMethod,
-    imageUrl,
-    derivedProductStock,
-  ]);
+  }, [product, initialProduct, selectedFile, imageMethod, imageUrl]);
 
   // Lấy danh sách danh mục, xuất xứ và tags
   useEffect(() => {
@@ -515,6 +492,25 @@ const ProductEditPage: React.FC = () => {
   useEffect(() => {
     fetchProduct();
   }, [id]);
+
+  useEffect(() => {
+    if (!product || tags.length === 0) return;
+
+    const validTagIds = new Set(tags.map((t) => t.id));
+
+    setProduct((prev) => {
+      if (!prev) return prev;
+
+      const filtered = (prev.tag_ids || []).filter((id) => validTagIds.has(id));
+
+      if (filtered.length === prev.tag_ids.length) return prev;
+
+      return {
+        ...prev,
+        tag_ids: filtered,
+      };
+    });
+  }, [tags]);
 
   // Gom nhóm thẻ sản phẩm
   const groupedTags = useMemo(() => {
@@ -745,7 +741,6 @@ const ProductEditPage: React.FC = () => {
             sku: autoSku || templateVariant?.sku || exactVariant?.sku || null,
             price: templateVariant?.price ?? prev.price ?? "0",
             compareAtPrice: templateVariant?.compareAtPrice ?? "",
-            stock: templateVariant?.stock ?? "0",
             status: templateVariant?.status ?? "active",
             sortOrder: index,
             optionValueIds: combination
@@ -1153,11 +1148,9 @@ const ProductEditPage: React.FC = () => {
       const title = String(variant.title ?? "").trim();
       const priceRaw = String(variant.price ?? "").trim();
       const compareAtRaw = String(variant.compareAtPrice ?? "").trim();
-      const stockRaw = String(variant.stock ?? "").trim();
       const price = Number(variant.price);
       const compareAtPrice =
         compareAtRaw === "" ? null : Number(variant.compareAtPrice);
-      const stock = Number(variant.stock);
 
       if (!title) {
         newErrors[getVariantErrorKey(variantIndex, "title")] =
@@ -1177,15 +1170,6 @@ const ProductEditPage: React.FC = () => {
           newErrors[getVariantErrorKey(variantIndex, "compareAtPrice")] =
             "Giá so sánh không được nhỏ hơn giá bán.";
         }
-      }
-
-      if (
-        !isNonNegativeIntegerString(stockRaw) ||
-        !Number.isFinite(stock) ||
-        stock < 0
-      ) {
-        newErrors[getVariantErrorKey(variantIndex, "stock")] =
-          "Tồn kho phải là số nguyên không âm.";
       }
 
       const selectedOptionValues = (variant.optionValues || [])
@@ -1313,10 +1297,6 @@ const ProductEditPage: React.FC = () => {
         product.nutrition_notes,
       );
 
-      // Tính tổng tồn kho chính xác dựa trên danh sách variants trước khi gửi payload
-      const derivedStockFromNormalizedVariants =
-        getDerivedProductStockFromVariants(product.variants || []);
-
       // --- Chuẩn hóa payload ---
       const payload: any = {
         ...product,
@@ -1329,8 +1309,7 @@ const ProductEditPage: React.FC = () => {
         tagIds: [...new Set((product.tag_ids || []).map(Number))].filter(
           (id) => Number.isInteger(id) && id > 0,
         ),
-        price: Number(product.price),
-        stock: derivedStockFromNormalizedVariants, // 🔹 Sử dụng stock tổng hợp
+        price: Number(product.price), // 🔹 Sử dụng stock tổng hợp
         position: product.position === "" ? null : Number(product.position),
         featured: Boolean(Number(product.featured)),
       };
@@ -1382,7 +1361,6 @@ const ProductEditPage: React.FC = () => {
           variant.compareAtPrice !== ""
             ? Number(variant.compareAtPrice)
             : null,
-        stock: Number(variant.stock),
         status: variant.status ?? "active",
         sortOrder: variant.sortOrder ?? index,
         optionValueIds: Array.isArray(variant.optionValueIds)
@@ -1785,12 +1763,6 @@ const ProductEditPage: React.FC = () => {
               </button>
             </div>
 
-            {/* 🔹 Thêm UI Text hiển thị Tồn kho tổng hợp */}
-            <div className="mb-4 text-sm text-gray-600 dark:text-gray-300">
-              Tổng tồn kho sản phẩm (tự tính từ các biến thể):{" "}
-              <span className="font-semibold">{derivedProductStock}</span>
-            </div>
-
             <div className="space-y-4">
               {(product.variants || []).map((variant, index) => (
                 <div
@@ -1953,25 +1925,6 @@ const ProductEditPage: React.FC = () => {
                             getVariantErrorKey(index, "compareAtPrice")
                           ]
                         }
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="col-span-1 md:col-span-2">
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Tồn kho *
-                    </label>
-                    <input
-                      type="number"
-                      value={variant.stock}
-                      onChange={(e) =>
-                        handleVariantChange(index, "stock", e.target.value)
-                      }
-                      className={`w-full border ${formErrors[getVariantErrorKey(index, "stock")] ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-600"} rounded p-2 text-sm bg-white dark:bg-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500`}
-                    />
-                    {formErrors[getVariantErrorKey(index, "stock")] && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                        {formErrors[getVariantErrorKey(index, "stock")]}
                       </p>
                     )}
                   </div>

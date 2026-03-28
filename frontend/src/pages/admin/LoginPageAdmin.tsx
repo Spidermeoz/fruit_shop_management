@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useLocation, useNavigate, type Location } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
+import { useAuth } from "../../context/AuthContextAdmin";
 
 interface LocationState {
   from?: {

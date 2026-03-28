@@ -13,7 +13,6 @@ export type CreateProductInput = {
 
   // Transitional / compatibility fields
   price?: number | null;
-  stock?: number;
 
   thumbnail?: string | null;
   slug?: string | null;

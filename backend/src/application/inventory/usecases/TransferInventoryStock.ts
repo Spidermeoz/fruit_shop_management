@@ -99,6 +99,18 @@ export class TransferInventoryStock {
           Number(freshProduct.props.id),
           totalStock,
         );
+
+        const freshVariant = await this.productRepo.findVariantById(variantId);
+
+        if (!freshVariant) {
+          throw new Error("Product variant không tồn tại");
+        }
+
+        await this.productRepo.updateVariantMirrorStock(
+          variantId,
+          freshVariant.availableStock ?? 0,
+          t,
+        );
       }
 
       await t.commit();

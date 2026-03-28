@@ -4,6 +4,8 @@ import type {
   UpdateProductPatch,
 } from "../../../domain/products/ProductRepository";
 import type { ProductTagRepository } from "../../../domain/products/ProductTagRepository";
+import type { InventoryRepository } from "../../../domain/inventory/InventoryRepository";
+import type { BranchRepository } from "../../../domain/branches/BranchRepository";
 
 function normalizeTagIds(tagIds?: number[]) {
   if (!Array.isArray(tagIds)) return [];
@@ -17,7 +19,42 @@ export class EditProduct {
   constructor(
     private repo: ProductRepository,
     private productTagRepo: ProductTagRepository,
+    private inventoryRepo: InventoryRepository,
+    private branchRepo: BranchRepository,
   ) {}
+
+  private async seedZeroInventoryForAllActiveBranches(productId: number) {
+    const fresh = await this.repo.findById(productId);
+    if (!fresh) {
+      throw new Error("Product not found after update");
+    }
+
+    const variants = Array.isArray(fresh.props.variants)
+      ? fresh.props.variants
+      : [];
+    if (!variants.length) return;
+
+    const { rows: branches } = await this.branchRepo.list({
+      status: "active",
+      includeDeleted: false,
+      limit: 1000,
+      offset: 0,
+    });
+
+    if (!branches.length) return;
+
+    for (const branch of branches) {
+      const branchId = Number(branch.props.id);
+      if (!Number.isFinite(branchId) || branchId <= 0) continue;
+
+      for (const variant of variants) {
+        const variantId = Number(variant.id);
+        if (!Number.isFinite(variantId) || variantId <= 0) continue;
+
+        await this.inventoryRepo.ensureStock(branchId, variantId, 0);
+      }
+    }
+  }
 
   async execute(id: number, patch: UpdateProductPatch) {
     const existingProduct = await this.repo.findById(id);
@@ -26,22 +63,18 @@ export class EditProduct {
       throw new Error("Product not found");
     }
 
-    const normalizedTagIds =
+    let sanitizedTagIds: number[] | undefined =
       patch.tagIds !== undefined ? normalizeTagIds(patch.tagIds) : undefined;
 
-    if (
-      patch.tagIds !== undefined &&
-      normalizedTagIds &&
-      normalizedTagIds.length > 0
-    ) {
+    if (sanitizedTagIds && sanitizedTagIds.length > 0) {
       const validTags =
-        await this.productTagRepo.findActiveByIds(normalizedTagIds);
+        await this.productTagRepo.findActiveByIds(sanitizedTagIds);
 
-      if (validTags.length !== normalizedTagIds.length) {
-        throw new Error(
-          "Một hoặc nhiều tag không hợp lệ, đã bị xóa hoặc không còn hoạt động",
-        );
-      }
+      // Admin-friendly:
+      // tự loại bỏ tag đã bị xóa / không còn hợp lệ thay vì throw error
+      sanitizedTagIds = validTags
+        .map((tag) => Number(tag.id))
+        .filter((tagId) => Number.isInteger(tagId) && tagId > 0);
     }
 
     const normalizedOptions =
@@ -72,10 +105,6 @@ export class EditProduct {
               variant.compareAtPrice !== null
                 ? Number(variant.compareAtPrice)
                 : null,
-            stock:
-              variant.stock !== undefined && variant.stock !== null
-                ? Number(variant.stock)
-                : undefined,
             status: variant.status ?? "active",
             sortOrder: variant.sortOrder ?? index,
             optionValueIds: Array.isArray(variant.optionValueIds)
@@ -117,7 +146,6 @@ export class EditProduct {
       title: updatedProduct.props.title,
       description: updatedProduct.props.description ?? null,
       price: updatedProduct.props.price ?? null,
-      stock: updatedProduct.props.stock ?? 0,
       thumbnail: updatedProduct.props.thumbnail ?? null,
       slug: updatedProduct.props.slug ?? null,
       status: updatedProduct.props.status,
@@ -131,10 +159,12 @@ export class EditProduct {
       updatedById: updatedProduct.props.updatedById ?? null,
       options: normalizedOptions,
       variants: normalizedVariants,
-      ...(normalizedTagIds !== undefined ? { tagIds: normalizedTagIds } : {}),
+      ...(sanitizedTagIds !== undefined ? { tagIds: sanitizedTagIds } : {}),
     };
 
     const saved = await this.repo.update(id, updatePayload);
+
+    await this.seedZeroInventoryForAllActiveBranches(id);
 
     return { id: saved.props.id! };
   }

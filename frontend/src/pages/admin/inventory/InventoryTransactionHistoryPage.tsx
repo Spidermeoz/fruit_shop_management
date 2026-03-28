@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Card from "../../../components/admin/layouts/Card";
 import { Search, Loader2, History, GitBranch } from "lucide-react";
 import { http } from "../../../services/http";
-import { useAuth } from "../../../auth/AuthContext";
+import { useAuth } from "../../../context/AuthContextAdmin";
 import type { InventoryTransactionListItem } from "../../../types/inventory";
 
 const transactionTypeLabel: Record<string, string> = {
@@ -176,21 +176,23 @@ const InventoryTransactionHistoryPage: React.FC = () => {
             />
           </div>
 
-          <select
-            value={selectedBranchId}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSelectedBranchId(value === "all" ? "all" : Number(value));
-            }}
-            className="px-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          >
-            <option value="all">Tất cả chi nhánh</option>
-            {branches.map((branch: any) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name}
-              </option>
-            ))}
-          </select>
+          {branches.length > 1 && (
+            <select
+              value={selectedBranchId}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSelectedBranchId(value === "all" ? "all" : Number(value));
+              }}
+              className="px-3 py-2 border dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            >
+              <option value="all">Tất cả chi nhánh</option>
+              {branches.map((branch: any) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             value={transactionType}

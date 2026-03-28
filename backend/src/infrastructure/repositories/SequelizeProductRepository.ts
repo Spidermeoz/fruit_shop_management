@@ -446,10 +446,6 @@ export class SequelizeProductRepository implements ProductRepository {
               variant?.compare_at_price !== null
             ? Number(variant.compare_at_price)
             : null,
-      stock:
-        variant?.stock !== undefined && variant?.stock !== null
-          ? Number(variant.stock)
-          : 0,
       status: variant?.status ?? "active",
       sort_order: Number(variant?.sortOrder ?? variant?.sort_order ?? index),
       optionValueIds: Array.isArray(variant?.optionValueIds)
@@ -678,7 +674,7 @@ export class SequelizeProductRepository implements ProductRepository {
             title: normalized.title,
             price: normalized.price,
             compare_at_price: normalized.compare_at_price,
-            stock: normalized.stock,
+            stock: 0,
             status: normalized.status,
             sort_order: normalized.sort_order,
           },
@@ -857,7 +853,6 @@ export class SequelizeProductRepository implements ProductRepository {
       const position = await this.resolvePosition(input);
       const { price, stock, normalizedVariants } = this.computeFallbackFields({
         price: input.price ?? null,
-        stock: input.stock ?? 0,
         variants: input.variants,
       });
 
@@ -932,8 +927,6 @@ export class SequelizeProductRepository implements ProductRepository {
           patch.price !== undefined
             ? patch.price
             : (existing.props.price ?? null),
-        stock:
-          patch.stock !== undefined ? patch.stock : (existing.props.stock ?? 0),
         variants: nextVariants,
       });
 
@@ -1029,7 +1022,6 @@ export class SequelizeProductRepository implements ProductRepository {
     if (patch.title !== undefined) values.title = patch.title;
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.price !== undefined) values.price = patch.price;
-    if (patch.stock !== undefined) values.stock = patch.stock;
     if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;
     if (patch.slug !== undefined) values.slug = patch.slug;
     if (patch.status !== undefined) values.status = patch.status;

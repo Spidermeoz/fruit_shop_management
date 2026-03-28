@@ -1,3 +1,4 @@
+import { BranchRepository } from "../../../domain/branches/BranchRepository";
 import type {
   CreateProductInput,
   ProductRepository,
@@ -17,6 +18,7 @@ export class CreateProduct {
     private repo: ProductRepository,
     private inventoryRepo: any,
     private productTagRepo: ProductTagRepository,
+    private branchRepo: BranchRepository,
   ) {}
 
   async execute(input: CreateProductInput) {
@@ -63,7 +65,6 @@ export class CreateProduct {
             variant.compareAtPrice !== null
               ? Number(variant.compareAtPrice)
               : null,
-          stock: Number(variant.stock ?? 0),
           status: variant.status ?? "active",
           sortOrder: variant.sortOrder ?? index,
           optionValueIds: Array.isArray(variant.optionValueIds)
@@ -89,21 +90,10 @@ export class CreateProduct {
         }))
       : [];
 
-    const totalVariantStock = normalizedVariants.reduce(
-      (sum, variant) => sum + Number(variant.stock ?? 0),
-      0,
-    );
-
     const created = await this.repo.create({
       ...input,
       title: input.title.trim(),
       tagIds: normalizedTagIds,
-
-      stock:
-        normalizedVariants.length > 0
-          ? totalVariantStock
-          : Number(input.stock ?? 0),
-
       options: normalizedOptions,
       variants: normalizedVariants,
       status: input.status ?? "active",
@@ -112,17 +102,23 @@ export class CreateProduct {
 
     const fresh = await this.repo.findById(Number(created.props.id));
 
-    if (fresh && Array.isArray(fresh.props.variants)) {
-      for (const variant of fresh.props.variants) {
-        await this.inventoryRepo.ensureStockForVariant(
+    const { rows: activeBranches } = await this.branchRepo.list({
+      status: "active",
+      includeDeleted: false,
+      limit: 1000,
+      offset: 0,
+    });
+    const variants = fresh?.props.variants ?? [];
+
+    for (const branch of activeBranches) {
+      for (const variant of variants) {
+        if (!variant.id) continue;
+        await this.inventoryRepo.ensureStock(
+          Number(branch.props.id),
           Number(variant.id),
-          Number(variant.stock ?? 0),
+          0,
         );
       }
-
-      await this.inventoryRepo.recalculateProductStockFromVariants(
-        Number(fresh.props.id),
-      );
     }
 
     return { id: created.props.id! };
