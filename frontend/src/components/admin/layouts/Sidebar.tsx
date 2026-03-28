@@ -17,6 +17,7 @@ import {
   X,
   Store,
   Package2,
+  ScrollText,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -57,6 +58,21 @@ const productChildren: SidebarItem[] = [
   },
 ];
 
+const inventoryChildren: SidebarItem[] = [
+  {
+    name: "Inventory",
+    href: "/admin/inventory",
+    icon: Package2,
+    permission: { module: "inventory", action: "view" },
+  },
+  {
+    name: "History",
+    href: "/admin/inventory/history",
+    icon: ScrollText,
+    permission: { module: "inventory", action: "view" },
+  },
+];
+
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
@@ -64,12 +80,6 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/branches",
     icon: Store,
     permission: { module: "branch", action: "view" },
-  },
-  {
-    name: "Inventory",
-    href: "/admin/inventory",
-    icon: Package2,
-    permission: { module: "inventory", action: "view" },
   },
   {
     name: "Orders",
@@ -105,18 +115,29 @@ const Sidebar: React.FC = () => {
     location.pathname === "/admin/products" ||
     location.pathname.startsWith("/admin/products/");
 
+  const isInventorySectionActive =
+    location.pathname === "/admin/inventory" ||
+    location.pathname.startsWith("/admin/inventory/");
+
   const [isProductsOpen, setIsProductsOpen] = useState(isProductsSectionActive);
+  const [isInventoryOpen, setIsInventoryOpen] = useState(
+    isInventorySectionActive,
+  );
 
   useEffect(() => {
     if (isCollapsed) {
       setIsProductsOpen(false);
+      setIsInventoryOpen(false);
       return;
     }
 
     if (isProductsSectionActive) {
       setIsProductsOpen(true);
     }
-  }, [isCollapsed, isProductsSectionActive]);
+    if (isInventorySectionActive) {
+      setIsInventoryOpen(true);
+    }
+  }, [isCollapsed, isProductsSectionActive, isInventorySectionActive]);
 
   const renderMenuItem = (item: SidebarItem) => {
     const Icon = item.icon;
@@ -191,6 +212,7 @@ const Sidebar: React.FC = () => {
             {!isCollapsed && <span>Dashboard</span>}
           </Link>
 
+          {/* Products Menu */}
           <div className="rounded-xl">
             <div className="flex items-center gap-2">
               <Link
@@ -282,9 +304,99 @@ const Sidebar: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* Inventory Menu */}
+          <div className="rounded-xl">
+            <div className="flex items-center gap-2">
+              <Link
+                to="/admin/inventory"
+                onClick={() => !isCollapsed && setIsInventoryOpen(true)}
+                className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  isInventorySectionActive
+                    ? "bg-blue-500 text-white"
+                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
+              >
+                <Package2 className="w-6 h-6 shrink-0" />
+                {!isCollapsed && <span>Inventory</span>}
+              </Link>
+
+              {!isCollapsed && (
+                <button
+                  type="button"
+                  onClick={() => setIsInventoryOpen((prev) => !prev)}
+                  className={`rounded-lg p-2 transition-colors ${
+                    isInventorySectionActive
+                      ? "text-white hover:bg-blue-600"
+                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                  }`}
+                  aria-label="Toggle inventory menu"
+                >
+                  {isInventoryOpen ? (
+                    <ChevronDown className="w-5 h-5" />
+                  ) : (
+                    <ChevronRight className="w-5 h-5" />
+                  )}
+                </button>
+              )}
+            </div>
+
+            {!isCollapsed && isInventoryOpen && (
+              <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                {inventoryChildren.map((item) => {
+                  const isExactMatch = location.pathname === item.href;
+                  const isSubPathMatch = location.pathname.startsWith(
+                    item.href + "/",
+                  );
+
+                  let isActive = false;
+
+                  if (item.href === "/admin/inventory") {
+                    isActive =
+                      isExactMatch ||
+                      (isSubPathMatch &&
+                        !location.pathname.startsWith(
+                          "/admin/inventory/history",
+                        ));
+                  } else {
+                    isActive = isExactMatch || isSubPathMatch;
+                  }
+
+                  const child = (
+                    <Link
+                      to={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        isActive
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      <item.icon className="h-4 w-4 shrink-0" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+
+                  if (item.permission) {
+                    return (
+                      <Can
+                        key={item.name}
+                        module={item.permission.module}
+                        action={item.permission.action}
+                      >
+                        {child}
+                      </Can>
+                    );
+                  }
+
+                  return <div key={item.name}>{child}</div>;
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">
+          {/* Các route còn lại như Branches, Orders, v.v. */}
           {sidebarItems.slice(1).map(renderMenuItem)}
         </div>
       </nav>

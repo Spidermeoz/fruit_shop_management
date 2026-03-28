@@ -12,6 +12,13 @@ export const inventoryRoutes = (
 
   r.get("/", auth, can("inventory", "view"), controller.list);
   r.patch("/set-stock", auth, can("inventory", "edit"), controller.setStock);
+  r.post("/transfer", auth, can("inventory", "edit"), controller.transfer);
+  r.get(
+    "/transactions",
+    auth,
+    can("inventory", "view"),
+    controller.listTransactions,
+  );
 
   return r;
 };

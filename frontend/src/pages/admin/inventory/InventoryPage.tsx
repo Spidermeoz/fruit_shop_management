@@ -20,6 +20,13 @@ const InventoryPage: React.FC = () => {
   );
   const [draftMap, setDraftMap] = useState<Record<string, number>>({});
 
+  // States cho tính năng Transfer
+  const [transferModal, setTransferModal] = useState<InventoryListItem | null>(
+    null,
+  );
+  const [transferQty, setTransferQty] = useState(0);
+  const [targetBranchId, setTargetBranchId] = useState<number | null>(null);
+
   const makeKey = (row: InventoryListItem) =>
     `${row.branchId}-${row.variantId}`;
 
@@ -329,7 +336,7 @@ const InventoryPage: React.FC = () => {
                         <button
                           onClick={() => handleSave(row)}
                           disabled={!!savingMap[key]}
-                          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                          className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                         >
                           {savingMap[key] ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -337,6 +344,17 @@ const InventoryPage: React.FC = () => {
                             <Save className="w-4 h-4" />
                           )}
                           Lưu
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setTransferModal(row);
+                            setTransferQty(0);
+                            setTargetBranchId(null);
+                          }}
+                          className="ml-2 inline-flex items-center px-3 py-2 bg-purple-600 hover:bg-purple-700 transition-colors text-white rounded-md"
+                        >
+                          Transfer
                         </button>
                       </td>
                     </tr>
@@ -347,6 +365,85 @@ const InventoryPage: React.FC = () => {
           )}
         </div>
       </Card>
+
+      {/* Modal Transfer */}
+      {transferModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg w-[400px] shadow-xl">
+            <h2 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              Transfer Inventory
+            </h2>
+
+            <p className="mb-2 font-medium text-gray-800 dark:text-gray-200">
+              {transferModal.productTitle}
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+              {transferModal.variantTitle}
+            </p>
+
+            <select
+              value={targetBranchId ?? ""}
+              onChange={(e) => setTargetBranchId(Number(e.target.value))}
+              className="w-full mb-3 border dark:border-gray-600 p-2 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Chọn branch đích</option>
+              {branches
+                .filter((b: any) => Number(b.id) !== transferModal.branchId)
+                .map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+            </select>
+
+            <input
+              type="number"
+              value={transferQty}
+              onChange={(e) => setTransferQty(Number(e.target.value))}
+              className="w-full border dark:border-gray-600 p-2 mb-4 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Số lượng"
+              min={0}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 border dark:border-gray-600 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                onClick={() => setTransferModal(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+                onClick={async () => {
+                  try {
+                    if (!targetBranchId) {
+                      throw new Error("Vui lòng chọn branch đích");
+                    }
+                    if (transferQty <= 0) {
+                      throw new Error("Số lượng phải lớn hơn 0");
+                    }
+
+                    await http("POST", "/api/v1/admin/inventory/transfer", {
+                      sourceBranchId: transferModal.branchId,
+                      targetBranchId,
+                      productVariantId: transferModal.variantId,
+                      quantity: transferQty,
+                    });
+
+                    showSuccessToast({ message: "Transfer thành công" });
+                    setTransferModal(null);
+                    fetchInventory();
+                  } catch (e: any) {
+                    showErrorToast(e.message || "Đã xảy ra lỗi khi transfer");
+                  }
+                }}
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

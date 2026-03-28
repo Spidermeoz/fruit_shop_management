@@ -42,6 +42,8 @@ import { SequelizeProductTagRepository } from "../../infrastructure/repositories
 import { SequelizeInventoryRepository } from "../../infrastructure/repositories/SequelizeInventoryRepository";
 import { SequelizeProductTagGroupRepository } from "../../infrastructure/repositories/SequelizeProductTagGroupRepository";
 
+import sequelize from "../../infrastructure/db/sequelize";
+
 // ===== Storage =====
 import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorage";
 
@@ -136,6 +138,8 @@ import { SoftDeleteBranch } from "../../application/branches/usecases/SoftDelete
 // ===== Inventory usecases =====
 import { SetInventoryStock } from "../../application/inventory/usecases/SetInventoryStock";
 import { ListInventoryStocks } from "../../application/inventory/usecases/ListInventoryStocks";
+import { TransferInventoryStock } from "../../application/inventory/usecases/TransferInventoryStock";
+import { ListInventoryTransactions } from "../../application/inventory/usecases/ListInventoryTransactions";
 
 // ===== Auth usecases =====
 import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
@@ -796,6 +800,8 @@ export const usecases = {
   inventory: {
     list: new ListInventoryStocks(inventoryRepo),
     setStock: new SetInventoryStock(inventoryRepo, productRepo),
+    transfer: new TransferInventoryStock(inventoryRepo, productRepo, sequelize),
+    listTransactions: new ListInventoryTransactions(inventoryRepo),
   },
 };
 
@@ -923,6 +929,8 @@ export const controllers: Controllers = {
   inventory: makeInventoryController({
     list: usecases.inventory.list,
     setStock: usecases.inventory.setStock,
+    transfer: usecases.inventory.transfer,
+    listTransactions: usecases.inventory.listTransactions,
   }),
 };
 

@@ -459,4 +459,156 @@ export class SequelizeInventoryRepository implements InventoryRepository {
       { transaction },
     );
   }
+
+  async listTransactions(input: {
+    branchId?: number | null;
+    q?: string;
+    transactionType?: string | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }) {
+    const InventoryTransaction = this.models.InventoryTransaction;
+    const ProductVariant = this.models.ProductVariant;
+    const Product = this.models.Product;
+    const Branch = this.models.Branch;
+
+    if (!InventoryTransaction || !ProductVariant || !Product || !Branch) {
+      throw new Error("Inventory repository is missing required models");
+    }
+
+    const where: any = {};
+
+    if (input.branchId && Number(input.branchId) > 0) {
+      where.branch_id = Number(input.branchId);
+    }
+
+    if (
+      input.transactionType &&
+      input.transactionType !== "all" &&
+      String(input.transactionType).trim() !== ""
+    ) {
+      where.transaction_type = String(input.transactionType).trim();
+    }
+
+    if (input.dateFrom || input.dateTo) {
+      where.created_at = {};
+      if (input.dateFrom) {
+        where.created_at[Op.gte] = new Date(`${input.dateFrom}T00:00:00.000Z`);
+      }
+      if (input.dateTo) {
+        where.created_at[Op.lte] = new Date(`${input.dateTo}T23:59:59.999Z`);
+      }
+    }
+
+    const q = String(input.q ?? "").trim();
+
+    const productWhere: any = { deleted: 0 };
+    if (q) {
+      productWhere[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { slug: { [Op.like]: `%${q}%` } },
+      ];
+    }
+
+    const variantWhere: any = {};
+    if (q) {
+      variantWhere[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { sku: { [Op.like]: `%${q}%` } },
+      ];
+    }
+
+    const rows = await InventoryTransaction.findAll({
+      where,
+      attributes: [
+        "id",
+        "branch_id",
+        "product_variant_id",
+        "transaction_type",
+        "quantity_delta",
+        "quantity_before",
+        "quantity_after",
+        "reference_type",
+        "reference_id",
+        "note",
+        "created_by_id",
+        "created_at",
+      ],
+      include: [
+        {
+          model: Branch,
+          as: "branch",
+          attributes: ["id", "name", "code"],
+          required: true,
+        },
+        {
+          model: ProductVariant,
+          as: "productVariant",
+          attributes: ["id", "product_id", "sku", "title"],
+          required: true,
+          where: Object.keys(variantWhere).length ? variantWhere : undefined,
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "title", "thumbnail", "deleted"],
+              required: true,
+              where: productWhere,
+            },
+          ],
+        },
+        {
+          association: "createdBy",
+          attributes: ["id", "full_name"],
+          required: false,
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    return rows.map((row: any) => {
+      const plain =
+        typeof row.get === "function" ? row.get({ plain: true }) : row;
+
+      const branch = plain.branch;
+      const variant = plain.productVariant;
+      const product = plain.productVariant?.product;
+      const createdBy = plain.createdBy;
+
+      return {
+        id: Number(plain.id),
+        createdAt: plain.created_at,
+
+        branchId: Number(branch.id),
+        branchName: String(branch.name ?? ""),
+        branchCode: branch.code ?? null,
+
+        productId: Number(product.id),
+        productTitle: String(product.title ?? ""),
+        productThumbnail: product.thumbnail ?? null,
+
+        variantId: Number(variant.id),
+        variantTitle: variant.title ?? null,
+        variantSku: variant.sku ?? null,
+
+        transactionType: plain.transaction_type,
+        quantityDelta: Number(plain.quantity_delta ?? 0),
+        quantityBefore: Number(plain.quantity_before ?? 0),
+        quantityAfter: Number(plain.quantity_after ?? 0),
+
+        referenceType: plain.reference_type ?? null,
+        referenceId:
+          plain.reference_id !== undefined && plain.reference_id !== null
+            ? Number(plain.reference_id)
+            : null,
+        note: plain.note ?? null,
+
+        createdById:
+          plain.created_by_id !== undefined && plain.created_by_id !== null
+            ? Number(plain.created_by_id)
+            : null,
+        createdByName: createdBy?.full_name ?? null,
+      };
+    });
+  }
 }

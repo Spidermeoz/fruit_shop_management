@@ -5,7 +5,9 @@ export type InventoryTransactionType =
   | "adjustment"
   | "manual_update"
   | "order_created"
-  | "order_cancelled";
+  | "order_cancelled"
+  | "transfer_out"
+  | "transfer_in";
 
 export type InventoryStock = {
   id?: number;
@@ -40,6 +42,35 @@ export type InventoryStockListItem = {
 
   createdAt?: Date;
   updatedAt?: Date;
+};
+
+export type InventoryTransactionListItem = {
+  id: number;
+  createdAt?: Date;
+
+  branchId: number;
+  branchName: string;
+  branchCode?: string | null;
+
+  productId: number;
+  productTitle: string;
+  productThumbnail?: string | null;
+
+  variantId: number;
+  variantTitle?: string | null;
+  variantSku?: string | null;
+
+  transactionType: InventoryTransactionType;
+  quantityDelta: number;
+  quantityBefore: number;
+  quantityAfter: number;
+
+  referenceType?: string | null;
+  referenceId?: number | null;
+  note?: string | null;
+
+  createdById?: number | null;
+  createdByName?: string | null;
 };
 
 export type CreateInventoryTransactionInput = {
@@ -123,6 +154,14 @@ export interface InventoryRepository {
     q?: string;
     status?: string | null;
   }): Promise<InventoryStockListItem[]>;
+
+  listTransactions(input: {
+    branchId?: number | null;
+    q?: string;
+    transactionType?: string | null;
+    dateFrom?: string | null;
+    dateTo?: string | null;
+  }): Promise<InventoryTransactionListItem[]>;
 
   createTransaction(
     input: CreateInventoryTransactionInput,
