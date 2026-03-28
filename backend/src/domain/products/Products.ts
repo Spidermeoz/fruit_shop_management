@@ -1,4 +1,3 @@
-// src/domain/products/Products.ts
 import type {
   ProductOptionInput,
   ProductPriceRange,
@@ -14,7 +13,28 @@ export interface ProductVariantProps {
   title?: string | null;
   price: number;
   compareAtPrice?: number | null;
-  stock: number;
+
+  // Transitional mirror field only
+  stock?: number;
+
+  availableStock?: number;
+  reservedQuantity?: number;
+
+  inventory?: {
+    totalQuantity: number;
+    totalReservedQuantity: number;
+    availableQuantity: number;
+    stocks?: Array<{
+      id?: number;
+      branchId: number;
+      quantity: number;
+      reservedQuantity: number;
+      availableQuantity: number;
+      createdAt?: Date;
+      updatedAt?: Date;
+    }>;
+  } | null;
+
   status: ProductVariantStatus;
   sortOrder?: number;
   optionValueIds?: number[];
@@ -48,9 +68,9 @@ export interface ProductProps {
   title: string;
   description?: string | null;
 
-  // Transitional fallback fields
+  // Transitional mirror / fallback fields
   price?: number | null;
-  stock: number;
+  stock?: number;
 
   thumbnail?: string | null;
   slug?: string | null;
@@ -164,9 +184,19 @@ export class Product {
     const variants = (p.variants ?? []).map(Product.validateVariant);
     const options = (p.options ?? []).map(Product.validateOption);
 
-    const totalStock =
-      p.totalStock ??
-      variants.reduce((sum, variant) => sum + (variant.stock ?? 0), 0);
+    const totalStockFromVariants = variants.reduce((sum, variant) => {
+      return (
+        sum +
+        Number(
+          variant.availableStock ??
+            variant.inventory?.availableQuantity ??
+            variant.stock ??
+            0,
+        )
+      );
+    }, 0);
+
+    const totalStock = p.totalStock ?? totalStockFromVariants;
 
     const computedPriceRange =
       p.priceRange ??
@@ -204,8 +234,12 @@ export class Product {
       throw new Error("Variant.price must be >= 0");
     }
 
-    if (v.stock == null || v.stock < 0) {
+    if (v.stock != null && v.stock < 0) {
       throw new Error("Variant.stock must be >= 0");
+    }
+
+    if (v.availableStock != null && v.availableStock < 0) {
+      throw new Error("Variant.availableStock must be >= 0");
     }
 
     if (v.compareAtPrice != null && v.compareAtPrice < 0) {
@@ -218,6 +252,7 @@ export class Product {
       sortOrder: v.sortOrder ?? 0,
       optionValueIds: v.optionValueIds ?? [],
       optionValues: v.optionValues ?? [],
+      inventory: v.inventory ?? null,
     };
   }
 

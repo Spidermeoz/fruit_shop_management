@@ -1,4 +1,3 @@
-// src/domain/products/ProductRepository.ts
 import { Product } from "./Products";
 import type {
   ProductListFilter,
@@ -11,16 +10,24 @@ export type CreateProductInput = {
   categoryId?: number | null;
   title: string;
   description?: string | null;
+
+  // Transitional / compatibility fields
   price?: number | null;
   stock?: number;
+
   thumbnail?: string | null;
   slug?: string | null;
   status?: ProductStatus;
   featured?: boolean;
   position?: number | null;
+
   createdById?: number | null;
+  updatedById?: number | null;
+  deletedById?: number | null;
+
   options?: ProductOptionInput[];
   variants?: ProductVariantInput[];
+
   originId?: number | null;
   shortDescription?: string | null;
   storageGuide?: string | null;
@@ -34,16 +41,8 @@ export type UpdateProductPatch = Partial<
 > & {
   slug?: string | null;
   deleted?: boolean;
-  updatedById?: number | null;
-  deletedById?: number | null;
   options?: ProductOptionInput[];
   variants?: ProductVariantInput[];
-  originId?: number | null;
-  shortDescription?: string | null;
-  storageGuide?: string | null;
-  usageSuggestions?: string | null;
-  nutritionNotes?: string | null;
-  tagIds?: number[];
 };
 
 export interface ProductVariantStockInfo {
@@ -52,7 +51,7 @@ export interface ProductVariantStockInfo {
   title?: string | null;
   sku?: string | null;
   price: number;
-  stock: number; // compatibility / mirror
+  stock: number; // mirror compatibility field
   availableStock?: number;
   reservedQuantity?: number;
   status: string;
@@ -60,13 +59,8 @@ export interface ProductVariantStockInfo {
 
 export interface ProductRepository {
   list(filter: ProductListFilter): Promise<{ rows: Product[]; count: number }>;
+
   findById(id: number): Promise<Product | null>;
-  findVariantById(
-    variantId: number,
-    transaction?: any,
-  ): Promise<ProductVariantStockInfo | null>;
-  updateVariantMirrorStock(variantId: number, stock: number): Promise<void>;
-  updateProductMirrorStock(productId: number, stock: number): Promise<void>;
   findBySlug(slug: string): Promise<Product | null>;
 
   create(input: CreateProductInput): Promise<Product>;
@@ -80,11 +74,31 @@ export interface ProductRepository {
     updatedById?: number,
   ): Promise<number>;
 
+  findVariantById(
+    variantId: number,
+    transaction?: any,
+  ): Promise<ProductVariantStockInfo | null>;
+
+  // Mirror fields for backward compatibility only
+  updateVariantMirrorStock(
+    variantId: number,
+    stock: number,
+    transaction?: any,
+  ): Promise<void>;
+
+  updateProductMirrorStock(
+    productId: number,
+    stock: number,
+    transaction?: any,
+  ): Promise<void>;
+
+  // Legacy stock methods kept for compatibility
   decreaseVariantStock(
     variantId: number,
     quantity: number,
     transaction?: any,
   ): Promise<void>;
+
   increaseVariantStock(
     variantId: number,
     quantity: number,

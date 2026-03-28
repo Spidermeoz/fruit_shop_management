@@ -16,7 +16,6 @@ function normalizeTagIds(tagIds?: number[]) {
 export class EditProduct {
   constructor(
     private repo: ProductRepository,
-    private inventoryRepo: any,
     private productTagRepo: ProductTagRepository,
   ) {}
 
@@ -28,9 +27,13 @@ export class EditProduct {
     }
 
     const normalizedTagIds =
-      patch.tagIds !== undefined ? normalizeTagIds(patch.tagIds) : [];
+      patch.tagIds !== undefined ? normalizeTagIds(patch.tagIds) : undefined;
 
-    if (patch.tagIds !== undefined && normalizedTagIds.length > 0) {
+    if (
+      patch.tagIds !== undefined &&
+      normalizedTagIds &&
+      normalizedTagIds.length > 0
+    ) {
       const validTags =
         await this.productTagRepo.findActiveByIds(normalizedTagIds);
 
@@ -55,7 +58,7 @@ export class EditProduct {
                 }))
               : [],
           }))
-        : existingProduct.props.options;
+        : (existingProduct.props.options ?? []);
 
     const normalizedVariants =
       patch.variants !== undefined
@@ -69,12 +72,15 @@ export class EditProduct {
               variant.compareAtPrice !== null
                 ? Number(variant.compareAtPrice)
                 : null,
-            stock: Number(variant.stock ?? 0),
+            stock:
+              variant.stock !== undefined && variant.stock !== null
+                ? Number(variant.stock)
+                : undefined,
             status: variant.status ?? "active",
             sortOrder: variant.sortOrder ?? index,
             optionValueIds: Array.isArray(variant.optionValueIds)
               ? [...new Set(variant.optionValueIds.map(Number))].filter(
-                  (id) => Number.isInteger(id) && id > 0,
+                  (valueId) => Number.isInteger(valueId) && valueId > 0,
                 )
               : [],
             optionValues: Array.isArray((variant as any).optionValues)
@@ -93,14 +99,7 @@ export class EditProduct {
                 }))
               : [],
           }))
-        : existingProduct.props.variants;
-
-    const totalVariantStock = Array.isArray(normalizedVariants)
-      ? normalizedVariants.reduce(
-          (sum, variant) => sum + Number(variant.stock ?? 0),
-          0,
-        )
-      : Number(existingProduct.props.stock ?? 0);
+        : (existingProduct.props.variants ?? []);
 
     const updatedProduct = Product.create({
       ...existingProduct.props,
@@ -109,37 +108,33 @@ export class EditProduct {
         patch.title !== undefined
           ? String(patch.title).trim()
           : existingProduct.props.title,
-      stock: totalVariantStock,
       options: normalizedOptions,
       variants: normalizedVariants,
     });
 
     const updatePayload: UpdateProductPatch = {
-      ...updatedProduct.props,
-      ...(patch.tagIds !== undefined ? { tagIds: normalizedTagIds } : {}),
+      categoryId: updatedProduct.props.categoryId,
+      title: updatedProduct.props.title,
+      description: updatedProduct.props.description ?? null,
+      price: updatedProduct.props.price ?? null,
+      stock: updatedProduct.props.stock ?? 0,
+      thumbnail: updatedProduct.props.thumbnail ?? null,
+      slug: updatedProduct.props.slug ?? null,
+      status: updatedProduct.props.status,
+      featured: updatedProduct.props.featured ?? false,
+      position: updatedProduct.props.position ?? null,
+      originId: updatedProduct.props.originId ?? null,
+      shortDescription: updatedProduct.props.shortDescription ?? null,
+      storageGuide: updatedProduct.props.storageGuide ?? null,
+      usageSuggestions: updatedProduct.props.usageSuggestions ?? null,
+      nutritionNotes: updatedProduct.props.nutritionNotes ?? null,
+      updatedById: updatedProduct.props.updatedById ?? null,
+      options: normalizedOptions,
+      variants: normalizedVariants,
+      ...(normalizedTagIds !== undefined ? { tagIds: normalizedTagIds } : {}),
     };
 
     const saved = await this.repo.update(id, updatePayload);
-
-    const fresh = await this.repo.findById(id);
-
-    if (fresh && Array.isArray(fresh.props.variants)) {
-      for (const variant of fresh.props.variants) {
-        await this.inventoryRepo.setStockByVariantId(
-          Number(variant.id),
-          Number(variant.stock ?? 0),
-          {
-            transactionType: "manual_update",
-            referenceType: "product_edit",
-            referenceId: Number(id),
-            note: `Sync inventory từ product edit ${fresh.props.title}`,
-            createdById: fresh.props.updatedById ?? null,
-          },
-        );
-      }
-
-      await this.inventoryRepo.recalculateProductStockFromVariants(Number(id));
-    }
 
     return { id: saved.props.id! };
   }

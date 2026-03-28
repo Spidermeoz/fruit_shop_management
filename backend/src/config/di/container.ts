@@ -133,6 +133,10 @@ import { EditBranch } from "../../application/branches/usecases/EditBranch";
 import { ChangeBranchStatus } from "../../application/branches/usecases/ChangeBranchStatus";
 import { SoftDeleteBranch } from "../../application/branches/usecases/SoftDeleteBranch";
 
+// ===== Inventory usecases =====
+import { SetInventoryStock } from "../../application/inventory/usecases/SetInventoryStock";
+import { ListInventoryStocks } from "../../application/inventory/usecases/ListInventoryStocks";
+
 // ===== Auth usecases =====
 import { ChangePassword } from "../../application/auth/usecases/ChangePassword";
 import { GetMe } from "../../application/auth/usecases/GetMe";
@@ -214,6 +218,8 @@ import { makeProductTagGroupsController } from "../../interfaces/http/express/co
 import type { ProductTagGroupsController } from "../../interfaces/http/express/controllers/ProductTagGroupsController";
 import { makeBranchesController } from "../../interfaces/http/express/controllers/BranchesController";
 import type { BranchesController } from "../../interfaces/http/express/controllers/BranchesController";
+import { makeInventoryController } from "../../interfaces/http/express/controllers/InventoryController";
+import type { InventoryController } from "../../interfaces/http/express/controllers/InventoryController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -642,7 +648,7 @@ export const usecases = {
     detail: new GetProductDetail(productRepo, inventoryRepo),
     detailBySlug: new GetProductDetailBySlug(productRepo, inventoryRepo),
     create: new CreateProduct(productRepo, inventoryRepo, productTagRepo),
-    edit: new EditProduct(productRepo, inventoryRepo, productTagRepo),
+    edit: new EditProduct(productRepo, productTagRepo),
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
@@ -786,6 +792,11 @@ export const usecases = {
     edit: new EditProductTagGroup(productTagGroupRepo),
     deleteGroup: new DeleteProductTagGroup(productTagGroupRepo),
   },
+
+  inventory: {
+    list: new ListInventoryStocks(inventoryRepo),
+    setStock: new SetInventoryStock(inventoryRepo, productRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -803,6 +814,7 @@ type Controllers = {
   origins: OriginsController;
   productTags: ProductTagsController;
   productTagGroups: ProductTagGroupsController;
+  inventory: InventoryController;
 };
 
 export const controllers: Controllers = {
@@ -876,7 +888,6 @@ export const controllers: Controllers = {
     updateStatus: usecases.orders.updateStatus,
     addDeliveryStatus: usecases.orders.addDeliveryStatus,
     addPayment: usecases.orders.addPayment,
-
   }),
 
   reviews: makeAdminReviewsController({
@@ -907,6 +918,11 @@ export const controllers: Controllers = {
     create: usecases.productTagGroups.create,
     edit: usecases.productTagGroups.edit,
     deleteGroup: usecases.productTagGroups.deleteGroup,
+  }),
+
+  inventory: makeInventoryController({
+    list: usecases.inventory.list,
+    setStock: usecases.inventory.setStock,
   }),
 };
 

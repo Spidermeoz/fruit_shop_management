@@ -1,8 +1,9 @@
-import { Transaction } from "sequelize";
+import { Op, Transaction } from "sequelize";
 import type {
   CreateInventoryTransactionInput,
   InventoryRepository,
   InventoryStock,
+  InventoryStockListItem,
   InventoryTransactionType,
 } from "../../domain/inventory/InventoryRepository";
 
@@ -314,6 +315,128 @@ export class SequelizeInventoryRepository implements InventoryRepository {
         nextQuantity - Number(current.reservedQuantity ?? 0),
       ),
     };
+  }
+
+  async listStocksByBranch(input: {
+    branchId?: number | null;
+    q?: string;
+    status?: string | null;
+  }): Promise<InventoryStockListItem[]> {
+    const Product = this.models.Product;
+    const ProductVariant = this.models.ProductVariant;
+    const Branch = this.models.Branch;
+    const InventoryStock = this.models.InventoryStock;
+
+    if (!Product || !ProductVariant || !Branch || !InventoryStock) {
+      throw new Error("Inventory repository is missing required models");
+    }
+
+    const whereStock: any = {};
+    if (input.branchId && Number(input.branchId) > 0) {
+      whereStock.branch_id = Number(input.branchId);
+    }
+
+    const whereProduct: any = { deleted: 0 };
+    if (input.status && input.status !== "all") {
+      whereProduct.status = input.status;
+    }
+
+    const q = String(input.q ?? "").trim();
+    if (q) {
+      whereProduct[Op.or] = [
+        { title: { [Op.like]: `%${q}%` } },
+        { slug: { [Op.like]: `%${q}%` } },
+      ];
+    }
+
+    const rows = await InventoryStock.findAll({
+      where: whereStock,
+      attributes: [
+        "id",
+        "branch_id",
+        "product_variant_id",
+        "quantity",
+        "reserved_quantity",
+        "created_at",
+        "updated_at",
+      ],
+      include: [
+        {
+          model: Branch,
+          as: "branch",
+          attributes: ["id", "name", "code"],
+          required: true,
+        },
+        {
+          model: ProductVariant,
+          as: "productVariant",
+          attributes: [
+            "id",
+            "product_id",
+            "sku",
+            "title",
+            "price",
+            "status",
+            "stock",
+          ],
+          required: true,
+          include: [
+            {
+              model: Product,
+              as: "product",
+              attributes: ["id", "title", "thumbnail", "status", "deleted"],
+              required: true,
+              where: whereProduct,
+            },
+          ],
+        },
+      ],
+      order: [
+        [{ model: Branch, as: "branch" }, "name", "ASC"],
+        [
+          { model: ProductVariant, as: "productVariant" },
+          { model: Product, as: "product" },
+          "title",
+          "ASC",
+        ],
+        [{ model: ProductVariant, as: "productVariant" }, "title", "ASC"],
+      ],
+    });
+
+    return rows.map((row: any) => {
+      const plain =
+        typeof row.get === "function" ? row.get({ plain: true }) : row;
+      const product = plain.productVariant?.product;
+      const variant = plain.productVariant;
+      const branch = plain.branch;
+
+      const quantity = Number(plain.quantity ?? 0);
+      const reservedQuantity = Number(plain.reserved_quantity ?? 0);
+
+      return {
+        branchId: Number(branch.id),
+        branchName: String(branch.name ?? ""),
+        branchCode: branch.code ?? null,
+
+        productId: Number(product.id),
+        productTitle: String(product.title ?? ""),
+        productThumbnail: product.thumbnail ?? null,
+        productStatus: product.status ?? null,
+
+        variantId: Number(variant.id),
+        variantSku: variant.sku ?? null,
+        variantTitle: variant.title ?? null,
+        variantPrice: Number(variant.price ?? 0),
+        variantStatus: variant.status ?? null,
+
+        quantity,
+        reservedQuantity,
+        availableQuantity: Math.max(0, quantity - reservedQuantity),
+
+        createdAt: plain.created_at,
+        updatedAt: plain.updated_at,
+      };
+    });
   }
 
   async createTransaction(

@@ -28,6 +28,7 @@ import { adminReviewsRoutes } from "./interfaces/http/express/routes/adminReview
 import { adminSettingsRoutes } from "./interfaces/http/express/routes/adminSettings.routes";
 import { productTagGroupsRoutes } from "./interfaces/http/express/routes/productTagGroups.routes";
 import { branchesRoutes } from "./interfaces/http/express/routes/branches.routes";
+import { inventoryRoutes } from "./interfaces/http/express/routes/inventory.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -129,6 +130,10 @@ app.use(
 app.use(
   "/api/v1/admin/branches",
   branchesRoutes(controllers.branches, auth, can),
+);
+app.use(
+  "/api/v1/admin/inventory",
+  inventoryRoutes(controllers.inventory, auth, can),
 );
 
 // ------------------------------------

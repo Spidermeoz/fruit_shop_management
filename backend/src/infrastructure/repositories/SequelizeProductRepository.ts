@@ -71,19 +71,38 @@ export class SequelizeProductRepository implements ProductRepository {
           .filter(Boolean)
       : [];
 
-    // A. Xử lý inventory object từ r.inventoryStock
-    const inventory = r.inventoryStock
-      ? {
-          id: Number(r.inventoryStock.id),
-          quantity: Number(r.inventoryStock.quantity ?? 0),
-          reservedQuantity: Number(r.inventoryStock.reserved_quantity ?? 0),
-          availableQuantity:
-            Number(r.inventoryStock.quantity ?? 0) -
-            Number(r.inventoryStock.reserved_quantity ?? 0),
-          createdAt: r.inventoryStock.created_at,
-          updatedAt: r.inventoryStock.updated_at,
-        }
-      : null;
+    const inventoryStocks = Array.isArray(r.inventoryStocks)
+      ? r.inventoryStocks.map((stock: any) => ({
+          id:
+            stock.id !== undefined && stock.id !== null
+              ? Number(stock.id)
+              : undefined,
+          branchId: Number(stock.branch_id),
+          quantity: Number(stock.quantity ?? 0),
+          reservedQuantity: Number(stock.reserved_quantity ?? 0),
+          availableQuantity: Math.max(
+            0,
+            Number(stock.quantity ?? 0) - Number(stock.reserved_quantity ?? 0),
+          ),
+          createdAt: stock.created_at,
+          updatedAt: stock.updated_at,
+        }))
+      : [];
+
+    const totalQuantity = inventoryStocks.reduce(
+      (sum: number, stock: any) => sum + Number(stock.quantity ?? 0),
+      0,
+    );
+
+    const totalReservedQuantity = inventoryStocks.reduce(
+      (sum: number, stock: any) => sum + Number(stock.reservedQuantity ?? 0),
+      0,
+    );
+
+    const availableQuantity = Math.max(
+      0,
+      totalQuantity - totalReservedQuantity,
+    );
 
     return {
       id: Number(r.id),
@@ -99,12 +118,15 @@ export class SequelizeProductRepository implements ProductRepository {
           ? Number(r.compare_at_price)
           : null,
 
-      // A. Trả thêm các trường liên quan đến tồn kho
-      inventory,
-      availableStock: inventory
-        ? Math.max(0, inventory.availableQuantity)
-        : Number(r.stock ?? 0),
-      stock: Number(r.stock ?? 0),
+      stock: Number(r.stock ?? availableQuantity ?? 0),
+      availableStock: availableQuantity,
+      reservedQuantity: totalReservedQuantity,
+      inventory: {
+        totalQuantity,
+        totalReservedQuantity,
+        availableQuantity,
+        stocks: inventoryStocks,
+      },
 
       status: r.status ?? "active",
       sortOrder: Number(r.sort_order ?? 0),
@@ -169,7 +191,6 @@ export class SequelizeProductRepository implements ProductRepository {
         )
       : Number(r.stock ?? 0);
 
-    // B. Đổi rule lấy defaultVariantId: Ưu tiên (active + còn hàng) -> active -> phần tử đầu
     const activeInStockVariant = variants.find(
       (v: any) =>
         v.status === "active" && Number(v.availableStock ?? v.stock ?? 0) > 0,
@@ -195,7 +216,6 @@ export class SequelizeProductRepository implements ProductRepository {
       title: r.title,
       description: r.description ?? null,
 
-      // Origin & Tags additions
       originId:
         r.origin_id !== undefined && r.origin_id !== null
           ? Number(r.origin_id)
@@ -298,13 +318,13 @@ export class SequelizeProductRepository implements ProductRepository {
     if (this.models.ProductVariant) {
       const variantInclude: any[] = [];
 
-      // A. Join thêm InventoryStockModel vào variant
       if (this.models.InventoryStock) {
         variantInclude.push({
           model: this.models.InventoryStock,
-          as: "inventoryStock",
+          as: "inventoryStocks",
           attributes: [
             "id",
+            "branch_id",
             "quantity",
             "reserved_quantity",
             "created_at",
@@ -382,7 +402,6 @@ export class SequelizeProductRepository implements ProductRepository {
       });
     }
 
-    // Origin & Tags includes
     if (this.models.Origin) {
       includes.push({
         model: this.models.Origin,
@@ -427,7 +446,10 @@ export class SequelizeProductRepository implements ProductRepository {
               variant?.compare_at_price !== null
             ? Number(variant.compare_at_price)
             : null,
-      stock: Number(variant?.stock ?? 0),
+      stock:
+        variant?.stock !== undefined && variant?.stock !== null
+          ? Number(variant.stock)
+          : 0,
       status: variant?.status ?? "active",
       sort_order: Number(variant?.sortOrder ?? variant?.sort_order ?? index),
       optionValueIds: Array.isArray(variant?.optionValueIds)
@@ -710,12 +732,6 @@ export class SequelizeProductRepository implements ProductRepository {
     }
   }
 
-  // LƯU Ý:
-  // Hiện tại, việc lọc giá trong danh sách sản phẩm sử dụng products.price làm trường dẫn xuất/dự phòng.
-
-  // Trong kiến ​​trúc hiện tại, giá bán thực tế nằm ở product_variants.price.
-
-  // Nếu sau này bạn cần lọc chính xác cho các sản phẩm đa biến thể, hãy chuyển bộ lọc này sang logic truy vấn cấp biến thể.
   async list(filter: ProductListFilter) {
     const {
       page = 1,
@@ -781,10 +797,8 @@ export class SequelizeProductRepository implements ProductRepository {
     const safeOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
     const offset = (safePage - 1) * safeLimit;
 
-    // 1) Đếm tổng số product thật
     const count = await this.models.Product.count({ where });
 
-    // 2) Lấy đúng ids của page hiện tại, chỉ từ bảng products
     const baseRows = await this.models.Product.findAll({
       where,
       attributes: ["id"],
@@ -800,7 +814,6 @@ export class SequelizeProductRepository implements ProductRepository {
       return { rows: [], count };
     }
 
-    // 3) Query full data theo ids đã phân trang sẵn
     const preserveOrderLiteral = literal(`FIELD(Product.id, ${ids.join(",")})`);
 
     const rows = await this.models.Product.findAll({
@@ -862,8 +875,6 @@ export class SequelizeProductRepository implements ProductRepository {
           position,
           deleted: 0,
           deleted_at: null,
-
-          // Origin & Details additions
           origin_id: input.originId ?? null,
           short_description: input.shortDescription ?? null,
           storage_guide: input.storageGuide ?? null,
@@ -873,7 +884,6 @@ export class SequelizeProductRepository implements ProductRepository {
         { transaction },
       );
 
-      // Sync tags
       await this.syncProductTags(
         Number(row.id),
         input.tagIds ?? [],
@@ -946,7 +956,6 @@ export class SequelizeProductRepository implements ProductRepository {
         updateData.product_category_id = patch.categoryId;
       }
 
-      // Origin & Details additions
       if (patch.originId !== undefined) {
         updateData.origin_id = patch.originId;
       }
@@ -968,7 +977,6 @@ export class SequelizeProductRepository implements ProductRepository {
         transaction,
       });
 
-      // Sync tags if defined in patch
       if (patch.tagIds !== undefined) {
         await this.syncProductTags(id, patch.tagIds ?? [], transaction);
       }
@@ -1066,44 +1074,6 @@ export class SequelizeProductRepository implements ProductRepository {
     return Number(affected);
   }
 
-  async decreaseStock(productId: number, quantity: number, transaction?: any) {
-    const product = await this.models.Product.findOne({
-      where: { id: productId, deleted: 0 },
-      transaction,
-      lock: transaction ? transaction.LOCK.UPDATE : undefined,
-    });
-
-    if (!product) {
-      throw new Error(`Sản phẩm không tồn tại (ID ${productId})`);
-    }
-
-    const currentStock = Number(product.stock ?? 0);
-
-    if (currentStock < quantity) {
-      throw new Error(
-        `Không đủ tồn kho cho sản phẩm "${product.title}". Còn lại: ${currentStock}`,
-      );
-    }
-
-    product.stock = currentStock - quantity;
-    await product.save({ transaction });
-
-    return product;
-  }
-
-  async increaseStock(productId: number, quantity: number, transaction?: any) {
-    const product = await this.models.Product.findOne({
-      where: { id: productId, deleted: 0 },
-      transaction,
-      lock: transaction ? transaction.LOCK.UPDATE : undefined,
-    });
-
-    if (!product) return;
-
-    product.stock = Number(product.stock ?? 0) + quantity;
-    await product.save({ transaction });
-  }
-
   async findVariantById(variantId: number, transaction?: any) {
     const Variant = this.models.ProductVariant;
 
@@ -1116,8 +1086,8 @@ export class SequelizeProductRepository implements ProductRepository {
     if (this.models.InventoryStock) {
       include.push({
         model: this.models.InventoryStock,
-        as: "inventoryStock",
-        attributes: ["id", "quantity", "reserved_quantity"],
+        as: "inventoryStocks",
+        attributes: ["id", "branch_id", "quantity", "reserved_quantity"],
         required: false,
       });
     }
@@ -1132,8 +1102,20 @@ export class SequelizeProductRepository implements ProductRepository {
 
     const v = this.toPlain(variant);
 
-    const quantity = Number(v.inventoryStock?.quantity ?? v.stock ?? 0);
-    const reservedQuantity = Number(v.inventoryStock?.reserved_quantity ?? 0);
+    const inventoryStocks = Array.isArray(v.inventoryStocks)
+      ? v.inventoryStocks
+      : [];
+
+    const quantity = inventoryStocks.reduce(
+      (sum: number, stock: any) => sum + Number(stock.quantity ?? 0),
+      0,
+    );
+
+    const reservedQuantity = inventoryStocks.reduce(
+      (sum: number, stock: any) => sum + Number(stock.reserved_quantity ?? 0),
+      0,
+    );
+
     const availableStock = Math.max(0, quantity - reservedQuantity);
 
     return {
@@ -1142,18 +1124,13 @@ export class SequelizeProductRepository implements ProductRepository {
       title: v.title ?? null,
       sku: v.sku ?? null,
       price: Number(v.price),
-      stock: Number(v.stock ?? 0),
+      stock: Number(v.stock ?? availableStock ?? 0),
       availableStock,
       reservedQuantity,
       status: v.status ?? "active",
     };
   }
 
-  // LƯU Ý:
-  // Các phương pháp này chỉ thay đổi trực tiếp product_variants.stock để đảm bảo tính tương thích.
-
-  // Các quy trình mới nhạy cảm với tồn kho nên ưu tiên các phương pháp của InventoryRepository,
-  // trong đó inventory_stocks là nguồn thông tin chính xác và tồn kho sản phẩm/biến thể được phản ánh.
   async decreaseVariantStock(
     variantId: number,
     quantity: number,
@@ -1183,8 +1160,6 @@ export class SequelizeProductRepository implements ProductRepository {
 
     variant.stock = stock - quantity;
     await variant.save({ transaction });
-
-    return variant;
   }
 
   async increaseVariantStock(
@@ -1213,20 +1188,28 @@ export class SequelizeProductRepository implements ProductRepository {
   async updateVariantMirrorStock(
     variantId: number,
     stock: number,
+    transaction?: any,
   ): Promise<void> {
     await this.models.ProductVariant.update(
       { stock: Math.max(0, Number(stock || 0)) },
-      { where: { id: variantId } },
+      {
+        where: { id: variantId },
+        transaction,
+      },
     );
   }
 
   async updateProductMirrorStock(
     productId: number,
     stock: number,
+    transaction?: any,
   ): Promise<void> {
     await this.models.Product.update(
       { stock: Math.max(0, Number(stock || 0)) },
-      { where: { id: productId } },
+      {
+        where: { id: productId },
+        transaction,
+      },
     );
   }
 }

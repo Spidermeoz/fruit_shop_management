@@ -1,4 +1,3 @@
-// src/interfaces/http/express/controllers/ProductsController.ts
 import { Request, Response, NextFunction } from "express";
 import { ListProducts } from "../../../../application/products/usecases/ListProducts";
 import { GetProductDetail } from "../../../../application/products/usecases/GetProductDetail";
@@ -74,7 +73,7 @@ const normalizeVariants = (
           v.compareAtPrice !== undefined && v.compareAtPrice !== null
             ? Number(v.compareAtPrice)
             : null,
-        stock: Number(v.stock ?? 0),
+        stock: Number(v.stock ?? 0), // sửa dòng này
         status: v.status ?? "active",
         sortOrder: v.sortOrder ?? index,
         optionValueIds: Array.isArray(v.optionValueIds)
@@ -177,7 +176,6 @@ export const makeProductsController = (uc: {
             product_category_id: dto.categoryId ?? "",
             category: dto.category ?? null,
 
-            // product-level summary fields
             price: dto.price ?? 0,
             stock: dto.stock ?? 0,
             total_stock: dto.totalStock ?? dto.stock ?? 0,
@@ -195,7 +193,7 @@ export const makeProductsController = (uc: {
             origin_id: dto.originId ?? null,
             origin: dto.origin ?? null,
             tags: dto.tags ?? [],
-            tagIds: dto.tagIds ?? [],
+            tagIds: (dto as any).tagIds ?? [],
 
             short_description: dto.shortDescription ?? "",
             storage_guide: dto.storageGuide ?? "",
@@ -264,11 +262,13 @@ export const makeProductsController = (uc: {
             }>;
           }>;
         };
+
         const result = await uc.create.execute({
           ...payload,
           options: normalizeOptions(payload.options),
           variants: normalizeVariants(payload.variants),
         });
+
         res.status(201).json({
           success: true,
           data: result,
@@ -293,7 +293,6 @@ export const makeProductsController = (uc: {
             product_category_id: dto.categoryId ?? "",
             category: dto.category ?? null,
 
-            // product-level summary fields
             price: dto.price ?? 0,
             stock: dto.stock ?? 0,
             total_stock: dto.totalStock ?? dto.stock ?? 0,
@@ -311,7 +310,7 @@ export const makeProductsController = (uc: {
             origin_id: dto.originId ?? null,
             origin: dto.origin ?? null,
             tags: dto.tags ?? [],
-            tagIds: dto.tagIds ?? [],
+            tagIds: (dto as any).tagIds ?? [],
 
             short_description: dto.shortDescription ?? "",
             storage_guide: dto.storageGuide ?? "",
@@ -345,6 +344,7 @@ export const makeProductsController = (uc: {
         };
 
         const result = await uc.edit.execute(id, normalizedPatch);
+
         res.json({
           success: true,
           data: result,
@@ -388,13 +388,13 @@ export const makeProductsController = (uc: {
       try {
         const body = req.body as any;
 
-        // ===== A) action: 'status' =====
         if (body.action === "status") {
           const ids: number[] = Array.isArray(body.ids)
             ? body.ids.map(Number)
             : [];
           const value = String(body.value || "");
-          const allowed = ["active", "inactive", "draft"]; // nếu bạn chỉ dùng active/inactive thì rút gọn mảng này
+          const allowed = ["active", "inactive", "draft"];
+
           if (!ids.length) {
             return res.status(400).json({
               success: false,
@@ -402,6 +402,7 @@ export const makeProductsController = (uc: {
               data: null,
             });
           }
+
           if (!allowed.includes(value)) {
             return res.status(400).json({
               success: false,
@@ -409,12 +410,15 @@ export const makeProductsController = (uc: {
               data: null,
             });
           }
+
           const updatedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : null;
+
           const result = await uc.bulkEdit.execute(ids, {
             status: value as any,
             updatedById,
           });
+
           return res.json({
             success: true,
             data: result,
@@ -422,11 +426,11 @@ export const makeProductsController = (uc: {
           });
         }
 
-        // ===== B) action: 'delete' (soft delete hàng loạt) =====
         if (body.action === "delete") {
           const ids: number[] = Array.isArray(body.ids)
             ? body.ids.map(Number)
             : [];
+
           if (!ids.length) {
             return res.status(400).json({
               success: false,
@@ -434,12 +438,15 @@ export const makeProductsController = (uc: {
               data: null,
             });
           }
+
           const deletedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : null;
+
           const result = await uc.bulkEdit.execute(ids, {
             deleted: true,
             deletedById,
           });
+
           return res.json({
             success: true,
             data: result,
@@ -447,9 +454,9 @@ export const makeProductsController = (uc: {
           });
         }
 
-        // ===== C) action: 'position' (đổi vị trí từng id) =====
         if (body.action === "position") {
           let pairs: Array<{ id: number; position: number }> = [];
+
           if (Array.isArray(body.positions)) {
             pairs = body.positions.map((p: any) => ({
               id: Number(p.id),
@@ -465,6 +472,7 @@ export const makeProductsController = (uc: {
               position: Number(pos),
             }));
           }
+
           if (!pairs.length) {
             return res.status(400).json({
               success: false,
@@ -473,9 +481,12 @@ export const makeProductsController = (uc: {
               meta: { total: 0, page: 1, limit: 10 },
             });
           }
+
           const updatedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : undefined;
+
           const result = await uc.reorder.execute(pairs, updatedById);
+
           return res.json({
             success: true,
             data: result,
@@ -483,11 +494,11 @@ export const makeProductsController = (uc: {
           });
         }
 
-        // ===== D) Mặc định: { ids, patch } =====
         const { ids, patch } = body as {
           ids: number[];
           patch: UpdateProductPatch;
         };
+
         if (!Array.isArray(ids) || !ids.length) {
           return res.status(400).json({
             success: false,
@@ -495,7 +506,9 @@ export const makeProductsController = (uc: {
             data: null,
           });
         }
+
         const result = await uc.bulkEdit.execute(ids, patch ?? {});
+
         res.json({
           success: true,
           data: result,

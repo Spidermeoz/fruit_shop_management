@@ -50,7 +50,7 @@ export type ProductVariantInput = {
   title?: string | null;
   price: number;
   compareAtPrice?: number | null;
-  stock: number;
+  stock?: number;
   status?: ProductVariantStatus;
   sortOrder?: number;
   optionValueIds?: number[];

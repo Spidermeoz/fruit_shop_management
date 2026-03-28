@@ -18,6 +18,30 @@ export type InventoryStock = {
   updatedAt?: Date;
 };
 
+export type InventoryStockListItem = {
+  branchId: number;
+  branchName: string;
+  branchCode?: string | null;
+
+  productId: number;
+  productTitle: string;
+  productThumbnail?: string | null;
+  productStatus?: string | null;
+
+  variantId: number;
+  variantSku?: string | null;
+  variantTitle?: string | null;
+  variantPrice: number;
+  variantStatus?: string | null;
+
+  quantity: number;
+  reservedQuantity: number;
+  availableQuantity: number;
+
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
 export type CreateInventoryTransactionInput = {
   branchId: number;
   productVariantId: number;
@@ -93,6 +117,12 @@ export interface InventoryRepository {
       createdById?: number | null;
     },
   ): Promise<InventoryStock>;
+
+  listStocksByBranch(input: {
+    branchId?: number | null;
+    q?: string;
+    status?: string | null;
+  }): Promise<InventoryStockListItem[]>;
 
   createTransaction(
     input: CreateInventoryTransactionInput,

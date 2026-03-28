@@ -37,6 +37,7 @@ import BranchesPage from "./pages/admin/branches/BranchesPage";
 import BranchCreatePage from "./pages/admin/branches/BranchCreatePage";
 import BranchDetailPage from "./pages/admin/branches/BranchDetailPage";
 import BranchEditPage from "./pages/admin/branches/BranchEditPage";
+import InventoryPage from "./pages/admin/inventory/InventoryPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -109,6 +110,8 @@ const AdminShell: React.FC = () => {
                 <Route path="branches/create" element={<BranchCreatePage />} />
                 <Route path="branches/detail/:id" element={<BranchDetailPage />} />
                 <Route path="branches/edit/:id" element={<BranchEditPage />} />
+
+                <Route path="inventory" element={<InventoryPage />} />
 
                 <Route path="orders" element={<OrdersPage />} />
                 <Route path="orders/detail/:id" element={<OrdersDetailPageAdmin />} />

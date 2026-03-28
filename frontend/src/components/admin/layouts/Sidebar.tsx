@@ -16,6 +16,7 @@ import {
   Users,
   X,
   Store,
+  Package2,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -63,6 +64,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/branches",
     icon: Store,
     permission: { module: "branch", action: "view" },
+  },
+  {
+    name: "Inventory",
+    href: "/admin/inventory",
+    icon: Package2,
+    permission: { module: "inventory", action: "view" },
   },
   {
     name: "Orders",
