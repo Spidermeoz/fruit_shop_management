@@ -20,6 +20,7 @@ import {
   ScrollText,
   UserCog,
   UserRound,
+  Truck,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -72,6 +73,15 @@ const inventoryChildren: SidebarItem[] = [
     href: "/admin/inventory/history",
     icon: ScrollText,
     permission: { module: "inventory", action: "view" },
+  },
+];
+
+const shippingChildren: SidebarItem[] = [
+  {
+    name: "Shipping Zones",
+    href: "/admin/shipping/zones",
+    icon: MapPinned,
+    permission: { module: "shipping_zone", action: "view" },
   },
 ];
 
@@ -130,6 +140,10 @@ const Sidebar: React.FC = () => {
     location.pathname === "/admin/inventory" ||
     location.pathname.startsWith("/admin/inventory/");
 
+  const isShippingSectionActive =
+    location.pathname === "/admin/shipping" ||
+    location.pathname.startsWith("/admin/shipping/");
+
   const isUsersSectionActive =
     location.pathname === "/admin/users" ||
     location.pathname.startsWith("/admin/users/");
@@ -138,12 +152,14 @@ const Sidebar: React.FC = () => {
   const [isInventoryOpen, setIsInventoryOpen] = useState(
     isInventorySectionActive,
   );
+  const [isShippingOpen, setIsShippingOpen] = useState(isShippingSectionActive);
   const [isUsersOpen, setIsUsersOpen] = useState(isUsersSectionActive);
 
   useEffect(() => {
     if (isCollapsed) {
       setIsProductsOpen(false);
       setIsInventoryOpen(false);
+      setIsShippingOpen(false);
       setIsUsersOpen(false);
       return;
     }
@@ -156,6 +172,10 @@ const Sidebar: React.FC = () => {
       setIsInventoryOpen(true);
     }
 
+    if (isShippingSectionActive) {
+      setIsShippingOpen(true);
+    }
+
     if (isUsersSectionActive) {
       setIsUsersOpen(true);
     }
@@ -163,6 +183,7 @@ const Sidebar: React.FC = () => {
     isCollapsed,
     isProductsSectionActive,
     isInventorySectionActive,
+    isShippingSectionActive,
     isUsersSectionActive,
   ]);
 
@@ -367,6 +388,52 @@ const Sidebar: React.FC = () => {
               </div>
             )}
           </div>
+
+          <Can module="shipping_zone" action="view">
+            <div className="rounded-xl">
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/admin/shipping/zones"
+                  onClick={() => !isCollapsed && setIsShippingOpen(true)}
+                  className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isShippingSectionActive
+                      ? "bg-blue-500 text-white"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Truck className="w-6 h-6 shrink-0" />
+                  {!isCollapsed && <span>Shipping</span>}
+                </Link>
+
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsShippingOpen((prev) => !prev)}
+                    className={`rounded-lg p-2 transition-colors ${
+                      isShippingSectionActive
+                        ? "text-white hover:bg-blue-600"
+                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                    }`}
+                    aria-label="Toggle shipping menu"
+                  >
+                    {isShippingOpen ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && isShippingOpen && (
+                <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                  {shippingChildren.map((item) =>
+                    renderChildItem(item, "/admin/shipping/zones"),
+                  )}
+                </div>
+              )}
+            </div>
+          </Can>
 
           <Can module="user" action="view">
             <div className="rounded-xl">

@@ -47,6 +47,12 @@ import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 import InventoryPage from "./pages/admin/inventory/InventoryPage";
 import InventoryTransactionHistoryPage from "./pages/admin/inventory/InventoryTransactionHistoryPage";
 
+// Shipping admin pages
+import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
+import ShippingZoneCreatePage from "./pages/admin/shipping/ShippingZoneCreatePage";
+import ShippingZoneDetailPage from "./pages/admin/shipping/ShippingZoneDetailPage";
+import ShippingZoneEditPage from "./pages/admin/shipping/ShippingZoneEditPage";
+
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
 import ProductClientDetailPage from "./pages/client/Product/ProductDetailPage";
@@ -160,6 +166,20 @@ const AdminShell: React.FC = () => {
                 <Route
                   path="inventory/history"
                   element={<InventoryTransactionHistoryPage />}
+                />
+
+                <Route path="shipping/zones" element={<ShippingZonesPage />} />
+                <Route
+                  path="shipping/zones/create"
+                  element={<ShippingZoneCreatePage />}
+                />
+                <Route
+                  path="shipping/zones/detail/:id"
+                  element={<ShippingZoneDetailPage />}
+                />
+                <Route
+                  path="shipping/zones/edit/:id"
+                  element={<ShippingZoneEditPage />}
                 />
 
                 <Route path="orders" element={<OrdersPage />} />

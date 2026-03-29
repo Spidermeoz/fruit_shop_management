@@ -29,6 +29,7 @@ import { adminSettingsRoutes } from "./interfaces/http/express/routes/adminSetti
 import { productTagGroupsRoutes } from "./interfaces/http/express/routes/productTagGroups.routes";
 import { branchesRoutes } from "./interfaces/http/express/routes/branches.routes";
 import { inventoryRoutes } from "./interfaces/http/express/routes/inventory.routes";
+import { shippingZonesRoutes } from "./interfaces/http/express/routes/shippingZones.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -134,6 +135,10 @@ app.use(
 app.use(
   "/api/v1/admin/inventory",
   inventoryRoutes(controllers.inventory, auth, can),
+);
+app.use(
+  "/api/v1/admin/shipping-zones",
+  shippingZonesRoutes(controllers.shippingZones, auth, can),
 );
 
 // ------------------------------------

@@ -190,6 +190,14 @@ import { ResolveShippingZoneService } from "../../application/shipping/services/
 import { GetAvailableDeliverySlotsService } from "../../application/shipping/services/GetAvailableDeliverySlotsService";
 import { CalculateShippingQuoteService } from "../../application/shipping/services/CalculateShippingQuoteService";
 
+// ===== Shipping zone usecases =====
+import { ListShippingZones } from "../../application/shipping/usecases/ListShippingZones";
+import { GetShippingZoneDetail } from "../../application/shipping/usecases/GetShippingZoneDetail";
+import { CreateShippingZone } from "../../application/shipping/usecases/CreateShippingZone";
+import { EditShippingZone } from "../../application/shipping/usecases/EditShippingZone";
+import { ChangeShippingZoneStatus } from "../../application/shipping/usecases/ChangeShippingZoneStatus";
+import { SoftDeleteShippingZone } from "../../application/shipping/usecases/SoftDeleteShippingZone";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -237,6 +245,8 @@ import { makeBranchesController } from "../../interfaces/http/express/controller
 import type { BranchesController } from "../../interfaces/http/express/controllers/BranchesController";
 import { makeInventoryController } from "../../interfaces/http/express/controllers/InventoryController";
 import type { InventoryController } from "../../interfaces/http/express/controllers/InventoryController";
+import { makeShippingZonesController } from "../../interfaces/http/express/controllers/ShippingZonesController";
+import type { ShippingZonesController } from "../../interfaces/http/express/controllers/ShippingZonesController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -844,6 +854,15 @@ export const usecases = {
     softDelete: new SoftDeleteBranch(branchRepo),
   },
 
+  shippingZones: {
+    list: new ListShippingZones(shippingZoneRepo),
+    detail: new GetShippingZoneDetail(shippingZoneRepo),
+    create: new CreateShippingZone(shippingZoneRepo),
+    edit: new EditShippingZone(shippingZoneRepo),
+    changeStatus: new ChangeShippingZoneStatus(shippingZoneRepo),
+    softDelete: new SoftDeleteShippingZone(shippingZoneRepo),
+  },
+
   auth: {
     login: new Login(
       userRepo,
@@ -954,6 +973,7 @@ type Controllers = {
   roles: RolesController;
   users: UsersController;
   branches: BranchesController;
+  shippingZones: ShippingZonesController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -1020,6 +1040,15 @@ export const controllers: Controllers = {
     edit: usecases.branches.edit,
     changeStatus: usecases.branches.changeStatus,
     softDelete: usecases.branches.softDelete,
+  }),
+
+  shippingZones: makeShippingZonesController({
+    list: usecases.shippingZones.list,
+    detail: usecases.shippingZones.detail,
+    create: usecases.shippingZones.create,
+    edit: usecases.shippingZones.edit,
+    changeStatus: usecases.shippingZones.changeStatus,
+    softDelete: usecases.shippingZones.softDelete,
   }),
 
   auth: makeAuthController({
