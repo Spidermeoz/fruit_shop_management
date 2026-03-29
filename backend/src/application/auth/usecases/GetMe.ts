@@ -9,12 +9,27 @@ export class GetMe {
     private roles: RoleRepository,
   ) {}
 
-  async execute(userId: number) {
+  async execute(userId: number, portal: "admin" | "client" = "admin") {
     const u = await this.users.findById(userId, false);
     if (!u) throw new Error("User not found");
 
+    if (
+      portal === "admin" &&
+      (u.props.roleId === null || u.props.roleId === undefined)
+    ) {
+      throw new Error("Unauthorized admin account");
+    }
+
+    if (
+      portal === "client" &&
+      u.props.roleId !== null &&
+      u.props.roleId !== undefined
+    ) {
+      throw new Error("Unauthorized client account");
+    }
+
     let permissions: Permissions = {};
-    if (u.props.roleId != null) {
+    if (portal === "admin" && u.props.roleId != null) {
       const role = await this.roles.findById(u.props.roleId);
       if (role?.props.permissions) {
         permissions = role.props.permissions as Permissions;

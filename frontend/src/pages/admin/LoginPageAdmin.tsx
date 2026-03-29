@@ -28,7 +28,14 @@ const LoginPageAdmin: React.FC = () => {
       await login(form.email, form.password);
       nav(from, { replace: true });
     } catch (err: any) {
-      setError(err?.message || "Đăng nhập thất bại");
+      const rawMessage = String(err?.message || "Đăng nhập thất bại");
+
+      const friendlyMessage =
+        /khách hàng không thể đăng nhập trang quản trị/i.test(rawMessage)
+          ? "Tài khoản khách hàng không thể đăng nhập trang quản trị."
+          : rawMessage;
+
+      setError(friendlyMessage);
     } finally {
       setLoading(false);
     }
@@ -280,21 +287,31 @@ const LoginPageAdmin: React.FC = () => {
             {/* Form */}
             <form onSubmit={onSubmit}>
               {error && (
-                <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 flex items-start gap-2">
-                  <svg
-                    className="w-5 h-5 shrink-0 mt-0.5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  {error}
+                <div className="mb-6 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                  <div className="flex items-start gap-2">
+                    <svg
+                      className="w-5 h-5 shrink-0 mt-0.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    <span>{error}</span>
+                  </div>
+
+                  {/khách hàng không thể đăng nhập trang quản trị/i.test(
+                    error,
+                  ) && (
+                    <p className="mt-2 text-xs text-red-500">
+                      Nếu bạn là khách hàng, hãy đăng nhập ở trang mua hàng.
+                    </p>
+                  )}
                 </div>
               )}
 

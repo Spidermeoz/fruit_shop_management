@@ -1,5 +1,5 @@
 import React from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "./context/ThemeContext";
 import { AuthProvider as ClientAuthProvider } from "./context/AuthContext";
 import { AuthProvider as AdminAuthProvider } from "./context/AuthContextAdmin";
@@ -108,10 +108,39 @@ const AdminShell: React.FC = () => {
                 <Route path="roles/detail/:id" element={<RoleDetailPage />} />
                 <Route path="roles/permissions" element={<PermissionsPage />} />
 
-                <Route path="users" element={<UsersPage />} />
-                <Route path="users/create" element={<UserCreatePage />} />
-                <Route path="users/edit/:id" element={<UserEditPage />} />
-                <Route path="users/detail/:id" element={<UserDetailPage />} />
+                {/* Users Routing - Đã được chuẩn hóa */}
+                <Route
+                  path="users"
+                  element={<Navigate to="/admin/users/internal" replace />}
+                />
+                <Route path="users/internal" element={<UsersPage />} />
+                <Route
+                  path="users/internal/create"
+                  element={<UserCreatePage />}
+                />
+                <Route
+                  path="users/internal/edit/:id"
+                  element={<UserEditPage />}
+                />
+                <Route
+                  path="users/internal/detail/:id"
+                  element={<UserDetailPage />}
+                />
+
+                <Route path="users/customers" element={<UsersPage />} />
+                <Route
+                  path="users/customers/create"
+                  element={<UserCreatePage />}
+                />
+                <Route
+                  path="users/customers/edit/:id"
+                  element={<UserEditPage />}
+                />
+                <Route
+                  path="users/customers/detail/:id"
+                  element={<UserDetailPage />}
+                />
+                {/* Kết thúc block Users */}
 
                 <Route path="branches" element={<BranchesPage />} />
                 <Route path="branches/create" element={<BranchCreatePage />} />

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -43,6 +43,13 @@ type ApiDetail<T> = { success: true; data: T; meta?: any };
 const UserDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeType: "internal" | "customer" = location.pathname.includes(
+    "/users/customers/",
+  )
+    ? "customer"
+    : "internal";
 
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -58,7 +65,22 @@ const UserDetailPage: React.FC = () => {
         `/api/v1/admin/users/detail/${id}`,
       );
       if (res?.success && res.data) {
-        setUser(res.data);
+        const data = res.data;
+
+        // Kiểm tra loại user thực tế (dựa vào object role thay vì role_id)
+        const actualType = data.role ? "internal" : "customer";
+
+        if (actualType !== routeType) {
+          navigate(
+            actualType === "customer"
+              ? `/admin/users/customers/detail/${id}`
+              : `/admin/users/internal/detail/${id}`,
+            { replace: true },
+          );
+          return;
+        }
+
+        setUser(data);
       } else {
         setError("Không thể tải thông tin người dùng.");
       }
@@ -72,7 +94,7 @@ const UserDetailPage: React.FC = () => {
 
   useEffect(() => {
     fetchUserDetail();
-  }, [id]);
+  }, [id, routeType, navigate]);
 
   if (loading) {
     return (
@@ -131,13 +153,25 @@ const UserDetailPage: React.FC = () => {
 
         <div className="flex gap-3">
           <button
-            onClick={() => navigate(`/admin/users/edit/${id}`)}
+            onClick={() =>
+              navigate(
+                isInternalUser
+                  ? `/admin/users/internal/edit/${id}`
+                  : `/admin/users/customers/edit/${id}`,
+              )
+            }
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-md transition-colors"
           >
             <Edit className="w-4 h-4" /> Chỉnh sửa
           </button>
           <button
-            onClick={() => navigate("/admin/users")}
+            onClick={() =>
+              navigate(
+                isInternalUser
+                  ? "/admin/users/internal"
+                  : "/admin/users/customers",
+              )
+            }
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại

@@ -4,7 +4,7 @@ import React, {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Loader2, GitBranch } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
@@ -47,10 +47,13 @@ const isStaffRole = (roleId: number | "" | null | undefined) =>
 
 const UserCreatePage: React.FC = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const createType = (searchParams.get("type") || "internal") as
-    | "internal"
-    | "customer";
+  const location = useLocation();
+
+  const createType: "internal" | "customer" = location.pathname.includes(
+    "/users/customers/",
+  )
+    ? "customer"
+    : "internal";
 
   const { branches: actorBranches, user: currentUser } = useAuth();
   const isSuperAdmin = Number(currentUser?.role_id) === 1;
@@ -298,7 +301,12 @@ const UserCreatePage: React.FC = () => {
         full_name: formData.full_name,
         email: formData.email,
         password: formData.password,
-        role_id: formData.role_id === "" ? null : Number(formData.role_id),
+        role_id:
+          createType === "customer"
+            ? null
+            : formData.role_id === ""
+              ? null
+              : Number(formData.role_id),
         phone: formData.phone || null,
         avatar: uploadedAvatarUrl || null,
         status: formData.status,
@@ -317,7 +325,11 @@ const UserCreatePage: React.FC = () => {
 
       if (res.success) {
         showSuccessToast({ message: "Tạo người dùng thành công!" });
-        navigate("/admin/users");
+        navigate(
+          createType === "customer"
+            ? "/admin/users/customers"
+            : "/admin/users/internal",
+        );
       } else {
         if (res.errors) {
           setErrors(res.errors);
@@ -348,7 +360,13 @@ const UserCreatePage: React.FC = () => {
             : "Thêm nhân sự nội bộ"}
         </h1>
         <button
-          onClick={() => navigate("/admin/users")}
+          onClick={() =>
+            navigate(
+              createType === "customer"
+                ? "/admin/users/customers"
+                : "/admin/users/internal",
+            )
+          }
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
@@ -449,38 +467,39 @@ const UserCreatePage: React.FC = () => {
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Vai trò
-            </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-              {createType === "customer"
-                ? "Để trống vai trò nếu muốn tạo tài khoản khách hàng."
-                : "Chọn vai trò để tạo tài khoản staff/admin nội bộ. Khi đã có vai trò, gán chi nhánh sẽ trở thành bắt buộc."}
-            </p>
-            <select
-              name="role_id"
-              value={formData.role_id}
-              onChange={handleChange}
-              className={`w-full border ${
-                errors.role_id
-                  ? "border-red-500 dark:border-red-500"
-                  : "border-gray-300 dark:border-gray-600"
-              } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            >
-              <option value="">-- Chọn vai trò (Không bắt buộc) --</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.title}
-                </option>
-              ))}
-            </select>
-            {errors.role_id && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.role_id}
+          {createType === "internal" && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Vai trò
+              </label>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                Chọn vai trò để tạo tài khoản staff/admin nội bộ. Khi đã có vai
+                trò, gán chi nhánh sẽ trở thành bắt buộc.
               </p>
-            )}
-          </div>
+              <select
+                name="role_id"
+                value={formData.role_id}
+                onChange={handleChange}
+                className={`w-full border ${
+                  errors.role_id
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+              >
+                <option value="">-- Chọn vai trò (Không bắt buộc) --</option>
+                {roles.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    {role.title}
+                  </option>
+                ))}
+              </select>
+              {errors.role_id && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.role_id}
+                </p>
+              )}
+            </div>
+          )}
 
           {isStaffUser ? (
             <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
@@ -702,7 +721,13 @@ const UserCreatePage: React.FC = () => {
           <div className="flex justify-end gap-3 pt-4">
             <button
               type="button"
-              onClick={() => navigate("/admin/users")}
+              onClick={() =>
+                navigate(
+                  createType === "customer"
+                    ? "/admin/users/customers"
+                    : "/admin/users/internal",
+                )
+              }
               className="px-4 py-2 rounded-md text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors font-medium"
             >
               Hủy

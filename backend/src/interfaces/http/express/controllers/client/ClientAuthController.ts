@@ -17,7 +17,6 @@ export const makeClientAuthController = (uc: {
   updateMyProfile: UpdateMyProfile;
 }) => {
   return {
-    // ✅ POST /api/v1/client/auth/register
     register: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { fullName, email, password, phone } = req.body;
@@ -43,14 +42,13 @@ export const makeClientAuthController = (uc: {
         });
       } catch (err: any) {
         console.error("Register client error:", err);
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           message: err.message || "Không thể đăng ký tài khoản.",
         });
       }
     },
 
-    // ✅ POST /api/v1/client/auth/login
     login: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { email, password } = req.body;
@@ -61,7 +59,11 @@ export const makeClientAuthController = (uc: {
           });
         }
 
-        const result = await uc.login.execute({ email, password });
+        const result = await uc.login.execute({
+          email,
+          password,
+          portal: "client",
+        });
 
         return res.json({
           success: true,
@@ -70,14 +72,37 @@ export const makeClientAuthController = (uc: {
         });
       } catch (err: any) {
         console.error("Login client error:", err);
-        res.status(401).json({
+
+        const msg = String(err?.message || "Email hoặc mật khẩu không đúng.");
+
+        if (/trang quản trị/i.test(msg)) {
+          return res.status(401).json({
+            success: false,
+            message: msg,
+          });
+        }
+
+        if (/invalid credentials/i.test(msg)) {
+          return res.status(401).json({
+            success: false,
+            message: "Email hoặc mật khẩu không đúng.",
+          });
+        }
+
+        if (/account is not active/i.test(msg)) {
+          return res.status(403).json({
+            success: false,
+            message: "Tài khoản hiện không hoạt động.",
+          });
+        }
+
+        return res.status(401).json({
           success: false,
-          message: err.message || "Email hoặc mật khẩu không đúng.",
+          message: msg || "Đăng nhập thất bại.",
         });
       }
     },
 
-    // ✅ GET /api/v1/client/auth/me
     me: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user?.id;
@@ -88,17 +113,20 @@ export const makeClientAuthController = (uc: {
           });
         }
 
-        const user = await uc.me.execute(userId);
-        res.json({
+        const user = await uc.me.execute(userId, "client");
+        return res.json({
           success: true,
           data: user,
         });
-      } catch (err) {
-        next(err);
+      } catch (err: any) {
+        console.error("Client me error:", err);
+        return res.status(401).json({
+          success: false,
+          message: err?.message || "Unauthorized.",
+        });
       }
     },
 
-    // ✅ POST /api/v1/client/auth/refresh
     refresh: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const { refreshToken } = req.body;
@@ -110,21 +138,20 @@ export const makeClientAuthController = (uc: {
         }
 
         const data = await uc.refresh.execute({ refreshToken });
-        res.json({
+        return res.json({
           success: true,
           message: "Làm mới token thành công.",
           data,
         });
       } catch (err: any) {
         console.error("Refresh token error:", err);
-        res.status(401).json({
+        return res.status(401).json({
           success: false,
           message: err.message || "Refresh token không hợp lệ.",
         });
       }
     },
 
-    // ✅ POST /api/v1/client/auth/logout
     logout: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user?.id;
@@ -136,7 +163,7 @@ export const makeClientAuthController = (uc: {
         }
 
         await uc.logout.execute(userId);
-        res.json({
+        return res.json({
           success: true,
           message: "Đăng xuất thành công.",
         });

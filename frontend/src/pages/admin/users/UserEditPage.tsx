@@ -4,7 +4,7 @@ import React, {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Loader2, Save, ArrowLeft, GitBranch } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
@@ -60,6 +60,13 @@ const isStaffRole = (roleId: number | "" | null | undefined) =>
 const UserEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const routeType: "internal" | "customer" = location.pathname.includes(
+    "/users/customers/",
+  )
+    ? "customer"
+    : "internal";
 
   const [user, setUser] = useState<User | null>(null);
   const [initialUser, setInitialUser] = useState<User | null>(null);
@@ -106,6 +113,19 @@ const UserEditPage: React.FC = () => {
       );
       if (res.success && res.data) {
         const data = res.data as User;
+
+        // Xác định loại user thực tế từ API và chuyển hướng nếu không khớp với route
+        const actualType = data.role_id ? "internal" : "customer";
+        if (actualType !== routeType) {
+          navigate(
+            actualType === "customer"
+              ? `/admin/users/customers/edit/${id}`
+              : `/admin/users/internal/edit/${id}`,
+            { replace: true },
+          );
+          return;
+        }
+
         setUser(data);
         setInitialUser(data);
         setPreviewImage(data.avatar || "");
@@ -446,7 +466,9 @@ const UserEditPage: React.FC = () => {
 
       if (resp.success) {
         showSuccessToast({ message: "Cập nhật người dùng thành công!" });
-        navigate("/admin/users");
+        navigate(
+          isStaffUser ? "/admin/users/internal" : "/admin/users/customers",
+        );
       } else if (resp.errors) {
         setErrors(resp.errors);
       } else {
@@ -487,7 +509,11 @@ const UserEditPage: React.FC = () => {
           {isStaffUser ? "Chỉnh sửa nhân sự nội bộ" : "Chỉnh sửa khách hàng"}
         </h1>
         <button
-          onClick={() => navigate("/admin/users")}
+          onClick={() =>
+            navigate(
+              isStaffUser ? "/admin/users/internal" : "/admin/users/customers",
+            )
+          }
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại

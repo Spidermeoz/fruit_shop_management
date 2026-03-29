@@ -27,7 +27,12 @@ export const makeAuthController = (uc: {
           return fail(res, "Email and password are required", 400);
         }
 
-        const out = await uc.login.execute({ email, password });
+        const out = await uc.login.execute({
+          email,
+          password,
+          portal: "admin",
+        });
+
         return ok(res, out);
       } catch (e: any) {
         const msg = String(e?.message || "Invalid credentials");
@@ -38,6 +43,10 @@ export const makeAuthController = (uc: {
 
         if (/account is not active/i.test(msg)) {
           return fail(res, "Account is not active", 403);
+        }
+
+        if (/khách hàng không thể đăng nhập trang quản trị/i.test(msg)) {
+          return fail(res, msg, 403);
         }
 
         return fail(res, msg, 500);
@@ -72,10 +81,15 @@ export const makeAuthController = (uc: {
       try {
         if (!req.user) return fail(res, "Unauthorized", 401);
 
-        const out = await uc.me.execute(req.user.id);
+        const out = await uc.me.execute(req.user.id, "admin");
         return ok(res, out);
       } catch (e: any) {
         const msg = String(e?.message || "Internal server error");
+
+        if (/unauthorized admin account/i.test(msg)) {
+          return fail(res, msg, 401);
+        }
+
         return fail(res, msg, /not found/i.test(msg) ? 404 : 500);
       }
     },

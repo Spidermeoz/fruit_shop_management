@@ -13,7 +13,7 @@ import {
   GitBranch,
   Users,
 } from "lucide-react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
 import { http } from "../../../services/http";
 import { useAuth } from "../../../context/AuthContextAdmin";
@@ -149,10 +149,16 @@ const UsersPage: React.FC = () => {
   const statusFilter = searchParams.get("status") || "all";
   const currentPage = Number(searchParams.get("page")) || 1;
   const sortOrder = searchParams.get("sort") || "";
-  const userType = (searchParams.get("type") || "internal") as UserTypeTab;
-  const selectedBranchId = searchParams.get("branchId") || "all";
 
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const userType: UserTypeTab = location.pathname.includes("/users/customers")
+    ? "customer"
+    : "internal";
+
+  const selectedBranchId = searchParams.get("branchId") || "all";
+
   const { user: currentUser, branches: actorBranches } = useAuth();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
@@ -242,11 +248,26 @@ const UsersPage: React.FC = () => {
   }, [users, searchTerm]);
 
   const handleAddUser = () => {
-    navigate(`/admin/users/create?type=${userType}`);
+    navigate(
+      userType === "customer"
+        ? "/admin/users/customers/create"
+        : "/admin/users/internal/create",
+    );
   };
 
-  const handleEditUser = (id: number) => navigate(`/admin/users/edit/${id}`);
-  const handleViewUser = (id: number) => navigate(`/admin/users/detail/${id}`);
+  const handleEditUser = (id: number) =>
+    navigate(
+      userType === "customer"
+        ? `/admin/users/customers/edit/${id}`
+        : `/admin/users/internal/edit/${id}`,
+    );
+
+  const handleViewUser = (id: number) =>
+    navigate(
+      userType === "customer"
+        ? `/admin/users/customers/detail/${id}`
+        : `/admin/users/internal/detail/${id}`,
+    );
 
   const handleDeleteUser = async (id: number) => {
     if (!window.confirm("Bạn có chắc muốn xóa người dùng này?")) return;
@@ -290,14 +311,22 @@ const UsersPage: React.FC = () => {
 
   const setTab = (type: UserTypeTab) => {
     const params = new URLSearchParams(searchParams);
-    params.set("type", type);
     params.delete("page");
+    params.delete("keyword");
     if (type === "customer") {
       params.delete("branchId");
     }
-    setSearchParams(params);
+
     setSelectedUsers([]);
     setBulkAction("");
+
+    navigate({
+      pathname:
+        type === "customer"
+          ? "/admin/users/customers"
+          : "/admin/users/internal",
+      search: params.toString() ? `?${params.toString()}` : "",
+    });
   };
 
   const handleFilterChange = (status: "all" | "active" | "inactive") => {
@@ -452,20 +481,23 @@ const UsersPage: React.FC = () => {
           Tạm dừng
         </button>
 
-        {userType === "internal" && (
-          <select
-            value={selectedBranchId}
-            onChange={(e) => handleBranchFilterChange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Tất cả chi nhánh trong scope</option>
-            {visibleBranchOptions.map((branch) => (
-              <option key={branch.id} value={branch.id}>
-                {branch.name || `Branch #${branch.id}`}
-              </option>
-            ))}
-          </select>
-        )}
+        {/* Cập nhật điều kiện hiển thị filter chi nhánh ở đây */}
+        {userType === "internal" &&
+          visibleBranchOptions &&
+          visibleBranchOptions.length > 1 && (
+            <select
+              value={selectedBranchId}
+              onChange={(e) => handleBranchFilterChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Tất cả chi nhánh trong scope</option>
+              {visibleBranchOptions.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name || `Branch #${branch.id}`}
+                </option>
+              ))}
+            </select>
+          )}
       </div>
 
       <div className="flex items-center gap-2 mb-3">

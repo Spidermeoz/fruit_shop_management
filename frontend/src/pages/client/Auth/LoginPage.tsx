@@ -66,7 +66,13 @@ const LoginPage: React.FC = () => {
       });
       navigate("/");
     } catch (err: any) {
-      showErrorToast(err?.message || "Đăng nhập thất bại!");
+      const rawMessage = String(err?.message || "Đăng nhập thất bại!");
+
+      const friendlyMessage = /trang quản trị/i.test(rawMessage)
+        ? "Tài khoản này là tài khoản nội bộ. Vui lòng đăng nhập ở trang quản trị."
+        : rawMessage;
+
+      showErrorToast(friendlyMessage);
     } finally {
       setIsLoading(false);
     }

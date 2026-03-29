@@ -200,6 +200,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error("Dữ liệu đăng nhập admin không hợp lệ");
     }
 
+    if (nextUser.role_id === null || nextUser.role_id === undefined) {
+      throw new Error(
+        "Tài khoản khách hàng không thể đăng nhập trang quản trị.",
+      );
+    }
+
     tokenStore.setAccess(accessToken);
     tokenStore.setRefresh(refreshToken);
     persistUser(nextUser);
