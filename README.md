@@ -308,10 +308,23 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 GetGeneralSettings.ts
 │   │   │   │       └── 📄 UpdateGeneralSettings.ts
 │   │   │   ├── 📁 shipping
-│   │   │   │   └── 📁 services
-│   │   │   │       ├── 📄 CalculateShippingQuoteService.ts
-│   │   │   │       ├── 📄 GetAvailableDeliverySlotsService.ts
-│   │   │   │       └── 📄 ResolveShippingZoneService.ts
+│   │   │   │   ├── 📁 services
+│   │   │   │   │   ├── 📄 CalculateShippingQuoteService.ts
+│   │   │   │   │   ├── 📄 GetAvailableDeliverySlotsService.ts
+│   │   │   │   │   └── 📄 ResolveShippingZoneService.ts
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 ChangeBranchServiceAreaStatus.ts
+│   │   │   │       ├── 📄 ChangeShippingZoneStatus.ts
+│   │   │   │       ├── 📄 CreateBranchServiceArea.ts
+│   │   │   │       ├── 📄 CreateShippingZone.ts
+│   │   │   │       ├── 📄 EditBranchServiceArea.ts
+│   │   │   │       ├── 📄 EditShippingZone.ts
+│   │   │   │       ├── 📄 GetBranchServiceAreaDetail.ts
+│   │   │   │       ├── 📄 GetShippingZoneDetail.ts
+│   │   │   │       ├── 📄 ListBranchServiceAreas.ts
+│   │   │   │       ├── 📄 ListShippingZones.ts
+│   │   │   │       ├── 📄 SoftDeleteBranchServiceArea.ts
+│   │   │   │       └── 📄 SoftDeleteShippingZone.ts
 │   │   │   ├── 📁 uploads
 │   │   │   │   └── 📁 usecases
 │   │   │   │       └── 📄 UploadImage.ts
@@ -366,8 +379,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SettingGeneral.ts
 │   │   │   │   └── 📄 SettingGeneralRepository.ts
 │   │   │   ├── 📁 shipping
+│   │   │   │   ├── 📄 BranchServiceArea.ts
+│   │   │   │   ├── 📄 BranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 DeliveryTimeSlotRepository.ts
-│   │   │   │   └── 📄 ShippingZoneRepository.ts
+│   │   │   │   ├── 📄 ShippingZoneRepository.ts
+│   │   │   │   └── 📄 branchServiceArea.types.ts
 │   │   │   ├── 📁 storage
 │   │   │   │   └── 📄 FileStorage.ts
 │   │   │   └── 📁 users
@@ -418,6 +434,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📄 EmailService.ts
 │   │   │   ├── 📁 repositories
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
+│   │   │   │   ├── 📄 SequelizeBranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
 │   │   │   │   ├── 📄 SequelizeDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
@@ -451,6 +468,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   └── 📄 ClientVerifyOtpController.ts
 │   │   │           │   ├── 📄 AdminReviewsController.ts
 │   │   │           │   ├── 📄 AuthController.ts
+│   │   │           │   ├── 📄 BranchServiceAreasController.ts
 │   │   │           │   ├── 📄 BranchesController.ts
 │   │   │           │   ├── 📄 InventoryController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
@@ -461,6 +479,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 ProductsController.ts
 │   │   │           │   ├── 📄 RolesController.ts
 │   │   │           │   ├── 📄 SettingsGeneralController.ts
+│   │   │           │   ├── 📄 ShippingZonesController.ts
 │   │   │           │   ├── 📄 UploadController.ts
 │   │   │           │   └── 📄 UsersController.ts
 │   │   │           ├── 📁 middlewares
@@ -481,6 +500,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 adminReviews.routes.ts
 │   │   │               ├── 📄 adminSettings.routes.ts
 │   │   │               ├── 📄 auth.routes.ts
+│   │   │               ├── 📄 branchServiceAreas.routes.ts
 │   │   │               ├── 📄 branches.routes.ts
 │   │   │               ├── 📄 inventory.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
@@ -490,6 +510,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 productTags.routes.ts
 │   │   │               ├── 📄 products.routes.ts
 │   │   │               ├── 📄 roles.routes.ts
+│   │   │               ├── 📄 shippingZones.routes.ts
 │   │   │               ├── 📄 upload.routes.ts
 │   │   │               └── 📄 users.routes.ts
 │   │   ├── 📁 types
@@ -578,6 +599,15 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   └── 📄 RolesPage.tsx
 │   │   │   │   ├── 📁 settings
 │   │   │   │   │   └── 📄 SettingsGeneralPage.tsx
+│   │   │   │   ├── 📁 shipping
+│   │   │   │   │   ├── 📄 BranchServiceAreaCreatePage.tsx
+│   │   │   │   │   ├── 📄 BranchServiceAreaDetailPage.tsx
+│   │   │   │   │   ├── 📄 BranchServiceAreaEditPage.tsx
+│   │   │   │   │   ├── 📄 BranchServiceAreasPage.tsx
+│   │   │   │   │   ├── 📄 ShippingZoneCreatePage.tsx
+│   │   │   │   │   ├── 📄 ShippingZoneDetailPage.tsx
+│   │   │   │   │   ├── 📄 ShippingZoneEditPage.tsx
+│   │   │   │   │   └── 📄 ShippingZonesPage.tsx
 │   │   │   │   ├── 📁 tags
 │   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 users

@@ -48,6 +48,7 @@ import { SequelizeInventoryRepository } from "../../infrastructure/repositories/
 import { SequelizeProductTagGroupRepository } from "../../infrastructure/repositories/SequelizeProductTagGroupRepository";
 import { SequelizeShippingZoneRepository } from "../../infrastructure/repositories/SequelizeShippingZoneRepository";
 import { SequelizeDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeDeliveryTimeSlotRepository";
+import { SequelizeBranchServiceAreaRepository } from "../../infrastructure/repositories/SequelizeBranchServiceAreaRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -198,6 +199,14 @@ import { EditShippingZone } from "../../application/shipping/usecases/EditShippi
 import { ChangeShippingZoneStatus } from "../../application/shipping/usecases/ChangeShippingZoneStatus";
 import { SoftDeleteShippingZone } from "../../application/shipping/usecases/SoftDeleteShippingZone";
 
+// ===== Branch service area usecases =====
+import { ListBranchServiceAreas } from "../../application/shipping/usecases/ListBranchServiceAreas";
+import { GetBranchServiceAreaDetail } from "../../application/shipping/usecases/GetBranchServiceAreaDetail";
+import { CreateBranchServiceArea } from "../../application/shipping/usecases/CreateBranchServiceArea";
+import { EditBranchServiceArea } from "../../application/shipping/usecases/EditBranchServiceArea";
+import { ChangeBranchServiceAreaStatus } from "../../application/shipping/usecases/ChangeBranchServiceAreaStatus";
+import { SoftDeleteBranchServiceArea } from "../../application/shipping/usecases/SoftDeleteBranchServiceArea";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -247,6 +256,8 @@ import { makeInventoryController } from "../../interfaces/http/express/controlle
 import type { InventoryController } from "../../interfaces/http/express/controllers/InventoryController";
 import { makeShippingZonesController } from "../../interfaces/http/express/controllers/ShippingZonesController";
 import type { ShippingZonesController } from "../../interfaces/http/express/controllers/ShippingZonesController";
+import { makeBranchServiceAreasController } from "../../interfaces/http/express/controllers/BranchServiceAreasController";
+import type { BranchServiceAreasController } from "../../interfaces/http/express/controllers/BranchServiceAreasController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -719,6 +730,15 @@ const shippingZoneRepo = new SequelizeShippingZoneRepository(
   shippingZoneModels,
 );
 
+const branchServiceAreaModels = {
+  BranchServiceArea: BranchServiceAreaModel,
+  Branch: BranchModel,
+  ShippingZone: ShippingZoneModel,
+};
+const branchServiceAreaRepo = new SequelizeBranchServiceAreaRepository(
+  branchServiceAreaModels,
+);
+
 const deliveryTimeSlotModels = {
   DeliveryTimeSlot: DeliveryTimeSlotModel,
   BranchDeliveryTimeSlot: BranchDeliveryTimeSlotModel,
@@ -863,6 +883,23 @@ export const usecases = {
     softDelete: new SoftDeleteShippingZone(shippingZoneRepo),
   },
 
+  branchServiceAreas: {
+    list: new ListBranchServiceAreas(branchServiceAreaRepo),
+    detail: new GetBranchServiceAreaDetail(branchServiceAreaRepo),
+    create: new CreateBranchServiceArea(
+      branchServiceAreaRepo,
+      branchRepo,
+      shippingZoneRepo,
+    ),
+    edit: new EditBranchServiceArea(
+      branchServiceAreaRepo,
+      branchRepo,
+      shippingZoneRepo,
+    ),
+    changeStatus: new ChangeBranchServiceAreaStatus(branchServiceAreaRepo),
+    softDelete: new SoftDeleteBranchServiceArea(branchServiceAreaRepo),
+  },
+
   auth: {
     login: new Login(
       userRepo,
@@ -974,6 +1011,7 @@ type Controllers = {
   users: UsersController;
   branches: BranchesController;
   shippingZones: ShippingZonesController;
+  branchServiceAreas: BranchServiceAreasController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -1049,6 +1087,15 @@ export const controllers: Controllers = {
     edit: usecases.shippingZones.edit,
     changeStatus: usecases.shippingZones.changeStatus,
     softDelete: usecases.shippingZones.softDelete,
+  }),
+
+  branchServiceAreas: makeBranchServiceAreasController({
+    list: usecases.branchServiceAreas.list,
+    detail: usecases.branchServiceAreas.detail,
+    create: usecases.branchServiceAreas.create,
+    edit: usecases.branchServiceAreas.edit,
+    changeStatus: usecases.branchServiceAreas.changeStatus,
+    softDelete: usecases.branchServiceAreas.softDelete,
   }),
 
   auth: makeAuthController({

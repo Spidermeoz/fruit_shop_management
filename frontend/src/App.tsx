@@ -46,6 +46,10 @@ import BranchDetailPage from "./pages/admin/branches/BranchDetailPage";
 import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 import InventoryPage from "./pages/admin/inventory/InventoryPage";
 import InventoryTransactionHistoryPage from "./pages/admin/inventory/InventoryTransactionHistoryPage";
+import BranchServiceAreasPage from "./pages/admin/shipping/BranchServiceAreasPage";
+import BranchServiceAreaCreatePage from "./pages/admin/shipping/BranchServiceAreaCreatePage";
+import BranchServiceAreaDetailPage from "./pages/admin/shipping/BranchServiceAreaDetailPage";
+import BranchServiceAreaEditPage from "./pages/admin/shipping/BranchServiceAreaEditPage";
 
 // Shipping admin pages
 import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
@@ -180,6 +184,23 @@ const AdminShell: React.FC = () => {
                 <Route
                   path="shipping/zones/edit/:id"
                   element={<ShippingZoneEditPage />}
+                />
+
+                <Route
+                  path="shipping/service-areas"
+                  element={<BranchServiceAreasPage />}
+                />
+                <Route
+                  path="shipping/service-areas/create"
+                  element={<BranchServiceAreaCreatePage />}
+                />
+                <Route
+                  path="shipping/service-areas/detail/:id"
+                  element={<BranchServiceAreaDetailPage />}
+                />
+                <Route
+                  path="shipping/service-areas/edit/:id"
+                  element={<BranchServiceAreaEditPage />}
                 />
 
                 <Route path="orders" element={<OrdersPage />} />

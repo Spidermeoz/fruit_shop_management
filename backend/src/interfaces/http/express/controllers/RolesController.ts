@@ -309,6 +309,16 @@ export const makeRolesController = (uc: {
             ],
           },
           {
+            group: "Khu vực phục vụ chi nhánh",
+            key: "branch_service_area",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
+          {
             group: "Danh mục sản phẩm",
             key: "product_category",
             actions: [

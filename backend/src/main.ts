@@ -30,6 +30,7 @@ import { productTagGroupsRoutes } from "./interfaces/http/express/routes/product
 import { branchesRoutes } from "./interfaces/http/express/routes/branches.routes";
 import { inventoryRoutes } from "./interfaces/http/express/routes/inventory.routes";
 import { shippingZonesRoutes } from "./interfaces/http/express/routes/shippingZones.routes";
+import { branchServiceAreasRoutes } from "./interfaces/http/express/routes/branchServiceAreas.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -139,6 +140,10 @@ app.use(
 app.use(
   "/api/v1/admin/shipping-zones",
   shippingZonesRoutes(controllers.shippingZones, auth, can),
+);
+app.use(
+  "/api/v1/admin/branch-service-areas",
+  branchServiceAreasRoutes(controllers.branchServiceAreas, auth, can),
 );
 
 // ------------------------------------
