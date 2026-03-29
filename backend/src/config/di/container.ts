@@ -26,6 +26,11 @@ import ProductTagMapModel from "../../infrastructure/db/sequelize/models/Product
 import InventoryStockModel from "../../infrastructure/db/sequelize/models/InventoryStockModel";
 import InventoryTransactionModel from "../../infrastructure/db/sequelize/models/InventoryTransactionModel";
 import ProductTagGroupModel from "../../infrastructure/db/sequelize/models/ProductTagGroupModel";
+import ShippingZoneModel from "../../infrastructure/db/sequelize/models/ShippingZoneModel";
+import BranchServiceAreaModel from "../../infrastructure/db/sequelize/models/BranchServiceAreaModel";
+import DeliveryTimeSlotModel from "../../infrastructure/db/sequelize/models/DeliveryTimeSlotModel";
+import BranchDeliveryTimeSlotModel from "../../infrastructure/db/sequelize/models/BranchDeliveryTimeSlotModel";
+import BranchDeliverySlotCapacityModel from "../../infrastructure/db/sequelize/models/BranchDeliverySlotCapacityModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -41,6 +46,8 @@ import { SequelizeOriginRepository } from "../../infrastructure/repositories/Seq
 import { SequelizeProductTagRepository } from "../../infrastructure/repositories/SequelizeProductTagRepository";
 import { SequelizeInventoryRepository } from "../../infrastructure/repositories/SequelizeInventoryRepository";
 import { SequelizeProductTagGroupRepository } from "../../infrastructure/repositories/SequelizeProductTagGroupRepository";
+import { SequelizeShippingZoneRepository } from "../../infrastructure/repositories/SequelizeShippingZoneRepository";
+import { SequelizeDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeDeliveryTimeSlotRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -88,6 +95,7 @@ import { ListOrders } from "../../application/orders/admin/ListOrders";
 import { UpdateOrderStatus } from "../../application/orders/admin/UpdateOrderStatus";
 import { CancelMyOrder } from "../../application/orders/client/CancelMyOrder";
 import { CreateOrderFromCart } from "../../application/orders/client/CreateOrderFromCart";
+import { GetCheckoutQuote } from "../../application/orders/client/GetCheckoutQuote";
 import { GetMyOrderDetail } from "../../application/orders/client/GetMyOrderDetail";
 import { GetMyOrders } from "../../application/orders/client/GetMyOrders";
 import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
@@ -176,6 +184,11 @@ import { ListProductTagGroups } from "../../application/product-tag-groups/useca
 import { CreateProductTagGroup } from "../../application/product-tag-groups/usecases/CreateProductTagGroup";
 import { EditProductTagGroup } from "../../application/product-tag-groups/usecases/EditProductTagGroup";
 import { DeleteProductTagGroup } from "../../application/product-tag-groups/usecases/DeleteProductTagGroup";
+
+// ===== Shipping services =====
+import { ResolveShippingZoneService } from "../../application/shipping/services/ResolveShippingZoneService";
+import { GetAvailableDeliverySlotsService } from "../../application/shipping/services/GetAvailableDeliverySlotsService";
+import { CalculateShippingQuoteService } from "../../application/shipping/services/CalculateShippingQuoteService";
 
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
@@ -408,6 +421,86 @@ BranchModel.hasMany(OrderModel, {
   foreignKey: "branch_id",
 });
 
+// Shipping zone -> Branch service areas
+ShippingZoneModel.hasMany(BranchServiceAreaModel, {
+  as: "branchServiceAreas",
+  foreignKey: "shipping_zone_id",
+});
+BranchServiceAreaModel.belongsTo(ShippingZoneModel, {
+  as: "shippingZone",
+  foreignKey: "shipping_zone_id",
+});
+
+// Branch -> Branch service areas
+BranchModel.hasMany(BranchServiceAreaModel, {
+  as: "serviceAreas",
+  foreignKey: "branch_id",
+});
+BranchServiceAreaModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+
+// Delivery time slot -> Branch delivery time slots
+DeliveryTimeSlotModel.hasMany(BranchDeliveryTimeSlotModel, {
+  as: "branchSlots",
+  foreignKey: "delivery_time_slot_id",
+});
+BranchDeliveryTimeSlotModel.belongsTo(DeliveryTimeSlotModel, {
+  as: "deliveryTimeSlot",
+  foreignKey: "delivery_time_slot_id",
+});
+
+// Branch -> Branch delivery time slots
+BranchModel.hasMany(BranchDeliveryTimeSlotModel, {
+  as: "deliveryTimeSlots",
+  foreignKey: "branch_id",
+});
+BranchDeliveryTimeSlotModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+
+// Delivery time slot -> Branch delivery slot capacities
+DeliveryTimeSlotModel.hasMany(BranchDeliverySlotCapacityModel, {
+  as: "slotCapacities",
+  foreignKey: "delivery_time_slot_id",
+});
+BranchDeliverySlotCapacityModel.belongsTo(DeliveryTimeSlotModel, {
+  as: "deliveryTimeSlot",
+  foreignKey: "delivery_time_slot_id",
+});
+
+// Branch -> Branch delivery slot capacities
+BranchModel.hasMany(BranchDeliverySlotCapacityModel, {
+  as: "deliverySlotCapacities",
+  foreignKey: "branch_id",
+});
+BranchDeliverySlotCapacityModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+
+// Order -> Delivery time slot
+OrderModel.belongsTo(DeliveryTimeSlotModel, {
+  as: "deliveryTimeSlot",
+  foreignKey: "delivery_time_slot_id",
+});
+DeliveryTimeSlotModel.hasMany(OrderModel, {
+  as: "orders",
+  foreignKey: "delivery_time_slot_id",
+});
+
+// Order -> Shipping zone
+OrderModel.belongsTo(ShippingZoneModel, {
+  as: "shippingZone",
+  foreignKey: "shipping_zone_id",
+});
+ShippingZoneModel.hasMany(OrderModel, {
+  as: "orders",
+  foreignKey: "shipping_zone_id",
+});
+
 // Order -> Items
 OrderModel.hasMany(OrderItemModel, {
   as: "items",
@@ -608,6 +701,39 @@ const cartModels = {
 };
 const cartRepo = new SequelizeCartRepository(cartModels);
 
+const shippingZoneModels = {
+  ShippingZone: ShippingZoneModel,
+  BranchServiceArea: BranchServiceAreaModel,
+};
+const shippingZoneRepo = new SequelizeShippingZoneRepository(
+  shippingZoneModels,
+);
+
+const deliveryTimeSlotModels = {
+  DeliveryTimeSlot: DeliveryTimeSlotModel,
+  BranchDeliveryTimeSlot: BranchDeliveryTimeSlotModel,
+  BranchDeliverySlotCapacity: BranchDeliverySlotCapacityModel,
+};
+const deliveryTimeSlotRepo = new SequelizeDeliveryTimeSlotRepository(
+  deliveryTimeSlotModels,
+);
+
+const resolveShippingZoneService = new ResolveShippingZoneService(
+  shippingZoneRepo,
+);
+
+const getAvailableDeliverySlotsService = new GetAvailableDeliverySlotsService(
+  deliveryTimeSlotRepo,
+);
+
+const calculateShippingQuoteService = new CalculateShippingQuoteService(
+  cartRepo,
+  branchRepo,
+  shippingZoneRepo,
+  resolveShippingZoneService,
+  getAvailableDeliverySlotsService,
+);
+
 // Orders
 const orderModels = {
   Order: OrderModel,
@@ -617,7 +743,9 @@ const orderModels = {
   DeliveryStatusHistory: DeliveryStatusHistoryModel,
   Product: ProductModel,
   ProductVariant: ProductVariantModel,
-  Branch: BranchModel, // Added Branch
+  Branch: BranchModel,
+  DeliveryTimeSlot: DeliveryTimeSlotModel,
+  ShippingZone: ShippingZoneModel,
 };
 const orderRepo = new SequelizeOrderRepository(orderModels);
 
@@ -658,7 +786,12 @@ export const usecases = {
       productTagRepo,
       branchRepo,
     ),
-    edit: new EditProduct(productRepo, productTagRepo, inventoryRepo, branchRepo),
+    edit: new EditProduct(
+      productRepo,
+      productTagRepo,
+      inventoryRepo,
+      branchRepo,
+    ),
     changeStatus: new ChangeProductStatus(productRepo),
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
@@ -744,11 +877,13 @@ export const usecases = {
   },
 
   orders: {
+    quoteCheckout: new GetCheckoutQuote(calculateShippingQuoteService),
     createFromCart: new CreateOrderFromCart(
       orderRepo,
       cartRepo,
       productRepo,
       inventoryRepo,
+      calculateShippingQuoteService,
     ),
     myOrders: new GetMyOrders(orderRepo),
     myOrderDetail: new GetMyOrderDetail(orderRepo),
@@ -987,6 +1122,7 @@ export const clientControllers = {
   }),
 
   orders: makeClientOrdersController({
+    quoteCheckout: usecases.orders.quoteCheckout,
     createFromCart: usecases.orders.createFromCart,
     myOrders: usecases.orders.myOrders,
     myOrderDetail: usecases.orders.myOrderDetail,

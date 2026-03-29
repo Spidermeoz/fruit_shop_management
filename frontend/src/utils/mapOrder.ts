@@ -146,6 +146,28 @@ export function mapOrder(order: any): Order {
           ? Number(o.branch_id)
           : null,
     fulfillment_type: o.fulfillmentType ?? o.fulfillment_type ?? null,
+
+    delivery_type: o.deliveryType ?? o.delivery_type ?? null,
+    delivery_date: o.deliveryDate ?? o.delivery_date ?? null,
+    delivery_time_slot_id:
+      o.deliveryTimeSlotId !== undefined && o.deliveryTimeSlotId !== null
+        ? Number(o.deliveryTimeSlotId)
+        : o.delivery_time_slot_id !== undefined &&
+            o.delivery_time_slot_id !== null
+          ? Number(o.delivery_time_slot_id)
+          : null,
+    delivery_time_slot_label:
+      o.deliveryTimeSlotLabel ?? o.delivery_time_slot_label ?? null,
+    shipping_zone_id:
+      o.shippingZoneId !== undefined && o.shippingZoneId !== null
+        ? Number(o.shippingZoneId)
+        : o.shipping_zone_id !== undefined && o.shipping_zone_id !== null
+          ? Number(o.shipping_zone_id)
+          : null,
+    shipping_zone_code: o.shippingZoneCode ?? o.shipping_zone_code ?? null,
+    shipping_zone_name: o.shippingZoneName ?? o.shipping_zone_name ?? null,
+    delivery_note: o.deliveryNote ?? o.delivery_note ?? null,
+
     branch: mapBranchSummary(o.branch),
     address: mapOrderAddress(o.address),
     items: Array.isArray(o.items) ? o.items.map(mapOrderItem) : [],
@@ -186,6 +208,28 @@ export function mapClientOrder(order: any): ClientOrder {
           ? Number(o.branch_id)
           : null,
     fulfillmentType: o.fulfillmentType ?? o.fulfillment_type ?? null,
+
+    deliveryType: o.deliveryType ?? o.delivery_type ?? null,
+    deliveryDate: o.deliveryDate ?? o.delivery_date ?? null,
+    deliveryTimeSlotId:
+      o.deliveryTimeSlotId !== undefined && o.deliveryTimeSlotId !== null
+        ? Number(o.deliveryTimeSlotId)
+        : o.delivery_time_slot_id !== undefined &&
+            o.delivery_time_slot_id !== null
+          ? Number(o.delivery_time_slot_id)
+          : null,
+    deliveryTimeSlotLabel:
+      o.deliveryTimeSlotLabel ?? o.delivery_time_slot_label ?? null,
+    shippingZoneId:
+      o.shippingZoneId !== undefined && o.shippingZoneId !== null
+        ? Number(o.shippingZoneId)
+        : o.shipping_zone_id !== undefined && o.shipping_zone_id !== null
+          ? Number(o.shipping_zone_id)
+          : null,
+    shippingZoneCode: o.shippingZoneCode ?? o.shipping_zone_code ?? null,
+    shippingZoneName: o.shippingZoneName ?? o.shipping_zone_name ?? null,
+    deliveryNote: o.deliveryNote ?? o.delivery_note ?? null,
+
     branch: mapBranchSummary(o.branch),
     address: mapClientOrderAddress(o.address),
     items: Array.isArray(o.items) ? o.items.map(mapClientOrderItem) : [],

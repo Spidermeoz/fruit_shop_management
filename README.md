@@ -238,6 +238,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📁 client
 │   │   │   │       ├── 📄 CancelMyOrder.ts
 │   │   │   │       ├── 📄 CreateOrderFromCart.ts
+│   │   │   │       ├── 📄 GetCheckoutQuote.ts
 │   │   │   │       ├── 📄 GetMyOrderDetail.ts
 │   │   │   │       ├── 📄 GetMyOrders.ts
 │   │   │   │       └── 📄 ListMyOrderAddresses.ts
@@ -306,6 +307,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📁 usecases
 │   │   │   │       ├── 📄 GetGeneralSettings.ts
 │   │   │   │       └── 📄 UpdateGeneralSettings.ts
+│   │   │   ├── 📁 shipping
+│   │   │   │   └── 📁 services
+│   │   │   │       ├── 📄 CalculateShippingQuoteService.ts
+│   │   │   │       ├── 📄 GetAvailableDeliverySlotsService.ts
+│   │   │   │       └── 📄 ResolveShippingZoneService.ts
 │   │   │   ├── 📁 uploads
 │   │   │   │   └── 📁 usecases
 │   │   │   │       └── 📄 UploadImage.ts
@@ -359,6 +365,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 settings
 │   │   │   │   ├── 📄 SettingGeneral.ts
 │   │   │   │   └── 📄 SettingGeneralRepository.ts
+│   │   │   ├── 📁 shipping
+│   │   │   │   ├── 📄 DeliveryTimeSlotRepository.ts
+│   │   │   │   └── 📄 ShippingZoneRepository.ts
 │   │   │   ├── 📁 storage
 │   │   │   │   └── 📄 FileStorage.ts
 │   │   │   └── 📁 users
@@ -373,10 +382,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 db
 │   │   │   │   └── 📁 sequelize
 │   │   │   │       ├── 📁 models
+│   │   │   │       │   ├── 📄 BranchDeliverySlotCapacityModel.ts
+│   │   │   │       │   ├── 📄 BranchDeliveryTimeSlotModel.ts
 │   │   │   │       │   ├── 📄 BranchModel.ts
+│   │   │   │       │   ├── 📄 BranchServiceAreaModel.ts
 │   │   │   │       │   ├── 📄 CartItemModel.ts
 │   │   │   │       │   ├── 📄 CartModel.ts
 │   │   │   │       │   ├── 📄 DeliveryStatusHistoryModel.ts
+│   │   │   │       │   ├── 📄 DeliveryTimeSlotModel.ts
 │   │   │   │       │   ├── 📄 ForgotPasswordModel.ts
 │   │   │   │       │   ├── 📄 InventoryStockModel.ts
 │   │   │   │       │   ├── 📄 InventoryTransactionModel.ts
@@ -397,6 +410,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 ProductVariantValueModel.ts
 │   │   │   │       │   ├── 📄 RoleModel.ts
 │   │   │   │       │   ├── 📄 SettingGeneralModel.ts
+│   │   │   │       │   ├── 📄 ShippingZoneModel.ts
 │   │   │   │       │   ├── 📄 UserBranchModel.ts
 │   │   │   │       │   └── 📄 UserModel.ts
 │   │   │   │       └── 📄 index.ts
@@ -405,6 +419,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 repositories
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
+│   │   │   │   ├── 📄 SequelizeDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
 │   │   │   │   ├── 📄 SequelizeOriginRepository.ts
@@ -415,6 +430,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeReviewRepository.ts
 │   │   │   │   ├── 📄 SequelizeRoleRepository.ts
 │   │   │   │   ├── 📄 SequelizeSettingGeneralRepository.ts
+│   │   │   │   ├── 📄 SequelizeShippingZoneRepository.ts
 │   │   │   │   └── 📄 SequelizeUserRepository.ts
 │   │   │   └── 📁 storage
 │   │   │       ├── 📄 CloudinaryStorage.ts
@@ -619,7 +635,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 api
 │   │   │   │   ├── 📄 categoriesClient.ts
 │   │   │   │   ├── 📄 dashboardOrdersService.ts
-│   │   │   │   └── 📄 dashboardProductService.ts
+│   │   │   │   ├── 📄 dashboardProductService.ts
+│   │   │   │   └── 📄 ordersClient.ts
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types
 │   │   │   ├── 📄 inventory.ts

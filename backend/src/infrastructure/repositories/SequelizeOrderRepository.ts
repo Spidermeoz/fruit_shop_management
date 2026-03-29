@@ -34,6 +34,21 @@ export class SequelizeOrderRepository implements OrderRepository {
       userInfo: row.user_info,
       branchId: Number(row.branch_id),
       fulfillmentType: row.fulfillment_type,
+      deliveryType: row.delivery_type ?? "standard",
+      deliveryDate: row.delivery_date ?? null,
+      deliveryTimeSlotId:
+        row.delivery_time_slot_id !== null &&
+        row.delivery_time_slot_id !== undefined
+          ? Number(row.delivery_time_slot_id)
+          : null,
+      deliveryTimeSlotLabel: row.delivery_time_slot_label ?? null,
+      shippingZoneId:
+        row.shipping_zone_id !== null && row.shipping_zone_id !== undefined
+          ? Number(row.shipping_zone_id)
+          : null,
+      shippingZoneCode: row.shipping_zone_code ?? null,
+      shippingZoneName: row.shipping_zone_name ?? null,
+      deliveryNote: row.delivery_note ?? null,
       branch: row.branch
         ? {
             id: Number(row.branch.id),
@@ -87,7 +102,16 @@ export class SequelizeOrderRepository implements OrderRepository {
           discount_amount: data.discountAmount,
           branch_id: data.branchId,
           fulfillment_type: data.fulfillmentType,
+          delivery_type: data.deliveryType ?? "standard",
+          delivery_date: data.deliveryDate ?? null,
+          delivery_time_slot_id: data.deliveryTimeSlotId ?? null,
+          delivery_time_slot_label: data.deliveryTimeSlotLabel ?? null,
+          shipping_zone_id: data.shippingZoneId ?? null,
+          shipping_zone_code: data.shippingZoneCode ?? null,
+          shipping_zone_name: data.shippingZoneName ?? null,
+          delivery_note: data.deliveryNote ?? null,
           total_price: data.totalPrice,
+          final_price: data.finalPrice,
           tracking_token: crypto.randomUUID(),
           inventory_applied: 0,
           user_info: data.userInfo,
@@ -159,6 +183,14 @@ export class SequelizeOrderRepository implements OrderRepository {
             as: "branch",
             attributes: ["id", "name", "code"],
           },
+          {
+            model: this.models.DeliveryTimeSlot,
+            as: "deliveryTimeSlot",
+          },
+          {
+            model: this.models.ShippingZone,
+            as: "shippingZone",
+          },
         ],
         transaction: t,
       });
@@ -195,6 +227,14 @@ export class SequelizeOrderRepository implements OrderRepository {
           as: "branch",
           attributes: ["id", "name", "code"],
         },
+        {
+          model: this.models.DeliveryTimeSlot,
+          as: "deliveryTimeSlot",
+        },
+        {
+          model: this.models.ShippingZone,
+          as: "shippingZone",
+        },
       ],
       transaction,
     });
@@ -226,6 +266,14 @@ export class SequelizeOrderRepository implements OrderRepository {
           model: this.models.Branch,
           as: "branch",
           attributes: ["id", "name", "code"],
+        },
+        {
+          model: this.models.DeliveryTimeSlot,
+          as: "deliveryTimeSlot",
+        },
+        {
+          model: this.models.ShippingZone,
+          as: "shippingZone",
         },
       ],
       order: [["created_at", "DESC"]],
@@ -288,6 +336,14 @@ export class SequelizeOrderRepository implements OrderRepository {
           model: this.models.Branch,
           as: "branch",
           attributes: ["id", "name", "code"],
+        },
+        {
+          model: this.models.DeliveryTimeSlot,
+          as: "deliveryTimeSlot",
+        },
+        {
+          model: this.models.ShippingZone,
+          as: "shippingZone",
         },
       ],
       order: [["created_at", "DESC"]],

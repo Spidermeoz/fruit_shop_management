@@ -1,4 +1,3 @@
-// src/domain/orders/Order.ts
 import type { OrderProps } from "./types";
 
 export class Order {
@@ -46,6 +45,38 @@ export class Order {
 
   get fulfillmentType() {
     return this.props.fulfillmentType;
+  }
+
+  get deliveryType() {
+    return this.props.deliveryType ?? "standard";
+  }
+
+  get deliveryDate() {
+    return this.props.deliveryDate ?? null;
+  }
+
+  get deliveryTimeSlotId() {
+    return this.props.deliveryTimeSlotId ?? null;
+  }
+
+  get deliveryTimeSlotLabel() {
+    return this.props.deliveryTimeSlotLabel ?? null;
+  }
+
+  get shippingZoneId() {
+    return this.props.shippingZoneId ?? null;
+  }
+
+  get shippingZoneCode() {
+    return this.props.shippingZoneCode ?? null;
+  }
+
+  get shippingZoneName() {
+    return this.props.shippingZoneName ?? null;
+  }
+
+  get deliveryNote() {
+    return this.props.deliveryNote ?? null;
   }
 
   get branch() {

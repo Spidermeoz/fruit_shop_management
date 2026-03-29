@@ -5,6 +5,12 @@ import { useCart } from "../../../context/CartContext";
 import { http } from "../../../services/http";
 import { useToast } from "../../../context/ToastContext";
 import {
+  checkoutOrder,
+  getCheckoutQuote,
+  getClientBranches,
+} from "../../../services/api/ordersClient";
+import type { CheckoutQuote, DeliverySlotSummary } from "../../../types/orders";
+import {
   User,
   Phone,
   Mail,
@@ -118,6 +124,22 @@ const CheckoutPage: React.FC = () => {
   );
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
 
+  const [deliveryDate, setDeliveryDate] = useState<string>("");
+  const [deliveryTimeSlotId, setDeliveryTimeSlotId] = useState<number | null>(
+    null,
+  );
+  const [deliveryType] = useState<"standard" | "same_day" | "scheduled">(
+    "scheduled",
+  );
+
+  const [quote, setQuote] = useState<CheckoutQuote | any>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteError, setQuoteError] = useState<string>("");
+
+  const [availableSlots, setAvailableSlots] = useState<DeliverySlotSummary[]>(
+    [],
+  );
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [newOrderId, setNewOrderId] = useState<string | null>(null);
 
@@ -178,37 +200,29 @@ const CheckoutPage: React.FC = () => {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await http(
-          "GET",
-          "/api/v1/client/orders/branches",
-        );
+        const rows = await getClientBranches();
 
-        if (res?.success) {
-          const rows = Array.isArray(res.data) ? res.data : [];
-          const mapped = rows.map((b: any) => ({
-            id: Number(b.id),
-            name: b.name,
-            code: b.code ?? null,
-            status: b.status ?? null,
-            supportsPickup: !!b.supportsPickup,
-            supportsDelivery: !!b.supportsDelivery,
-            addressLine1: b.addressLine1 ?? null,
-            district: b.district ?? null,
-            province: b.province ?? null,
-          }));
+        const mapped = rows.map((b: any) => ({
+          id: Number(b.id),
+          name: b.name,
+          code: b.code ?? null,
+          status: b.status ?? null,
+          supportsPickup: !!b.supportsPickup,
+          supportsDelivery: !!b.supportsDelivery,
+          addressLine1: b.addressLine1 ?? null,
+          district: b.district ?? null,
+          province: b.province ?? null,
+        }));
 
-          setBranches(mapped);
+        setBranches(mapped);
 
-          const firstDelivery =
-            mapped.find((b: Branch) => b.supportsDelivery) ?? mapped[0] ?? null;
-          const firstPickup =
-            mapped.find((b: Branch) => b.supportsPickup) ?? mapped[0] ?? null;
+        const firstPickup =
+          mapped.find((b: Branch) => b.supportsPickup) ?? mapped[0] ?? null;
 
-          if (fulfillmentType === "delivery") {
-            setSelectedBranchId(firstDelivery?.id ?? null);
-          } else {
-            setSelectedBranchId(firstPickup?.id ?? null);
-          }
+        if (fulfillmentType === "pickup") {
+          setSelectedBranchId(firstPickup?.id ?? null);
+        } else {
+          setSelectedBranchId(null);
         }
       } catch (err) {
         console.error("Load branches failed", err);
@@ -218,28 +232,37 @@ const CheckoutPage: React.FC = () => {
     };
 
     fetchBranches();
-  }, []);
+  }, [fulfillmentType]);
 
   useEffect(() => {
     if (!branches.length) return;
 
-    const available =
-      fulfillmentType === "pickup"
-        ? branches.filter((b) => b.supportsPickup)
-        : branches.filter((b) => b.supportsDelivery);
+    if (fulfillmentType === "pickup") {
+      const pickupBranches = branches.filter((b) => b.supportsPickup);
 
-    if (!available.length) {
-      setSelectedBranchId(null);
+      if (!pickupBranches.length) {
+        setSelectedBranchId(null);
+        return;
+      }
+
+      if (
+        !selectedBranchId ||
+        !pickupBranches.some((b) => b.id === selectedBranchId)
+      ) {
+        setSelectedBranchId(pickupBranches[0].id);
+      }
+
       return;
     }
 
+    // delivery: không auto chọn branch
     if (
-      !selectedBranchId ||
-      !available.some((b) => b.id === selectedBranchId)
+      selectedBranchId &&
+      !branches.some((b) => b.id === selectedBranchId && b.supportsDelivery)
     ) {
-      setSelectedBranchId(available[0].id);
+      setSelectedBranchId(null);
     }
-  }, [fulfillmentType, branches]);
+  }, [fulfillmentType, branches, selectedBranchId]);
 
   const visibleAddresses = showAllAddresses
     ? savedAddresses
@@ -301,21 +324,28 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const checkoutItems = cartItems.filter((item) => {
-    if (!item?.productVariantId) return false;
-    return selectedItems.includes(item.productVariantId);
-  });
+  const checkoutItems = useMemo(() => {
+    return cartItems.filter((item) => {
+      if (!item?.productVariantId) return false;
+      return selectedItems.includes(item.productVariantId);
+    });
+  }, [cartItems, selectedItems]);
 
-  const invalidCheckoutItems = checkoutItems.filter((item) => {
-    const availableStock = getCheckoutItemAvailableStock(item);
+  const checkoutItemIdsKey = useMemo(
+    () => checkoutItems.map((x) => x.productVariantId).join(","),
+    [checkoutItems],
+  );
 
-    if (!item.productVariantId) return true;
-    if (item.quantity <= 0) return true;
-    if (availableStock <= 0) return true;
-    if (item.quantity > availableStock) return true;
-
-    return false;
-  });
+  const invalidCheckoutItems = useMemo(() => {
+    return checkoutItems.filter((item) => {
+      const availableStock = getCheckoutItemAvailableStock(item);
+      if (!item.productVariantId) return true;
+      if (item.quantity <= 0) return true;
+      if (availableStock <= 0) return true;
+      if (item.quantity > availableStock) return true;
+      return false;
+    });
+  }, [checkoutItems]);
 
   const hasInvalidCheckoutItems = invalidCheckoutItems.length > 0;
 
@@ -325,17 +355,135 @@ const CheckoutPage: React.FC = () => {
     return 0;
   };
 
-  const subtotal = checkoutItems.reduce(
-    (acc, item) => acc + getEffectivePrice(item) * item.quantity,
-    0,
-  );
+  const subtotal = useMemo(() => {
+    return checkoutItems.reduce(
+      (acc, item) => acc + getEffectivePrice(item) * item.quantity,
+      0,
+    );
+  }, [checkoutItems]);
 
-  const shippingFee = useMemo(() => {
-    if (!checkoutItems.length) return 0;
-    return fulfillmentType === "pickup" ? 0 : 20000;
-  }, [checkoutItems.length, fulfillmentType]);
+  const shippingFee = Number(quote?.shippingFee ?? 0);
+  const discountAmount = Number(quote?.discountAmount ?? 0);
+  const total = Number(quote?.finalPrice ?? subtotal);
 
-  const total = subtotal + shippingFee;
+  const selectedBranch = useMemo(() => {
+    return branches.find((b) => b.id === selectedBranchId) || null;
+  }, [branches, selectedBranchId]);
+
+  const buildQuotePayload = () => ({
+    productVariantIds: checkoutItems.map((item) => item.productVariantId),
+    branchId: selectedBranchId ?? null,
+    fulfillmentType,
+    deliveryType,
+    deliveryDate: fulfillmentType === "delivery" ? deliveryDate || null : null,
+    deliveryTimeSlotId:
+      fulfillmentType === "delivery" ? (deliveryTimeSlotId ?? null) : null,
+    address:
+      fulfillmentType === "pickup"
+        ? {
+            fullName: orderInfo.name,
+            phone: orderInfo.phone,
+            email: orderInfo.email,
+            addressLine1: selectedBranch?.addressLine1 || "Nhận tại chi nhánh",
+            addressLine2: "",
+            ward: "",
+            district: selectedBranch?.district || "",
+            province: selectedBranch?.province || "",
+            postalCode: "",
+            notes: orderInfo.note,
+          }
+        : {
+            fullName: orderInfo.name,
+            phone: orderInfo.phone,
+            email: orderInfo.email,
+            addressLine1: orderInfo.address,
+            addressLine2: "",
+            ward: orderInfo.ward,
+            district: orderInfo.district,
+            province: orderInfo.city,
+            postalCode: "",
+            notes: orderInfo.note,
+          },
+  });
+
+  useEffect(() => {
+    const runQuote = async () => {
+      if (!checkoutItems.length) {
+        setQuote(null);
+        setAvailableSlots([]);
+        setQuoteError("");
+        return;
+      }
+
+      if (fulfillmentType === "pickup" && !selectedBranchId) {
+        setQuote(null);
+        setAvailableSlots([]);
+        setQuoteError("");
+        return;
+      }
+
+      if (fulfillmentType === "delivery") {
+        if (!orderInfo.city || !orderInfo.district || !orderInfo.address) {
+          setQuote(null);
+          setAvailableSlots([]);
+          setQuoteError("");
+          return;
+        }
+
+        if (!deliveryDate) {
+          setQuote(null);
+          setAvailableSlots([]);
+          setQuoteError("");
+          return;
+        }
+      }
+
+      try {
+        setQuoteLoading(true);
+        setQuoteError("");
+
+        const data = await getCheckoutQuote(buildQuotePayload());
+        setQuote(data);
+        setAvailableSlots(data.availableSlots || []);
+
+        if (fulfillmentType === "delivery") {
+          if (data.selectedBranch?.id) {
+            setSelectedBranchId(Number(data.selectedBranch.id));
+          } else if (data.requiresBranchSelection && !selectedBranchId) {
+            setSelectedBranchId(null);
+          }
+        }
+
+        if (
+          deliveryTimeSlotId &&
+          !(data.availableSlots || []).some(
+            (s: any) => s.id === deliveryTimeSlotId,
+          )
+        ) {
+          setDeliveryTimeSlotId(null);
+        }
+      } catch (err: any) {
+        setQuote(null);
+        setAvailableSlots([]);
+        setQuoteError(err?.message || "Không lấy được báo giá");
+      } finally {
+        setQuoteLoading(false);
+      }
+    };
+
+    void runQuote();
+  }, [
+    checkoutItemIdsKey,
+    selectedBranchId,
+    fulfillmentType,
+    deliveryType,
+    deliveryDate,
+    deliveryTimeSlotId,
+    orderInfo.city,
+    orderInfo.district,
+    orderInfo.ward,
+    orderInfo.address,
+  ]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -383,6 +531,21 @@ const CheckoutPage: React.FC = () => {
       if (!orderInfo.address) newErrors.address = "Địa chỉ là bắt buộc";
       else if (orderInfo.address.trim().length < 5)
         newErrors.address = "Địa chỉ quá ngắn";
+
+      if (!deliveryDate) newErrors.deliveryDate = "Vui lòng chọn ngày giao";
+
+      if (fulfillmentType === "delivery" && quote?.requiresBranchSelection) {
+        newErrors.branch =
+          "Vui lòng chọn chi nhánh phù hợp cho khu vực giao hàng này";
+      }
+
+      if (!deliveryTimeSlotId) {
+        newErrors.deliveryTimeSlotId = "Vui lòng chọn khung giờ giao";
+      }
+    }
+
+    if (quoteError) {
+      newErrors.quote = quoteError;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -421,9 +584,6 @@ const CheckoutPage: React.FC = () => {
     setWards(data.wards);
   };
 
-  const selectedBranch =
-    branches.find((b) => b.id === selectedBranchId) || null;
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -459,54 +619,20 @@ const CheckoutPage: React.FC = () => {
 
     try {
       const payload = {
-        productVariantIds: checkoutItems.map((item) => item.productVariantId),
-        branchId: selectedBranchId,
-        fulfillmentType,
-        address:
-          fulfillmentType === "pickup"
-            ? {
-                fullName: orderInfo.name,
-                phone: orderInfo.phone,
-                email: orderInfo.email,
-                addressLine1:
-                  selectedBranch?.addressLine1 || "Nhận tại chi nhánh",
-                addressLine2: "",
-                ward: "",
-                district: selectedBranch?.district || "",
-                province: selectedBranch?.province || "",
-                postalCode: "",
-                notes: orderInfo.note,
-              }
-            : {
-                fullName: orderInfo.name,
-                phone: orderInfo.phone,
-                email: orderInfo.email,
-                addressLine1: orderInfo.address,
-                addressLine2: "",
-                ward: orderInfo.ward,
-                district: orderInfo.district,
-                province: orderInfo.city,
-                postalCode: "",
-                notes: orderInfo.note,
-              },
-        shippingFee,
-        discountAmount: 0,
+        ...buildQuotePayload(),
+        deliveryNote: orderInfo.note,
         paymentMethod: orderInfo.payment,
       };
 
-      const res = await http("POST", "/api/v1/client/orders/checkout", payload);
+      const data = await checkoutOrder(payload);
 
-      if (res?.success) {
-        await fetchCart();
-        setNewOrderId(String(res.data.id));
-        setShowSuccessModal(true);
-        showSuccessToast({
-          title: "Đặt hàng thành công",
-          message: "Đơn hàng của bạn đã được tạo.",
-        });
-      } else {
-        showErrorToast(res?.message || "Lỗi đặt hàng");
-      }
+      await fetchCart();
+      setNewOrderId(String(data.id));
+      setShowSuccessModal(true);
+      showSuccessToast({
+        title: "Đặt hàng thành công",
+        message: "Đơn hàng của bạn đã được tạo.",
+      });
     } catch (err: any) {
       showErrorToast(err.message || "Lỗi không xác định");
     } finally {
@@ -516,9 +642,9 @@ const CheckoutPage: React.FC = () => {
   };
 
   const stepIcons = [
-    <MapPin className="w-5 h-5" />,
-    <CreditCard className="w-5 h-5" />,
-    <Check className="w-5 h-5" />,
+    <MapPin key="map" className="w-5 h-5" />,
+    <CreditCard key="card" className="w-5 h-5" />,
+    <Check key="check" className="w-5 h-5" />,
   ];
 
   const paymentIcons = {
@@ -530,7 +656,11 @@ const CheckoutPage: React.FC = () => {
   const availableBranches =
     fulfillmentType === "pickup"
       ? branches.filter((b) => b.supportsPickup)
-      : branches.filter((b) => b.supportsDelivery);
+      : quote?.candidateBranches?.length
+        ? branches.filter((b) =>
+            quote.candidateBranches.some((x: any) => Number(x.id) === b.id),
+          )
+        : branches.filter((b) => b.supportsDelivery);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#fcfdfc]">
@@ -704,6 +834,14 @@ const CheckoutPage: React.FC = () => {
                             {errors.branch}
                           </p>
                         )}
+
+                        {fulfillmentType === "delivery" &&
+                          quote?.requiresBranchSelection && (
+                            <div className="mt-3 p-4 rounded-2xl border border-amber-200 bg-amber-50 text-sm text-amber-800">
+                              Địa chỉ này có nhiều chi nhánh có thể phục vụ. Vui
+                              lòng chọn chi nhánh phù hợp để tiếp tục.
+                            </div>
+                          )}
 
                         {selectedBranch && (
                           <div className="mt-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-sm text-slate-600">
@@ -1007,6 +1145,82 @@ const CheckoutPage: React.FC = () => {
                               </p>
                             )}
                           </div>
+
+                          {fulfillmentType === "delivery" && (
+                            <div className="grid md:grid-cols-2 gap-6">
+                              <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 ml-1">
+                                  Ngày giao hàng{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                  type="date"
+                                  value={deliveryDate}
+                                  min={new Date().toISOString().split("T")[0]}
+                                  onChange={(e) => {
+                                    setDeliveryDate(e.target.value);
+                                    setDeliveryTimeSlotId(null);
+                                  }}
+                                  className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:bg-white transition-all font-medium ${
+                                    errors.deliveryDate
+                                      ? "border-red-400"
+                                      : "border-slate-100 focus:border-green-500"
+                                  }`}
+                                />
+                                {errors.deliveryDate && (
+                                  <p className="text-xs text-red-500 font-bold ml-1">
+                                    {errors.deliveryDate}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-700 ml-1">
+                                  Khung giờ giao hàng{" "}
+                                  <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                  value={deliveryTimeSlotId ?? ""}
+                                  onChange={(e) =>
+                                    setDeliveryTimeSlotId(
+                                      e.target.value
+                                        ? Number(e.target.value)
+                                        : null,
+                                    )
+                                  }
+                                  disabled={!deliveryDate || quoteLoading}
+                                  className={`w-full px-5 py-4 bg-slate-50 border rounded-2xl focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:bg-white transition-all font-medium appearance-none ${
+                                    errors.deliveryTimeSlotId
+                                      ? "border-red-400"
+                                      : "border-slate-100 focus:border-green-500"
+                                  }`}
+                                >
+                                  <option value="">
+                                    {quoteLoading
+                                      ? "Đang tải khung giờ..."
+                                      : "Chọn khung giờ"}
+                                  </option>
+                                  {availableSlots.map((slot) => (
+                                    <option
+                                      key={slot.id}
+                                      value={slot.id}
+                                      disabled={!slot.isAvailable}
+                                    >
+                                      {slot.label}
+                                      {!slot.isAvailable && slot.reason
+                                        ? ` - ${slot.reason}`
+                                        : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                {errors.deliveryTimeSlotId && (
+                                  <p className="text-xs text-red-500 font-bold ml-1">
+                                    {errors.deliveryTimeSlotId}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5">
@@ -1305,7 +1519,12 @@ const CheckoutPage: React.FC = () => {
                           isProcessing ||
                           !checkoutItems.length ||
                           hasInvalidCheckoutItems ||
-                          !selectedBranchId
+                          (fulfillmentType === "pickup" && !selectedBranchId) ||
+                          (fulfillmentType === "delivery" &&
+                            (!!quoteError ||
+                              !quote ||
+                              !!quote.requiresBranchSelection ||
+                              !selectedBranchId))
                         }
                         className="bg-green-600 text-white px-10 py-4 rounded-2xl font-bold text-lg hover:bg-green-700 transition-all duration-300 flex items-center gap-3 active:scale-95 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
                       >
@@ -1362,6 +1581,13 @@ const CheckoutPage: React.FC = () => {
                       <p className="mt-1 font-bold text-slate-900">
                         {selectedBranch?.name || "Chưa chọn"}
                       </p>
+                      {fulfillmentType === "delivery" &&
+                        quote?.selectedBranch && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Chi nhánh phục vụ được xác định theo khu vực giao
+                            hàng
+                          </p>
+                        )}
                     </div>
                   </div>
                 </div>
@@ -1404,6 +1630,27 @@ const CheckoutPage: React.FC = () => {
                   ))}
                 </div>
 
+                {quoteLoading && (
+                  <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500 font-medium">
+                    Đang tính phí vận chuyển...
+                  </div>
+                )}
+
+                {!!quoteError && (
+                  <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600 font-medium">
+                    {quoteError}
+                  </div>
+                )}
+
+                {quote?.shippingZone && (
+                  <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    <p className="font-bold text-slate-900">
+                      Khu vực giao hàng
+                    </p>
+                    <p className="mt-1">{quote.shippingZone.name}</p>
+                  </div>
+                )}
+
                 <div className="border-t border-slate-100 pt-5 space-y-3">
                   <div className="flex justify-between text-sm text-slate-600">
                     <span>Tạm tính</span>
@@ -1411,6 +1658,15 @@ const CheckoutPage: React.FC = () => {
                       {subtotal.toLocaleString()} đ
                     </span>
                   </div>
+
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-sm text-slate-600">
+                      <span>Giảm giá</span>
+                      <span className="font-bold text-slate-900">
+                        -{discountAmount.toLocaleString()} đ
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between text-sm text-slate-600">
                     <span>Phí vận chuyển</span>
@@ -1445,8 +1701,8 @@ const CheckoutPage: React.FC = () => {
               </h2>
 
               <p className="text-slate-500 font-medium mb-8 leading-relaxed">
-                Cảm ơn bạn đã tin tưởng FreshFruits. Đơn hàng của bạn đang được
-                xử lý và sẽ sớm giao đến tay bạn trong thời gian nhanh nhất.
+                Cảm ơn bạn đã tin tưởng. Đơn hàng của bạn đang được xử lý và sẽ
+                sớm giao đến tay bạn trong thời gian nhanh nhất.
               </p>
 
               <div className="flex flex-col gap-3">

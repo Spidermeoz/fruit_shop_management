@@ -103,8 +103,10 @@ const CartPage: React.FC = () => {
     0,
   );
 
-  const shippingFee = selectedItems.length > 0 ? 20000 : 0;
-  const total = subtotal + shippingFee;
+  const estimatedShippingText =
+    selectedItems.length > 0 ? "Tính ở bước thanh toán" : "Chưa chọn sản phẩm";
+
+  const total = subtotal;
 
   // Tăng/giảm số lượng
   const handleUpdateQty = (productVariantId: number, delta: number) => {
@@ -484,9 +486,9 @@ const CartPage: React.FC = () => {
                           </div>
 
                           <div className="flex justify-between items-center text-slate-600 font-medium">
-                            <span>Phí giao hàng dự kiến</span>
+                            <span>Phí giao hàng</span>
                             <span className="font-bold text-slate-900">
-                              {shippingFee.toLocaleString()} đ
+                              {estimatedShippingText}
                             </span>
                           </div>
 

@@ -1,5 +1,10 @@
 import type { Order } from "./Order";
-import type { FulfillmentType, OrderStatus, PaymentStatus } from "./types";
+import type {
+  DeliveryType,
+  FulfillmentType,
+  OrderStatus,
+  PaymentStatus,
+} from "./types";
 
 export interface OrderListFilter {
   page?: number;
@@ -37,12 +42,20 @@ export interface OrderRepository {
       userId: number;
       branchId: number;
       fulfillmentType: FulfillmentType;
+      deliveryType?: DeliveryType;
+      deliveryDate?: string | null;
+      deliveryTimeSlotId?: number | null;
+      deliveryTimeSlotLabel?: string | null;
+      shippingZoneId?: number | null;
+      shippingZoneCode?: string | null;
+      shippingZoneName?: string | null;
+      deliveryNote?: string | null;
       items: OrderCreateItemInput[];
       address: any;
       shippingFee: number;
       discountAmount: number;
       totalPrice: number;
-      finalPrice: number;
+      finalPrice?: number;
       userInfo: any;
     },
     transaction?: any,

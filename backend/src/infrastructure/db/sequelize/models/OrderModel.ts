@@ -9,6 +9,14 @@ type OrderAttributes = {
   status: string;
   payment_status: string;
   fulfillment_type: string;
+  delivery_type: string;
+  delivery_date: string | null;
+  delivery_time_slot_id: number | null;
+  delivery_time_slot_label: string | null;
+  shipping_zone_id: number | null;
+  shipping_zone_code: string | null;
+  shipping_zone_name: string | null;
+  delivery_note: string | null;
   shipping_fee: string;
   discount_amount: string;
   total_price: string;
@@ -31,6 +39,14 @@ type OrderCreationAttributes = Optional<
   | "final_price"
   | "inventory_applied"
   | "user_info"
+  | "delivery_type"
+  | "delivery_date"
+  | "delivery_time_slot_id"
+  | "delivery_time_slot_label"
+  | "shipping_zone_id"
+  | "shipping_zone_code"
+  | "shipping_zone_name"
+  | "delivery_note"
   | "deleted"
   | "deleted_at"
   | "created_at"
@@ -55,6 +71,14 @@ class OrderModel
   declare tracking_token: string;
   declare inventory_applied: number;
   declare user_info: object | null;
+  declare delivery_type: string;
+  declare delivery_date: string | null;
+  declare delivery_time_slot_id: number | null;
+  declare delivery_time_slot_label: string | null;
+  declare shipping_zone_id: number | null;
+  declare shipping_zone_code: string | null;
+  declare shipping_zone_name: string | null;
+  declare delivery_note: string | null;
   declare deleted: number;
   declare deleted_at: Date | null;
   declare created_at: Date;
@@ -95,6 +119,46 @@ OrderModel.init(
       type: DataTypes.STRING(50),
       allowNull: false,
       defaultValue: "delivery",
+    },
+    delivery_type: {
+      type: DataTypes.STRING(50),
+      allowNull: false,
+      defaultValue: "standard",
+    },
+    delivery_date: {
+      type: DataTypes.DATEONLY,
+      allowNull: true,
+      defaultValue: null,
+    },
+    delivery_time_slot_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+      defaultValue: null,
+    },
+    delivery_time_slot_label: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+    },
+    shipping_zone_id: {
+      type: DataTypes.BIGINT.UNSIGNED,
+      allowNull: true,
+      defaultValue: null,
+    },
+    shipping_zone_code: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
+    },
+    shipping_zone_name: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: null,
+    },
+    delivery_note: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null,
     },
     shipping_fee: {
       type: DataTypes.DECIMAL(12, 2),

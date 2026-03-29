@@ -3,6 +3,7 @@ import { Request, Response, NextFunction } from "express";
 export const makeClientOrdersController = (uc: {
   listMyOrderAddresses: any;
   createFromCart: any;
+  quoteCheckout: any;
   myOrders: any;
   myOrderDetail: any;
   cancelMyOrder: any;
@@ -26,7 +27,21 @@ export const makeClientOrdersController = (uc: {
         next(e);
       }
     },
-    
+
+    quote: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user!.id;
+        const result = await uc.quoteCheckout.execute(userId, req.body);
+
+        res.json({
+          success: true,
+          data: result,
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
     checkout: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const userId = req.user!.id;

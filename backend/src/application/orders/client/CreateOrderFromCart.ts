@@ -1,9 +1,10 @@
 export class CreateOrderFromCart {
   constructor(
-    private orderRepo: any,
-    private cartRepo: any,
-    private productRepo: any,
-    private inventoryRepo: any,
+    private readonly orderRepo: any,
+    private readonly cartRepo: any,
+    private readonly productRepo: any,
+    private readonly inventoryRepo: any,
+    private readonly calculateShippingQuoteService: any,
   ) {}
 
   async execute(userId: number, payload: any) {
@@ -12,26 +13,75 @@ export class CreateOrderFromCart {
       address,
       branchId: rawBranchId,
       fulfillmentType: rawFulfillmentType,
-      shippingFee: rawShippingFee,
-      discountAmount: rawDiscountAmount,
+      deliveryType: rawDeliveryType,
+      deliveryDate: rawDeliveryDate,
+      deliveryTimeSlotId: rawDeliveryTimeSlotId,
+      deliveryNote: rawDeliveryNote,
       userInfo,
+      paymentMethod,
     } = payload ?? {};
 
-    const branchId = Number(rawBranchId);
+    const requestedBranchId =
+      rawBranchId !== undefined && rawBranchId !== null
+        ? Number(rawBranchId)
+        : null;
+
     const fulfillmentType = String(
       rawFulfillmentType || "delivery",
     ).toLowerCase();
+
+    const deliveryType = String(rawDeliveryType || "scheduled").toLowerCase();
+
+    const deliveryDate =
+      rawDeliveryDate !== undefined && rawDeliveryDate !== null
+        ? String(rawDeliveryDate)
+        : null;
+
+    const deliveryTimeSlotId =
+      rawDeliveryTimeSlotId !== undefined && rawDeliveryTimeSlotId !== null
+        ? Number(rawDeliveryTimeSlotId)
+        : null;
+
+    const deliveryNote =
+      rawDeliveryNote !== undefined && rawDeliveryNote !== null
+        ? String(rawDeliveryNote)
+        : null;
 
     if (!Array.isArray(productVariantIds) || productVariantIds.length === 0) {
       throw new Error("Bạn chưa chọn sản phẩm để thanh toán");
     }
 
-    if (!Number.isFinite(branchId) || branchId <= 0) {
-      throw new Error("Bạn chưa chọn chi nhánh");
-    }
-
     if (!["pickup", "delivery"].includes(fulfillmentType)) {
       throw new Error("Hình thức nhận hàng không hợp lệ");
+    }
+
+    if (!["standard", "same_day", "scheduled"].includes(deliveryType)) {
+      throw new Error("Loại giao hàng không hợp lệ");
+    }
+
+    const quote = await this.calculateShippingQuoteService.execute({
+      userId,
+      productVariantIds,
+      branchId: requestedBranchId,
+      fulfillmentType,
+      deliveryType,
+      deliveryDate,
+      deliveryTimeSlotId,
+      address: address ?? null,
+    });
+
+    if (quote.requiresBranchSelection) {
+      throw new Error("Vui lòng chọn chi nhánh phù hợp để giao hàng");
+    }
+
+    const resolvedBranchId =
+      quote.selectedBranch?.id !== undefined &&
+      quote.selectedBranch?.id !== null
+        ? Number(quote.selectedBranch.id)
+        : requestedBranchId;
+
+    if (!resolvedBranchId || resolvedBranchId <= 0) {
+      throw new Error("Bạn chưa chọn chi nhánh");
     }
 
     const cartItems = await this.cartRepo.listSelectedItems(
@@ -78,7 +128,7 @@ export class CreateOrderFromCart {
         const availableStock =
           typeof this.inventoryRepo.getAvailableStock === "function"
             ? await this.inventoryRepo.getAvailableStock(
-                branchId,
+                resolvedBranchId,
                 item.productVariantId,
                 fallbackStock,
                 transaction,
@@ -94,24 +144,32 @@ export class CreateOrderFromCart {
         }
       }
 
-      const subtotal = cartItems.reduce((sum: number, item: any) => {
-        const price = Number(item.variant?.price ?? item.price ?? 0);
-        return sum + price * Number(item.quantity ?? 0);
-      }, 0);
-
-      const shippingFee = Number(rawShippingFee ?? 0);
-      const discountAmount = Number(rawDiscountAmount ?? 0);
-      const finalPrice = subtotal + shippingFee - discountAmount;
-
-      if (finalPrice < 0) {
-        throw new Error("Tổng tiền đơn hàng không hợp lệ");
-      }
-
       const order = await this.orderRepo.create(
         {
           userId,
-          branchId,
+          branchId: resolvedBranchId,
           fulfillmentType,
+          deliveryType,
+          deliveryDate: fulfillmentType === "delivery" ? deliveryDate : null,
+          deliveryTimeSlotId:
+            fulfillmentType === "delivery" ? deliveryTimeSlotId : null,
+          deliveryTimeSlotLabel:
+            fulfillmentType === "delivery"
+              ? (quote.selectedSlot?.label ?? null)
+              : null,
+          shippingZoneId:
+            fulfillmentType === "delivery"
+              ? (quote.shippingZone?.id ?? null)
+              : null,
+          shippingZoneCode:
+            fulfillmentType === "delivery"
+              ? (quote.shippingZone?.code ?? null)
+              : null,
+          shippingZoneName:
+            fulfillmentType === "delivery"
+              ? (quote.shippingZone?.name ?? null)
+              : null,
+          deliveryNote: deliveryNote ?? null,
           items: cartItems.map((i: any) => ({
             productId: i.productId ?? null,
             productVariantId: i.productVariantId ?? null,
@@ -126,18 +184,41 @@ export class CreateOrderFromCart {
               ? i.variant.optionValues.map((x: any) => x.value).join(" / ")
               : (i.optionSummary ?? null),
           })),
-          address,
-          shippingFee,
-          discountAmount,
-          totalPrice: subtotal,
-          userInfo: userInfo ?? null,
+          address:
+            fulfillmentType === "pickup"
+              ? {
+                  fullName:
+                    address?.fullName ??
+                    userInfo?.name ??
+                    userInfo?.fullName ??
+                    null,
+                  phone: address?.phone ?? userInfo?.phone ?? null,
+                  email: address?.email ?? userInfo?.email ?? null,
+                  addressLine1:
+                    quote.selectedBranch?.addressLine1 ?? "Nhận tại chi nhánh",
+                  addressLine2: "",
+                  ward: "",
+                  district: quote.selectedBranch?.district ?? "",
+                  province: quote.selectedBranch?.province ?? "",
+                  postalCode: "",
+                  notes: deliveryNote ?? "",
+                }
+              : address,
+          shippingFee: Number(quote.shippingFee ?? 0),
+          discountAmount: Number(quote.discountAmount ?? 0),
+          totalPrice: Number(quote.subtotal ?? 0),
+          finalPrice: Number(quote.finalPrice ?? 0),
+          userInfo: {
+            ...(userInfo ?? {}),
+            paymentMethod: paymentMethod ?? null,
+          },
         },
         transaction,
       );
 
       for (const item of cartItems) {
         await this.inventoryRepo.decreaseStock(
-          branchId,
+          resolvedBranchId,
           Number(item.productVariantId),
           Number(item.quantity),
           {
@@ -165,6 +246,18 @@ export class CreateOrderFromCart {
         trackingToken: order.props.trackingToken,
         branchId: order.props.branchId,
         fulfillmentType: order.props.fulfillmentType,
+        deliveryType: order.props.deliveryType ?? "standard",
+        deliveryDate: order.props.deliveryDate ?? null,
+        deliveryTimeSlotId: order.props.deliveryTimeSlotId ?? null,
+        deliveryTimeSlotLabel: order.props.deliveryTimeSlotLabel ?? null,
+        shippingZoneId: order.props.shippingZoneId ?? null,
+        shippingZoneCode: order.props.shippingZoneCode ?? null,
+        shippingZoneName: order.props.shippingZoneName ?? null,
+        deliveryNote: order.props.deliveryNote ?? null,
+        shippingFee: Number(order.props.shippingFee ?? 0),
+        discountAmount: Number(order.props.discountAmount ?? 0),
+        totalPrice: Number(order.props.totalPrice ?? 0),
+        finalPrice: Number(order.props.finalPrice ?? 0),
       };
     } catch (err) {
       await transaction.rollback();

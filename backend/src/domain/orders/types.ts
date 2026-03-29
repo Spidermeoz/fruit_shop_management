@@ -14,6 +14,9 @@ export type PaymentStatus =
   | "refunded"
   | "failed";
 
+export type FulfillmentType = "pickup" | "delivery";
+export type DeliveryType = "standard" | "same_day" | "scheduled";
+
 export interface OrderAddressProps {
   fullName: string;
   phone: string;
@@ -33,15 +36,13 @@ export interface OrderItemProps {
   productTitle: string;
   variantTitle?: string | null;
   variantSku?: string | null;
-
-  // optional snapshot fields for richer variant display
   variantLabel?: string | null;
   optionSummary?: string | null;
-
   price: number;
   quantity: number;
   thumbnail?: string | null;
 }
+
 export interface DeliveryHistoryProps {
   id: number;
   status: string;
@@ -49,8 +50,6 @@ export interface DeliveryHistoryProps {
   note?: string;
   createdAt: Date;
 }
-
-export type FulfillmentType = "pickup" | "delivery";
 
 export interface OrderBranchProps {
   id: number;
@@ -63,6 +62,18 @@ export interface OrderProps {
   userId: number;
   branchId: number;
   fulfillmentType: FulfillmentType;
+  deliveryType?: DeliveryType;
+
+  deliveryDate?: string | null;
+  deliveryTimeSlotId?: number | null;
+  deliveryTimeSlotLabel?: string | null;
+
+  shippingZoneId?: number | null;
+  shippingZoneCode?: string | null;
+  shippingZoneName?: string | null;
+
+  deliveryNote?: string | null;
+
   code: string;
   status: OrderStatus;
   paymentStatus: PaymentStatus;

@@ -3,11 +3,12 @@ import type { ClientOrdersController } from "../../controllers/client/ClientOrde
 
 export const clientOrdersRoutes = (
   controller: ClientOrdersController,
-  auth: any
+  auth: any,
 ) => {
   const r = Router();
 
   r.get("/branches", auth, controller.branches);
+  r.post("/quote", auth, controller.quote);
   r.post("/checkout", auth, controller.checkout);
   r.get("/", auth, controller.list);
   r.get("/addresses", auth, controller.addresses);
