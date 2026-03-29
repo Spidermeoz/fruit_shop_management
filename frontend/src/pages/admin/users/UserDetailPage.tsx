@@ -120,6 +120,8 @@ const UserDetailPage: React.FC = () => {
     branches.find((b) => b.id === user.primary_branch_id) ??
     null;
 
+  const isInternalUser = !!user.role;
+
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-6">
@@ -184,7 +186,7 @@ const UserDetailPage: React.FC = () => {
                   <span className="font-medium text-gray-600 dark:text-gray-400">
                     Vai trò:
                   </span>{" "}
-                  {user.role?.title || "—"}
+                  {user.role?.title || "Customer"}
                 </p>
                 <p className="flex items-center gap-2">
                   <span className="font-medium text-gray-600 dark:text-gray-400">
@@ -204,12 +206,20 @@ const UserDetailPage: React.FC = () => {
 
           <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
             <h2 className="text-xl font-semibold text-gray-800 dark:text-white mb-4">
-              Phân quyền chi nhánh
+              {isInternalUser ? "Phân quyền chi nhánh" : "Phạm vi tài khoản"}
             </h2>
 
-            {branches.length === 0 ? (
+            {!isInternalUser ? (
+              <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/40">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Đây là tài khoản khách hàng nên không gắn chi nhánh cố định.
+                  Chi nhánh sẽ phát sinh theo từng đơn hàng, không phải theo tài
+                  khoản.
+                </p>
+              </div>
+            ) : branches.length === 0 ? (
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Người dùng này chưa được gán chi nhánh nào.
+                Người dùng nội bộ này chưa được gán chi nhánh nào.
               </p>
             ) : (
               <div className="space-y-3">

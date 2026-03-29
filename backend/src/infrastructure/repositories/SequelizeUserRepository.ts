@@ -16,6 +16,13 @@ type Models = {
 
 const toBool = (v: any) => v === true || v === 1 || v === "1";
 
+const normalizeBranchIds = (branchIds?: number[]) =>
+  Array.isArray(branchIds)
+    ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
+    : [];
+
+const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+
 const mapSort = (sort?: UserSort): OrderItem[] => {
   if (!sort) return [["id", "DESC"]];
   const colMap: Record<string, string> = {
@@ -119,9 +126,82 @@ export class SequelizeUserRepository implements UserRepository {
       ];
     }
 
+    // Tách customer / internal
+    if (filter?.userType === "internal") {
+      (where as any).role_id = { [Op.ne]: null };
+    } else if (filter?.userType === "customer") {
+      (where as any).role_id = null;
+    }
+
+    const allowedBranchIds = normalizeBranchIds(filter?.allowedBranchIds);
+    const hasBranchScope =
+      !isSuperAdminLike(filter?.viewerRoleId) &&
+      (filter?.userType === "internal" || filter?.userType === "all");
+
+    const requestedBranchId =
+      filter?.branchId !== undefined &&
+      filter?.branchId !== null &&
+      Number(filter.branchId) > 0
+        ? Number(filter.branchId)
+        : null;
+
+    const userBranchInclude =
+      this.models.UserBranch && this.models.Branch
+        ? {
+            model: this.models.UserBranch,
+            as: "userBranches",
+            required: false,
+            include: [
+              {
+                model: this.models.Branch,
+                as: "branch",
+                attributes: ["id", "name", "code", "status"],
+              },
+            ],
+          }
+        : null;
+
+    const include: any[] = [];
+    if (this.models.Role) {
+      include.push({
+        model: this.models.Role,
+        as: "role",
+        attributes: ["id", "title"],
+      });
+    }
+
+    if (userBranchInclude) {
+      // branch filter explicit
+      if (requestedBranchId && filter?.userType !== "customer") {
+        include.push({
+          ...userBranchInclude,
+          required: true,
+          where: { branch_id: requestedBranchId },
+        });
+      }
+      // actor scope on internal users
+      else if (
+        hasBranchScope &&
+        allowedBranchIds.length &&
+        filter?.userType !== "customer"
+      ) {
+        include.push({
+          ...userBranchInclude,
+          required: true,
+          where: {
+            branch_id: {
+              [Op.in]: allowedBranchIds,
+            },
+          },
+        });
+      } else {
+        include.push(userBranchInclude);
+      }
+    }
+
     const { rows, count } = await this.models.User.findAndCountAll({
       where,
-      include: this.buildIncludes(),
+      include,
       distinct: true,
       order: mapSort(filter?.sort),
       limit: filter?.limit ?? 10,

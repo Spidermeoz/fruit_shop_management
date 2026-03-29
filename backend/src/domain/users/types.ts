@@ -13,11 +13,24 @@ export type UserSortColumn =
 
 export type UserSort = { column: UserSortColumn; dir: "ASC" | "DESC" };
 
+export type UserTypeFilter = "internal" | "customer" | "all";
+
 export type ListUsersFilter = {
   q?: string;
   status?: UserStatus | string;
-  includeDeleted?: boolean; // default: false
+  includeDeleted?: boolean;
   sort?: UserSort;
-  limit?: number;           // repository có thể nhận limit/offset
+  limit?: number;
   offset?: number;
+
+  // scope/filter mới
+  userType?: UserTypeFilter;
+  branchId?: number | null;
+
+  // actor scope
+  viewerRoleId?: number | null;
+  allowedBranchIds?: number[];
+
+  // quyền toàn hệ thống hay không
+  canViewAllInternalUsers?: boolean;
 };

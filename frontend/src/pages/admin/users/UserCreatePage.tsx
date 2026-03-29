@@ -4,11 +4,12 @@ import React, {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2, GitBranch } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
+import { useAuth } from "../../../context/AuthContextAdmin";
 
 interface Role {
   id: number;
@@ -46,12 +47,19 @@ const isStaffRole = (roleId: number | "" | null | undefined) =>
 
 const UserCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const createType = (searchParams.get("type") || "internal") as
+    | "internal"
+    | "customer";
+
+  const { branches: actorBranches, user: currentUser } = useAuth();
+  const isSuperAdmin = Number(currentUser?.role_id) === 1;
 
   const [formData, setFormData] = useState<UserFormData>({
     full_name: "",
     email: "",
     password: "",
-    role_id: "",
+    role_id: createType === "customer" ? "" : "",
     phone: "",
     avatar: "",
     status: "active",
@@ -86,18 +94,29 @@ const UserCreatePage: React.FC = () => {
       }
     })();
 
-    (async () => {
-      try {
-        const res = await http<ApiList<Branch>>(
-          "GET",
-          "/api/v1/admin/branches?limit=100&status=active",
-        );
-        if (res.success && Array.isArray(res.data)) setBranches(res.data);
-      } catch (err) {
-        console.error("fetchBranches error:", err);
-      }
-    })();
-  }, []);
+    if (isSuperAdmin) {
+      (async () => {
+        try {
+          const res = await http<ApiList<Branch>>(
+            "GET",
+            "/api/v1/admin/branches?limit=100&status=active",
+          );
+          if (res.success && Array.isArray(res.data)) setBranches(res.data);
+        } catch (err) {
+          console.error("fetchBranches error:", err);
+        }
+      })();
+    } else {
+      setBranches(
+        (actorBranches || []).map((b) => ({
+          id: b.id,
+          name: b.name || "",
+          code: b.code || "",
+          status: b.status || "active",
+        })),
+      );
+    }
+  }, [isSuperAdmin, actorBranches]);
 
   const isStaffUser = isStaffRole(formData.role_id);
   const selectedBranches = branches.filter((b) =>
@@ -324,7 +343,9 @@ const UserCreatePage: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Thêm người dùng
+          {createType === "customer"
+            ? "Thêm khách hàng"
+            : "Thêm nhân sự nội bộ"}
         </h1>
         <button
           onClick={() => navigate("/admin/users")}
@@ -432,6 +453,11 @@ const UserCreatePage: React.FC = () => {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Vai trò
             </label>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+              {createType === "customer"
+                ? "Để trống vai trò nếu muốn tạo tài khoản khách hàng."
+                : "Chọn vai trò để tạo tài khoản staff/admin nội bộ. Khi đã có vai trò, gán chi nhánh sẽ trở thành bắt buộc."}
+            </p>
             <select
               name="role_id"
               value={formData.role_id}
@@ -690,8 +716,10 @@ const UserCreatePage: React.FC = () => {
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
                 </>
+              ) : createType === "customer" ? (
+                "Lưu khách hàng"
               ) : (
-                "Lưu người dùng"
+                "Lưu nhân sự"
               )}
             </button>
           </div>

@@ -93,7 +93,8 @@ const UserEditPage: React.FC = () => {
   );
   const [imageUrl, setImageUrl] = useState<string>("");
 
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, branches: actorBranches } = useAuth();
+  const isSuperAdmin = Number(currentUser?.role_id) === 1;
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
   const fetchUser = async () => {
@@ -146,12 +147,23 @@ const UserEditPage: React.FC = () => {
 
   const fetchBranches = async () => {
     try {
-      const res = await http<ApiList<Branch>>(
-        "GET",
-        "/api/v1/admin/branches?limit=100&status=active",
-      );
-      if (res.success && Array.isArray(res.data)) {
-        setBranches(res.data);
+      if (isSuperAdmin) {
+        const res = await http<ApiList<Branch>>(
+          "GET",
+          "/api/v1/admin/branches?limit=100&status=active",
+        );
+        if (res.success && Array.isArray(res.data)) {
+          setBranches(res.data);
+        }
+      } else {
+        setBranches(
+          (actorBranches || []).map((b) => ({
+            id: b.id,
+            name: b.name || "",
+            code: b.code || "",
+            status: b.status || "active",
+          })),
+        );
       }
     } catch (err) {
       console.error("fetchBranches error:", err);
@@ -209,7 +221,7 @@ const UserEditPage: React.FC = () => {
     fetchUser();
     fetchRoles();
     fetchBranches();
-  }, [id]);
+  }, [id, isSuperAdmin, actorBranches]);
 
   useEffect(() => {
     return () => {
@@ -472,7 +484,7 @@ const UserEditPage: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Chỉnh sửa người dùng
+          {isStaffUser ? "Chỉnh sửa nhân sự nội bộ" : "Chỉnh sửa khách hàng"}
         </h1>
         <button
           onClick={() => navigate("/admin/users")}
@@ -615,7 +627,7 @@ const UserEditPage: React.FC = () => {
               <div className="flex items-center gap-2 mb-3">
                 <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                  Gán chi nhánh <span className="text-red-500">*</span>
+                  Phân quyền chi nhánh <span className="text-red-500">*</span>
                 </h3>
               </div>
 
@@ -691,13 +703,13 @@ const UserEditPage: React.FC = () => {
               <div className="flex items-center gap-2 mb-2">
                 <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                  Gán chi nhánh
+                  Phân quyền chi nhánh
                 </h3>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                User hiện là customer nên không cần gán chi nhánh. Khi chọn vai
-                trò staff/admin, phần gán chi nhánh sẽ xuất hiện và trở thành
-                bắt buộc.
+                Người dùng này đang là khách hàng nên không gắn chi nhánh cố
+                định. Nếu chọn vai trò staff/admin, phần phân quyền chi nhánh sẽ
+                trở thành bắt buộc.
               </p>
             </div>
           )}

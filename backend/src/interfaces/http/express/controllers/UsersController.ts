@@ -27,6 +27,18 @@ const mapSort = (sortBy?: string, order?: string): UserSort | undefined => {
   return { column: col, dir };
 };
 
+const normalizeActorScope = (req: Request) => ({
+  roleId:
+    req.user?.roleId !== undefined && req.user?.roleId !== null
+      ? Number(req.user.roleId)
+      : null,
+  branchIds: Array.isArray(req.user?.branchIds)
+    ? req
+        .user!.branchIds!.map(Number)
+        .filter((x) => Number.isFinite(x) && x > 0)
+    : [],
+});
+
 const normalizeBranchAssignments = (body: any) => {
   if (Array.isArray(body?.branchAssignments)) {
     return body.branchAssignments
@@ -111,6 +123,8 @@ export const makeUsersController = (uc: {
           includeDeleted,
           sortBy,
           order,
+          type,
+          branchId,
         } = req.query as Record<string, string>;
 
         const pg = toNum(page) ?? 1;
@@ -123,6 +137,12 @@ export const makeUsersController = (uc: {
           status: status ?? "all",
           includeDeleted: toBool(includeDeleted),
           sort: mapSort(sortBy, order),
+          userType:
+            type === "internal" || type === "customer" || type === "all"
+              ? (type as "internal" | "customer" | "all")
+              : "all",
+          branchId: toNum(branchId) ?? null,
+          actor: normalizeActorScope(req),
         });
 
         res.json({
@@ -138,7 +158,7 @@ export const makeUsersController = (uc: {
     detail: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const u = await uc.detail.execute(id);
+        const u = await uc.detail.execute(id, false, normalizeActorScope(req));
         if (!u) {
           return res
             .status(404)
@@ -157,16 +177,19 @@ export const makeUsersController = (uc: {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const b = req.body as any;
-        const created = await uc.create.execute({
-          roleId: b.roleId ?? b.role_id ?? null,
-          fullName: b.fullName ?? b.full_name ?? null,
-          email: b.email,
-          password: b.password,
-          phone: b.phone ?? null,
-          avatar: b.avatar ?? null,
-          status: b.status ?? "active",
-          branchAssignments: normalizeBranchAssignments(b),
-        });
+        const created = await uc.create.execute(
+          {
+            roleId: b.roleId ?? b.role_id ?? null,
+            fullName: b.fullName ?? b.full_name ?? null,
+            email: b.email,
+            password: b.password,
+            phone: b.phone ?? null,
+            avatar: b.avatar ?? null,
+            status: b.status ?? "active",
+            branchAssignments: normalizeBranchAssignments(b),
+          },
+          normalizeActorScope(req),
+        );
 
         res.status(201).json({
           success: true,
@@ -181,7 +204,7 @@ export const makeUsersController = (uc: {
     getEdit: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const u = await uc.detail.execute(id);
+        const u = await uc.detail.execute(id, false, normalizeActorScope(req));
         if (!u) {
           return res
             .status(404)
@@ -202,34 +225,38 @@ export const makeUsersController = (uc: {
         const id = Number(req.params.id);
         const b = req.body as any;
 
-        const updated = await uc.edit.execute(id, {
-          roleId:
-            b.roleId !== undefined
-              ? (toNum(b.roleId) ?? null)
-              : b.role_id !== undefined
-                ? (toNum(b.role_id) ?? null)
+        const updated = await uc.edit.execute(
+          id,
+          {
+            roleId:
+              b.roleId !== undefined
+                ? (toNum(b.roleId) ?? null)
+                : b.role_id !== undefined
+                  ? (toNum(b.role_id) ?? null)
+                  : undefined,
+            fullName:
+              b.fullName !== undefined
+                ? b.fullName
+                : b.full_name !== undefined
+                  ? b.full_name
+                  : undefined,
+            email: b.email,
+            password: b.password,
+            phone: b.phone,
+            avatar: b.avatar,
+            status: b.status,
+            branchAssignments:
+              b.branchAssignments !== undefined ||
+              b.branch_assignments !== undefined ||
+              b.branchIds !== undefined ||
+              b.branch_ids !== undefined ||
+              b.primaryBranchId !== undefined ||
+              b.primary_branch_id !== undefined
+                ? normalizeBranchAssignments(b)
                 : undefined,
-          fullName:
-            b.fullName !== undefined
-              ? b.fullName
-              : b.full_name !== undefined
-                ? b.full_name
-                : undefined,
-          email: b.email,
-          password: b.password,
-          phone: b.phone,
-          avatar: b.avatar,
-          status: b.status,
-          branchAssignments:
-            b.branchAssignments !== undefined ||
-            b.branch_assignments !== undefined ||
-            b.branchIds !== undefined ||
-            b.branch_ids !== undefined ||
-            b.primaryBranchId !== undefined ||
-            b.primary_branch_id !== undefined
-              ? normalizeBranchAssignments(b)
-              : undefined,
-        });
+          },
+          normalizeActorScope(req),
+        );
 
         res.json({
           success: true,

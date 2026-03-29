@@ -90,10 +90,44 @@ const ensureValidStaffBranches = (
   }
 };
 
+const normalizeBranchIds = (branchIds?: number[]) =>
+  Array.isArray(branchIds)
+    ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
+    : [];
+
+const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+
+const ensureAssignmentsWithinScope = (
+  assignments: Array<{ branchId: number; isPrimary: boolean }>,
+  actor?: { roleId?: number | null; branchIds?: number[] },
+) => {
+  if (isSuperAdminLike(actor?.roleId)) return;
+
+  const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
+  if (!allowedBranchIds.length) {
+    throw new Error("Bạn không có quyền gán chi nhánh cho nhân sự nội bộ.");
+  }
+
+  const invalid = assignments.some(
+    (x) => !allowedBranchIds.includes(x.branchId),
+  );
+  if (invalid) {
+    throw new Error(
+      "Bạn chỉ có thể gán người dùng vào các chi nhánh mình quản lý.",
+    );
+  }
+};
+
 export class CreateUser {
   constructor(private repo: UserRepository) {}
 
-  async execute(input: CreateUserInput) {
+  async execute(
+    input: CreateUserInput,
+    actor?: {
+      roleId?: number | null;
+      branchIds?: number[];
+    },
+  ) {
     const roleId = input.roleId ?? null;
     const normalizedAssignments = normalizeBranchAssignments(
       input.branchAssignments,
@@ -104,6 +138,7 @@ export class CreateUser {
         ? []
         : (() => {
             ensureValidStaffBranches(normalizedAssignments);
+            ensureAssignmentsWithinScope(normalizedAssignments, actor);
             return normalizedAssignments;
           })();
 

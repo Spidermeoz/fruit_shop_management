@@ -93,13 +93,73 @@ const ensureValidStaffBranches = (
   }
 };
 
+const normalizeBranchIds = (branchIds?: number[]) =>
+  Array.isArray(branchIds)
+    ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
+    : [];
+
+const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+
+const hasBranchOverlap = (existing: any, allowedBranchIds: number[]) => {
+  const targetBranchIds = Array.isArray(existing?.props?.branchAssignments)
+    ? existing.props.branchAssignments
+        .map((x: any) => Number(x.branchId))
+        .filter((x: number) => Number.isFinite(x) && x > 0)
+    : [];
+
+  return targetBranchIds.some((branchId: number) =>
+    allowedBranchIds.includes(branchId),
+  );
+};
+
+const ensureAssignmentsWithinScope = (
+  assignments: Array<{ branchId: number; isPrimary: boolean }>,
+  actor?: { roleId?: number | null; branchIds?: number[] },
+) => {
+  if (isSuperAdminLike(actor?.roleId)) return;
+
+  const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
+  if (!allowedBranchIds.length) {
+    throw new Error("Bạn không có quyền gán chi nhánh cho nhân sự nội bộ.");
+  }
+
+  const invalid = assignments.some(
+    (x) => !allowedBranchIds.includes(x.branchId),
+  );
+  if (invalid) {
+    throw new Error(
+      "Bạn chỉ có thể gán người dùng vào các chi nhánh mình quản lý.",
+    );
+  }
+};
+
 export class EditUser {
   constructor(private repo: UserRepository) {}
 
-  async execute(id: number, patch: EditUserInput) {
+  async execute(
+    id: number,
+    patch: EditUserInput,
+    actor?: {
+      roleId?: number | null;
+      branchIds?: number[];
+    },
+  ) {
     const existing = await this.repo.findById(id, true);
     if (!existing) {
       throw new Error("User not found");
+    }
+
+    const existingIsInternal =
+      existing.props.roleId !== null && existing.props.roleId !== undefined;
+
+    if (existingIsInternal && !isSuperAdminLike(actor?.roleId)) {
+      const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
+      if (
+        !allowedBranchIds.length ||
+        !hasBranchOverlap(existing, allowedBranchIds)
+      ) {
+        throw new Error("Bạn không có quyền chỉnh sửa người dùng này");
+      }
     }
 
     const outPatch: UpdateUserPatch = {};
@@ -134,6 +194,7 @@ export class EditUser {
         outPatch.branchAssignments = [];
       } else {
         ensureValidStaffBranches(normalizedAssignments);
+        ensureAssignmentsWithinScope(normalizedAssignments, actor);
         outPatch.branchAssignments = normalizedAssignments;
       }
     }

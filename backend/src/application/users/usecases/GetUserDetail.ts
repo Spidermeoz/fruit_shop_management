@@ -35,11 +35,50 @@ const mapUserView = (u: any) => ({
     : [],
 });
 
+const normalizeBranchIds = (branchIds?: number[]) =>
+  Array.isArray(branchIds)
+    ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
+    : [];
+
+const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+
+const hasBranchOverlap = (user: any, allowedBranchIds: number[]) => {
+  const targetBranchIds = Array.isArray(user?.props?.branchAssignments)
+    ? user.props.branchAssignments
+        .map((x: any) => Number(x.branchId))
+        .filter((x: number) => Number.isFinite(x) && x > 0)
+    : [];
+
+  return targetBranchIds.some((branchId: number) =>
+    allowedBranchIds.includes(branchId),
+  );
+};
+
 export class GetUserDetail {
   constructor(private repo: UserRepository) {}
 
-  async execute(id: number, includeDeleted = false) {
+  async execute(
+    id: number,
+    includeDeleted = false,
+    actor?: {
+      roleId?: number | null;
+      branchIds?: number[];
+    },
+  ) {
     const u = await this.repo.findById(id, includeDeleted);
-    return u ? mapUserView(u) : null;
+    if (!u) return null;
+
+    const isInternalUser =
+      u.props.roleId !== null && u.props.roleId !== undefined;
+
+    if (isInternalUser && !isSuperAdminLike(actor?.roleId)) {
+      const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
+
+      if (!allowedBranchIds.length || !hasBranchOverlap(u, allowedBranchIds)) {
+        throw new Error("Bạn không có quyền xem người dùng này");
+      }
+    }
+
+    return mapUserView(u);
   }
 }
