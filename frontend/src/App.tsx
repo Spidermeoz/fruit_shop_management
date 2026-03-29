@@ -22,10 +22,17 @@ import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
 import RoleCreatePage from "./pages/admin/roles/RoleCreatePage";
 import PermissionsPage from "./pages/admin/roles/PermissionsPage";
-import UsersPage from "./pages/admin/users/UsersPage";
-import UserCreatePage from "./pages/admin/users/UserCreatePage";
-import UserEditPage from "./pages/admin/users/UserEditPage";
-import UserDetailPage from "./pages/admin/users/UserDetailPage";
+
+import InternalUsersPage from "./pages/admin/users/internal/InternalUsersPage";
+import InternalUserCreatePage from "./pages/admin/users/internal/InternalUserCreatePage";
+import InternalUserEditPage from "./pages/admin/users/internal/InternalUserEditPage";
+import InternalUserDetailPage from "./pages/admin/users/internal/InternalUserDetailPage";
+
+import CustomersPage from "./pages/admin/users/customers/CustomersPage";
+import CustomerCreatePage from "./pages/admin/users/customers/CustomerCreatePage";
+import CustomerEditPage from "./pages/admin/users/customers/CustomerEditPage";
+import CustomerDetailPage from "./pages/admin/users/customers/CustomerDetailPage";
+
 import OrdersPage from "./pages/admin/orders/OrdersPage";
 import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
 import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
@@ -108,39 +115,38 @@ const AdminShell: React.FC = () => {
                 <Route path="roles/detail/:id" element={<RoleDetailPage />} />
                 <Route path="roles/permissions" element={<PermissionsPage />} />
 
-                {/* Users Routing - Đã được chuẩn hóa */}
                 <Route
                   path="users"
                   element={<Navigate to="/admin/users/internal" replace />}
                 />
-                <Route path="users/internal" element={<UsersPage />} />
+
+                <Route path="users/internal" element={<InternalUsersPage />} />
                 <Route
                   path="users/internal/create"
-                  element={<UserCreatePage />}
+                  element={<InternalUserCreatePage />}
                 />
                 <Route
                   path="users/internal/edit/:id"
-                  element={<UserEditPage />}
+                  element={<InternalUserEditPage />}
                 />
                 <Route
                   path="users/internal/detail/:id"
-                  element={<UserDetailPage />}
+                  element={<InternalUserDetailPage />}
                 />
 
-                <Route path="users/customers" element={<UsersPage />} />
+                <Route path="users/customers" element={<CustomersPage />} />
                 <Route
                   path="users/customers/create"
-                  element={<UserCreatePage />}
+                  element={<CustomerCreatePage />}
                 />
                 <Route
                   path="users/customers/edit/:id"
-                  element={<UserEditPage />}
+                  element={<CustomerEditPage />}
                 />
                 <Route
                   path="users/customers/detail/:id"
-                  element={<UserDetailPage />}
+                  element={<CustomerDetailPage />}
                 />
-                {/* Kết thúc block Users */}
 
                 <Route path="branches" element={<BranchesPage />} />
                 <Route path="branches/create" element={<BranchCreatePage />} />

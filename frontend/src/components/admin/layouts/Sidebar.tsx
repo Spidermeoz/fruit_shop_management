@@ -18,6 +18,8 @@ import {
   Store,
   Package2,
   ScrollText,
+  UserCog,
+  UserRound,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -73,6 +75,21 @@ const inventoryChildren: SidebarItem[] = [
   },
 ];
 
+const userChildren: SidebarItem[] = [
+  {
+    name: "Internal",
+    href: "/admin/users/internal",
+    icon: UserCog,
+    permission: { module: "user", action: "view" },
+  },
+  {
+    name: "Customers",
+    href: "/admin/users/customers",
+    icon: UserRound,
+    permission: { module: "user", action: "view" },
+  },
+];
+
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
@@ -94,12 +111,6 @@ const sidebarItems: SidebarItem[] = [
     permission: { module: "role", action: "view" },
   },
   {
-    name: "Users",
-    href: "/admin/users",
-    icon: Users,
-    permission: { module: "user", action: "view" },
-  },
-  {
     name: "Settings",
     href: "/admin/settings/general",
     icon: Settings,
@@ -119,25 +130,41 @@ const Sidebar: React.FC = () => {
     location.pathname === "/admin/inventory" ||
     location.pathname.startsWith("/admin/inventory/");
 
+  const isUsersSectionActive =
+    location.pathname === "/admin/users" ||
+    location.pathname.startsWith("/admin/users/");
+
   const [isProductsOpen, setIsProductsOpen] = useState(isProductsSectionActive);
   const [isInventoryOpen, setIsInventoryOpen] = useState(
     isInventorySectionActive,
   );
+  const [isUsersOpen, setIsUsersOpen] = useState(isUsersSectionActive);
 
   useEffect(() => {
     if (isCollapsed) {
       setIsProductsOpen(false);
       setIsInventoryOpen(false);
+      setIsUsersOpen(false);
       return;
     }
 
     if (isProductsSectionActive) {
       setIsProductsOpen(true);
     }
+
     if (isInventorySectionActive) {
       setIsInventoryOpen(true);
     }
-  }, [isCollapsed, isProductsSectionActive, isInventorySectionActive]);
+
+    if (isUsersSectionActive) {
+      setIsUsersOpen(true);
+    }
+  }, [
+    isCollapsed,
+    isProductsSectionActive,
+    isInventorySectionActive,
+    isUsersSectionActive,
+  ]);
 
   const renderMenuItem = (item: SidebarItem) => {
     const Icon = item.icon;
@@ -172,6 +199,47 @@ const Sidebar: React.FC = () => {
     }
 
     return <div key={item.name}>{menuItem}</div>;
+  };
+
+  const renderChildItem = (item: SidebarItem, parentBaseHref?: string) => {
+    const isExactMatch = location.pathname === item.href;
+    const isSubPathMatch = location.pathname.startsWith(item.href + "/");
+
+    let isActive = false;
+
+    if (parentBaseHref && item.href === parentBaseHref) {
+      isActive = isExactMatch || isSubPathMatch;
+    } else {
+      isActive = isExactMatch || isSubPathMatch;
+    }
+
+    const child = (
+      <Link
+        to={item.href}
+        className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+          isActive
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+            : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+        }`}
+      >
+        <item.icon className="h-4 w-4 shrink-0" />
+        <span>{item.name}</span>
+      </Link>
+    );
+
+    if (item.permission) {
+      return (
+        <Can
+          key={item.name}
+          module={item.permission.module}
+          action={item.permission.action}
+        >
+          {child}
+        </Can>
+      );
+    }
+
+    return <div key={item.name}>{child}</div>;
   };
 
   return (
@@ -212,7 +280,6 @@ const Sidebar: React.FC = () => {
             {!isCollapsed && <span>Dashboard</span>}
           </Link>
 
-          {/* Products Menu */}
           <div className="rounded-xl">
             <div className="flex items-center gap-2">
               <Link
@@ -250,62 +317,13 @@ const Sidebar: React.FC = () => {
 
             {!isCollapsed && isProductsOpen && (
               <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                {productChildren.map((item) => {
-                  const isExactMatch = location.pathname === item.href;
-                  const isSubPathMatch = location.pathname.startsWith(
-                    item.href + "/",
-                  );
-
-                  let isActive = false;
-
-                  if (item.href === "/admin/products") {
-                    isActive =
-                      isExactMatch ||
-                      (isSubPathMatch &&
-                        !location.pathname.startsWith(
-                          "/admin/products/origins",
-                        ) &&
-                        !location.pathname.startsWith("/admin/products/tags") &&
-                        !location.pathname.startsWith(
-                          "/admin/products/categories",
-                        ));
-                  } else {
-                    isActive = isExactMatch || isSubPathMatch;
-                  }
-
-                  const child = (
-                    <Link
-                      to={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        isActive
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-
-                  if (item.permission) {
-                    return (
-                      <Can
-                        key={item.name}
-                        module={item.permission.module}
-                        action={item.permission.action}
-                      >
-                        {child}
-                      </Can>
-                    );
-                  }
-
-                  return <div key={item.name}>{child}</div>;
-                })}
+                {productChildren.map((item) =>
+                  renderChildItem(item, "/admin/products"),
+                )}
               </div>
             )}
           </div>
 
-          {/* Inventory Menu */}
           <div className="rounded-xl">
             <div className="flex items-center gap-2">
               <Link
@@ -343,60 +361,59 @@ const Sidebar: React.FC = () => {
 
             {!isCollapsed && isInventoryOpen && (
               <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                {inventoryChildren.map((item) => {
-                  const isExactMatch = location.pathname === item.href;
-                  const isSubPathMatch = location.pathname.startsWith(
-                    item.href + "/",
-                  );
-
-                  let isActive = false;
-
-                  if (item.href === "/admin/inventory") {
-                    isActive =
-                      isExactMatch ||
-                      (isSubPathMatch &&
-                        !location.pathname.startsWith(
-                          "/admin/inventory/history",
-                        ));
-                  } else {
-                    isActive = isExactMatch || isSubPathMatch;
-                  }
-
-                  const child = (
-                    <Link
-                      to={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        isActive
-                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                          : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                      }`}
-                    >
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <span>{item.name}</span>
-                    </Link>
-                  );
-
-                  if (item.permission) {
-                    return (
-                      <Can
-                        key={item.name}
-                        module={item.permission.module}
-                        action={item.permission.action}
-                      >
-                        {child}
-                      </Can>
-                    );
-                  }
-
-                  return <div key={item.name}>{child}</div>;
-                })}
+                {inventoryChildren.map((item) =>
+                  renderChildItem(item, "/admin/inventory"),
+                )}
               </div>
             )}
           </div>
+
+          <Can module="user" action="view">
+            <div className="rounded-xl">
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/admin/users/internal"
+                  onClick={() => !isCollapsed && setIsUsersOpen(true)}
+                  className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    isUsersSectionActive
+                      ? "bg-blue-500 text-white"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  }`}
+                >
+                  <Users className="w-6 h-6 shrink-0" />
+                  {!isCollapsed && <span>Users</span>}
+                </Link>
+
+                {!isCollapsed && (
+                  <button
+                    type="button"
+                    onClick={() => setIsUsersOpen((prev) => !prev)}
+                    className={`rounded-lg p-2 transition-colors ${
+                      isUsersSectionActive
+                        ? "text-white hover:bg-blue-600"
+                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+                    }`}
+                    aria-label="Toggle users menu"
+                  >
+                    {isUsersOpen ? (
+                      <ChevronDown className="w-5 h-5" />
+                    ) : (
+                      <ChevronRight className="w-5 h-5" />
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {!isCollapsed && isUsersOpen && (
+                <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+                  {userChildren.map((item) => renderChildItem(item))}
+                </div>
+              )}
+            </div>
+          </Can>
         </div>
 
         <div className="space-y-2">
-          {/* Các route còn lại như Branches, Orders, v.v. */}
           {sidebarItems.slice(1).map(renderMenuItem)}
         </div>
       </nav>

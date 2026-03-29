@@ -492,7 +492,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       ├── 🖼️ e3cb575153b7b13d25e55c7bc4652d40.jpg
 │   │   │       └── 🖼️ ff5da3ca53789e33510f3c7bf32894a2.jpg
 │   │   ├── 📁 auth
-│   │   │   ├── 📄 AuthContext.tsx
 │   │   │   ├── 📄 Can.tsx
 │   │   │   └── 📄 RequireAuth.tsx
 │   │   ├── 📁 components
@@ -520,6 +519,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   ├── 📁 context
 │   │   │   ├── 📄 AdminToastContext.tsx
 │   │   │   ├── 📄 AuthContext.tsx
+│   │   │   ├── 📄 AuthContextAdmin.tsx
 │   │   │   ├── 📄 CartContext.tsx
 │   │   │   ├── 📄 ThemeContext.tsx
 │   │   │   └── 📄 ToastContext.tsx
@@ -565,6 +565,22 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📁 tags
 │   │   │   │   │   └── 📄 ProductTagPage.tsx
 │   │   │   │   ├── 📁 users
+│   │   │   │   │   ├── 📁 customers
+│   │   │   │   │   │   ├── 📄 CustomerCreatePage.tsx
+│   │   │   │   │   │   ├── 📄 CustomerDetailPage.tsx
+│   │   │   │   │   │   ├── 📄 CustomerEditPage.tsx
+│   │   │   │   │   │   └── 📄 CustomersPage.tsx
+│   │   │   │   │   ├── 📁 internal
+│   │   │   │   │   │   ├── 📄 InternalUserCreatePage.tsx
+│   │   │   │   │   │   ├── 📄 InternalUserDetailPage.tsx
+│   │   │   │   │   │   ├── 📄 InternalUserEditPage.tsx
+│   │   │   │   │   │   └── 📄 InternalUsersPage.tsx
+│   │   │   │   │   ├── 📁 shared
+│   │   │   │   │   │   ├── 📄 UserAvatarField.tsx
+│   │   │   │   │   │   ├── 📄 UserBranchAssignment.tsx
+│   │   │   │   │   │   ├── 📄 UserStatusField.tsx
+│   │   │   │   │   │   ├── 📄 userApi.ts
+│   │   │   │   │   │   └── 📄 userMappers.ts
 │   │   │   │   │   ├── 📄 UserCreatePage.tsx
 │   │   │   │   │   ├── 📄 UserDetailPage.tsx
 │   │   │   │   │   ├── 📄 UserEditPage.tsx
