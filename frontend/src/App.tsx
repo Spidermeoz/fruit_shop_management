@@ -46,6 +46,10 @@ import BranchDetailPage from "./pages/admin/branches/BranchDetailPage";
 import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 import InventoryPage from "./pages/admin/inventory/InventoryPage";
 import InventoryTransactionHistoryPage from "./pages/admin/inventory/InventoryTransactionHistoryPage";
+import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
+import ShippingZoneCreatePage from "./pages/admin/shipping/ShippingZoneCreatePage";
+import ShippingZoneDetailPage from "./pages/admin/shipping/ShippingZoneDetailPage";
+import ShippingZoneEditPage from "./pages/admin/shipping/ShippingZoneEditPage";
 import BranchServiceAreasPage from "./pages/admin/shipping/BranchServiceAreasPage";
 import BranchServiceAreaCreatePage from "./pages/admin/shipping/BranchServiceAreaCreatePage";
 import BranchServiceAreaDetailPage from "./pages/admin/shipping/BranchServiceAreaDetailPage";
@@ -54,12 +58,10 @@ import DeliveryTimeSlotsPage from "./pages/admin/shipping/DeliveryTimeSlotsPage"
 import DeliveryTimeSlotCreatePage from "./pages/admin/shipping/DeliveryTimeSlotCreatePage";
 import DeliveryTimeSlotDetailPage from "./pages/admin/shipping/DeliveryTimeSlotDetailPage";
 import DeliveryTimeSlotEditPage from "./pages/admin/shipping/DeliveryTimeSlotEditPage";
-
-// Shipping admin pages
-import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
-import ShippingZoneCreatePage from "./pages/admin/shipping/ShippingZoneCreatePage";
-import ShippingZoneDetailPage from "./pages/admin/shipping/ShippingZoneDetailPage";
-import ShippingZoneEditPage from "./pages/admin/shipping/ShippingZoneEditPage";
+import BranchDeliveryTimeSlotsPage from "./pages/admin/shipping/BranchDeliveryTimeSlotsPage";
+import BranchDeliveryTimeSlotCreatePage from "./pages/admin/shipping/BranchDeliveryTimeSlotCreatePage";
+import BranchDeliveryTimeSlotDetailPage from "./pages/admin/shipping/BranchDeliveryTimeSlotDetailPage";
+import BranchDeliveryTimeSlotEditPage from "./pages/admin/shipping/BranchDeliveryTimeSlotEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -222,6 +224,23 @@ const AdminShell: React.FC = () => {
                 <Route
                   path="shipping/delivery-slots/edit/:id"
                   element={<DeliveryTimeSlotEditPage />}
+                />
+
+                <Route
+                  path="shipping/branch-delivery-slots"
+                  element={<BranchDeliveryTimeSlotsPage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slots/create"
+                  element={<BranchDeliveryTimeSlotCreatePage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slots/detail/:id"
+                  element={<BranchDeliveryTimeSlotDetailPage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slots/edit/:id"
+                  element={<BranchDeliveryTimeSlotEditPage />}
                 />
 
                 <Route path="orders" element={<OrdersPage />} />

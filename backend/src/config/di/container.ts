@@ -49,6 +49,7 @@ import { SequelizeProductTagGroupRepository } from "../../infrastructure/reposit
 import { SequelizeShippingZoneRepository } from "../../infrastructure/repositories/SequelizeShippingZoneRepository";
 import { SequelizeDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeDeliveryTimeSlotRepository";
 import { SequelizeBranchServiceAreaRepository } from "../../infrastructure/repositories/SequelizeBranchServiceAreaRepository";
+import { SequelizeBranchDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeBranchDeliveryTimeSlotRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -215,6 +216,14 @@ import { EditDeliveryTimeSlot } from "../../application/shipping/usecases/EditDe
 import { ChangeDeliveryTimeSlotStatus } from "../../application/shipping/usecases/ChangeDeliveryTimeSlotStatus";
 import { SoftDeleteDeliveryTimeSlot } from "../../application/shipping/usecases/SoftDeleteDeliveryTimeSlot";
 
+// ===== Branch delivery time slot usecases =====
+import { ListBranchDeliveryTimeSlots } from "../../application/shipping/usecases/ListBranchDeliveryTimeSlots";
+import { GetBranchDeliveryTimeSlotDetail } from "../../application/shipping/usecases/GetBranchDeliveryTimeSlotDetail";
+import { CreateBranchDeliveryTimeSlot } from "../../application/shipping/usecases/CreateBranchDeliveryTimeSlot";
+import { EditBranchDeliveryTimeSlot } from "../../application/shipping/usecases/EditBranchDeliveryTimeSlot";
+import { ChangeBranchDeliveryTimeSlotStatus } from "../../application/shipping/usecases/ChangeBranchDeliveryTimeSlotStatus";
+import { SoftDeleteBranchDeliveryTimeSlot } from "../../application/shipping/usecases/SoftDeleteBranchDeliveryTimeSlot";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -268,6 +277,8 @@ import { makeBranchServiceAreasController } from "../../interfaces/http/express/
 import type { BranchServiceAreasController } from "../../interfaces/http/express/controllers/BranchServiceAreasController";
 import { makeDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/DeliveryTimeSlotsController";
 import type { DeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/DeliveryTimeSlotsController";
+import { makeBranchDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/BranchDeliveryTimeSlotsController";
+import type { BranchDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/BranchDeliveryTimeSlotsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -758,6 +769,15 @@ const deliveryTimeSlotRepo = new SequelizeDeliveryTimeSlotRepository(
   deliveryTimeSlotModels,
 );
 
+const branchDeliveryTimeSlotModels = {
+  BranchDeliveryTimeSlot: BranchDeliveryTimeSlotModel,
+  Branch: BranchModel,
+  DeliveryTimeSlot: DeliveryTimeSlotModel,
+};
+
+const branchDeliveryTimeSlotRepo =
+  new SequelizeBranchDeliveryTimeSlotRepository(branchDeliveryTimeSlotModels);
+
 const resolveShippingZoneService = new ResolveShippingZoneService(
   shippingZoneRepo,
 );
@@ -919,6 +939,27 @@ export const usecases = {
     softDelete: new SoftDeleteDeliveryTimeSlot(deliveryTimeSlotRepo),
   },
 
+  branchDeliveryTimeSlots: {
+    list: new ListBranchDeliveryTimeSlots(branchDeliveryTimeSlotRepo),
+    detail: new GetBranchDeliveryTimeSlotDetail(branchDeliveryTimeSlotRepo),
+    create: new CreateBranchDeliveryTimeSlot(
+      branchDeliveryTimeSlotRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
+    ),
+    edit: new EditBranchDeliveryTimeSlot(
+      branchDeliveryTimeSlotRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
+    ),
+    changeStatus: new ChangeBranchDeliveryTimeSlotStatus(
+      branchDeliveryTimeSlotRepo,
+    ),
+    softDelete: new SoftDeleteBranchDeliveryTimeSlot(
+      branchDeliveryTimeSlotRepo,
+    ),
+  },
+
   auth: {
     login: new Login(
       userRepo,
@@ -1032,6 +1073,7 @@ type Controllers = {
   shippingZones: ShippingZonesController;
   branchServiceAreas: BranchServiceAreasController;
   deliveryTimeSlots: DeliveryTimeSlotsController;
+  branchDeliveryTimeSlots: BranchDeliveryTimeSlotsController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -1125,6 +1167,15 @@ export const controllers: Controllers = {
     edit: usecases.deliveryTimeSlots.edit,
     changeStatus: usecases.deliveryTimeSlots.changeStatus,
     softDelete: usecases.deliveryTimeSlots.softDelete,
+  }),
+
+  branchDeliveryTimeSlots: makeBranchDeliveryTimeSlotsController({
+    list: usecases.branchDeliveryTimeSlots.list,
+    detail: usecases.branchDeliveryTimeSlots.detail,
+    create: usecases.branchDeliveryTimeSlots.create,
+    edit: usecases.branchDeliveryTimeSlots.edit,
+    changeStatus: usecases.branchDeliveryTimeSlots.changeStatus,
+    softDelete: usecases.branchDeliveryTimeSlots.softDelete,
   }),
 
   auth: makeAuthController({

@@ -32,6 +32,7 @@ import { inventoryRoutes } from "./interfaces/http/express/routes/inventory.rout
 import { shippingZonesRoutes } from "./interfaces/http/express/routes/shippingZones.routes";
 import { branchServiceAreasRoutes } from "./interfaces/http/express/routes/branchServiceAreas.routes";
 import { deliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/deliveryTimeSlots.routes";
+import { branchDeliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/branchDeliveryTimeSlots.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -149,6 +150,10 @@ app.use(
 app.use(
   "/api/v1/admin/delivery-time-slots",
   deliveryTimeSlotsRoutes(controllers.deliveryTimeSlots, auth, can),
+);
+app.use(
+  "/api/v1/admin/branch-delivery-time-slots",
+  branchDeliveryTimeSlotsRoutes(controllers.branchDeliveryTimeSlots, auth, can),
 );
 
 // ------------------------------------

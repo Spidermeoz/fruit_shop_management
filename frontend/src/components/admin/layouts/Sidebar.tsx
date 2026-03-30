@@ -22,6 +22,7 @@ import {
   UserRound,
   Truck,
   Clock3,
+  Link2,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -95,6 +96,12 @@ const shippingChildren: SidebarItem[] = [
     href: "/admin/shipping/delivery-slots",
     icon: Clock3,
     permission: { module: "delivery_time_slot", action: "view" },
+  },
+  {
+    name: "Branch Delivery Slots",
+    href: "/admin/shipping/branch-delivery-slots",
+    icon: Link2,
+    permission: { module: "branch_delivery_time_slot", action: "view" },
   },
 ];
 
