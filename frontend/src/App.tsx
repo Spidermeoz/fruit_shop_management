@@ -50,6 +50,10 @@ import BranchServiceAreasPage from "./pages/admin/shipping/BranchServiceAreasPag
 import BranchServiceAreaCreatePage from "./pages/admin/shipping/BranchServiceAreaCreatePage";
 import BranchServiceAreaDetailPage from "./pages/admin/shipping/BranchServiceAreaDetailPage";
 import BranchServiceAreaEditPage from "./pages/admin/shipping/BranchServiceAreaEditPage";
+import DeliveryTimeSlotsPage from "./pages/admin/shipping/DeliveryTimeSlotsPage";
+import DeliveryTimeSlotCreatePage from "./pages/admin/shipping/DeliveryTimeSlotCreatePage";
+import DeliveryTimeSlotDetailPage from "./pages/admin/shipping/DeliveryTimeSlotDetailPage";
+import DeliveryTimeSlotEditPage from "./pages/admin/shipping/DeliveryTimeSlotEditPage";
 
 // Shipping admin pages
 import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
@@ -201,6 +205,23 @@ const AdminShell: React.FC = () => {
                 <Route
                   path="shipping/service-areas/edit/:id"
                   element={<BranchServiceAreaEditPage />}
+                />
+
+                <Route
+                  path="shipping/delivery-slots"
+                  element={<DeliveryTimeSlotsPage />}
+                />
+                <Route
+                  path="shipping/delivery-slots/create"
+                  element={<DeliveryTimeSlotCreatePage />}
+                />
+                <Route
+                  path="shipping/delivery-slots/detail/:id"
+                  element={<DeliveryTimeSlotDetailPage />}
+                />
+                <Route
+                  path="shipping/delivery-slots/edit/:id"
+                  element={<DeliveryTimeSlotEditPage />}
                 />
 
                 <Route path="orders" element={<OrdersPage />} />

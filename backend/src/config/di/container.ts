@@ -207,6 +207,14 @@ import { EditBranchServiceArea } from "../../application/shipping/usecases/EditB
 import { ChangeBranchServiceAreaStatus } from "../../application/shipping/usecases/ChangeBranchServiceAreaStatus";
 import { SoftDeleteBranchServiceArea } from "../../application/shipping/usecases/SoftDeleteBranchServiceArea";
 
+// ===== Delivery time slot usecases =====
+import { ListDeliveryTimeSlots } from "../../application/shipping/usecases/ListDeliveryTimeSlots";
+import { GetDeliveryTimeSlotDetail } from "../../application/shipping/usecases/GetDeliveryTimeSlotDetail";
+import { CreateDeliveryTimeSlot } from "../../application/shipping/usecases/CreateDeliveryTimeSlot";
+import { EditDeliveryTimeSlot } from "../../application/shipping/usecases/EditDeliveryTimeSlot";
+import { ChangeDeliveryTimeSlotStatus } from "../../application/shipping/usecases/ChangeDeliveryTimeSlotStatus";
+import { SoftDeleteDeliveryTimeSlot } from "../../application/shipping/usecases/SoftDeleteDeliveryTimeSlot";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -258,6 +266,8 @@ import { makeShippingZonesController } from "../../interfaces/http/express/contr
 import type { ShippingZonesController } from "../../interfaces/http/express/controllers/ShippingZonesController";
 import { makeBranchServiceAreasController } from "../../interfaces/http/express/controllers/BranchServiceAreasController";
 import type { BranchServiceAreasController } from "../../interfaces/http/express/controllers/BranchServiceAreasController";
+import { makeDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/DeliveryTimeSlotsController";
+import type { DeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/DeliveryTimeSlotsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -900,6 +910,15 @@ export const usecases = {
     softDelete: new SoftDeleteBranchServiceArea(branchServiceAreaRepo),
   },
 
+  deliveryTimeSlots: {
+    list: new ListDeliveryTimeSlots(deliveryTimeSlotRepo),
+    detail: new GetDeliveryTimeSlotDetail(deliveryTimeSlotRepo),
+    create: new CreateDeliveryTimeSlot(deliveryTimeSlotRepo),
+    edit: new EditDeliveryTimeSlot(deliveryTimeSlotRepo),
+    changeStatus: new ChangeDeliveryTimeSlotStatus(deliveryTimeSlotRepo),
+    softDelete: new SoftDeleteDeliveryTimeSlot(deliveryTimeSlotRepo),
+  },
+
   auth: {
     login: new Login(
       userRepo,
@@ -1012,6 +1031,7 @@ type Controllers = {
   branches: BranchesController;
   shippingZones: ShippingZonesController;
   branchServiceAreas: BranchServiceAreasController;
+  deliveryTimeSlots: DeliveryTimeSlotsController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -1096,6 +1116,15 @@ export const controllers: Controllers = {
     edit: usecases.branchServiceAreas.edit,
     changeStatus: usecases.branchServiceAreas.changeStatus,
     softDelete: usecases.branchServiceAreas.softDelete,
+  }),
+
+  deliveryTimeSlots: makeDeliveryTimeSlotsController({
+    list: usecases.deliveryTimeSlots.list,
+    detail: usecases.deliveryTimeSlots.detail,
+    create: usecases.deliveryTimeSlots.create,
+    edit: usecases.deliveryTimeSlots.edit,
+    changeStatus: usecases.deliveryTimeSlots.changeStatus,
+    softDelete: usecases.deliveryTimeSlots.softDelete,
   }),
 
   auth: makeAuthController({

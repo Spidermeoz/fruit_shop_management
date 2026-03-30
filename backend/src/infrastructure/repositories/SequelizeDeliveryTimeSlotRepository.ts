@@ -1,8 +1,12 @@
+import { Op } from "sequelize";
 import type {
   BranchDeliverySlotCapacityEntity,
   BranchDeliveryTimeSlotEntity,
+  CreateDeliveryTimeSlotPayload,
   DeliveryTimeSlotEntity,
   DeliveryTimeSlotRepository,
+  ListDeliveryTimeSlotsParams,
+  UpdateDeliveryTimeSlotPayload,
 } from "../../domain/shipping/DeliveryTimeSlotRepository";
 
 export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepository {
@@ -52,6 +56,171 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       reservedOrders: Number(row.reserved_orders ?? 0),
       status: row.status,
     };
+  }
+
+  async list(params: ListDeliveryTimeSlotsParams): Promise<{
+    items: DeliveryTimeSlotEntity[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  }> {
+    const page = Number(params.page ?? 1);
+    const limit = Number(params.limit ?? 10);
+    const keyword = String(params.keyword ?? "").trim();
+    const status = String(params.status ?? "").trim();
+
+    const where: any = {
+      deleted: 0,
+    };
+
+    if (keyword) {
+      where[Op.or] = [
+        { code: { [Op.like]: `%${keyword}%` } },
+        { label: { [Op.like]: `%${keyword}%` } },
+      ];
+    }
+
+    if (status) {
+      where.status = status;
+    }
+
+    const { count, rows } = await this.models.DeliveryTimeSlot.findAndCountAll({
+      where,
+      order: [
+        ["sort_order", "ASC"],
+        ["id", "ASC"],
+      ],
+      offset: (page - 1) * limit,
+      limit,
+    });
+
+    return {
+      items: rows.map((row: any) => this.mapSlot(row)),
+      pagination: {
+        page,
+        limit,
+        totalItems: Number(count),
+        totalPages: Math.max(1, Math.ceil(Number(count) / limit)),
+      },
+    };
+  }
+
+  async findById(id: number): Promise<DeliveryTimeSlotEntity | null> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        id,
+        deleted: 0,
+      },
+    });
+
+    return row ? this.mapSlot(row) : null;
+  }
+
+  async findByCode(code: string): Promise<DeliveryTimeSlotEntity | null> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        code,
+        deleted: 0,
+      },
+    });
+
+    return row ? this.mapSlot(row) : null;
+  }
+
+  async create(
+    payload: CreateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity> {
+    const row = await this.models.DeliveryTimeSlot.create({
+      code: payload.code,
+      label: payload.label,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+      cutoff_minutes: payload.cutoffMinutes,
+      max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
+      sort_order: payload.sortOrder,
+      status: payload.status,
+      deleted: 0,
+      deleted_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+
+    return this.mapSlot(row);
+  }
+
+  async update(
+    id: number,
+    payload: UpdateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        id,
+        deleted: 0,
+      },
+    });
+
+    if (!row) {
+      throw new Error("Không tìm thấy khung giờ giao hàng.");
+    }
+
+    await row.update({
+      code: payload.code,
+      label: payload.label,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+      cutoff_minutes: payload.cutoffMinutes,
+      max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
+      sort_order: payload.sortOrder,
+      status: payload.status,
+      updated_at: new Date(),
+    });
+
+    return this.mapSlot(row);
+  }
+
+  async changeStatus(
+    id: number,
+    status: string,
+  ): Promise<DeliveryTimeSlotEntity> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        id,
+        deleted: 0,
+      },
+    });
+
+    if (!row) {
+      throw new Error("Không tìm thấy khung giờ giao hàng.");
+    }
+
+    await row.update({
+      status,
+      updated_at: new Date(),
+    });
+
+    return this.mapSlot(row);
+  }
+
+  async softDelete(id: number): Promise<void> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        id,
+        deleted: 0,
+      },
+    });
+
+    if (!row) {
+      throw new Error("Không tìm thấy khung giờ giao hàng.");
+    }
+
+    await row.update({
+      deleted: 1,
+      deleted_at: new Date(),
+      updated_at: new Date(),
+    });
   }
 
   async listActiveByBranch(branchId: number): Promise<

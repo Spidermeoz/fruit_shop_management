@@ -28,7 +28,63 @@ export interface BranchDeliverySlotCapacityEntity {
   status: string;
 }
 
+export interface ListDeliveryTimeSlotsParams {
+  page: number;
+  limit: number;
+  keyword?: string;
+  status?: string;
+}
+
+export interface CreateDeliveryTimeSlotPayload {
+  code: string;
+  label: string;
+  startTime: string;
+  endTime: string;
+  cutoffMinutes: number;
+  maxOrders?: number | null;
+  sortOrder: number;
+  status: string;
+}
+
+export interface UpdateDeliveryTimeSlotPayload {
+  code: string;
+  label: string;
+  startTime: string;
+  endTime: string;
+  cutoffMinutes: number;
+  maxOrders?: number | null;
+  sortOrder: number;
+  status: string;
+}
+
 export interface DeliveryTimeSlotRepository {
+  list(params: ListDeliveryTimeSlotsParams): Promise<{
+    items: DeliveryTimeSlotEntity[];
+    pagination: {
+      page: number;
+      limit: number;
+      totalItems: number;
+      totalPages: number;
+    };
+  }>;
+
+  findById(id: number): Promise<DeliveryTimeSlotEntity | null>;
+
+  findByCode(code: string): Promise<DeliveryTimeSlotEntity | null>;
+
+  create(
+    payload: CreateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity>;
+
+  update(
+    id: number,
+    payload: UpdateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity>;
+
+  changeStatus(id: number, status: string): Promise<DeliveryTimeSlotEntity>;
+
+  softDelete(id: number): Promise<void>;
+
   listActiveByBranch(branchId: number): Promise<
     Array<{
       slot: DeliveryTimeSlotEntity;
