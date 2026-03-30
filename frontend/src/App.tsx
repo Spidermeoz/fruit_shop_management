@@ -62,6 +62,10 @@ import BranchDeliveryTimeSlotsPage from "./pages/admin/shipping/BranchDeliveryTi
 import BranchDeliveryTimeSlotCreatePage from "./pages/admin/shipping/BranchDeliveryTimeSlotCreatePage";
 import BranchDeliveryTimeSlotDetailPage from "./pages/admin/shipping/BranchDeliveryTimeSlotDetailPage";
 import BranchDeliveryTimeSlotEditPage from "./pages/admin/shipping/BranchDeliveryTimeSlotEditPage";
+import BranchDeliverySlotCapacitiesPage from "./pages/admin/shipping/BranchDeliverySlotCapacitiesPage";
+import BranchDeliverySlotCapacityCreatePage from "./pages/admin/shipping/BranchDeliverySlotCapacityCreatePage";
+import BranchDeliverySlotCapacityDetailPage from "./pages/admin/shipping/BranchDeliverySlotCapacityDetailPage";
+import BranchDeliverySlotCapacityEditPage from "./pages/admin/shipping/BranchDeliverySlotCapacityEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -241,6 +245,23 @@ const AdminShell: React.FC = () => {
                 <Route
                   path="shipping/branch-delivery-slots/edit/:id"
                   element={<BranchDeliveryTimeSlotEditPage />}
+                />
+
+                <Route
+                  path="shipping/branch-delivery-slot-capacities"
+                  element={<BranchDeliverySlotCapacitiesPage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slot-capacities/create"
+                  element={<BranchDeliverySlotCapacityCreatePage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slot-capacities/detail/:id"
+                  element={<BranchDeliverySlotCapacityDetailPage />}
+                />
+                <Route
+                  path="shipping/branch-delivery-slot-capacities/edit/:id"
+                  element={<BranchDeliverySlotCapacityEditPage />}
                 />
 
                 <Route path="orders" element={<OrdersPage />} />

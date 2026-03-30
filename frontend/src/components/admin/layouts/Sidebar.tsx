@@ -23,6 +23,7 @@ import {
   Truck,
   Clock3,
   Link2,
+  CalendarDays,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -102,6 +103,12 @@ const shippingChildren: SidebarItem[] = [
     href: "/admin/shipping/branch-delivery-slots",
     icon: Link2,
     permission: { module: "branch_delivery_time_slot", action: "view" },
+  },
+  {
+    name: "Slot Capacities",
+    href: "/admin/shipping/branch-delivery-slot-capacities",
+    icon: CalendarDays,
+    permission: { module: "branch_delivery_slot_capacity", action: "view" },
   },
 ];
 

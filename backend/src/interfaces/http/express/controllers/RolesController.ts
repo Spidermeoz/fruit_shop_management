@@ -339,6 +339,16 @@ export const makeRolesController = (uc: {
             ],
           },
           {
+            group: "Mapping chi nhánh và năng lực giao hàng",
+            key: "branch_delivery_slot_capacity",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Thêm mới" },
+              { key: "edit", label: "Chỉnh sửa" },
+              { key: "delete", label: "Xóa" },
+            ],
+          },
+          {
             group: "Danh mục sản phẩm",
             key: "product_category",
             actions: [

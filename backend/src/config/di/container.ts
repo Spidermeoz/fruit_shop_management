@@ -50,6 +50,7 @@ import { SequelizeShippingZoneRepository } from "../../infrastructure/repositori
 import { SequelizeDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeDeliveryTimeSlotRepository";
 import { SequelizeBranchServiceAreaRepository } from "../../infrastructure/repositories/SequelizeBranchServiceAreaRepository";
 import { SequelizeBranchDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeBranchDeliveryTimeSlotRepository";
+import { SequelizeBranchDeliverySlotCapacityRepository } from "../../infrastructure/repositories/SequelizeBranchDeliverySlotCapacityRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -224,6 +225,14 @@ import { EditBranchDeliveryTimeSlot } from "../../application/shipping/usecases/
 import { ChangeBranchDeliveryTimeSlotStatus } from "../../application/shipping/usecases/ChangeBranchDeliveryTimeSlotStatus";
 import { SoftDeleteBranchDeliveryTimeSlot } from "../../application/shipping/usecases/SoftDeleteBranchDeliveryTimeSlot";
 
+// ===== Branch delivery slot capacity usecases =====
+import { ListBranchDeliverySlotCapacities } from "../../application/shipping/usecases/ListBranchDeliverySlotCapacities";
+import { GetBranchDeliverySlotCapacityDetail } from "../../application/shipping/usecases/GetBranchDeliverySlotCapacityDetail";
+import { CreateBranchDeliverySlotCapacity } from "../../application/shipping/usecases/CreateBranchDeliverySlotCapacity";
+import { EditBranchDeliverySlotCapacity } from "../../application/shipping/usecases/EditBranchDeliverySlotCapacity";
+import { ChangeBranchDeliverySlotCapacityStatus } from "../../application/shipping/usecases/ChangeBranchDeliverySlotCapacityStatus";
+import { SoftDeleteBranchDeliverySlotCapacity } from "../../application/shipping/usecases/SoftDeleteBranchDeliverySlotCapacity";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -279,6 +288,8 @@ import { makeDeliveryTimeSlotsController } from "../../interfaces/http/express/c
 import type { DeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/DeliveryTimeSlotsController";
 import { makeBranchDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/BranchDeliveryTimeSlotsController";
 import type { BranchDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/BranchDeliveryTimeSlotsController";
+import { makeBranchDeliverySlotCapacitiesController } from "../../interfaces/http/express/controllers/BranchDeliverySlotCapacitiesController";
+import type { BranchDeliverySlotCapacitiesController } from "../../interfaces/http/express/controllers/BranchDeliverySlotCapacitiesController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -778,6 +789,17 @@ const branchDeliveryTimeSlotModels = {
 const branchDeliveryTimeSlotRepo =
   new SequelizeBranchDeliveryTimeSlotRepository(branchDeliveryTimeSlotModels);
 
+const branchDeliverySlotCapacityModels = {
+  BranchDeliverySlotCapacity: BranchDeliverySlotCapacityModel,
+  Branch: BranchModel,
+  DeliveryTimeSlot: DeliveryTimeSlotModel,
+};
+
+const branchDeliverySlotCapacityRepo =
+  new SequelizeBranchDeliverySlotCapacityRepository(
+    branchDeliverySlotCapacityModels,
+  );
+
 const resolveShippingZoneService = new ResolveShippingZoneService(
   shippingZoneRepo,
 );
@@ -960,6 +982,23 @@ export const usecases = {
     ),
   },
 
+  branchDeliverySlotCapacities: {
+    list: new ListBranchDeliverySlotCapacities(branchDeliverySlotCapacityRepo),
+    detail: new GetBranchDeliverySlotCapacityDetail(
+      branchDeliverySlotCapacityRepo,
+    ),
+    create: new CreateBranchDeliverySlotCapacity(
+      branchDeliverySlotCapacityRepo,
+    ),
+    edit: new EditBranchDeliverySlotCapacity(branchDeliverySlotCapacityRepo),
+    changeStatus: new ChangeBranchDeliverySlotCapacityStatus(
+      branchDeliverySlotCapacityRepo,
+    ),
+    softDelete: new SoftDeleteBranchDeliverySlotCapacity(
+      branchDeliverySlotCapacityRepo,
+    ),
+  },
+
   auth: {
     login: new Login(
       userRepo,
@@ -1074,6 +1113,7 @@ type Controllers = {
   branchServiceAreas: BranchServiceAreasController;
   deliveryTimeSlots: DeliveryTimeSlotsController;
   branchDeliveryTimeSlots: BranchDeliveryTimeSlotsController;
+  branchDeliverySlotCapacities: BranchDeliverySlotCapacitiesController;
   auth: AuthController;
   orders: OrdersController;
   reviews: AdminReviewsController;
@@ -1176,6 +1216,15 @@ export const controllers: Controllers = {
     edit: usecases.branchDeliveryTimeSlots.edit,
     changeStatus: usecases.branchDeliveryTimeSlots.changeStatus,
     softDelete: usecases.branchDeliveryTimeSlots.softDelete,
+  }),
+
+  branchDeliverySlotCapacities: makeBranchDeliverySlotCapacitiesController({
+    list: usecases.branchDeliverySlotCapacities.list,
+    detail: usecases.branchDeliverySlotCapacities.detail,
+    create: usecases.branchDeliverySlotCapacities.create,
+    edit: usecases.branchDeliverySlotCapacities.edit,
+    changeStatus: usecases.branchDeliverySlotCapacities.changeStatus,
+    softDelete: usecases.branchDeliverySlotCapacities.softDelete,
   }),
 
   auth: makeAuthController({

@@ -33,6 +33,7 @@ import { shippingZonesRoutes } from "./interfaces/http/express/routes/shippingZo
 import { branchServiceAreasRoutes } from "./interfaces/http/express/routes/branchServiceAreas.routes";
 import { deliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/deliveryTimeSlots.routes";
 import { branchDeliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/branchDeliveryTimeSlots.routes";
+import { branchDeliverySlotCapacitiesRoutes } from "./interfaces/http/express/routes/branchDeliverySlotCapacities.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -154,6 +155,14 @@ app.use(
 app.use(
   "/api/v1/admin/branch-delivery-time-slots",
   branchDeliveryTimeSlotsRoutes(controllers.branchDeliveryTimeSlots, auth, can),
+);
+app.use(
+  "/api/v1/admin/branch-delivery-slot-capacities",
+  branchDeliverySlotCapacitiesRoutes(
+    controllers.branchDeliverySlotCapacities,
+    auth,
+    can,
+  ),
 );
 
 // ------------------------------------
