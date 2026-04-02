@@ -59,7 +59,6 @@ DeliveryTimeSlotModel.init(
     code: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
     },
     label: {
       type: DataTypes.STRING(100),
@@ -120,6 +119,11 @@ DeliveryTimeSlotModel.init(
     modelName: "DeliveryTimeSlot",
     timestamps: false,
     indexes: [
+      {
+        unique: true,
+        name: "uq_delivery_time_slots_code_deleted",
+        fields: ["code", "deleted"],
+      },
       {
         name: "idx_delivery_time_slots_status_deleted_sort",
         fields: ["status", "deleted", "sort_order"],

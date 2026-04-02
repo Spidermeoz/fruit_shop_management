@@ -35,6 +35,11 @@ interface BranchFormData {
 
 type ApiDetail<T> = { success: true; data: T; meta?: any };
 
+interface LocationItem {
+  name: string;
+  code: number;
+}
+
 const toFormData = (data: any): BranchFormData => ({
   id: data.id,
   name: data.name ?? "",
@@ -74,6 +79,11 @@ const BranchEditPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [cities, setCities] = useState<LocationItem[]>([]);
+  const [districts, setDistricts] = useState<LocationItem[]>([]);
+  const [wards, setWards] = useState<LocationItem[]>([]);
+  const [cityLoaded, setCityLoaded] = useState(false);
+
   const previewAddress = useMemo(() => {
     if (!formData) return "";
     return [
@@ -91,6 +101,36 @@ const BranchEditPage: React.FC = () => {
     if (!formData || !initialData) return false;
     return JSON.stringify(formData) !== JSON.stringify(initialData);
   }, [formData, initialData]);
+
+  const loadCities = async () => {
+    if (cityLoaded) return cities;
+
+    const res = await fetch("https://provinces.open-api.vn/api/p/");
+    const data = await res.json();
+    setCities(data);
+    setCityLoaded(true);
+    return data;
+  };
+
+  const loadDistricts = async (cityCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`,
+    );
+    const data = await res.json();
+    const nextDistricts = data.districts || [];
+    setDistricts(nextDistricts);
+    return nextDistricts;
+  };
+
+  const loadWards = async (districtCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`,
+    );
+    const data = await res.json();
+    const nextWards = data.wards || [];
+    setWards(nextWards);
+    return nextWards;
+  };
 
   const fetchDetail = async () => {
     try {
@@ -118,6 +158,37 @@ const BranchEditPage: React.FC = () => {
   useEffect(() => {
     fetchDetail();
   }, [id]);
+
+  useEffect(() => {
+    const syncAddressOptions = async () => {
+      if (!formData) return;
+
+      const cityList = await loadCities();
+      const city = cityList.find(
+        (c: LocationItem) => c.name === formData.province,
+      );
+
+      if (!city) {
+        setDistricts([]);
+        setWards([]);
+        return;
+      }
+
+      const districtList = await loadDistricts(city.code);
+      const district = districtList.find(
+        (d: LocationItem) => d.name === formData.district,
+      );
+
+      if (!district) {
+        setWards([]);
+        return;
+      }
+
+      await loadWards(district.code);
+    };
+
+    void syncAddressOptions();
+  }, [formData?.province, formData?.district]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -157,6 +228,20 @@ const BranchEditPage: React.FC = () => {
     if (formData.phone.trim()) {
       const ok = /^(\+84|0)\d{9,10}$/.test(formData.phone.trim());
       if (!ok) nextErrors.phone = "Số điện thoại không hợp lệ.";
+    }
+
+    if (formData.supportsDelivery) {
+      if (!formData.addressLine1.trim()) {
+        nextErrors.addressLine1 = "Chi nhánh giao hàng phải có địa chỉ dòng 1.";
+      }
+
+      if (!formData.province.trim()) {
+        nextErrors.province = "Chi nhánh giao hàng phải có tỉnh/thành phố.";
+      }
+
+      if (!formData.district.trim()) {
+        nextErrors.district = "Chi nhánh giao hàng phải có quận/huyện.";
+      }
     }
 
     if (
@@ -359,6 +444,11 @@ const BranchEditPage: React.FC = () => {
                 onChange={handleChange}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
+              {errors.addressLine1 && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.addressLine1}
+                </p>
+              )}
             </div>
 
             <div>
@@ -378,41 +468,153 @@ const BranchEditPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phường / Xã
+                Tỉnh / Thành phố{" "}
+                {formData.supportsDelivery && (
+                  <span className="text-red-500">*</span>
+                )}
               </label>
-              <input
-                type="text"
-                name="ward"
-                value={formData.ward}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Quận / Huyện
-              </label>
-              <input
-                type="text"
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tỉnh / Thành phố
-              </label>
-              <input
-                type="text"
+              <select
                 name="province"
                 value={formData.province}
-                onChange={handleChange}
+                onFocus={() => {
+                  void loadCities();
+                }}
+                onChange={async (e) => {
+                  const provinceName = e.target.value;
+                  const city = cities.find((c) => c.name === provinceName);
+
+                  setFormData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          province: provinceName,
+                          district: "",
+                          ward: "",
+                        }
+                      : prev,
+                  );
+
+                  setDistricts([]);
+                  setWards([]);
+
+                  if (errors.province || errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      province: "",
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (city) {
+                    await loadDistricts(city.code);
+                  }
+                }}
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.province
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                <option value="">Chọn tỉnh / thành phố</option>
+                {cities.map((city) => (
+                  <option key={city.code} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+              {errors.province && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.province}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Quận / Huyện{" "}
+                {formData.supportsDelivery && (
+                  <span className="text-red-500">*</span>
+                )}
+              </label>
+              <select
+                name="district"
+                value={formData.district}
+                onChange={async (e) => {
+                  const districtName = e.target.value;
+                  const district = districts.find(
+                    (d) => d.name === districtName,
+                  );
+
+                  setFormData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          district: districtName,
+                          ward: "",
+                        }
+                      : prev,
+                  );
+
+                  setWards([]);
+
+                  if (errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (district) {
+                    await loadWards(district.code);
+                  }
+                }}
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.district
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                <option value="">Chọn quận / huyện</option>
+                {districts.map((district) => (
+                  <option key={district.code} value={district.name}>
+                    {district.name}
+                  </option>
+                ))}
+              </select>
+              {errors.district && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.district}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phường / Xã
+              </label>
+              <select
+                name="ward"
+                value={formData.ward}
+                onChange={(e) => {
+                  setFormData((prev) =>
+                    prev ? { ...prev, ward: e.target.value } : prev,
+                  );
+
+                  if (errors.ward) {
+                    setErrors((prev) => ({ ...prev, ward: "" }));
+                  }
+                }}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              >
+                <option value="">Chọn phường / xã</option>
+                {wards.map((ward) => (
+                  <option key={ward.code} value={ward.name}>
+                    {ward.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -435,6 +637,7 @@ const BranchEditPage: React.FC = () => {
                 name="latitude"
                 value={formData.latitude}
                 onChange={handleChange}
+                placeholder="VD: 10.776889"
                 className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
                   errors.latitude
                     ? "border-red-500 dark:border-red-500"
@@ -457,6 +660,7 @@ const BranchEditPage: React.FC = () => {
                 name="longitude"
                 value={formData.longitude}
                 onChange={handleChange}
+                placeholder="VD: 106.700806"
                 className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
                   errors.longitude
                     ? "border-red-500 dark:border-red-500"
@@ -495,6 +699,12 @@ const BranchEditPage: React.FC = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>
+          </div>
+
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-700 dark:text-amber-300">
+            Tọa độ hiện có thể nhập thủ công. Nếu chưa có latitude / longitude,
+            bạn vẫn có thể lưu chi nhánh; hệ thống hiện ưu tiên xử lý theo địa
+            chỉ hành chính và vùng phục vụ.
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">

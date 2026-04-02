@@ -64,6 +64,8 @@ export interface ShippingZoneRepository {
     input: ShippingZoneMatchInput,
   ): Promise<ShippingZoneEntity | null>;
 
+  findMatchChain(input: ShippingZoneMatchInput): Promise<ShippingZoneEntity[]>;
+
   findBranchServiceArea(
     branchId: number,
     shippingZoneId: number,

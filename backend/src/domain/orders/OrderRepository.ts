@@ -55,7 +55,6 @@ export interface OrderRepository {
       shippingFee: number;
       discountAmount: number;
       totalPrice: number;
-      finalPrice?: number;
       userInfo: any;
     },
     transaction?: any,

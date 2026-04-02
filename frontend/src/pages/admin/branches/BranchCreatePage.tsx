@@ -29,6 +29,11 @@ interface BranchFormData {
   status: "active" | "inactive";
 }
 
+interface LocationItem {
+  name: string;
+  code: number;
+}
+
 const initialForm: BranchFormData = {
   name: "",
   code: "",
@@ -56,6 +61,11 @@ const BranchCreatePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  const [cities, setCities] = useState<LocationItem[]>([]);
+  const [districts, setDistricts] = useState<LocationItem[]>([]);
+  const [wards, setWards] = useState<LocationItem[]>([]);
+  const [cityLoaded, setCityLoaded] = useState(false);
+
   const previewAddress = useMemo(
     () =>
       [
@@ -69,6 +79,31 @@ const BranchCreatePage: React.FC = () => {
         .join(", "),
     [formData],
   );
+
+  const loadCities = async () => {
+    if (cityLoaded) return;
+
+    const res = await fetch("https://provinces.open-api.vn/api/p/");
+    const data = await res.json();
+    setCities(data);
+    setCityLoaded(true);
+  };
+
+  const loadDistricts = async (cityCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`,
+    );
+    const data = await res.json();
+    setDistricts(data.districts || []);
+  };
+
+  const loadWards = async (districtCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`,
+    );
+    const data = await res.json();
+    setWards(data.wards || []);
+  };
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -102,6 +137,20 @@ const BranchCreatePage: React.FC = () => {
     if (formData.phone.trim()) {
       const ok = /^(\+84|0)\d{9,10}$/.test(formData.phone.trim());
       if (!ok) nextErrors.phone = "Số điện thoại không hợp lệ.";
+    }
+
+    if (formData.supportsDelivery) {
+      if (!formData.addressLine1.trim()) {
+        nextErrors.addressLine1 = "Chi nhánh giao hàng phải có địa chỉ dòng 1.";
+      }
+
+      if (!formData.province.trim()) {
+        nextErrors.province = "Chi nhánh giao hàng phải có tỉnh/thành phố.";
+      }
+
+      if (!formData.district.trim()) {
+        nextErrors.district = "Chi nhánh giao hàng phải có quận/huyện.";
+      }
     }
 
     if (
@@ -153,7 +202,11 @@ const BranchCreatePage: React.FC = () => {
         status: formData.status,
       };
 
-      const res = await http<any>("POST", "/api/v1/admin/branches/create", payload);
+      const res = await http<any>(
+        "POST",
+        "/api/v1/admin/branches/create",
+        payload,
+      );
 
       if (res?.success) {
         showSuccessToast({ message: "Tạo chi nhánh thành công!" });
@@ -292,8 +345,17 @@ const BranchCreatePage: React.FC = () => {
                 value={formData.addressLine1}
                 onChange={handleChange}
                 placeholder="Số nhà, tên đường..."
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.addressLine1
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
               />
+              {errors.addressLine1 && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.addressLine1}
+                </p>
+              )}
             </div>
 
             <div>
@@ -314,41 +376,141 @@ const BranchCreatePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phường / Xã
+                Tỉnh / Thành phố{" "}
+                {formData.supportsDelivery && (
+                  <span className="text-red-500">*</span>
+                )}
               </label>
-              <input
-                type="text"
-                name="ward"
-                value={formData.ward}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Quận / Huyện
-              </label>
-              <input
-                type="text"
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tỉnh / Thành phố
-              </label>
-              <input
-                type="text"
+              <select
                 name="province"
                 value={formData.province}
-                onChange={handleChange}
+                onFocus={loadCities}
+                onChange={async (e) => {
+                  const provinceName = e.target.value;
+                  const city = cities.find((c) => c.name === provinceName);
+
+                  setFormData((prev) => ({
+                    ...prev,
+                    province: provinceName,
+                    district: "",
+                    ward: "",
+                  }));
+
+                  setDistricts([]);
+                  setWards([]);
+
+                  if (errors.province || errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      province: "",
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (city) {
+                    await loadDistricts(city.code);
+                  }
+                }}
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.province
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                <option value="">Chọn tỉnh / thành phố</option>
+                {cities.map((city) => (
+                  <option key={city.code} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+              {errors.province && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.province}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Quận / Huyện{" "}
+                {formData.supportsDelivery && (
+                  <span className="text-red-500">*</span>
+                )}
+              </label>
+              <select
+                name="district"
+                value={formData.district}
+                onChange={async (e) => {
+                  const districtName = e.target.value;
+                  const district = districts.find(
+                    (d) => d.name === districtName,
+                  );
+
+                  setFormData((prev) => ({
+                    ...prev,
+                    district: districtName,
+                    ward: "",
+                  }));
+
+                  setWards([]);
+
+                  if (errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (district) {
+                    await loadWards(district.code);
+                  }
+                }}
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.district
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                <option value="">Chọn quận / huyện</option>
+                {districts.map((district) => (
+                  <option key={district.code} value={district.name}>
+                    {district.name}
+                  </option>
+                ))}
+              </select>
+              {errors.district && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.district}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Phường / Xã
+              </label>
+              <select
+                name="ward"
+                value={formData.ward}
+                onChange={(e) => {
+                  setFormData((prev) => ({ ...prev, ward: e.target.value }));
+
+                  if (errors.ward) {
+                    setErrors((prev) => ({ ...prev, ward: "" }));
+                  }
+                }}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              >
+                <option value="">Chọn phường / xã</option>
+                {wards.map((ward) => (
+                  <option key={ward.code} value={ward.name}>
+                    {ward.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
@@ -371,6 +533,7 @@ const BranchCreatePage: React.FC = () => {
                 name="latitude"
                 value={formData.latitude}
                 onChange={handleChange}
+                placeholder="VD: 10.776889"
                 className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
                   errors.latitude
                     ? "border-red-500 dark:border-red-500"
@@ -393,6 +556,7 @@ const BranchCreatePage: React.FC = () => {
                 name="longitude"
                 value={formData.longitude}
                 onChange={handleChange}
+                placeholder="VD: 106.700806"
                 className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
                   errors.longitude
                     ? "border-red-500 dark:border-red-500"
@@ -431,6 +595,12 @@ const BranchCreatePage: React.FC = () => {
                 className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               />
             </div>
+          </div>
+
+          <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 p-4 text-sm text-amber-700 dark:text-amber-300">
+            Latitude / Longitude hiện có thể nhập thủ công. Nếu chưa có tọa độ,
+            bạn vẫn có thể lưu chi nhánh; hệ thống hiện ưu tiên tính phí ship
+            theo vùng phục vụ và địa chỉ hành chính.
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">

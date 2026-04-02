@@ -1,3 +1,10 @@
+const normalizeDateOnly = (value?: string | null): string | null => {
+  if (value === undefined || value === null) return null;
+  const v = String(value).trim();
+  if (!v) return null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+};
+
 export class CreateOrderFromCart {
   constructor(
     private readonly orderRepo: any,
@@ -32,10 +39,7 @@ export class CreateOrderFromCart {
 
     const deliveryType = String(rawDeliveryType || "scheduled").toLowerCase();
 
-    const deliveryDate =
-      rawDeliveryDate !== undefined && rawDeliveryDate !== null
-        ? String(rawDeliveryDate)
-        : null;
+    const deliveryDate = normalizeDateOnly(rawDeliveryDate);
 
     const deliveryTimeSlotId =
       rawDeliveryTimeSlotId !== undefined && rawDeliveryTimeSlotId !== null
@@ -59,6 +63,36 @@ export class CreateOrderFromCart {
       throw new Error("Loại giao hàng không hợp lệ");
     }
 
+    if (fulfillmentType === "delivery") {
+      if (!address || typeof address !== "object") {
+        throw new Error("Thiếu địa chỉ giao hàng");
+      }
+
+      if (!String(address.fullName ?? "").trim()) {
+        throw new Error("Thiếu tên người nhận");
+      }
+
+      if (!String(address.phone ?? "").trim()) {
+        throw new Error("Thiếu số điện thoại người nhận");
+      }
+
+      if (!String(address.addressLine1 ?? "").trim()) {
+        throw new Error("Thiếu địa chỉ giao hàng");
+      }
+
+      if (!String(address.ward ?? "").trim()) {
+        throw new Error("Thiếu phường/xã giao hàng");
+      }
+
+      if (!String(address.district ?? "").trim()) {
+        throw new Error("Thiếu quận/huyện giao hàng");
+      }
+
+      if (!String(address.province ?? "").trim()) {
+        throw new Error("Thiếu tỉnh/thành phố giao hàng");
+      }
+    }
+
     const quote = await this.calculateShippingQuoteService.execute({
       userId,
       productVariantIds,
@@ -72,6 +106,14 @@ export class CreateOrderFromCart {
 
     if (quote.requiresBranchSelection) {
       throw new Error("Vui lòng chọn chi nhánh phù hợp để giao hàng");
+    }
+
+    if (
+      fulfillmentType === "delivery" &&
+      deliveryTimeSlotId &&
+      Number(quote.selectedSlot?.id ?? 0) !== Number(deliveryTimeSlotId)
+    ) {
+      throw new Error("Khung giờ giao hàng không hợp lệ");
     }
 
     const resolvedBranchId =
@@ -152,7 +194,10 @@ export class CreateOrderFromCart {
           deliveryType,
           deliveryDate: fulfillmentType === "delivery" ? deliveryDate : null,
           deliveryTimeSlotId:
-            fulfillmentType === "delivery" ? deliveryTimeSlotId : null,
+            fulfillmentType === "delivery"
+              ? Number(quote.selectedSlot?.id ?? deliveryTimeSlotId ?? 0) ||
+                null
+              : null,
           deliveryTimeSlotLabel:
             fulfillmentType === "delivery"
               ? (quote.selectedSlot?.label ?? null)
@@ -203,11 +248,27 @@ export class CreateOrderFromCart {
                   postalCode: "",
                   notes: deliveryNote ?? "",
                 }
-              : address,
+              : {
+                  fullName: String(address?.fullName ?? "").trim(),
+                  phone: String(address?.phone ?? "").trim(),
+                  email: address?.email
+                    ? String(address.email).trim().toLowerCase()
+                    : null,
+                  addressLine1: String(address?.addressLine1 ?? "").trim(),
+                  addressLine2: address?.addressLine2
+                    ? String(address.addressLine2).trim()
+                    : "",
+                  ward: String(address?.ward ?? "").trim(),
+                  district: String(address?.district ?? "").trim(),
+                  province: String(address?.province ?? "").trim(),
+                  postalCode: address?.postalCode
+                    ? String(address.postalCode).trim()
+                    : "",
+                  notes: deliveryNote ?? "",
+                },
           shippingFee: Number(quote.shippingFee ?? 0),
           discountAmount: Number(quote.discountAmount ?? 0),
           totalPrice: Number(quote.subtotal ?? 0),
-          finalPrice: Number(quote.finalPrice ?? 0),
           userInfo: {
             ...(userInfo ?? {}),
             paymentMethod: paymentMethod ?? null,

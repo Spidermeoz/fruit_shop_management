@@ -30,19 +30,6 @@ export interface DeliverySlotSummary {
   reason?: string | null;
 }
 
-export interface CheckoutQuote {
-  subtotal: number;
-  shippingFee: number;
-  discountAmount: number;
-  finalPrice: number;
-  shippingZone: ShippingZoneSummary | null;
-  availableSlots: DeliverySlotSummary[];
-  selectedSlot: {
-    id: number;
-    label?: string | null;
-  } | null;
-}
-
 export interface QuoteBranchSummary {
   id: number;
   name: string;

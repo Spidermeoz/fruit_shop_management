@@ -34,14 +34,14 @@ export function deliveryTimeSlotsRoutes(
   router.patch(
     "/edit/:id",
     auth,
-    can("delivery_time_slot", "update"),
+    can("delivery_time_slot", "edit"),
     controller.edit,
   );
 
   router.patch(
     "/:id/status",
     auth,
-    can("delivery_time_slot", "update"),
+    can("delivery_time_slot", "edit"),
     controller.changeStatus,
   );
 

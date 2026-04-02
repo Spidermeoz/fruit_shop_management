@@ -39,14 +39,14 @@ export function branchDeliverySlotCapacitiesRoutes(
   router.patch(
     "/edit/:id",
     auth,
-    can("branch_delivery_slot_capacity", "update"),
+    can("branch_delivery_slot_capacity", "edit"),
     controller.edit,
   );
 
   router.patch(
     "/:id/status",
     auth,
-    can("branch_delivery_slot_capacity", "update"),
+    can("branch_delivery_slot_capacity", "edit"),
     controller.changeStatus,
   );
 

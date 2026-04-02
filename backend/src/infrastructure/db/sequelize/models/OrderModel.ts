@@ -177,6 +177,9 @@ OrderModel.init(
     final_price: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
+      get() {
+        return this.getDataValue("final_price");
+      },
     },
     tracking_token: {
       type: DataTypes.CHAR(36),

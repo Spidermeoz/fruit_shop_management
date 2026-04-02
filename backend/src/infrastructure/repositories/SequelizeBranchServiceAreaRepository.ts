@@ -40,17 +40,9 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
     });
 
   async list(filter: ListBranchServiceAreasFilter) {
-    const where: WhereOptions = {};
-
-    if (
-      !(
-        filter?.status === "all" &&
-        filter?.branchId == null &&
-        filter?.shippingZoneId == null
-      )
-    ) {
-      (where as any).deleted = 0;
-    }
+    const where: WhereOptions = {
+      deleted: 0,
+    };
 
     if (filter?.status && filter.status !== "all") {
       (where as any).status = filter.status;
@@ -78,11 +70,13 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
     }
 
     const include: any[] = [];
+
     if (this.models.Branch) {
       include.push({
         model: this.models.Branch,
         as: "branch",
         required: false,
+        where: { deleted: 0 }, // Đã thêm lọc deleted cho bảng liên quan
       });
     }
 
@@ -91,6 +85,7 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
         model: this.models.ShippingZone,
         as: "shippingZone",
         required: false,
+        where: { deleted: 0 }, // Đã thêm lọc deleted cho bảng liên quan
       });
     }
 
@@ -128,30 +123,56 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
     return row ? this.mapRow(row) : null;
   }
 
-  async create(input: CreateBranchServiceAreaInput) {
-    const row = await this.models.BranchServiceArea.create({
-      branch_id: Number(input.branchId),
-      shipping_zone_id: Number(input.shippingZoneId),
-      delivery_fee_override:
-        input.deliveryFeeOverride !== undefined
-          ? input.deliveryFeeOverride
-          : null,
-      min_order_value:
-        input.minOrderValue !== undefined ? input.minOrderValue : null,
-      max_order_value:
-        input.maxOrderValue !== undefined ? input.maxOrderValue : null,
-      supports_same_day: input.supportsSameDay ?? true,
-      status: input.status ?? "active",
-      deleted: 0,
-      deleted_at: null,
+  async findDeletedByBranchAndZone(branchId: number, shippingZoneId: number) {
+    const row = await this.models.BranchServiceArea.findOne({
+      where: {
+        branch_id: Number(branchId),
+        shipping_zone_id: Number(shippingZoneId),
+        deleted: 1,
+      },
+      order: [["id", "DESC"]],
     });
 
-    const found = await this.models.BranchServiceArea.findByPk(row.id);
-    if (!found) {
-      throw new Error("Branch service area not found after create");
-    }
+    return row ? this.mapRow(row) : null;
+  }
 
-    return this.mapRow(found);
+  async create(input: CreateBranchServiceAreaInput) {
+    try {
+      const row = await this.models.BranchServiceArea.create({
+        branch_id: Number(input.branchId),
+        shipping_zone_id: Number(input.shippingZoneId),
+        delivery_fee_override:
+          input.deliveryFeeOverride !== undefined
+            ? input.deliveryFeeOverride
+            : null,
+        min_order_value:
+          input.minOrderValue !== undefined ? input.minOrderValue : null,
+        max_order_value:
+          input.maxOrderValue !== undefined ? input.maxOrderValue : null,
+        supports_same_day: input.supportsSameDay ?? true,
+        status: input.status ?? "active",
+        deleted: 0,
+        deleted_at: null,
+      });
+
+      const found = await this.models.BranchServiceArea.findOne({
+        where: { id: row.id },
+      });
+
+      if (!found) {
+        throw new Error("Branch service area not found after create");
+      }
+
+      return this.mapRow(found);
+    } catch (error: any) {
+      if (
+        error?.name === "SequelizeUniqueConstraintError" ||
+        error?.original?.code === "ER_DUP_ENTRY"
+      ) {
+        throw new Error("Chi nhánh đã có cấu hình cho vùng giao hàng này");
+      }
+      throw error;
+    }
   }
 
   async update(id: number, patch: UpdateBranchServiceAreaPatch) {
@@ -177,11 +198,18 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
       values.status = patch.status;
     }
 
-    await this.models.BranchServiceArea.update(values, {
+    const [affected] = await this.models.BranchServiceArea.update(values, {
       where: { id, deleted: 0 },
     });
 
-    const found = await this.models.BranchServiceArea.findByPk(id);
+    if (!affected) {
+      throw new Error("Không tìm thấy cấu hình vùng phục vụ");
+    }
+
+    const found = await this.models.BranchServiceArea.findOne({
+      where: { id, deleted: 0 },
+    });
+
     if (!found) {
       throw new Error("Branch service area not found after update");
     }
@@ -189,13 +217,67 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
     return this.mapRow(found);
   }
 
+  async revive(id: number, patch: UpdateBranchServiceAreaPatch) {
+    const values: any = {
+      deleted: 0,
+      deleted_at: null,
+    };
+
+    if (patch.branchId !== undefined) values.branch_id = Number(patch.branchId);
+    if (patch.shippingZoneId !== undefined) {
+      values.shipping_zone_id = Number(patch.shippingZoneId);
+    }
+    if (patch.deliveryFeeOverride !== undefined) {
+      values.delivery_fee_override = patch.deliveryFeeOverride ?? null;
+    }
+    if (patch.minOrderValue !== undefined) {
+      values.min_order_value = patch.minOrderValue ?? null;
+    }
+    if (patch.maxOrderValue !== undefined) {
+      values.max_order_value = patch.maxOrderValue ?? null;
+    }
+    if (patch.supportsSameDay !== undefined) {
+      values.supports_same_day = patch.supportsSameDay;
+    }
+    if (patch.status !== undefined) {
+      values.status = patch.status;
+    }
+
+    const [affected] = await this.models.BranchServiceArea.update(values, {
+      where: { id, deleted: 1 },
+    });
+
+    if (!affected) {
+      throw new Error(
+        "Không tìm thấy cấu hình vùng phục vụ đã xóa để khôi phục",
+      );
+    }
+
+    const found = await this.models.BranchServiceArea.findOne({
+      where: { id, deleted: 0 },
+    });
+
+    if (!found) {
+      throw new Error("Branch service area not found after revive");
+    }
+
+    return this.mapRow(found);
+  }
+
   async updateStatus(id: number, status: "active" | "inactive") {
-    await this.models.BranchServiceArea.update(
+    const [affected] = await this.models.BranchServiceArea.update(
       { status },
       { where: { id, deleted: 0 } },
     );
 
-    const found = await this.models.BranchServiceArea.findByPk(id);
+    if (!affected) {
+      throw new Error("Không tìm thấy cấu hình vùng phục vụ");
+    }
+
+    const found = await this.models.BranchServiceArea.findOne({
+      where: { id, deleted: 0 },
+    });
+
     if (!found) {
       throw new Error("Branch service area not found after updateStatus");
     }
@@ -206,10 +288,14 @@ export class SequelizeBranchServiceAreaRepository implements BranchServiceAreaRe
   async softDelete(id: number) {
     const now = new Date();
 
-    await this.models.BranchServiceArea.update(
+    const [affected] = await this.models.BranchServiceArea.update(
       { deleted: 1, deleted_at: now },
       { where: { id, deleted: 0 } },
     );
+
+    if (!affected) {
+      throw new Error("Không tìm thấy cấu hình vùng phục vụ");
+    }
 
     return { id, deletedAt: now };
   }

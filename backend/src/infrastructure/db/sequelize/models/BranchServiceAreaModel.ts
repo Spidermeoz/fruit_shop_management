@@ -120,8 +120,8 @@ BranchServiceAreaModel.init(
     indexes: [
       {
         unique: true,
-        name: "uq_branch_service_areas_branch_zone",
-        fields: ["branch_id", "shipping_zone_id"],
+        name: "uq_branch_service_areas_branch_zone_deleted",
+        fields: ["branch_id", "shipping_zone_id", "deleted"],
       },
       {
         name: "idx_branch_service_areas_zone",

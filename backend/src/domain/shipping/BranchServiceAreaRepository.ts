@@ -20,9 +20,19 @@ export interface BranchServiceAreaRepository {
     shippingZoneId: number,
   ): Promise<BranchServiceArea | null>;
 
+  findDeletedByBranchAndZone(
+    branchId: number,
+    shippingZoneId: number,
+  ): Promise<BranchServiceArea | null>;
+
   create(input: CreateBranchServiceAreaInput): Promise<BranchServiceArea>;
 
   update(
+    id: number,
+    patch: UpdateBranchServiceAreaPatch,
+  ): Promise<BranchServiceArea>;
+
+  revive(
     id: number,
     patch: UpdateBranchServiceAreaPatch,
   ): Promise<BranchServiceArea>;

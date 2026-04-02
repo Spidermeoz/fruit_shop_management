@@ -32,14 +32,6 @@ export class CreateBranchServiceArea {
       throw new Error("Vùng giao hàng không tồn tại");
     }
 
-    const existed = await this.branchServiceAreaRepo.findByBranchAndZone(
-      branchId,
-      shippingZoneId,
-    );
-    if (existed) {
-      throw new Error("Chi nhánh đã có cấu hình cho vùng giao hàng này");
-    }
-
     const deliveryFeeOverride =
       input.deliveryFeeOverride !== undefined &&
       input.deliveryFeeOverride !== null
@@ -88,8 +80,43 @@ export class CreateBranchServiceArea {
     const status = String(input.status ?? "active")
       .trim()
       .toLowerCase();
+
     if (!["active", "inactive"].includes(status)) {
       throw new Error("Trạng thái cấu hình vùng phục vụ không hợp lệ");
+    }
+
+    const existed = await this.branchServiceAreaRepo.findByBranchAndZone(
+      branchId,
+      shippingZoneId,
+    );
+
+    if (existed) {
+      throw new Error("Chi nhánh đã có cấu hình cho vùng giao hàng này");
+    }
+
+    const supportsSameDay = input.supportsSameDay ?? true;
+
+    const deletedCandidate =
+      await this.branchServiceAreaRepo.findDeletedByBranchAndZone(
+        branchId,
+        shippingZoneId,
+      );
+
+    if (deletedCandidate) {
+      const revived = await this.branchServiceAreaRepo.revive(
+        deletedCandidate.props.id!,
+        {
+          branchId,
+          shippingZoneId,
+          deliveryFeeOverride,
+          minOrderValue,
+          maxOrderValue,
+          supportsSameDay,
+          status: status as "active" | "inactive",
+        },
+      );
+
+      return revived.props;
     }
 
     const created = await this.branchServiceAreaRepo.create({
@@ -98,7 +125,7 @@ export class CreateBranchServiceArea {
       deliveryFeeOverride,
       minOrderValue,
       maxOrderValue,
-      supportsSameDay: input.supportsSameDay ?? true,
+      supportsSameDay,
       status: status as "active" | "inactive",
     });
 

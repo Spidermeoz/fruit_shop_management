@@ -61,11 +61,21 @@ export interface BranchDeliveryTimeSlotRepository {
     deliveryTimeSlotId: number,
   ): Promise<BranchDeliveryTimeSlotEntity | null>;
 
+  findDeletedByBranchAndSlot(
+    branchId: number,
+    deliveryTimeSlotId: number,
+  ): Promise<BranchDeliveryTimeSlotEntity | null>;
+
   create(
     payload: CreateBranchDeliveryTimeSlotPayload,
   ): Promise<BranchDeliveryTimeSlotEntity>;
 
   update(
+    id: number,
+    payload: UpdateBranchDeliveryTimeSlotPayload,
+  ): Promise<BranchDeliveryTimeSlotEntity>;
+
+  revive(
     id: number,
     payload: UpdateBranchDeliveryTimeSlotPayload,
   ): Promise<BranchDeliveryTimeSlotEntity>;

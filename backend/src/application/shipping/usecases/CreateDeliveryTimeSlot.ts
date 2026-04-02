@@ -44,10 +44,7 @@ export class CreateDeliveryTimeSlot {
     const status = String(input.status ?? "active").trim() || "active";
 
     let maxOrders: number | null = null;
-    if (
-      input.maxOrders !== undefined &&
-      input.maxOrders !== null
-    ) {
+    if (input.maxOrders !== undefined && input.maxOrders !== null) {
       maxOrders = Number(input.maxOrders);
     }
 
@@ -97,6 +94,22 @@ export class CreateDeliveryTimeSlot {
     const existing = await this.deliveryTimeSlotRepo.findByCode(code);
     if (existing) {
       throw new Error("Mã khung giờ giao hàng đã tồn tại.");
+    }
+
+    const deletedCandidate =
+      await this.deliveryTimeSlotRepo.findDeletedByCode(code);
+
+    if (deletedCandidate) {
+      return this.deliveryTimeSlotRepo.revive(deletedCandidate.id, {
+        code,
+        label,
+        startTime,
+        endTime,
+        cutoffMinutes,
+        maxOrders,
+        sortOrder,
+        status,
+      });
     }
 
     return this.deliveryTimeSlotRepo.create({

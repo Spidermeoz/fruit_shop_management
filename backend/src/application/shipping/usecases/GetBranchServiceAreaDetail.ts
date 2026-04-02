@@ -12,10 +12,8 @@ export class GetBranchServiceAreaDetail {
       throw new Error("Branch service area id không hợp lệ");
     }
 
-    const serviceArea = await this.branchServiceAreaRepo.findById(
-      serviceAreaId,
-      true,
-    );
+    const serviceArea =
+      await this.branchServiceAreaRepo.findById(serviceAreaId);
 
     if (!serviceArea) {
       throw new Error("Không tìm thấy cấu hình vùng phục vụ");

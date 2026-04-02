@@ -29,6 +29,11 @@ interface ShippingZoneFormData {
 
 type ApiDetail<T> = { success: true; data: T; meta?: any };
 
+interface LocationItem {
+  name: string;
+  code: number;
+}
+
 const toFormData = (data: any): ShippingZoneFormData => ({
   id: data.id,
   code: data.code ?? "",
@@ -69,6 +74,11 @@ const ShippingZoneEditPage: React.FC = () => {
     Record<string, HTMLInputElement | HTMLSelectElement | null>
   >({});
 
+  const [cities, setCities] = useState<LocationItem[]>([]);
+  const [districts, setDistricts] = useState<LocationItem[]>([]);
+  const [wards, setWards] = useState<LocationItem[]>([]);
+  const [cityLoaded, setCityLoaded] = useState(false);
+
   const previewArea = useMemo(() => {
     if (!formData) return "";
     return [formData.ward, formData.district, formData.province]
@@ -94,6 +104,36 @@ const ShippingZoneEditPage: React.FC = () => {
       block: "center",
     });
     fieldRefs.current[firstKey]?.focus?.();
+  };
+
+  const loadCities = async () => {
+    if (cityLoaded) return cities;
+
+    const res = await fetch("https://provinces.open-api.vn/api/p/");
+    const data = await res.json();
+    setCities(data);
+    setCityLoaded(true);
+    return data;
+  };
+
+  const loadDistricts = async (cityCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/p/${cityCode}?depth=2`,
+    );
+    const data = await res.json();
+    const nextDistricts = data.districts || [];
+    setDistricts(nextDistricts);
+    return nextDistricts;
+  };
+
+  const loadWards = async (districtCode: number) => {
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/d/${districtCode}?depth=2`,
+    );
+    const data = await res.json();
+    const nextWards = data.wards || [];
+    setWards(nextWards);
+    return nextWards;
   };
 
   const fetchDetail = async () => {
@@ -122,6 +162,37 @@ const ShippingZoneEditPage: React.FC = () => {
   useEffect(() => {
     fetchDetail();
   }, [id]);
+
+  useEffect(() => {
+    const syncAddressOptions = async () => {
+      if (!formData) return;
+
+      const cityList = await loadCities();
+      const city = cityList.find(
+        (c: LocationItem) => c.name === formData.province,
+      );
+
+      if (!city) {
+        setDistricts([]);
+        setWards([]);
+        return;
+      }
+
+      const districtList = await loadDistricts(city.code);
+      const district = districtList.find(
+        (d: LocationItem) => d.name === formData.district,
+      );
+
+      if (!district) {
+        setWards([]);
+        return;
+      }
+
+      await loadWards(district.code);
+    };
+
+    void syncAddressOptions();
+  }, [formData?.province, formData?.district]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
@@ -183,8 +254,8 @@ const ShippingZoneEditPage: React.FC = () => {
       nextErrors.priority = "Vui lòng nhập độ ưu tiên.";
     } else {
       const priority = Number(formData.priority);
-      if (!Number.isInteger(priority)) {
-        nextErrors.priority = "Độ ưu tiên phải là số nguyên.";
+      if (!Number.isInteger(priority) || priority < 0) {
+        nextErrors.priority = "Độ ưu tiên phải là số nguyên >= 0.";
       }
     }
 
@@ -319,34 +390,117 @@ const ShippingZoneEditPage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phường / Xã
+                Tỉnh / Thành phố
               </label>
-              <input
-                ref={setFieldRef("ward")}
-                type="text"
-                name="ward"
-                value={formData.ward}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              />
+              <select
+                ref={setFieldRef("province")}
+                name="province"
+                value={formData.province}
+                onFocus={() => {
+                  void loadCities();
+                }}
+                onChange={async (e) => {
+                  const provinceName = e.target.value;
+                  const city = cities.find((c) => c.name === provinceName);
+
+                  setFormData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          province: provinceName,
+                          district: "",
+                          ward: "",
+                        }
+                      : prev,
+                  );
+
+                  setDistricts([]);
+                  setWards([]);
+
+                  if (errors.province || errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      province: "",
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (city) {
+                    await loadDistricts(city.code);
+                  }
+                }}
+                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                  errors.province
+                    ? "border-red-500 dark:border-red-500"
+                    : "border-gray-300 dark:border-gray-600"
+                }`}
+              >
+                <option value="">Chọn tỉnh / thành phố</option>
+                {cities.map((city) => (
+                  <option key={city.code} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+              {errors.province && (
+                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                  {errors.province}
+                </p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Quận / Huyện
               </label>
-              <input
+              <select
                 ref={setFieldRef("district")}
-                type="text"
                 name="district"
                 value={formData.district}
-                onChange={handleChange}
+                onChange={async (e) => {
+                  const districtName = e.target.value;
+                  const district = districts.find(
+                    (d) => d.name === districtName,
+                  );
+
+                  setFormData((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          district: districtName,
+                          ward: "",
+                        }
+                      : prev,
+                  );
+
+                  setWards([]);
+
+                  if (errors.district || errors.ward) {
+                    setErrors((prev) => ({
+                      ...prev,
+                      district: "",
+                      ward: "",
+                    }));
+                  }
+
+                  if (district) {
+                    await loadWards(district.code);
+                  }
+                }}
                 className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
                   errors.district
                     ? "border-red-500 dark:border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
-              />
+              >
+                <option value="">Chọn quận / huyện</option>
+                {districts.map((district) => (
+                  <option key={district.code} value={district.name}>
+                    {district.name}
+                  </option>
+                ))}
+              </select>
               {errors.district && (
                 <p className="text-sm text-red-600 dark:text-red-400 mt-1">
                   {errors.district}
@@ -356,25 +510,30 @@ const ShippingZoneEditPage: React.FC = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Tỉnh / Thành phố
+                Phường / Xã
               </label>
-              <input
-                ref={setFieldRef("province")}
-                type="text"
-                name="province"
-                value={formData.province}
-                onChange={handleChange}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.province
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
-              {errors.province && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.province}
-                </p>
-              )}
+              <select
+                ref={setFieldRef("ward")}
+                name="ward"
+                value={formData.ward}
+                onChange={(e) => {
+                  setFormData((prev) =>
+                    prev ? { ...prev, ward: e.target.value } : prev,
+                  );
+
+                  if (errors.ward) {
+                    setErrors((prev) => ({ ...prev, ward: "" }));
+                  }
+                }}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                <option value="">Chọn phường / xã</option>
+                {wards.map((ward) => (
+                  <option key={ward.code} value={ward.name}>
+                    {ward.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

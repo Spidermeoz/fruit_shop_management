@@ -111,7 +111,6 @@ export class SequelizeOrderRepository implements OrderRepository {
           shipping_zone_name: data.shippingZoneName ?? null,
           delivery_note: data.deliveryNote ?? null,
           total_price: data.totalPrice,
-          final_price: data.finalPrice,
           tracking_token: crypto.randomUUID(),
           inventory_applied: 0,
           user_info: data.userInfo,

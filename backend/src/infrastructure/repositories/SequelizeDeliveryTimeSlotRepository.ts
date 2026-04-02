@@ -130,25 +130,57 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
     return row ? this.mapSlot(row) : null;
   }
 
+  async findDeletedByCode(
+    code: string,
+  ): Promise<DeliveryTimeSlotEntity | null> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        code,
+        deleted: 1,
+      },
+      order: [["id", "DESC"]],
+    });
+
+    return row ? this.mapSlot(row) : null;
+  }
+
   async create(
     payload: CreateDeliveryTimeSlotPayload,
   ): Promise<DeliveryTimeSlotEntity> {
-    const row = await this.models.DeliveryTimeSlot.create({
-      code: payload.code,
-      label: payload.label,
-      start_time: payload.startTime,
-      end_time: payload.endTime,
-      cutoff_minutes: payload.cutoffMinutes,
-      max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
-      sort_order: payload.sortOrder,
-      status: payload.status,
-      deleted: 0,
-      deleted_at: null,
-      created_at: new Date(),
-      updated_at: new Date(),
-    });
+    try {
+      const row = await this.models.DeliveryTimeSlot.create({
+        code: payload.code,
+        label: payload.label,
+        start_time: payload.startTime,
+        end_time: payload.endTime,
+        cutoff_minutes: payload.cutoffMinutes,
+        max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
+        sort_order: payload.sortOrder,
+        status: payload.status,
+        deleted: 0,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
 
-    return this.mapSlot(row);
+      const found = await this.models.DeliveryTimeSlot.findOne({
+        where: { id: row.id, deleted: 0 },
+      });
+
+      if (!found) {
+        throw new Error("Không tìm thấy khung giờ giao hàng sau khi tạo.");
+      }
+
+      return this.mapSlot(found);
+    } catch (error: any) {
+      if (
+        error?.name === "SequelizeUniqueConstraintError" ||
+        error?.original?.code === "ER_DUP_ENTRY"
+      ) {
+        throw new Error("Mã khung giờ giao hàng đã tồn tại.");
+      }
+      throw error;
+    }
   }
 
   async update(
@@ -178,7 +210,57 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       updated_at: new Date(),
     });
 
-    return this.mapSlot(row);
+    const found = await this.models.DeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+
+    if (!found) {
+      throw new Error("Không tìm thấy khung giờ giao hàng sau khi cập nhật.");
+    }
+
+    return this.mapSlot(found);
+  }
+
+  async revive(
+    id: number,
+    payload: UpdateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity> {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: {
+        id,
+        deleted: 1,
+      },
+    });
+
+    if (!row) {
+      throw new Error(
+        "Không tìm thấy khung giờ giao hàng đã xóa để khôi phục.",
+      );
+    }
+
+    await row.update({
+      code: payload.code,
+      label: payload.label,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+      cutoff_minutes: payload.cutoffMinutes,
+      max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
+      sort_order: payload.sortOrder,
+      status: payload.status,
+      deleted: 0,
+      deleted_at: null,
+      updated_at: new Date(),
+    });
+
+    const found = await this.models.DeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+
+    if (!found) {
+      throw new Error("Không tìm thấy khung giờ giao hàng sau khi khôi phục.");
+    }
+
+    return this.mapSlot(found);
   }
 
   async changeStatus(
@@ -201,7 +283,17 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       updated_at: new Date(),
     });
 
-    return this.mapSlot(row);
+    const found = await this.models.DeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+
+    if (!found) {
+      throw new Error(
+        "Không tìm thấy khung giờ giao hàng sau khi đổi trạng thái.",
+      );
+    }
+
+    return this.mapSlot(found);
   }
 
   async softDelete(id: number): Promise<void> {

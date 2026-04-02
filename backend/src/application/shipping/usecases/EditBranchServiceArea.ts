@@ -60,6 +60,10 @@ export class EditBranchServiceArea {
       throw new Error("Chi nhánh đã có cấu hình cho vùng giao hàng này");
     }
 
+    if (current.props.deleted) {
+      throw new Error("Không thể chỉnh sửa cấu hình vùng phục vụ đã bị xóa");
+    }
+
     if (patch.deliveryFeeOverride !== undefined) {
       patch.deliveryFeeOverride =
         patch.deliveryFeeOverride === null
@@ -125,11 +129,16 @@ export class EditBranchServiceArea {
       patch.status = normalizedStatus as "active" | "inactive";
     }
 
-    const updated = await this.branchServiceAreaRepo.update(serviceAreaId, {
+    const normalizedPatch: UpdateBranchServiceAreaPatch = {
       ...patch,
       branchId: nextBranchId,
       shippingZoneId: nextShippingZoneId,
-    });
+    };
+
+    const updated = await this.branchServiceAreaRepo.update(
+      serviceAreaId,
+      normalizedPatch,
+    );
 
     return updated.props;
   }

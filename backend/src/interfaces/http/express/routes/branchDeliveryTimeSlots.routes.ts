@@ -39,14 +39,14 @@ export function branchDeliveryTimeSlotsRoutes(
   router.patch(
     "/edit/:id",
     auth,
-    can("branch_delivery_time_slot", "update"),
+    can("branch_delivery_time_slot", "edit"),
     controller.edit,
   );
 
   router.patch(
     "/:id/status",
     auth,
-    can("branch_delivery_time_slot", "update"),
+    can("branch_delivery_time_slot", "edit"),
     controller.changeStatus,
   );
 

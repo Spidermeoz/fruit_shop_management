@@ -33,6 +33,11 @@ type CandidateBranch = {
   supportsDelivery?: boolean;
 };
 
+const normalizeNullableText = (value?: string | null): string | null => {
+  const normalized = String(value ?? "").trim();
+  return normalized ? normalized : null;
+};
+
 const normalizeDateOnly = (value?: string | null): string | null => {
   if (value === undefined || value === null) return null;
   const v = String(value).trim();
@@ -170,6 +175,10 @@ export class CalculateShippingQuoteService {
       throw new Error("Thiếu quận/huyện để tính phí giao hàng");
     }
 
+    if (!input.address?.ward?.trim()) {
+      throw new Error("Thiếu phường/xã để tính phí giao hàng");
+    }
+
     if (!input.address?.addressLine1?.trim()) {
       throw new Error("Thiếu địa chỉ giao hàng");
     }
@@ -189,11 +198,25 @@ export class CalculateShippingQuoteService {
       throw new Error("Không thể chọn ngày giao hàng trong quá khứ");
     }
 
+    const normalizedProvince = normalizeNullableText(input.address?.province);
+    const normalizedDistrict = normalizeNullableText(input.address?.district);
+    const normalizedWard = normalizeNullableText(input.address?.ward);
+
     const zone = await this.resolveShippingZoneService.execute({
-      province: input.address?.province ?? null,
-      district: input.address?.district ?? null,
-      ward: input.address?.ward ?? null,
+      province: normalizedProvince,
+      district: normalizedDistrict,
+      ward: normalizedWard,
     });
+
+    const matchedZones = await this.shippingZoneRepo.findMatchChain({
+      province: normalizedProvince,
+      district: normalizedDistrict,
+      ward: normalizedWard,
+    });
+
+    if (!matchedZones.length) {
+      throw new Error("Khu vực giao hàng hiện chưa được hỗ trợ");
+    }
 
     const branchList = await this.branchRepo.list({
       status: "active",
@@ -207,22 +230,55 @@ export class CalculateShippingQuoteService {
       (branch: any) =>
         !branch.props.deleted &&
         String(branch.props.status).toLowerCase() === "active" &&
-        !!branch.props.supportsDelivery,
+        !!branch.props.supportsDelivery &&
+        !!String(branch.props.addressLine1 ?? "").trim() &&
+        !!String(branch.props.district ?? "").trim() &&
+        !!String(branch.props.province ?? "").trim(),
     );
 
     const matchedBranchPairs: Array<{
       branch: any;
       serviceArea: any;
+      matchedZone: any;
     }> = [];
 
     for (const branch of deliveryCapableBranches) {
-      const serviceArea = await this.shippingZoneRepo.findBranchServiceArea(
-        Number(branch.props.id),
-        zone.id,
-      );
+      let matchedZoneForBranch: any = null;
+      let serviceArea: any = null;
 
-      if (!serviceArea) continue;
-      if (String(serviceArea.status).toLowerCase() !== "active") continue;
+      for (const candidateZone of matchedZones) {
+        const candidateServiceArea =
+          await this.shippingZoneRepo.findBranchServiceArea(
+            Number(branch.props.id),
+            candidateZone.id,
+          );
+
+        if (!candidateServiceArea) continue;
+        if (String(candidateServiceArea.status).toLowerCase() !== "active")
+          continue;
+
+        matchedZoneForBranch = candidateZone;
+        serviceArea = candidateServiceArea;
+        break;
+      }
+
+      if (!serviceArea || !matchedZoneForBranch) continue;
+
+      if (
+        serviceArea.deliveryFeeOverride !== null &&
+        serviceArea.deliveryFeeOverride !== undefined &&
+        Number(serviceArea.deliveryFeeOverride) < 0
+      ) {
+        continue;
+      }
+
+      if (
+        serviceArea.minOrderValue !== null &&
+        serviceArea.maxOrderValue !== null &&
+        Number(serviceArea.minOrderValue) > Number(serviceArea.maxOrderValue)
+      ) {
+        continue;
+      }
 
       if (
         serviceArea.minOrderValue !== null &&
@@ -244,7 +300,11 @@ export class CalculateShippingQuoteService {
         continue;
       }
 
-      matchedBranchPairs.push({ branch, serviceArea });
+      matchedBranchPairs.push({
+        branch,
+        serviceArea,
+        matchedZone: matchedZoneForBranch,
+      });
     }
 
     if (matchedBranchPairs.length === 0) {
@@ -268,6 +328,7 @@ export class CalculateShippingQuoteService {
       | {
           branch: any;
           serviceArea: any;
+          matchedZone: any;
         }
       | undefined;
 
@@ -290,9 +351,9 @@ export class CalculateShippingQuoteService {
         discountAmount: 0,
         finalPrice: subtotal,
         shippingZone: {
-          id: zone.id,
-          code: zone.code,
-          name: zone.name,
+          id: matchedZones[0].id,
+          code: matchedZones[0].code,
+          name: matchedZones[0].name,
         },
         availableSlots: [],
         selectedSlot: null,
@@ -304,16 +365,18 @@ export class CalculateShippingQuoteService {
 
     const selectedBranch = selectedPair.branch;
     const selectedServiceArea = selectedPair.serviceArea;
+    const selectedMatchedZone = selectedPair.matchedZone;
 
     const shippingFeeRaw =
       selectedServiceArea.deliveryFeeOverride !== null &&
       selectedServiceArea.deliveryFeeOverride !== undefined
         ? Number(selectedServiceArea.deliveryFeeOverride)
-        : Number(zone.baseFee ?? 0);
+        : Number(selectedMatchedZone.baseFee ?? 0);
 
     const freeShipThreshold =
-      zone.freeShipThreshold !== null && zone.freeShipThreshold !== undefined
-        ? Number(zone.freeShipThreshold)
+      selectedMatchedZone.freeShipThreshold !== null &&
+      selectedMatchedZone.freeShipThreshold !== undefined
+        ? Number(selectedMatchedZone.freeShipThreshold)
         : null;
 
     const shippingFee =
@@ -325,6 +388,12 @@ export class CalculateShippingQuoteService {
       branchId: Number(selectedBranch.props.id),
       deliveryDate,
     });
+
+    if (!Array.isArray(availableSlots) || availableSlots.length === 0) {
+      throw new Error(
+        "Chi nhánh đã chọn hiện chưa có khung giờ giao hàng khả dụng",
+      );
+    }
 
     let selectedSlot: any = null;
 
@@ -360,15 +429,17 @@ export class CalculateShippingQuoteService {
       discountAmount: 0,
       finalPrice: subtotal + shippingFee,
       shippingZone: {
-        id: zone.id,
-        code: zone.code,
-        name: zone.name,
+        id: matchedZones[0].id,
+        code: matchedZones[0].code,
+        name: matchedZones[0].name,
       },
       availableSlots,
       selectedSlot: selectedSlot
         ? {
             id: selectedSlot.id,
             label: selectedSlot.label,
+            startTime: selectedSlot.startTime,
+            endTime: selectedSlot.endTime,
           }
         : null,
       selectedBranch: {

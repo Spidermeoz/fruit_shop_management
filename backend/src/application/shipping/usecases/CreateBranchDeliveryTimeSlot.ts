@@ -64,6 +64,21 @@ export class CreateBranchDeliveryTimeSlot {
       throw new Error("Khung giờ này đã được gán cho chi nhánh.");
     }
 
+    const deletedCandidate =
+      await this.branchDeliveryTimeSlotRepo.findDeletedByBranchAndSlot(
+        branchId,
+        deliveryTimeSlotId,
+      );
+
+    if (deletedCandidate) {
+      return this.branchDeliveryTimeSlotRepo.revive(deletedCandidate.id, {
+        branchId,
+        deliveryTimeSlotId,
+        maxOrdersOverride,
+        status,
+      });
+    }
+
     return this.branchDeliveryTimeSlotRepo.create({
       branchId,
       deliveryTimeSlotId,

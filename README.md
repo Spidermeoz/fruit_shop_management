@@ -313,17 +313,35 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 GetAvailableDeliverySlotsService.ts
 │   │   │   │   │   └── 📄 ResolveShippingZoneService.ts
 │   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 ChangeBranchDeliverySlotCapacityStatus.ts
+│   │   │   │       ├── 📄 ChangeBranchDeliveryTimeSlotStatus.ts
 │   │   │   │       ├── 📄 ChangeBranchServiceAreaStatus.ts
+│   │   │   │       ├── 📄 ChangeDeliveryTimeSlotStatus.ts
 │   │   │   │       ├── 📄 ChangeShippingZoneStatus.ts
+│   │   │   │       ├── 📄 CreateBranchDeliverySlotCapacity.ts
+│   │   │   │       ├── 📄 CreateBranchDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 CreateBranchServiceArea.ts
+│   │   │   │       ├── 📄 CreateDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 CreateShippingZone.ts
+│   │   │   │       ├── 📄 EditBranchDeliverySlotCapacity.ts
+│   │   │   │       ├── 📄 EditBranchDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 EditBranchServiceArea.ts
+│   │   │   │       ├── 📄 EditDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 EditShippingZone.ts
+│   │   │   │       ├── 📄 GetBranchDeliverySlotCapacityDetail.ts
+│   │   │   │       ├── 📄 GetBranchDeliveryTimeSlotDetail.ts
 │   │   │   │       ├── 📄 GetBranchServiceAreaDetail.ts
+│   │   │   │       ├── 📄 GetDeliveryTimeSlotDetail.ts
 │   │   │   │       ├── 📄 GetShippingZoneDetail.ts
+│   │   │   │       ├── 📄 ListBranchDeliverySlotCapacities.ts
+│   │   │   │       ├── 📄 ListBranchDeliveryTimeSlots.ts
 │   │   │   │       ├── 📄 ListBranchServiceAreas.ts
+│   │   │   │       ├── 📄 ListDeliveryTimeSlots.ts
 │   │   │   │       ├── 📄 ListShippingZones.ts
+│   │   │   │       ├── 📄 SoftDeleteBranchDeliverySlotCapacity.ts
+│   │   │   │       ├── 📄 SoftDeleteBranchDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 SoftDeleteBranchServiceArea.ts
+│   │   │   │       ├── 📄 SoftDeleteDeliveryTimeSlot.ts
 │   │   │   │       └── 📄 SoftDeleteShippingZone.ts
 │   │   │   ├── 📁 uploads
 │   │   │   │   └── 📁 usecases
@@ -379,6 +397,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SettingGeneral.ts
 │   │   │   │   └── 📄 SettingGeneralRepository.ts
 │   │   │   ├── 📁 shipping
+│   │   │   │   ├── 📄 BranchDeliverySlotCapacityRepository.ts
+│   │   │   │   ├── 📄 BranchDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 BranchServiceArea.ts
 │   │   │   │   ├── 📄 BranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 DeliveryTimeSlotRepository.ts
@@ -433,6 +453,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 email
 │   │   │   │   └── 📄 EmailService.ts
 │   │   │   ├── 📁 repositories
+│   │   │   │   ├── 📄 SequelizeBranchDeliverySlotCapacityRepository.ts
+│   │   │   │   ├── 📄 SequelizeBranchDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
@@ -468,8 +490,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   └── 📄 ClientVerifyOtpController.ts
 │   │   │           │   ├── 📄 AdminReviewsController.ts
 │   │   │           │   ├── 📄 AuthController.ts
+│   │   │           │   ├── 📄 BranchDeliverySlotCapacitiesController.ts
+│   │   │           │   ├── 📄 BranchDeliveryTimeSlotsController.ts
 │   │   │           │   ├── 📄 BranchServiceAreasController.ts
 │   │   │           │   ├── 📄 BranchesController.ts
+│   │   │           │   ├── 📄 DeliveryTimeSlotsController.ts
 │   │   │           │   ├── 📄 InventoryController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
 │   │   │           │   ├── 📄 OriginsController.ts
@@ -500,8 +525,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 adminReviews.routes.ts
 │   │   │               ├── 📄 adminSettings.routes.ts
 │   │   │               ├── 📄 auth.routes.ts
+│   │   │               ├── 📄 branchDeliverySlotCapacities.routes.ts
+│   │   │               ├── 📄 branchDeliveryTimeSlots.routes.ts
 │   │   │               ├── 📄 branchServiceAreas.routes.ts
 │   │   │               ├── 📄 branches.routes.ts
+│   │   │               ├── 📄 deliveryTimeSlots.routes.ts
 │   │   │               ├── 📄 inventory.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
 │   │   │               ├── 📄 origins.routes.ts
@@ -600,10 +628,22 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📁 settings
 │   │   │   │   │   └── 📄 SettingsGeneralPage.tsx
 │   │   │   │   ├── 📁 shipping
+│   │   │   │   │   ├── 📄 BranchDeliverySlotCapacitiesPage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityCreatePage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityDetailPage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityEditPage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotCreatePage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotDetailPage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotEditPage.tsx
+│   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotsPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreaCreatePage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreaDetailPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreaEditPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreasPage.tsx
+│   │   │   │   │   ├── 📄 DeliveryTimeSlotCreatePage.tsx
+│   │   │   │   │   ├── 📄 DeliveryTimeSlotDetailPage.tsx
+│   │   │   │   │   ├── 📄 DeliveryTimeSlotEditPage.tsx
+│   │   │   │   │   ├── 📄 DeliveryTimeSlotsPage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneCreatePage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneDetailPage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneEditPage.tsx

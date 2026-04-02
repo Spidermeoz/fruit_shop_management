@@ -65,8 +65,8 @@ export class CreateShippingZone {
     }
 
     const priority = Number(input.priority ?? 0);
-    if (!Number.isInteger(priority)) {
-      throw new Error("Độ ưu tiên phải là số nguyên");
+    if (!Number.isInteger(priority) || priority < 0) {
+      throw new Error("Độ ưu tiên phải là số nguyên >= 0");
     }
 
     const status = String(input.status ?? "active")

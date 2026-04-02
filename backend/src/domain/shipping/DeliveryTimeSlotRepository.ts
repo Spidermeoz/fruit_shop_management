@@ -72,11 +72,18 @@ export interface DeliveryTimeSlotRepository {
 
   findByCode(code: string): Promise<DeliveryTimeSlotEntity | null>;
 
+  findDeletedByCode(code: string): Promise<DeliveryTimeSlotEntity | null>;
+
   create(
     payload: CreateDeliveryTimeSlotPayload,
   ): Promise<DeliveryTimeSlotEntity>;
 
   update(
+    id: number,
+    payload: UpdateDeliveryTimeSlotPayload,
+  ): Promise<DeliveryTimeSlotEntity>;
+
+  revive(
     id: number,
     payload: UpdateDeliveryTimeSlotPayload,
   ): Promise<DeliveryTimeSlotEntity>;

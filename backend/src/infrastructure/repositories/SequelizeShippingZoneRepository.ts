@@ -1,4 +1,4 @@
-import { Op } from "sequelize";
+import { Op, fn, col, where as sequelizeWhere } from "sequelize";
 import type {
   BranchServiceAreaEntity,
   CreateShippingZoneInput,
@@ -8,6 +8,21 @@ import type {
   ShippingZoneRepository,
   UpdateShippingZonePatch,
 } from "../../domain/shipping/ShippingZoneRepository";
+
+const normalizeMatchText = (value?: string | null): string | null => {
+  const normalized = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return normalized ? normalized : null;
+};
+
+const ciEquals = (field: string, value: string | null) => {
+  if (value === null) {
+    return { [field]: null };
+  }
+
+  return sequelizeWhere(fn("LOWER", col(field)), value);
+};
 
 export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
   constructor(private readonly models: any) {}
@@ -223,36 +238,38 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
   async findBestMatch(
     input: ShippingZoneMatchInput,
   ): Promise<ShippingZoneEntity | null> {
-    const province = String(input.province ?? "").trim();
-    const district = String(input.district ?? "").trim();
-    const ward = String(input.ward ?? "").trim();
+    const province = normalizeMatchText(input.province);
+    const district = normalizeMatchText(input.district);
+    const ward = normalizeMatchText(input.ward);
 
     if (!province) {
       return null;
     }
 
-    const whereBase: any = {
-      status: "active",
-      deleted: 0,
-      province,
-    };
+    const baseConditions: any[] = [
+      { status: "active" },
+      { deleted: 0 },
+      ciEquals("province", province),
+    ];
 
     const exactWardWhere: any = {
-      ...whereBase,
-      district: district || null,
-      ward: ward || null,
+      [Op.and]: [
+        ...baseConditions,
+        ciEquals("district", district || null),
+        ciEquals("ward", ward || null),
+      ],
     };
 
     const districtWhere: any = {
-      ...whereBase,
-      district: district || null,
-      ward: null,
+      [Op.and]: [
+        ...baseConditions,
+        ciEquals("district", district || null),
+        { ward: null },
+      ],
     };
 
     const provinceWhere: any = {
-      ...whereBase,
-      district: null,
-      ward: null,
+      [Op.and]: [...baseConditions, { district: null }, { ward: null }],
     };
 
     const queries = [
@@ -261,9 +278,9 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
       provinceWhere,
     ].filter(Boolean);
 
-    for (const where of queries) {
+    for (const zoneWhere of queries) {
       const row = await this.models.ShippingZone.findOne({
-        where,
+        where: zoneWhere,
         order: [
           ["priority", "ASC"],
           ["id", "ASC"],
@@ -275,14 +292,23 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
       }
     }
 
+    const fallbackConditions: any[] = [
+      { status: "active" },
+      { deleted: 0 },
+      ciEquals("province", province),
+    ];
+
+    if (district) {
+      fallbackConditions.push({
+        [Op.or]: [ciEquals("district", district), { district: null }],
+      });
+    } else {
+      fallbackConditions.push({ district: null });
+    }
+
     const fallback = await this.models.ShippingZone.findOne({
       where: {
-        status: "active",
-        deleted: 0,
-        province,
-        district: {
-          [Op.or]: [district || null, null],
-        },
+        [Op.and]: fallbackConditions,
       },
       order: [
         ["priority", "ASC"],
@@ -291,6 +317,76 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
     });
 
     return fallback ? this.mapZone(fallback) : null;
+  }
+
+  async findMatchChain(
+    input: ShippingZoneMatchInput,
+  ): Promise<ShippingZoneEntity[]> {
+    const province = normalizeMatchText(input.province);
+    const district = normalizeMatchText(input.district);
+    const ward = normalizeMatchText(input.ward);
+
+    if (!province) {
+      return [];
+    }
+
+    const baseConditions: any[] = [
+      { status: "active" },
+      { deleted: 0 },
+      ciEquals("province", province),
+    ];
+
+    const exactWardWhere: any =
+      district && ward
+        ? {
+            [Op.and]: [
+              ...baseConditions,
+              ciEquals("district", district),
+              ciEquals("ward", ward),
+            ],
+          }
+        : null;
+
+    const districtWhere: any = district
+      ? {
+          [Op.and]: [
+            ...baseConditions,
+            ciEquals("district", district),
+            { ward: null },
+          ],
+        }
+      : null;
+
+    const provinceWhere: any = {
+      [Op.and]: [...baseConditions, { district: null }, { ward: null }],
+    };
+
+    const queries = [exactWardWhere, districtWhere, provinceWhere].filter(
+      Boolean,
+    ) as any[];
+
+    const found: ShippingZoneEntity[] = [];
+    const seenIds = new Set<number>();
+
+    for (const zoneWhere of queries) {
+      const row = await this.models.ShippingZone.findOne({
+        where: zoneWhere,
+        order: [
+          ["priority", "ASC"],
+          ["id", "ASC"],
+        ],
+      });
+
+      if (!row) continue;
+
+      const mapped = this.mapZone(row);
+      if (seenIds.has(mapped.id)) continue;
+
+      seenIds.add(mapped.id);
+      found.push(mapped);
+    }
+
+    return found;
   }
 
   async findBranchServiceArea(

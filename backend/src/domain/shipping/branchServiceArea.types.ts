@@ -21,5 +21,12 @@ export type CreateBranchServiceAreaInput = {
   status?: BranchServiceAreaStatus;
 };
 
-export type UpdateBranchServiceAreaPatch =
-  Partial<CreateBranchServiceAreaInput>;
+export type UpdateBranchServiceAreaPatch = {
+  branchId?: number;
+  shippingZoneId?: number;
+  deliveryFeeOverride?: number | null;
+  minOrderValue?: number | null;
+  maxOrderValue?: number | null;
+  supportsSameDay?: boolean;
+  status?: BranchServiceAreaStatus;
+};

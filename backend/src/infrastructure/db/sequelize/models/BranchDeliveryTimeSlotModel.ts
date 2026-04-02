@@ -96,8 +96,8 @@ BranchDeliveryTimeSlotModel.init(
     indexes: [
       {
         unique: true,
-        name: "uq_branch_delivery_time_slots_branch_slot",
-        fields: ["branch_id", "delivery_time_slot_id"],
+        name: "uq_branch_delivery_time_slots_branch_slot_deleted",
+        fields: ["branch_id", "delivery_time_slot_id", "deleted"],
       },
       {
         name: "idx_branch_delivery_time_slots_slot",

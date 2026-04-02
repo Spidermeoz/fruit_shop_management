@@ -30,6 +30,11 @@ export class EditShippingZone {
       throw new Error("Zone id không hợp lệ");
     }
 
+    const current = await this.shippingZoneRepo.findById(zoneId);
+    if (!current) {
+      throw new Error("Vùng giao hàng không tồn tại");
+    }
+
     if (patch.code !== undefined) {
       const normalizedCode = String(patch.code ?? "")
         .trim()
@@ -61,9 +66,11 @@ export class EditShippingZone {
     patch.district = normalizeNullableText(patch.district);
     patch.ward = normalizeNullableText(patch.ward);
 
-    const nextProvince = patch.province;
-    const nextDistrict = patch.district;
-    const nextWard = patch.ward;
+    const nextProvince =
+      patch.province !== undefined ? patch.province : current.province;
+    const nextDistrict =
+      patch.district !== undefined ? patch.district : current.district;
+    const nextWard = patch.ward !== undefined ? patch.ward : current.ward;
 
     if (nextWard && !nextDistrict) {
       throw new Error("Nếu có phường/xã thì phải chọn quận/huyện");
@@ -102,8 +109,8 @@ export class EditShippingZone {
     if (patch.priority !== undefined) {
       const priority = Number(patch.priority);
 
-      if (!Number.isInteger(priority)) {
-        throw new Error("Độ ưu tiên phải là số nguyên");
+      if (!Number.isInteger(priority) || priority < 0) {
+        throw new Error("Độ ưu tiên phải là số nguyên >= 0");
       }
 
       patch.priority = priority;
