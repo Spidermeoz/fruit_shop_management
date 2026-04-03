@@ -7,7 +7,20 @@ import React, {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Save,
+  Store,
+  Clock3,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle2,
+  Info,
+  ShieldAlert,
+  MapPinned,
+  Power,
+} from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
@@ -33,11 +46,24 @@ interface BranchDeliveryTimeSlotFormData {
   status: "active" | "inactive";
 }
 
+type ApiList<T> = {
+  success: boolean;
+  data: T[] | { items: T[] };
+  meta?: any;
+};
+
 const initialForm: BranchDeliveryTimeSlotFormData = {
   branchId: "",
   deliveryTimeSlotId: "",
   maxOrdersOverride: "",
   status: "active",
+};
+
+const formatMaxOrdersPreview = (value: string) => {
+  if (!value || value.trim() === "") return "Không giới hạn (Theo slot)";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "Không giới hạn (Theo slot)";
+  return `${n.toLocaleString("vi-VN")} đơn`;
 };
 
 const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
@@ -87,8 +113,11 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
       setBootstrapLoading(true);
 
       const [branchesRes, slotsRes] = await Promise.all([
-        http<any>("GET", "/api/v1/admin/branches?limit=1000&status=active"),
-        http<any>(
+        http<ApiList<BranchOption>>(
+          "GET",
+          "/api/v1/admin/branches?limit=1000&status=active",
+        ),
+        http<ApiList<DeliveryTimeSlotOption>>(
           "GET",
           "/api/v1/admin/delivery-time-slots?page=1&limit=1000&status=active",
         ),
@@ -96,15 +125,11 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
 
       const branchesData = Array.isArray(branchesRes?.data)
         ? branchesRes.data
-        : Array.isArray(branchesRes?.data?.items)
-          ? branchesRes.data.items
-          : [];
+        : branchesRes?.data?.items || [];
 
       const slotsData = Array.isArray(slotsRes?.data)
         ? slotsRes.data
-        : Array.isArray(slotsRes?.data?.items)
-          ? slotsRes.data.items
-          : [];
+        : slotsRes?.data?.items || [];
 
       setBranches(branchesData);
       setSlots(slotsData);
@@ -203,24 +228,43 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Gán khung giờ giao hàng cho chi nhánh
-        </h1>
+    <div className="max-w-5xl mx-auto pb-24">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">
+            Gán khung giờ giao hàng cho chi nhánh
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+            Gán khung giờ giao hàng cho chi nhánh và tùy chỉnh capacity mặc định
+            nếu cần.
+          </p>
+        </div>
         <button
+          type="button"
           onClick={() => navigate("/admin/shipping/branch-delivery-slots")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-6 p-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Mapping */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <MapPinned className="w-5 h-5 text-gray-400" /> Mapping (Định
+              tuyến)
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Liên kết chi nhánh với khung giờ giao hàng tương ứng.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Chi nhánh <span className="text-red-500">*</span>
               </label>
               <select
@@ -229,9 +273,9 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
                 value={formData.branchId}
                 onChange={handleChange}
                 disabled={bootstrapLoading}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.branchId
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               >
@@ -243,14 +287,14 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
                 ))}
               </select>
               {errors.branchId && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.branchId}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.branchId}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Khung giờ giao hàng <span className="text-red-500">*</span>
               </label>
               <select
@@ -259,9 +303,9 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
                 value={formData.deliveryTimeSlotId}
                 onChange={handleChange}
                 disabled={bootstrapLoading}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.deliveryTimeSlotId
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               >
@@ -272,99 +316,199 @@ const BranchDeliveryTimeSlotCreatePage: React.FC = () => {
                   </option>
                 ))}
               </select>
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-start gap-1">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" /> Chọn slot chuẩn của
+                hệ thống để bật cho chi nhánh này.
+              </p>
               {errors.deliveryTimeSlotId && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />{" "}
                   {errors.deliveryTimeSlotId}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/40">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Xem trước mapping:
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-6 border border-gray-100 dark:border-gray-700">
+            <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-4 uppercase tracking-wider">
+              Preview Mapping
             </p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {selectedBranch?.name || "Chưa chọn chi nhánh"} →{" "}
-              {selectedSlot?.label || "Chưa chọn khung giờ"}
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <div className="flex-1 w-full bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm flex items-center gap-3">
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-md">
+                  <Store className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p
+                    className={`font-bold ${selectedBranch ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {selectedBranch?.name || "Chưa chọn chi nhánh"}
+                  </p>
+                  {selectedBranch && (
+                    <p className="text-xs text-gray-500">
+                      Mã: {selectedBranch.code}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-center p-2 rounded-full bg-gray-200 dark:bg-gray-700 shrink-0">
+                <ArrowRight className="w-5 h-5 text-gray-500 dark:text-gray-400 md:rotate-0 rotate-90" />
+              </div>
+
+              <div className="flex-1 w-full bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm flex items-center gap-3">
+                <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2 rounded-md">
+                  <Clock3 className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p
+                    className={`font-bold ${selectedSlot ? "text-gray-900 dark:text-white" : "text-gray-400 dark:text-gray-500"}`}
+                  >
+                    {selectedSlot?.label || "Chưa chọn khung giờ"}
+                  </p>
+                  {selectedSlot && (
+                    <p className="text-xs text-gray-500">
+                      Mã: {selectedSlot.code}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 font-medium mt-0.5">
+                    {selectedSlot
+                      ? `${String(selectedSlot.startTime).slice(0, 5)} - ${String(selectedSlot.endTime).slice(0, 5)}`
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 2: Capacity Override */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-gray-400" /> Capacity
+              Override (Giới hạn đơn)
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Ghi đè số lượng đơn hàng tối đa có thể nhận cho slot này tại chi
+              nhánh đã chọn.
             </p>
-            {selectedSlot && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {String(selectedSlot.startTime).slice(0, 5)} -{" "}
-                {String(selectedSlot.endTime).slice(0, 5)}
+          </div>
+
+          <div className="max-w-md">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Số đơn tối đa (Max orders override)
+            </label>
+            <input
+              ref={setFieldRef("maxOrdersOverride")}
+              type="number"
+              min="0"
+              step="1"
+              name="maxOrdersOverride"
+              value={formData.maxOrdersOverride}
+              onChange={handleChange}
+              placeholder="Để trống nếu dùng mặc định"
+              className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                errors.maxOrdersOverride
+                  ? "border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              }`}
+            />
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-start gap-1">
+              <Info className="w-4 h-4 shrink-0 mt-0.5" />
+              Để trống nếu dùng capacity mặc định từ delivery time slot.
+            </p>
+            {errors.maxOrdersOverride && (
+              <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" /> {errors.maxOrdersOverride}
               </p>
             )}
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Max orders override
-              </label>
-              <input
-                ref={setFieldRef("maxOrdersOverride")}
-                type="number"
-                min="0"
-                step="1"
-                name="maxOrdersOverride"
-                value={formData.maxOrdersOverride}
-                onChange={handleChange}
-                placeholder="Để trống nếu dùng capacity mặc định"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.maxOrdersOverride
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
-              {errors.maxOrdersOverride && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.maxOrdersOverride}
-                </p>
+            <div
+              className={`mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ${
+                formData.maxOrdersOverride.trim() !== ""
+                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400"
+                  : "bg-gray-50 text-gray-600 border-gray-200 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+              }`}
+            >
+              {formData.maxOrdersOverride.trim() !== "" ? (
+                <>
+                  <ShieldAlert className="w-4 h-4" />
+                  Chi nhánh sẽ giới hạn tối đa{" "}
+                  {formatMaxOrdersPreview(formData.maxOrdersOverride)} cho slot
+                  này.
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4" />
+                  Chi nhánh sẽ dùng capacity mặc định của slot.
+                </>
               )}
             </div>
+          </div>
+        </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Trạng thái
-              </label>
-              <select
-                ref={setFieldRef("status")}
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        {/* Section 3: Trạng thái */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Power className="w-5 h-5 text-gray-400" /> Trạng thái hoạt động
+            </h2>
+          </div>
+
+          <div className="max-w-md">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Trạng thái
+            </label>
+            <select
+              ref={setFieldRef("status")}
+              name="status"
+              value={formData.status}
+              onChange={handleChange}
+              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            >
+              <option value="active">Hoạt động (Áp dụng mapping)</option>
+              <option value="inactive">Tạm dừng (Bỏ qua mapping)</option>
+            </select>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5">
+              Có thể tạm dừng mapping này mà không cần xóa.
+            </p>
+          </div>
+        </Card>
+
+        {/* Action Bar (Sticky) */}
+        <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-end gap-4">
+            <div className="flex gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() =>
+                  navigate("/admin/shipping/branch-delivery-slots")
+                }
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors"
               >
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Tạm dừng</option>
-              </select>
+                Quay lại
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading || bootstrapLoading}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Đang tạo...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" /> Tạo mapping
+                  </>
+                )}
+              </button>
             </div>
           </div>
-
-          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-sm text-blue-700 dark:text-blue-300">
-            Nếu để trống max orders override, hệ thống sẽ dùng cấu hình capacity
-            mặc định của slot hoặc theo ngày ở bước tiếp theo.
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => navigate("/admin/shipping/branch-delivery-slots")}
-              className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white transition-colors"
-            >
-              Hủy
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading || bootstrapLoading}
-              className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Tạo mapping
-            </button>
-          </div>
-        </form>
-      </Card>
+        </div>
+      </form>
     </div>
   );
 };

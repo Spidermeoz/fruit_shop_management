@@ -6,12 +6,18 @@ import {
   Plus,
   Edit,
   Trash2,
-  Eye,
   Loader2,
   Truck,
   Store,
   MapPinned,
-  BadgePercent,
+  Power,
+  PowerOff,
+  Zap,
+  Banknote,
+  Layers,
+  CheckCircle2,
+  AlertCircle,
+  Tag,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { http } from "../../../services/http";
@@ -57,12 +63,12 @@ const statusMap: Record<
   active: {
     label: "Hoạt động",
     className:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800",
   },
   inactive: {
     label: "Tạm dừng",
     className:
-      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-800",
   },
 };
 
@@ -196,13 +202,14 @@ const BranchServiceAreasPage: React.FC = () => {
     setSearchParams(params);
   };
 
-  const handleDelete = async (row: BranchServiceArea) => {
+  const handleDelete = async (e: React.MouseEvent, row: BranchServiceArea) => {
+    e.stopPropagation();
     const branchName = branchMap.get(row.branchId)?.name || `#${row.branchId}`;
     const zoneName =
       zoneMap.get(row.shippingZoneId)?.name || `#${row.shippingZoneId}`;
 
     const ok = window.confirm(
-      `Bạn có chắc muốn xóa mềm cấu hình "${branchName} - ${zoneName}" không?`,
+      `Bạn có chắc muốn xóa cấu hình "${branchName} - ${zoneName}" không?`,
     );
     if (!ok) return;
 
@@ -219,7 +226,11 @@ const BranchServiceAreasPage: React.FC = () => {
     }
   };
 
-  const handleToggleStatus = async (row: BranchServiceArea) => {
+  const handleToggleStatus = async (
+    e: React.MouseEvent,
+    row: BranchServiceArea,
+  ) => {
+    e.stopPropagation();
     const nextStatus = row.status === "active" ? "inactive" : "active";
 
     try {
@@ -230,7 +241,6 @@ const BranchServiceAreasPage: React.FC = () => {
           status: nextStatus,
         },
       );
-
       showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
       fetchRows();
     } catch (err: any) {
@@ -239,233 +249,398 @@ const BranchServiceAreasPage: React.FC = () => {
     }
   };
 
+  const handleEdit = (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    navigate(`/admin/shipping/service-areas/edit/${id}`);
+  };
+
+  // Tính toán Summary Metrics
+  const totalLoaded = rows.length;
+  const activeCount = rows.filter((r) => r.status === "active").length;
+  const sameDayCount = rows.filter((r) => r.supportsSameDay).length;
+  const overrideCount = rows.filter(
+    (r) =>
+      r.deliveryFeeOverride !== null && r.deliveryFeeOverride !== undefined,
+  ).length;
+
   return (
     <div>
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Quản lý vùng phục vụ theo chi nhánh
-        </h1>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+            Coverage theo chi nhánh
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Thiết lập branch nào phục vụ zone nào, có override phí, điều kiện
+            đơn hàng và same-day.
+          </p>
+        </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full xl:w-auto">
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Tìm kiếm branch hoặc zone..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+        <button
+          onClick={() => navigate("/admin/shipping/service-areas/create")}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap w-full sm:w-auto"
+        >
+          <Plus className="w-5 h-5" />
+          Thêm coverage
+        </button>
+      </div>
+
+      {/* Overview Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 mt-6">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+            <Layers className="w-6 h-6" />
           </div>
-
-          <button
-            onClick={() => navigate("/admin/shipping/service-areas/create")}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            Thêm cấu hình
-          </button>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+              Tổng mapping
+            </p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">
+              {totalLoaded}
+            </p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+              Hoạt động
+            </p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">
+              {activeCount}
+            </p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+            <Zap className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+              Hỗ trợ Same-day
+            </p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">
+              {sameDayCount}
+            </p>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex items-center gap-4">
+          <div className="p-3 bg-amber-50 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
+            <Banknote className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium">
+              Custom Phí
+            </p>
+            <p className="text-xl font-bold text-gray-900 dark:text-white">
+              {overrideCount}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-3 mb-4">
-        <select
-          value={statusFilter}
-          onChange={(e) => handleFilterChange("status", e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="active">Hoạt động</option>
-          <option value="inactive">Tạm dừng</option>
-        </select>
+      {/* Filters Toolbar */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm mb-6 flex flex-col lg:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Tìm kiếm theo ID chi nhánh hoặc zone..."
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+          />
+        </div>
 
-        <select
-          value={branchFilter}
-          onChange={(e) => handleFilterChange("branchId", e.target.value)}
-          disabled={bootstrapLoading}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-60"
-        >
-          <option value="all">Tất cả chi nhánh</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name} ({branch.code})
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-col sm:flex-row gap-3 lg:w-auto w-full">
+          <select
+            value={statusFilter}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="all">Tất cả trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Tạm dừng</option>
+          </select>
 
-        <select
-          value={zoneFilter}
-          onChange={(e) => handleFilterChange("shippingZoneId", e.target.value)}
-          disabled={bootstrapLoading}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-60"
-        >
-          <option value="all">Tất cả vùng giao hàng</option>
-          {zones.map((zone) => (
-            <option key={zone.id} value={zone.id}>
-              {zone.name} ({zone.code})
-            </option>
-          ))}
-        </select>
+          <select
+            value={branchFilter}
+            onChange={(e) => handleFilterChange("branchId", e.target.value)}
+            disabled={bootstrapLoading}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+          >
+            <option value="all">Tất cả chi nhánh</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={zoneFilter}
+            onChange={(e) =>
+              handleFilterChange("shippingZoneId", e.target.value)
+            }
+            disabled={bootstrapLoading}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white disabled:opacity-60 focus:ring-2 focus:ring-blue-500 min-w-[200px]"
+          >
+            <option value="all">Tất cả vùng</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <Card>
+      <Card className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
           {loading || bootstrapLoading ? (
-            <div className="flex justify-center items-center py-16">
-              <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
-              <span className="ml-2 text-gray-600 dark:text-gray-400">
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
+              <span className="ml-3 text-gray-600 dark:text-gray-400 font-medium">
                 Đang tải dữ liệu...
               </span>
             </div>
           ) : error ? (
-            <p className="text-center text-red-500 py-8">{error}</p>
+            <div className="text-center py-12 text-red-500 bg-red-50 dark:bg-red-900/10">
+              <AlertCircle className="w-10 h-10 mx-auto mb-2 opacity-80" />
+              <p>{error}</p>
+            </div>
           ) : rows.length === 0 ? (
-            <div className="text-center py-12">
-              <Truck className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-              <p className="text-gray-600 dark:text-gray-400">
-                Chưa có cấu hình vùng phục vụ nào.
+            <div className="text-center py-20 px-4">
+              <div className="bg-gray-100 dark:bg-gray-800 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Truck className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                Chưa có coverage nào
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                Hãy tạo mapping chi nhánh - vùng giao hàng đầu tiên để hệ thống
+                có thể điều phối đơn hàng chính xác.
               </p>
+              <button
+                onClick={() => navigate("/admin/shipping/service-areas/create")}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-5 h-5" />
+                Tạo coverage đầu tiên
+              </button>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+              <thead className="bg-gray-50/80 dark:bg-gray-800/80">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    STT
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Chi nhánh
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Vùng giao hàng
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Vùng áp dụng
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Điều kiện đơn
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Cấu hình giao hàng
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Phí vận chuyển
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Same-day
+                  </th>
+                  <th className="px-5 py-4 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Nhãn
+                  </th>
+                  <th className="px-5 py-4 text-center text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Trạng thái
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-5 py-4 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Hành động
                   </th>
                 </tr>
               </thead>
 
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {rows.map((row, index) => {
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                {rows.map((row) => {
                   const branch = branchMap.get(row.branchId);
                   const zone = zoneMap.get(row.shippingZoneId);
+                  const hasCustomFee =
+                    row.deliveryFeeOverride !== null &&
+                    row.deliveryFeeOverride !== undefined;
+                  const hasCondition = row.minOrderValue || row.maxOrderValue;
 
                   return (
                     <tr
                       key={row.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                      onClick={() =>
+                        navigate(`/admin/shipping/service-areas/edit/${row.id}`)
+                      }
+                      className="hover:bg-blue-50/50 dark:hover:bg-gray-800/60 transition-colors cursor-pointer group"
                     >
-                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        {(currentPage - 1) * 10 + index + 1}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-2">
-                          <Store className="w-4 h-4 text-gray-400 mt-0.5" />
+                      {/* Chi nhánh */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                            <Store className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          </div>
                           <div>
                             <div className="font-semibold text-gray-900 dark:text-white">
-                              {branch?.name || `Chi nhánh #${row.branchId}`}
+                              {branch?.name || `ID #${row.branchId}`}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {branch?.code || `ID: ${row.branchId}`}
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {branch?.code || `Mã: N/A`}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-4 py-4">
-                        <div className="flex items-start gap-2">
-                          <MapPinned className="w-4 h-4 text-gray-400 mt-0.5" />
+                      {/* Vùng */}
+                      <td className="px-5 py-4">
+                        <div className="flex items-start gap-2.5">
+                          <div className="p-1.5 bg-gray-50 dark:bg-gray-800 rounded-md">
+                            <MapPinned className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                          </div>
                           <div>
                             <div className="font-semibold text-gray-900 dark:text-white">
-                              {zone?.name || `Vùng #${row.shippingZoneId}`}
+                              {zone?.name || `ID #${row.shippingZoneId}`}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              {zone?.code || `ID: ${row.shippingZoneId}`}
+                            <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                              <Tag className="w-3 h-3" />
+                              {zone?.code || `Mã: N/A`}
                             </div>
                           </div>
                         </div>
                       </td>
 
-                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        <div>Min: {formatCurrency(row.minOrderValue)}</div>
-                        <div className="mt-1">
-                          Max: {formatCurrency(row.maxOrderValue)}
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        <div className="flex items-center gap-2">
-                          <BadgePercent className="w-4 h-4 text-gray-400" />
-                          <span>
-                            Override phí:{" "}
-                            {formatCurrency(row.deliveryFeeOverride)}
+                      {/* Điều kiện */}
+                      <td className="px-5 py-4 text-sm">
+                        {!hasCondition ? (
+                          <span className="text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                            Mọi giá trị đơn hàng
                           </span>
-                        </div>
-                        <div className="mt-2">
-                          {row.supportsSameDay ? (
-                            <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                              Same-day
+                        ) : (
+                          <div className="text-gray-700 dark:text-gray-300 space-y-1">
+                            {row.minOrderValue ? (
+                              <div>
+                                <span className="text-gray-400">Min:</span>{" "}
+                                <span className="font-medium">
+                                  {formatCurrency(row.minOrderValue)}
+                                </span>
+                              </div>
+                            ) : null}
+                            {row.maxOrderValue ? (
+                              <div>
+                                <span className="text-gray-400">Max:</span>{" "}
+                                <span className="font-medium">
+                                  {formatCurrency(row.maxOrderValue)}
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Phí */}
+                      <td className="px-5 py-4 text-sm">
+                        {hasCustomFee ? (
+                          <div className="inline-flex items-center gap-1.5 font-bold text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-800">
+                            Override: {formatCurrency(row.deliveryFeeOverride)}
+                          </div>
+                        ) : (
+                          <div className="text-gray-500 dark:text-gray-400 italic font-medium flex items-center gap-1.5">
+                            Theo zone gốc
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Same day */}
+                      <td className="px-5 py-4">
+                        {row.supportsSameDay ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border border-purple-200 dark:border-purple-800">
+                            <Zap className="w-3 h-3" /> Có hỗ trợ
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-2.5 py-1 rounded-md text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 dark:text-gray-400">
+                            Không
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Nhãn Insight */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col gap-1.5 items-start">
+                          {hasCustomFee && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                              Custom fee
                             </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                              Không same-day
+                          )}
+                          {hasCondition && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
+                              Rule-based
+                            </span>
+                          )}
+                          {row.supportsSameDay && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                              Fast delivery
+                            </span>
+                          )}
+                          {row.status === "inactive" && (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                              Đang tắt
                             </span>
                           )}
                         </div>
                       </td>
 
-                      <td className="px-4 py-4">
-                        <button
-                          onClick={() => handleToggleStatus(row)}
-                          className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                      {/* Trạng thái */}
+                      <td className="px-5 py-4 text-center">
+                        <span
+                          className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${
                             statusMap[row.status]?.className
                           }`}
-                          title="Bấm để đổi trạng thái"
                         >
                           {statusMap[row.status]?.label || row.status}
-                        </button>
+                        </span>
                       </td>
 
-                      <td className="px-4 py-4 text-right">
-                        <div className="flex justify-end gap-3">
+                      {/* Hành động */}
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <button
-                            onClick={() =>
-                              navigate(
-                                `/admin/shipping/service-areas/detail/${row.id}`,
-                              )
+                            onClick={(e) => handleToggleStatus(e, row)}
+                            className={`p-2 rounded-md transition-colors ${
+                              row.status === "active"
+                                ? "text-yellow-600 hover:bg-yellow-50 dark:hover:bg-yellow-900/30"
+                                : "text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"
+                            }`}
+                            title={
+                              row.status === "active"
+                                ? "Tạm dừng"
+                                : "Bật hoạt động"
                             }
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Xem chi tiết"
                           >
-                            <Eye className="w-5 h-5" />
+                            {row.status === "active" ? (
+                              <PowerOff className="w-5 h-5" />
+                            ) : (
+                              <Power className="w-5 h-5" />
+                            )}
                           </button>
 
                           <button
-                            onClick={() =>
-                              navigate(
-                                `/admin/shipping/service-areas/edit/${row.id}`,
-                              )
-                            }
-                            className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
+                            onClick={(e) => handleEdit(e, row.id)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-md transition-colors"
                             title="Chỉnh sửa"
                           >
                             <Edit className="w-5 h-5" />
                           </button>
 
                           <button
-                            onClick={() => handleDelete(row)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                            title="Xóa mềm"
+                            onClick={(e) => handleDelete(e, row)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30 rounded-md transition-colors"
+                            title="Xóa cấu hình"
                           >
                             <Trash2 className="w-5 h-5" />
                           </button>
@@ -481,7 +656,7 @@ const BranchServiceAreasPage: React.FC = () => {
       </Card>
 
       {!loading && !error && totalPages > 1 && (
-        <div className="mt-6">
+        <div className="mt-6 flex justify-end">
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}

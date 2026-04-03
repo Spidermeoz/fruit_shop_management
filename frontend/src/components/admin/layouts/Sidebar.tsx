@@ -31,6 +31,7 @@ interface SidebarItem {
   name: string;
   href: string;
   icon: LucideIcon;
+  exact?: boolean; // Thêm thuộc tính exact
   permission?: {
     module: string;
     action: string;
@@ -42,6 +43,7 @@ const productChildren: SidebarItem[] = [
     name: "Products",
     href: "/admin/products",
     icon: ShoppingBag,
+    exact: true, // Thêm exact: true
     permission: { module: "product", action: "view" },
   },
   {
@@ -69,6 +71,7 @@ const inventoryChildren: SidebarItem[] = [
     name: "Inventory",
     href: "/admin/inventory",
     icon: Package2,
+    exact: true, // Thêm exact: true
     permission: { module: "inventory", action: "view" },
   },
   {
@@ -81,31 +84,37 @@ const inventoryChildren: SidebarItem[] = [
 
 const shippingChildren: SidebarItem[] = [
   {
-    name: "Shipping Zones",
+    name: "Dashboard",
+    href: "/admin/shipping",
+    icon: LayoutDashboard,
+    exact: true, // Thêm exact: true thay vì hardcode trong renderChildItem
+  },
+  {
+    name: "Zones",
     href: "/admin/shipping/zones",
     icon: MapPinned,
     permission: { module: "shipping_zone", action: "view" },
   },
   {
-    name: "Service Areas",
+    name: "Coverage",
     href: "/admin/shipping/service-areas",
     icon: Truck,
     permission: { module: "branch_service_area", action: "view" },
   },
   {
-    name: "Delivery Slots",
+    name: "Slots",
     href: "/admin/shipping/delivery-slots",
     icon: Clock3,
     permission: { module: "delivery_time_slot", action: "view" },
   },
   {
-    name: "Branch Delivery Slots",
+    name: "Branch Slots",
     href: "/admin/shipping/branch-delivery-slots",
     icon: Link2,
     permission: { module: "branch_delivery_time_slot", action: "view" },
   },
   {
-    name: "Slot Capacities",
+    name: "Capacity",
     href: "/admin/shipping/branch-delivery-slot-capacities",
     icon: CalendarDays,
     permission: { module: "branch_delivery_slot_capacity", action: "view" },
@@ -191,21 +200,10 @@ const Sidebar: React.FC = () => {
       return;
     }
 
-    if (isProductsSectionActive) {
-      setIsProductsOpen(true);
-    }
-
-    if (isInventorySectionActive) {
-      setIsInventoryOpen(true);
-    }
-
-    if (isShippingSectionActive) {
-      setIsShippingOpen(true);
-    }
-
-    if (isUsersSectionActive) {
-      setIsUsersOpen(true);
-    }
+    if (isProductsSectionActive) setIsProductsOpen(true);
+    if (isInventorySectionActive) setIsInventoryOpen(true);
+    if (isShippingSectionActive) setIsShippingOpen(true);
+    if (isUsersSectionActive) setIsUsersOpen(true);
   }, [
     isCollapsed,
     isProductsSectionActive,
@@ -216,9 +214,10 @@ const Sidebar: React.FC = () => {
 
   const renderMenuItem = (item: SidebarItem) => {
     const Icon = item.icon;
-    const isActive =
-      location.pathname === item.href ||
-      location.pathname.startsWith(item.href + "/");
+    const isActive = item.exact
+      ? location.pathname === item.href
+      : location.pathname === item.href ||
+        location.pathname.startsWith(item.href + "/");
 
     const menuItem = (
       <Link
@@ -249,17 +248,12 @@ const Sidebar: React.FC = () => {
     return <div key={item.name}>{menuItem}</div>;
   };
 
-  const renderChildItem = (item: SidebarItem, parentBaseHref?: string) => {
-    const isExactMatch = location.pathname === item.href;
-    const isSubPathMatch = location.pathname.startsWith(item.href + "/");
-
-    let isActive = false;
-
-    if (parentBaseHref && item.href === parentBaseHref) {
-      isActive = isExactMatch || isSubPathMatch;
-    } else {
-      isActive = isExactMatch || isSubPathMatch;
-    }
+  const renderChildItem = (item: SidebarItem) => {
+    // Logic mới sử dụng thuộc tính exact thay cho hardcode
+    const isActive = item.exact
+      ? location.pathname === item.href
+      : location.pathname === item.href ||
+        location.pathname.startsWith(item.href + "/");
 
     const child = (
       <Link
@@ -288,6 +282,68 @@ const Sidebar: React.FC = () => {
     }
 
     return <div key={item.name}>{child}</div>;
+  };
+
+  const renderGroup = ({
+    title,
+    href,
+    icon: Icon,
+    isActive,
+    isOpen,
+    setIsOpen,
+    children,
+  }: {
+    title: string;
+    href: string;
+    icon: LucideIcon;
+    isActive: boolean;
+    isOpen: boolean;
+    setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    children: SidebarItem[];
+  }) => {
+    return (
+      <div className="rounded-xl">
+        <div className="flex items-center gap-2">
+          <Link
+            to={href}
+            onClick={() => !isCollapsed && setIsOpen(true)}
+            className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+              isActive
+                ? "bg-blue-500 text-white"
+                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+            }`}
+          >
+            <Icon className="w-6 h-6 shrink-0" />
+            {!isCollapsed && <span>{title}</span>}
+          </Link>
+
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => setIsOpen((prev) => !prev)}
+              className={`rounded-lg p-2 transition-colors ${
+                isActive
+                  ? "text-white hover:bg-blue-600"
+                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              }`}
+              aria-label={`Toggle ${title.toLowerCase()} menu`}
+            >
+              {isOpen ? (
+                <ChevronDown className="w-5 h-5" />
+              ) : (
+                <ChevronRight className="w-5 h-5" />
+              )}
+            </button>
+          )}
+        </div>
+
+        {!isCollapsed && isOpen && (
+          <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+            {children.map(renderChildItem)}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -328,180 +384,46 @@ const Sidebar: React.FC = () => {
             {!isCollapsed && <span>Dashboard</span>}
           </Link>
 
-          <div className="rounded-xl">
-            <div className="flex items-center gap-2">
-              <Link
-                to="/admin/products"
-                onClick={() => !isCollapsed && setIsProductsOpen(true)}
-                className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isProductsSectionActive
-                    ? "bg-blue-500 text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <ShoppingBag className="w-6 h-6 shrink-0" />
-                {!isCollapsed && <span>Products</span>}
-              </Link>
+          {renderGroup({
+            title: "Products",
+            href: "/admin/products",
+            icon: ShoppingBag,
+            isActive: isProductsSectionActive,
+            isOpen: isProductsOpen,
+            setIsOpen: setIsProductsOpen,
+            children: productChildren,
+          })}
 
-              {!isCollapsed && (
-                <button
-                  type="button"
-                  onClick={() => setIsProductsOpen((prev) => !prev)}
-                  className={`rounded-lg p-2 transition-colors ${
-                    isProductsSectionActive
-                      ? "text-white hover:bg-blue-600"
-                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
-                  aria-label="Toggle products menu"
-                >
-                  {isProductsOpen ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" />
-                  )}
-                </button>
-              )}
-            </div>
+          {renderGroup({
+            title: "Inventory",
+            href: "/admin/inventory",
+            icon: Package2,
+            isActive: isInventorySectionActive,
+            isOpen: isInventoryOpen,
+            setIsOpen: setIsInventoryOpen,
+            children: inventoryChildren,
+          })}
 
-            {!isCollapsed && isProductsOpen && (
-              <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                {productChildren.map((item) =>
-                  renderChildItem(item, "/admin/products"),
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl">
-            <div className="flex items-center gap-2">
-              <Link
-                to="/admin/inventory"
-                onClick={() => !isCollapsed && setIsInventoryOpen(true)}
-                className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isInventorySectionActive
-                    ? "bg-blue-500 text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <Package2 className="w-6 h-6 shrink-0" />
-                {!isCollapsed && <span>Inventory</span>}
-              </Link>
-
-              {!isCollapsed && (
-                <button
-                  type="button"
-                  onClick={() => setIsInventoryOpen((prev) => !prev)}
-                  className={`rounded-lg p-2 transition-colors ${
-                    isInventorySectionActive
-                      ? "text-white hover:bg-blue-600"
-                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
-                  aria-label="Toggle inventory menu"
-                >
-                  {isInventoryOpen ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" />
-                  )}
-                </button>
-              )}
-            </div>
-
-            {!isCollapsed && isInventoryOpen && (
-              <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                {inventoryChildren.map((item) =>
-                  renderChildItem(item, "/admin/inventory"),
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-xl">
-            <div className="flex items-center gap-2">
-              <Link
-                to="/admin/shipping/zones"
-                onClick={() => !isCollapsed && setIsShippingOpen(true)}
-                className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  isShippingSectionActive
-                    ? "bg-blue-500 text-white"
-                    : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                }`}
-              >
-                <Truck className="w-6 h-6 shrink-0" />
-                {!isCollapsed && <span>Shipping</span>}
-              </Link>
-
-              {!isCollapsed && (
-                <button
-                  type="button"
-                  onClick={() => setIsShippingOpen((prev) => !prev)}
-                  className={`rounded-lg p-2 transition-colors ${
-                    isShippingSectionActive
-                      ? "text-white hover:bg-blue-600"
-                      : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                  }`}
-                  aria-label="Toggle shipping menu"
-                >
-                  {isShippingOpen ? (
-                    <ChevronDown className="w-5 h-5" />
-                  ) : (
-                    <ChevronRight className="w-5 h-5" />
-                  )}
-                </button>
-              )}
-            </div>
-
-            {!isCollapsed && isShippingOpen && (
-              <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                {shippingChildren.map((item) =>
-                  renderChildItem(item, "/admin/shipping/zones"),
-                )}
-              </div>
-            )}
-          </div>
+          {renderGroup({
+            title: "Shipping",
+            href: "/admin/shipping",
+            icon: Truck,
+            isActive: isShippingSectionActive,
+            isOpen: isShippingOpen,
+            setIsOpen: setIsShippingOpen,
+            children: shippingChildren,
+          })}
 
           <Can module="user" action="view">
-            <div className="rounded-xl">
-              <div className="flex items-center gap-2">
-                <Link
-                  to="/admin/users/internal"
-                  onClick={() => !isCollapsed && setIsUsersOpen(true)}
-                  className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                    isUsersSectionActive
-                      ? "bg-blue-500 text-white"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  <Users className="w-6 h-6 shrink-0" />
-                  {!isCollapsed && <span>Users</span>}
-                </Link>
-
-                {!isCollapsed && (
-                  <button
-                    type="button"
-                    onClick={() => setIsUsersOpen((prev) => !prev)}
-                    className={`rounded-lg p-2 transition-colors ${
-                      isUsersSectionActive
-                        ? "text-white hover:bg-blue-600"
-                        : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-                    }`}
-                    aria-label="Toggle users menu"
-                  >
-                    {isUsersOpen ? (
-                      <ChevronDown className="w-5 h-5" />
-                    ) : (
-                      <ChevronRight className="w-5 h-5" />
-                    )}
-                  </button>
-                )}
-              </div>
-
-              {!isCollapsed && isUsersOpen && (
-                <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-                  {userChildren.map((item) => renderChildItem(item))}
-                </div>
-              )}
-            </div>
+            {renderGroup({
+              title: "Users",
+              href: "/admin/users/internal",
+              icon: Users,
+              isActive: isUsersSectionActive,
+              isOpen: isUsersOpen,
+              setIsOpen: setIsUsersOpen,
+              children: userChildren,
+            })}
           </Can>
         </div>
 

@@ -19,7 +19,7 @@ export interface ProductCategoryNode {
   children?: ProductCategoryNode[];
 }
 
-// 🧱 Chuyển danh sách phẳng → cây
+// Chuyển danh sách phẳng → cây
 export const buildCategoryTree = (categories: ProductCategoryNode[]) => {
   const map = new Map<number, ProductCategoryNode>();
   const roots: ProductCategoryNode[] = [];
@@ -37,7 +37,7 @@ export const buildCategoryTree = (categories: ProductCategoryNode[]) => {
   return roots;
 };
 
-// 🧩 Render từng dòng danh mục
+// Render từng dòng danh mục
 const CategoryRow: React.FC<{
   cat: ProductCategoryNode;
   level: number;
@@ -190,7 +190,7 @@ const CategoryRow: React.FC<{
           <div className="flex justify-end gap-2">
             <button
               onClick={() =>
-                navigate(`/admin/product-category/detail/${cat.id}`)
+                navigate(`/admin/products/categories/detail/${cat.id}`)
               }
               className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
               title="Xem chi tiết"
@@ -198,7 +198,7 @@ const CategoryRow: React.FC<{
               <Eye className="w-5 h-5" />
             </button>
             <button
-              onClick={() => navigate(`/admin/product-category/edit/${cat.id}`)}
+              onClick={() => navigate(`/admin/products/categories/edit/${cat.id}`)}
               className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
               title="Chỉnh sửa"
             >

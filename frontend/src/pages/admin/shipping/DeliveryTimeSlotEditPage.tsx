@@ -7,7 +7,21 @@ import React, {
   type FormEvent,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Loader2, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Save,
+  Clock3,
+  AlertCircle,
+  CheckCircle2,
+  Settings2,
+  Info,
+  Tag,
+  ListOrdered,
+  Timer,
+  ShieldAlert,
+  CalendarClock,
+} from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
@@ -60,9 +74,32 @@ const normalizeCode = (value: string) =>
     .replace(/_+/g, "_")
     .replace(/^_+|_+$/g, "");
 
-const formatTimePreview = (startTime: string, endTime: string) => {
-  if (!startTime || !endTime) return "—";
-  return `${startTime} - ${endTime}`;
+const formatMaxOrdersPreview = (value: string) => {
+  if (!value || value.trim() === "") return "Không giới hạn";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "Không giới hạn";
+  return `${n.toLocaleString("vi-VN")} đơn`;
+};
+
+const getDuration = (start?: string, end?: string) => {
+  if (!start || !end) return "";
+  try {
+    const [sh, sm] = start.split(":").map(Number);
+    const [eh, em] = end.split(":").map(Number);
+    if (!Number.isFinite(sh) || !Number.isFinite(eh)) return "";
+
+    let diffMin = eh * 60 + em - (sh * 60 + sm);
+    if (diffMin < 0) diffMin += 24 * 60;
+
+    const h = Math.floor(diffMin / 60);
+    const m = diffMin % 60;
+
+    if (h > 0 && m > 0) return `${h} giờ ${m} phút`;
+    if (h > 0) return `${h} giờ`;
+    return `${m} phút`;
+  } catch (e) {
+    return "";
+  }
 };
 
 const DeliveryTimeSlotEditPage: React.FC = () => {
@@ -88,11 +125,6 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
     return JSON.stringify(formData) !== JSON.stringify(initialData);
   }, [formData, initialData]);
 
-  const generatedPreview = useMemo(() => {
-    if (!formData) return "—";
-    return formatTimePreview(formData.startTime, formData.endTime);
-  }, [formData]);
-
   const setFieldRef =
     (name: string) => (el: HTMLInputElement | HTMLSelectElement | null) => {
       fieldRefs.current[name] = el;
@@ -111,7 +143,6 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
   const fetchDetail = async () => {
     try {
       setLoading(true);
-
       const detailRes = await http<ApiDetail<any>>(
         "GET",
         `/api/v1/admin/delivery-time-slots/edit/${id}`,
@@ -140,7 +171,6 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     if (!formData) return;
-
     const { name, value } = e.target;
     setFormData((prev) => (prev ? { ...prev, [name]: value } : prev));
 
@@ -158,37 +188,23 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
 
   const validateForm = () => {
     if (!formData) return false;
-
     const nextErrors: Record<string, string> = {};
 
-    if (!formData.code.trim()) {
-      nextErrors.code = "Vui lòng nhập mã khung giờ.";
-    }
-
-    if (!formData.label.trim()) {
+    if (!formData.code.trim()) nextErrors.code = "Vui lòng nhập mã khung giờ.";
+    if (!formData.label.trim())
       nextErrors.label = "Vui lòng nhập tên khung giờ.";
-    }
-
-    if (!formData.startTime) {
+    if (!formData.startTime)
       nextErrors.startTime = "Vui lòng chọn giờ bắt đầu.";
-    }
-
-    if (!formData.endTime) {
-      nextErrors.endTime = "Vui lòng chọn giờ kết thúc.";
-    }
+    if (!formData.endTime) nextErrors.endTime = "Vui lòng chọn giờ kết thúc.";
 
     if (formData.startTime && formData.endTime) {
       const start = timeToMinutes(formData.startTime);
       const end = timeToMinutes(formData.endTime);
 
-      if (!Number.isFinite(start)) {
+      if (!Number.isFinite(start))
         nextErrors.startTime = "Giờ bắt đầu không hợp lệ.";
-      }
-
-      if (!Number.isFinite(end)) {
+      if (!Number.isFinite(end))
         nextErrors.endTime = "Giờ kết thúc không hợp lệ.";
-      }
-
       if (Number.isFinite(start) && Number.isFinite(end) && start >= end) {
         nextErrors.endTime = "Giờ kết thúc phải lớn hơn giờ bắt đầu.";
       }
@@ -220,42 +236,30 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
     }
 
     setErrors(nextErrors);
-
     if (Object.keys(nextErrors).length > 0) {
       scrollToFirstError(nextErrors);
       return false;
     }
-
     return true;
   };
 
   const handleAutoFillLabel = () => {
     if (!formData) return;
     if (!formData.startTime || !formData.endTime) return;
-
     setFormData((prev) =>
-      prev
-        ? {
-            ...prev,
-            label: `${prev.startTime} - ${prev.endTime}`,
-          }
-        : prev,
+      prev ? { ...prev, label: `${prev.startTime} - ${prev.endTime}` } : prev,
     );
+    if (errors.label) setErrors((prev) => ({ ...prev, label: "" }));
   };
 
   const handleAutoFillCode = () => {
     if (!formData) return;
-    const source = formData.label.trim() || generatedPreview;
-    if (!source || source === "—") return;
-
+    const source = formData.label.trim();
+    if (!source) return;
     setFormData((prev) =>
-      prev
-        ? {
-            ...prev,
-            code: normalizeCode(source),
-          }
-        : prev,
+      prev ? { ...prev, code: normalizeCode(source) } : prev,
     );
+    if (errors.code) setErrors((prev) => ({ ...prev, code: "" }));
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -265,7 +269,6 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
 
     try {
       setSaving(true);
-
       const payload = {
         code: formData.code.trim(),
         label: formData.label.trim(),
@@ -288,7 +291,8 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
         showSuccessToast({
           message: "Cập nhật khung giờ giao hàng thành công!",
         });
-        navigate("/admin/shipping/delivery-slots");
+        setInitialData({ ...formData });
+        setErrors({});
       } else {
         showErrorToast(
           res?.message || "Cập nhật khung giờ giao hàng thất bại.",
@@ -304,9 +308,9 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
 
   if (loading || !formData) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">
+      <div className="flex flex-col justify-center items-center py-32">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400 mb-4" />
+        <span className="text-gray-600 dark:text-gray-400 font-medium">
           Đang tải dữ liệu...
         </span>
       </div>
@@ -314,55 +318,102 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Chỉnh sửa khung giờ giao hàng
-        </h1>
+    <div className="max-w-5xl mx-auto pb-24">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">
+              Chỉnh sửa khung giờ giao hàng
+            </h1>
+            <span
+              className={`px-3 py-1 text-xs font-semibold rounded-full border ${
+                formData.status === "active"
+                  ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                  : "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800"
+              }`}
+            >
+              {formData.status === "active" ? "Đang hoạt động" : "Tạm dừng"}
+            </span>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 mt-1.5 flex items-center gap-2 font-medium">
+            <Settings2 className="w-4 h-4" /> {formData.label} ({formData.code})
+          </p>
+        </div>
         <button
+          type="button"
           onClick={() => navigate("/admin/shipping/delivery-slots")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
-      <Card>
-        <form onSubmit={handleSave} className="space-y-6 p-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Mã khung giờ <span className="text-red-500">*</span>
-              </label>
-              <input
-                ref={setFieldRef("code")}
-                type="text"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
-                placeholder="VD: SLOT_08_10"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.code
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
-              {errors.code && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.code}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={handleAutoFillCode}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
-              >
-                Tự tạo code từ tên khung giờ
-              </button>
-            </div>
+      {/* Summary Panel */}
+      <Card className="mb-6 bg-gradient-to-br from-blue-50/50 to-white dark:from-gray-800/50 dark:to-gray-800 border-blue-100 dark:border-gray-700">
+        <h2 className="text-sm font-bold text-gray-800 dark:text-white mb-4 uppercase tracking-wider flex items-center gap-2">
+          <Info className="w-4 h-4 text-blue-500" /> Tóm tắt thông tin hiện tại
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
+          <div className="col-span-2 md:col-span-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Khung giờ
+            </p>
+            <p
+              className="text-sm font-semibold text-gray-900 dark:text-white truncate"
+              title={formData.label}
+            >
+              {formData.label}
+            </p>
+            <p className="text-xs text-gray-500 mt-0.5">{formData.code}</p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Thời gian
+            </p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {formData.startTime || "—"} - {formData.endTime || "—"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Cutoff
+            </p>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400">
+              {formData.cutoffMinutes} phút
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Capacity
+            </p>
+            <p className="text-sm font-semibold text-purple-600 dark:text-purple-400">
+              {formatMaxOrdersPreview(formData.maxOrders)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+              Sort Order
+            </p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {formData.sortOrder}
+            </p>
+          </div>
+        </div>
+      </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <form onSubmit={handleSave} className="space-y-6">
+        {/* Section 1: Định danh */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Tag className="w-5 h-5 text-gray-400" /> Định danh khung giờ
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Tên khung giờ <span className="text-red-500">*</span>
               </label>
               <input
@@ -371,40 +422,86 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
                 name="label"
                 value={formData.label}
                 onChange={handleChange}
-                placeholder="VD: 08:00 - 10:00"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                placeholder="VD: Sáng (08:00 - 12:00)"
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.label
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
               {errors.label && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.label}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.label}
                 </p>
               )}
-              <button
-                type="button"
-                onClick={handleAutoFillLabel}
-                className="mt-2 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Mã khung giờ <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <input
+                    ref={setFieldRef("code")}
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    placeholder="VD: SLOT_08_12"
+                    className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none uppercase ${
+                      errors.code
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  />
+                  {errors.code && (
+                    <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" /> {errors.code}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoFillCode}
+                  className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors whitespace-nowrap border border-transparent dark:border-gray-600"
+                  title="Tạo mã từ tên khung giờ"
+                >
+                  Tạo tự động
+                </button>
+              </div>
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Trạng thái hoạt động
+              </label>
+              <select
+                ref={setFieldRef("status")}
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
               >
-                Tự điền tên từ giờ bắt đầu / kết thúc
-              </button>
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Tạm dừng</option>
+              </select>
             </div>
           </div>
+        </Card>
 
-          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/40">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Xem trước khung giờ:
-            </p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {generatedPreview}
-            </p>
+        {/* Section 2: Thời gian giao hàng */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <CalendarClock className="w-5 h-5 text-gray-400" /> Thời gian giao
+              hàng
+            </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Giờ bắt đầu <span className="text-red-500">*</span>
               </label>
               <input
@@ -413,47 +510,91 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
                 name="startTime"
                 value={formData.startTime}
                 onChange={handleChange}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.startTime
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
               {errors.startTime && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.startTime}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.startTime}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Giờ kết thúc <span className="text-red-500">*</span>
               </label>
-              <input
-                ref={setFieldRef("endTime")}
-                type="time"
-                name="endTime"
-                value={formData.endTime}
-                onChange={handleChange}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.endTime
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
-              {errors.endTime && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.endTime}
-                </p>
-              )}
+              <div className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <input
+                    ref={setFieldRef("endTime")}
+                    type="time"
+                    name="endTime"
+                    value={formData.endTime}
+                    onChange={handleChange}
+                    className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                      errors.endTime
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  />
+                  {errors.endTime && (
+                    <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                      <AlertCircle className="w-4 h-4" /> {errors.endTime}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoFillLabel}
+                  className="px-3 py-2.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium transition-colors border border-transparent dark:border-gray-600"
+                  title="Tạo tên từ giờ bắt đầu/kết thúc"
+                >
+                  Fill tên
+                </button>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50/50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-100 dark:border-blue-800/50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-full">
+                <Clock3 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Preview Thời gian
+                </p>
+                <p className="text-lg font-bold text-gray-900 dark:text-white">
+                  {formData.startTime || "—"} đến {formData.endTime || "—"}
+                </p>
+              </div>
+            </div>
+            {formData.startTime && formData.endTime && (
+              <div className="px-3 py-1.5 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm flex items-center gap-1.5">
+                <Timer className="w-4 h-4 text-blue-500" />
+                Thời lượng: {getDuration(formData.startTime, formData.endTime)}
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Section 3: Điều kiện vận hành */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-gray-400" /> Điều kiện vận
+              hành
+            </h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Cutoff minutes <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Cutoff minutes (Phút) <span className="text-red-500">*</span>
               </label>
               <input
                 ref={setFieldRef("cutoffMinutes")}
@@ -464,22 +605,25 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
                 value={formData.cutoffMinutes}
                 onChange={handleChange}
                 placeholder="VD: 120"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.cutoffMinutes
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5">
+                Thời gian chốt nhận đơn trước khi slot bắt đầu.
+              </p>
               {errors.cutoffMinutes && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.cutoffMinutes}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.cutoffMinutes}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Số đơn tối đa
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Số đơn tối đa (Capacity)
               </label>
               <input
                 ref={setFieldRef("maxOrders")}
@@ -490,103 +634,118 @@ const DeliveryTimeSlotEditPage: React.FC = () => {
                 value={formData.maxOrders}
                 onChange={handleChange}
                 placeholder="Để trống nếu không giới hạn"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.maxOrders
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
+              <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5 flex items-start gap-1">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                Để trống nếu không giới hạn số đơn mặc định.
+              </p>
               {errors.maxOrders && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.maxOrders}
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Sort order <span className="text-red-500">*</span>
-              </label>
-              <input
-                ref={setFieldRef("sortOrder")}
-                type="number"
-                step="1"
-                name="sortOrder"
-                value={formData.sortOrder}
-                onChange={handleChange}
-                placeholder="VD: 1"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.sortOrder
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
-              {errors.sortOrder && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.sortOrder}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.maxOrders}
                 </p>
               )}
             </div>
           </div>
+        </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Trạng thái
-              </label>
-              <select
-                ref={setFieldRef("status")}
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-              >
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Tạm dừng</option>
-              </select>
+        {/* Section 4: Hiển thị hệ thống */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <ListOrdered className="w-5 h-5 text-gray-400" /> Hiển thị hệ
+              thống
+            </h2>
+          </div>
+
+          <div className="max-w-md">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              Thứ tự sắp xếp (Sort order){" "}
+              <span className="text-red-500">*</span>
+            </label>
+            <input
+              ref={setFieldRef("sortOrder")}
+              type="number"
+              step="1"
+              name="sortOrder"
+              value={formData.sortOrder}
+              onChange={handleChange}
+              placeholder="VD: 1"
+              className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                errors.sortOrder
+                  ? "border-red-500"
+                  : "border-gray-300 dark:border-gray-600"
+              }`}
+            />
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1.5">
+              Số nhỏ hơn sẽ được ưu tiên hiển thị trước khi khách hàng chọn
+              khung giờ.
+            </p>
+            {errors.sortOrder && (
+              <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                <AlertCircle className="w-4 h-4" /> {errors.sortOrder}
+              </p>
+            )}
+
+            <div className="mt-3 inline-flex px-3 py-1.5 bg-gray-50 dark:bg-gray-800 rounded text-sm text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 shadow-sm">
+              Slot này sẽ xuất hiện{" "}
+              <strong>
+                {formData.sortOrder === "0"
+                  ? " đầu tiên"
+                  : ` ở vị trí ${formData.sortOrder}`}
+              </strong>
+              .
             </div>
           </div>
+        </Card>
 
-          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-sm text-blue-700 dark:text-blue-300">
-            Thay đổi ở đây sẽ ảnh hưởng đến cấu hình master của toàn bộ khung
-            giờ giao hàng.
-          </div>
-
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 flex justify-between items-center">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {formData.updatedAt && (
-                <span>
-                  Cập nhật gần nhất:{" "}
-                  {new Date(formData.updatedAt).toLocaleString()}
+        {/* Action Bar (Sticky) */}
+        <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              {isDirty ? (
+                <span className="text-amber-600 dark:text-amber-500 text-sm font-medium flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4" /> Có thay đổi chưa lưu
+                </span>
+              ) : (
+                <span className="text-gray-500 dark:text-gray-400 text-sm flex items-center gap-1.5">
+                  <CheckCircle2 className="w-4 h-4" /> Bạn chưa thay đổi dữ liệu
                 </span>
               )}
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => navigate("/admin/shipping/delivery-slots")}
-                className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white transition-colors"
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors"
               >
-                Hủy
+                Quay lại
               </button>
 
               <button
                 type="submit"
                 disabled={saving || !isDirty}
-                className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
               >
                 {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
+                  </>
                 ) : (
-                  <Save className="w-4 h-4" />
+                  <>
+                    <Save className="w-5 h-5" /> Lưu thay đổi
+                  </>
                 )}
-                Lưu thay đổi
               </button>
             </div>
           </div>
-        </form>
-      </Card>
+        </div>
+      </form>
     </div>
   );
 };

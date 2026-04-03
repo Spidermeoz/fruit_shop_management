@@ -6,7 +6,19 @@ import React, {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Save,
+  MapPin,
+  Tag,
+  Truck,
+  CreditCard,
+  Globe,
+  Info,
+  AlertCircle,
+  CheckCircle2,
+} from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
@@ -56,13 +68,38 @@ const ShippingZoneCreatePage: React.FC = () => {
   const [wards, setWards] = useState<LocationItem[]>([]);
   const [cityLoaded, setCityLoaded] = useState(false);
 
-  const previewArea = useMemo(
-    () =>
-      [formData.ward, formData.district, formData.province]
-        .filter(Boolean)
-        .join(", "),
-    [formData],
-  );
+  const areaInfo = useMemo(() => {
+    if (!formData.province && !formData.district && !formData.ward) {
+      return {
+        text: "Zone mặc định / fallback",
+        detail: "Áp dụng cho mọi địa chỉ không khớp với zone khác",
+      };
+    }
+    if (formData.ward) {
+      return {
+        text: [formData.ward, formData.district, formData.province]
+          .filter(Boolean)
+          .join(", "),
+        detail: "Áp dụng theo phường/xã cụ thể",
+      };
+    }
+    if (formData.district) {
+      return {
+        text: [formData.district, formData.province].filter(Boolean).join(", "),
+        detail: "Áp dụng theo quận/huyện",
+      };
+    }
+    if (formData.province) {
+      return {
+        text: formData.province,
+        detail: "Áp dụng theo tỉnh/thành",
+      };
+    }
+    return {
+      text: "Zone mặc định / fallback",
+      detail: "Áp dụng cho mọi địa chỉ không khớp với zone khác",
+    };
+  }, [formData]);
 
   const setFieldRef =
     (name: string) => (el: HTMLInputElement | HTMLSelectElement | null) => {
@@ -81,7 +118,6 @@ const ShippingZoneCreatePage: React.FC = () => {
 
   const loadCities = async () => {
     if (cityLoaded) return;
-
     const res = await fetch("https://provinces.open-api.vn/api/p/");
     const data = await res.json();
     setCities(data);
@@ -219,24 +255,41 @@ const ShippingZoneCreatePage: React.FC = () => {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          Thêm vùng giao hàng
-        </h1>
+    <div className="max-w-5xl mx-auto pb-20">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 dark:text-white">
+            Thêm vùng giao hàng
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1.5">
+            Tạo vùng mới để hệ thống match địa chỉ giao hàng và tính phí phù
+            hợp.
+          </p>
+        </div>
         <button
           onClick={() => navigate("/admin/shipping/zones")}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
+          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors shadow-sm"
         >
           <ArrowLeft className="w-4 h-4" /> Quay lại
         </button>
       </div>
 
-      <Card>
-        <form onSubmit={handleSubmit} className="space-y-6 p-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Section 1: Thông tin định danh */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Tag className="w-5 h-5 text-gray-400" /> Thông tin định danh
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Tên gọi và mã phân biệt của vùng giao hàng này.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Tên vùng <span className="text-red-500">*</span>
               </label>
               <input
@@ -245,22 +298,22 @@ const ShippingZoneCreatePage: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Nhập tên vùng giao hàng..."
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                placeholder="VD: Nội thành Hà Nội"
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow ${
                   errors.name
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
               {errors.name && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.name}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.name}
                 </p>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Mã vùng <span className="text-red-500">*</span>
               </label>
               <input
@@ -269,31 +322,63 @@ const ShippingZoneCreatePage: React.FC = () => {
                 name="code"
                 value={formData.code}
                 onChange={handleChange}
-                placeholder="VD: HCM_Q1, DN_HAI_CHAU..."
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                placeholder="VD: HN_INNER"
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-shadow uppercase ${
                   errors.code
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
+              <p className="text-[13px] text-gray-500 mt-1.5">
+                Nên ngắn gọn, dễ đọc, viết hoa.
+              </p>
               {errors.code && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.code}
+                <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" /> {errors.code}
                 </p>
               )}
             </div>
+
+            <div className="md:col-span-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Trạng thái hoạt động
+              </label>
+              <select
+                ref={setFieldRef("status")}
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              >
+                <option value="active">Hoạt động (Áp dụng ngay)</option>
+                <option value="inactive">Tạm dừng (Bỏ qua zone này)</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 2: Khu vực áp dụng */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-gray-400" /> Khu vực áp dụng
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Xác định phạm vi địa lý mà mức phí này được áp dụng. Để trống nếu
+              muốn áp dụng làm mức phí mặc định.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Tỉnh / Thành phố
               </label>
               <select
                 ref={setFieldRef("province")}
                 name="province"
                 value={formData.province}
-                onFocus={loadCities}
+                onFocus={() => void loadCities()}
                 onChange={async (e) => {
                   const provinceName = e.target.value;
                   const city = cities.find((c) => c.name === provinceName);
@@ -321,9 +406,9 @@ const ShippingZoneCreatePage: React.FC = () => {
                     await loadDistricts(city.code);
                   }
                 }}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.province
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               >
@@ -335,20 +420,19 @@ const ShippingZoneCreatePage: React.FC = () => {
                 ))}
               </select>
               {errors.province && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.province}
-                </p>
+                <p className="text-sm text-red-600 mt-1.5">{errors.province}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Quận / Huyện
               </label>
               <select
                 ref={setFieldRef("district")}
                 name="district"
                 value={formData.district}
+                disabled={!formData.province}
                 onChange={async (e) => {
                   const districtName = e.target.value;
                   const district = districts.find(
@@ -375,9 +459,9 @@ const ShippingZoneCreatePage: React.FC = () => {
                     await loadWards(district.code);
                   }
                 }}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:opacity-70 ${
                   errors.district
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               >
@@ -389,20 +473,19 @@ const ShippingZoneCreatePage: React.FC = () => {
                 ))}
               </select>
               {errors.district && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.district}
-                </p>
+                <p className="text-sm text-red-600 mt-1.5">{errors.district}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Phường / Xã
               </label>
               <select
                 ref={setFieldRef("ward")}
                 name="ward"
                 value={formData.ward}
+                disabled={!formData.district}
                 onChange={(e) => {
                   setFormData((prev) => ({ ...prev, ward: e.target.value }));
 
@@ -410,7 +493,7 @@ const ShippingZoneCreatePage: React.FC = () => {
                     setErrors((prev) => ({ ...prev, ward: "" }));
                   }
                 }}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none disabled:bg-gray-100 disabled:opacity-70"
               >
                 <option value="">Chọn phường / xã</option>
                 {wards.map((ward) => (
@@ -422,69 +505,102 @@ const ShippingZoneCreatePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-600 p-4 bg-gray-50 dark:bg-gray-800/40">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Xem trước khu vực áp dụng:
-            </p>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              {previewArea || "Vùng mặc định / toàn khu vực theo rule"}
+          <div className="rounded-lg border border-blue-100 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-900/10 p-4 flex gap-4">
+            <div className="mt-0.5">
+              {!formData.province && !formData.district && !formData.ward ? (
+                <Globe className="w-5 h-5 text-gray-500" />
+              ) : (
+                <CheckCircle2 className="w-5 h-5 text-blue-500" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                Kết quả áp dụng: {areaInfo.text}
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Lưu ý: {areaInfo.detail}.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 3: Cấu hình vận chuyển */}
+        <Card>
+          <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
+            <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
+              <Truck className="w-5 h-5 text-gray-400" /> Cấu hình phí & Ưu tiên
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Thiết lập mức phí, điều kiện miễn phí vận chuyển và độ ưu tiên
+              chồng lấn.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phí giao hàng cơ bản <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Phí giao hàng cơ bản (VNĐ){" "}
+                <span className="text-red-500">*</span>
               </label>
-              <input
-                ref={setFieldRef("baseFee")}
-                type="number"
-                min="0"
-                step="1000"
-                name="baseFee"
-                value={formData.baseFee}
-                onChange={handleChange}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.baseFee
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
+              <div className="relative">
+                <CreditCard className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  ref={setFieldRef("baseFee")}
+                  type="number"
+                  min="0"
+                  step="1000"
+                  name="baseFee"
+                  value={formData.baseFee}
+                  onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                    errors.baseFee
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                />
+              </div>
+              <p className="text-[13px] text-gray-500 mt-1.5">
+                Phí giao hàng cơ bản áp dụng cho zone này.
+              </p>
               {errors.baseFee && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.baseFee}
-                </p>
+                <p className="text-sm text-red-600 mt-1.5">{errors.baseFee}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Ngưỡng freeship
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Ngưỡng Freeship (VNĐ)
               </label>
-              <input
-                ref={setFieldRef("freeShipThreshold")}
-                type="number"
-                min="0"
-                step="1000"
-                name="freeShipThreshold"
-                value={formData.freeShipThreshold}
-                onChange={handleChange}
-                placeholder="Để trống nếu không có"
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                  errors.freeShipThreshold
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                }`}
-              />
+              <div className="relative">
+                <Tag className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                <input
+                  ref={setFieldRef("freeShipThreshold")}
+                  type="number"
+                  min="0"
+                  step="1000"
+                  name="freeShipThreshold"
+                  value={formData.freeShipThreshold}
+                  onChange={handleChange}
+                  placeholder="Bỏ trống nếu không có"
+                  className={`w-full pl-10 pr-4 py-2.5 border rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
+                    errors.freeShipThreshold
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                />
+              </div>
+              <p className="text-[13px] text-gray-500 mt-1.5">
+                Để trống nếu zone không có freeship.
+              </p>
               {errors.freeShipThreshold && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p className="text-sm text-red-600 mt-1.5">
                   {errors.freeShipThreshold}
                 </p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
                 Độ ưu tiên <span className="text-red-500">*</span>
               </label>
               <input
@@ -494,60 +610,54 @@ const ShippingZoneCreatePage: React.FC = () => {
                 name="priority"
                 value={formData.priority}
                 onChange={handleChange}
-                className={`w-full border rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                className={`w-full border rounded-lg p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none ${
                   errors.priority
-                    ? "border-red-500 dark:border-red-500"
+                    ? "border-red-500"
                     : "border-gray-300 dark:border-gray-600"
                 }`}
               />
+              <p className="text-[13px] text-gray-500 mt-1.5 flex items-start gap-1">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                Số càng nhỏ càng được ưu tiên match trước.
+              </p>
               {errors.priority && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                  {errors.priority}
-                </p>
+                <p className="text-sm text-red-600 mt-1.5">{errors.priority}</p>
               )}
             </div>
+          </div>
+        </Card>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Trạng thái
-              </label>
-              <select
-                ref={setFieldRef("status")}
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        {/* Action Bar */}
+        <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-lg z-10">
+          <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-end gap-4">
+            <div className="flex gap-3 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => navigate("/admin/shipping/zones")}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors"
               >
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Tạm dừng</option>
-              </select>
+                Quay lại
+              </button>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" /> Đang xử lý...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" /> Tạo vùng giao hàng
+                  </>
+                )}
+              </button>
             </div>
           </div>
-
-          <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4 text-sm text-blue-700 dark:text-blue-300">
-            Số ưu tiên càng nhỏ thì càng được match trước khi tính phí ship.
-          </div>
-
-          <div className="flex justify-end gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => navigate("/admin/shipping/zones")}
-              className="px-4 py-2 rounded-md bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white transition-colors"
-            >
-              Hủy
-            </button>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-5 py-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center gap-2"
-            >
-              {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-              Tạo vùng giao hàng
-            </button>
-          </div>
-        </form>
-      </Card>
+        </div>
+      </form>
     </div>
   );
 };
