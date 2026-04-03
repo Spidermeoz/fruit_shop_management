@@ -13,15 +13,42 @@ export type Sort = {
   order?: "ASC" | "DESC";
 };
 
+export type ProductStockStatus =
+  | "all"
+  | "in_stock"
+  | "low_stock"
+  | "out_of_stock";
+
 export type ProductListFilter = Pagination &
   Sort & {
     q?: string;
     categoryId?: number | number[] | null;
     status?: ProductStatus | "all";
     featured?: boolean;
+
     minPrice?: number;
     maxPrice?: number;
+
+    minStock?: number;
+    maxStock?: number;
+    stockStatus?: ProductStockStatus;
+
+    missingThumbnail?: boolean;
+    hasPendingReviews?: boolean;
+
+    lowStockThreshold?: number;
   };
+
+export type ProductListSummary = {
+  totalItems: number;
+  activeCount: number;
+  inactiveCount: number;
+  outOfStockCount: number;
+  lowStockCount: number;
+  missingThumbnailCount: number;
+  pendingReviewCount: number;
+  productsWithPendingReviewCount: number;
+};
 
 export type ProductOptionValueInput = {
   id?: number;

@@ -738,76 +738,232 @@ export class SequelizeProductRepository implements ProductRepository {
       featured,
       minPrice,
       maxPrice,
+      minStock,
+      maxStock,
+      stockStatus = "all",
+      missingThumbnail,
+      hasPendingReviews,
+      lowStockThreshold = 10,
       sortBy = "id",
       order = "DESC",
     } = filter;
 
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.max(1, Number(limit) || 10);
+    const safeOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
+    const offset = (safePage - 1) * safeLimit;
 
-    const where: WhereOptions = { deleted: 0 };
+    const whereParts: string[] = [`p.deleted = 0`];
+    const replacements: Record<string, any> = {
+      limit: safeLimit,
+      offset,
+      lowStockThreshold: Number(lowStockThreshold || 10),
+    };
 
     if (categoryId !== null) {
       if (Array.isArray(categoryId)) {
-        (where as any).product_category_id = { [Op.in]: categoryId };
+        whereParts.push(`p.product_category_id IN (:categoryIds)`);
+        replacements.categoryIds = categoryId.map(Number);
       } else {
-        (where as any).product_category_id = categoryId;
+        whereParts.push(`p.product_category_id = :categoryId`);
+        replacements.categoryId = Number(categoryId);
       }
     }
 
     if (status !== "all") {
-      (where as any).status = status;
+      whereParts.push(`p.status = :status`);
+      replacements.status = status;
     }
 
     if (typeof featured === "boolean") {
-      (where as any).featured = featured ? 1 : 0;
+      whereParts.push(`p.featured = :featured`);
+      replacements.featured = featured ? 1 : 0;
     }
 
-    if (q) {
-      (where as any)[Op.or] = [
-        { title: { [Op.like]: `%${q}%` } },
-        { slug: { [Op.like]: `%${q}%` } },
-      ];
+    if (typeof missingThumbnail === "boolean") {
+      if (missingThumbnail) {
+        whereParts.push(`(p.thumbnail IS NULL OR TRIM(p.thumbnail) = '')`);
+      } else {
+        whereParts.push(
+          `(p.thumbnail IS NOT NULL AND TRIM(p.thumbnail) <> '')`,
+        );
+      }
     }
 
-    if (minPrice != null || maxPrice != null) {
-      (where as any).price = {};
-      if (minPrice != null) (where as any).price[Op.gte] = Number(minPrice);
-      if (maxPrice != null) (where as any).price[Op.lte] = Number(maxPrice);
+    if (q && String(q).trim()) {
+      whereParts.push(`(p.title LIKE :q OR p.slug LIKE :q)`);
+      replacements.q = `%${String(q).trim()}%`;
     }
 
-    const sortColMap: Record<string, string> = {
-      id: "id",
-      title: "title",
-      price: "price",
-      stock: "stock",
-      position: "position",
-      average_rating: "average_rating",
-      review_count: "review_count",
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-      slug: "slug",
+    const baseDataset = `
+    SELECT
+      p.id,
+      p.status,
+      p.thumbnail,
+      COALESCE(
+        (
+          SELECT MIN(pv.price)
+          FROM product_variants pv
+          WHERE pv.product_id = p.id AND pv.status = 'active'
+        ),
+        p.price,
+        0
+      ) AS effective_min_price,
+      COALESCE(
+        (
+          SELECT MAX(pv.price)
+          FROM product_variants pv
+          WHERE pv.product_id = p.id AND pv.status = 'active'
+        ),
+        p.price,
+        0
+      ) AS effective_max_price,
+      COALESCE(
+        (
+          SELECT SUM(GREATEST(0, COALESCE(s.quantity, pv.stock, 0) - COALESCE(s.reserved_quantity, 0)))
+          FROM product_variants pv
+          LEFT JOIN inventory_stocks s ON s.product_variant_id = pv.id
+          WHERE pv.product_id = p.id
+        ),
+        p.stock,
+        0
+      ) AS effective_stock,
+      COALESCE(
+        (
+          SELECT COUNT(pr.id)
+          FROM product_reviews pr
+          WHERE pr.product_id = p.id
+            AND pr.parent_id IS NULL
+            AND pr.status = 'approved'
+            AND NOT EXISTS (
+              SELECT 1
+              FROM product_reviews child
+              WHERE child.parent_id = pr.id
+            )
+        ),
+        0
+      ) AS pending_review_count
+    FROM products p
+    WHERE ${whereParts.join(" AND ")}
+  `;
+
+    const outerWhere: string[] = [`1=1`];
+
+    if (minPrice != null) {
+      outerWhere.push(`base.effective_max_price >= :minPrice`);
+      replacements.minPrice = Number(minPrice);
+    }
+
+    if (maxPrice != null) {
+      outerWhere.push(`base.effective_min_price <= :maxPrice`);
+      replacements.maxPrice = Number(maxPrice);
+    }
+
+    if (minStock != null) {
+      outerWhere.push(`base.effective_stock >= :minStock`);
+      replacements.minStock = Number(minStock);
+    }
+
+    if (maxStock != null) {
+      outerWhere.push(`base.effective_stock <= :maxStock`);
+      replacements.maxStock = Number(maxStock);
+    }
+
+    if (stockStatus === "out_of_stock") {
+      outerWhere.push(`base.effective_stock <= 0`);
+    } else if (stockStatus === "low_stock") {
+      outerWhere.push(
+        `base.effective_stock > 0 AND base.effective_stock <= :lowStockThreshold`,
+      );
+    } else if (stockStatus === "in_stock") {
+      outerWhere.push(`base.effective_stock > :lowStockThreshold`);
+    }
+
+    if (typeof hasPendingReviews === "boolean") {
+      outerWhere.push(
+        hasPendingReviews
+          ? `base.pending_review_count > 0`
+          : `base.pending_review_count = 0`,
+      );
+    }
+
+    const sortMap: Record<string, string> = {
+      id: "base.id",
+      title: "base.id", // giữ an toàn nếu chưa join title ra outer dataset
+      price: "base.effective_min_price",
+      stock: "base.effective_stock",
+      position: "base.id",
+      average_rating: "base.id",
+      review_count: "base.id",
+      createdAt: "base.id",
+      updatedAt: "base.id",
+      slug: "base.id",
     };
 
-    const col = sortColMap[sortBy] || "id";
-    const safeOrder = String(order).toUpperCase() === "ASC" ? "ASC" : "DESC";
-    const offset = (safePage - 1) * safeLimit;
+    const sortExpr = sortMap[sortBy] || "base.id";
 
-    const count = await this.models.Product.count({ where });
+    const sequelize = this.models.Product.sequelize as any;
 
-    const baseRows = await this.models.Product.findAll({
-      where,
-      attributes: ["id"],
-      limit: safeLimit,
-      offset,
-      order: [[col, safeOrder]],
-      subQuery: false,
-    });
+    const [countRows] = await sequelize.query(
+      `
+      SELECT COUNT(*) AS total
+      FROM (${baseDataset}) base
+      WHERE ${outerWhere.join(" AND ")}
+    `,
+      { replacements },
+    );
 
-    const ids = baseRows.map((row: any) => Number(row.id));
+    const count = Number((countRows as any[])[0]?.total ?? 0);
+
+    const [idRows] = await sequelize.query(
+      `
+      SELECT base.id
+      FROM (${baseDataset}) base
+      WHERE ${outerWhere.join(" AND ")}
+      ORDER BY ${sortExpr} ${safeOrder}, base.id DESC
+      LIMIT :limit OFFSET :offset
+    `,
+      { replacements },
+    );
+
+    const ids = (idRows as any[]).map((r) => Number(r.id));
+
+    const [summaryRows] = await sequelize.query(
+      `
+      SELECT
+        COUNT(*) AS totalItems,
+        SUM(CASE WHEN base.status = 'active' THEN 1 ELSE 0 END) AS activeCount,
+        SUM(CASE WHEN base.status <> 'active' THEN 1 ELSE 0 END) AS inactiveCount,
+        SUM(CASE WHEN base.effective_stock <= 0 THEN 1 ELSE 0 END) AS outOfStockCount,
+        SUM(CASE WHEN base.effective_stock > 0 AND base.effective_stock <= :lowStockThreshold THEN 1 ELSE 0 END) AS lowStockCount,
+        SUM(CASE WHEN base.thumbnail IS NULL OR TRIM(base.thumbnail) = '' THEN 1 ELSE 0 END) AS missingThumbnailCount,
+        SUM(base.pending_review_count) AS pendingReviewCount,
+        SUM(CASE WHEN base.pending_review_count > 0 THEN 1 ELSE 0 END) AS productsWithPendingReviewCount
+      FROM (${baseDataset}) base
+      WHERE ${outerWhere.join(" AND ")}
+    `,
+      { replacements },
+    );
+
+    const summary = {
+      totalItems: Number((summaryRows as any[])[0]?.totalItems ?? 0),
+      activeCount: Number((summaryRows as any[])[0]?.activeCount ?? 0),
+      inactiveCount: Number((summaryRows as any[])[0]?.inactiveCount ?? 0),
+      outOfStockCount: Number((summaryRows as any[])[0]?.outOfStockCount ?? 0),
+      lowStockCount: Number((summaryRows as any[])[0]?.lowStockCount ?? 0),
+      missingThumbnailCount: Number(
+        (summaryRows as any[])[0]?.missingThumbnailCount ?? 0,
+      ),
+      pendingReviewCount: Number(
+        (summaryRows as any[])[0]?.pendingReviewCount ?? 0,
+      ),
+      productsWithPendingReviewCount: Number(
+        (summaryRows as any[])[0]?.productsWithPendingReviewCount ?? 0,
+      ),
+    };
 
     if (!ids.length) {
-      return { rows: [], count };
+      return { rows: [], count, summary };
     }
 
     const preserveOrderLiteral = literal(`FIELD(Product.id, ${ids.join(",")})`);
@@ -823,7 +979,7 @@ export class SequelizeProductRepository implements ProductRepository {
       order: [[preserveOrderLiteral, "ASC"]],
     });
 
-    return { rows: rows.map(this.mapRow), count };
+    return { rows: rows.map(this.mapRow), count, summary };
   }
 
   async findById(id: number) {

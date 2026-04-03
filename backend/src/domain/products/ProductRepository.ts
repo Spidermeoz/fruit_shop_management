@@ -4,7 +4,14 @@ import type {
   ProductOptionInput,
   ProductStatus,
   ProductVariantInput,
+  ProductListSummary,
 } from "./types";
+
+export interface ProductListResult {
+  rows: Product[];
+  count: number;
+  summary: ProductListSummary;
+}
 
 export type CreateProductInput = {
   categoryId?: number | null;
@@ -57,7 +64,7 @@ export interface ProductVariantStockInfo {
 }
 
 export interface ProductRepository {
-  list(filter: ProductListFilter): Promise<{ rows: Product[]; count: number }>;
+  list(filter: ProductListFilter): Promise<ProductListResult>;
 
   findById(id: number): Promise<Product | null>;
   findBySlug(slug: string): Promise<Product | null>;

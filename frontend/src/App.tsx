@@ -11,12 +11,8 @@ import DashboardHeader from "./components/admin/layouts/DashboardHeader";
 import DashboardPage from "./pages/admin/DashboardPage";
 import ProductsPage from "./pages/admin/products/ProductsPage";
 import ProductEditPage from "./pages/admin/products/ProductEditPage";
-import ProductDetailPage from "./pages/admin/products/ProductDetailPage";
 import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
 import ProductCategoryPage from "./pages/admin/categories/ProductCategoryPage";
-import ProductCategoryCreatePage from "./pages/admin/categories/ProductCategoryCreatePage";
-import ProductCategoryDetailPage from "./pages/admin/categories/ProductCategoryDetailPage";
-import ProductCategoryEditPage from "./pages/admin/categories/ProductCategoryEditPage";
 import RolesPage from "./pages/admin/roles/RolesPage";
 import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
@@ -111,19 +107,6 @@ const AdminShell: React.FC = () => {
                   path="products/categories"
                   element={<ProductCategoryPage />}
                 />
-                <Route
-                  path="products/categories/create"
-                  element={<ProductCategoryCreatePage />}
-                />
-                <Route
-                  path="products/categories/detail/:id"
-                  element={<ProductCategoryDetailPage />}
-                />
-                <Route
-                  path="products/categories/edit/:id"
-                  element={<ProductCategoryEditPage />}
-                />
-                <Route path="products/:id" element={<ProductDetailPage />} />
 
                 <Route path="roles" element={<RolesPage />} />
                 <Route path="roles/create" element={<RoleCreatePage />} />

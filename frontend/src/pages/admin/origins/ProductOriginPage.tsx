@@ -1,3 +1,4 @@
+// src/pages/ProductOriginPage.tsx
 import React, {
   useEffect,
   useMemo,
@@ -8,13 +9,17 @@ import React, {
 import Card from "../../../components/admin/layouts/Card";
 import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import {
-  Plus,
   Loader2,
   Edit,
   Trash2,
   X,
   FilePenLine,
   RotateCcw,
+  Search,
+  MapPin,
+  Globe2,
+  FileText,
+  CheckCircle2,
 } from "lucide-react";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
@@ -39,28 +44,9 @@ interface OriginFormData {
   description: string;
 }
 
-type ApiList<T> = {
-  success: true;
-  data: T[];
-  meta?: {
-    total?: number;
-    page?: number;
-    limit?: number;
-    totalPages?: number;
-  };
-};
-
-type ApiDetail<T> = {
-  success: true;
-  data: T;
-  meta?: any;
-};
-
-type ApiOk = {
-  success: true;
-  data?: any;
-  meta?: any;
-};
+type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiDetail<T> = { success: true; data: T; meta?: any };
+type ApiOk = { success: true; data?: any; meta?: any };
 
 const defaultFormData: OriginFormData = {
   name: "",
@@ -74,6 +60,10 @@ const ProductOriginPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterMode] = useState<
+    "all" | "with_desc" | "missing_code"
+  >("all");
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState<OriginFormData>(defaultFormData);
@@ -90,16 +80,13 @@ const ProductOriginPage: React.FC = () => {
     try {
       setLoading(true);
       setError("");
-
       const res = await http<ApiList<Origin>>(
         "GET",
         "/api/v1/admin/origins?limit=1000&sortBy=position&order=ASC",
       );
-
       setOrigins(Array.isArray(res.data) ? res.data : []);
       setSelectedIds([]);
     } catch (err: any) {
-      console.error(err);
       setError(err?.message || "Lỗi kết nối server hoặc API không phản hồi.");
     } finally {
       setLoading(false);
@@ -110,15 +97,13 @@ const ProductOriginPage: React.FC = () => {
     fetchOrigins();
   }, []);
 
-  const stripHtml = (value?: string | null) => {
-    if (!value) return "—";
-    return (
-      value
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim() || "—"
-    );
-  };
+  const stripHtml = (value?: string | null) =>
+    value
+      ? value
+          .replace(/<[^>]+>/g, " ")
+          .replace(/\s+/g, " ")
+          .trim() || "—"
+      : "—";
 
   const resetForm = () => {
     setEditingId(null);
@@ -132,24 +117,14 @@ const ProductOriginPage: React.FC = () => {
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-
-    if (errors[name as keyof OriginFormData]) {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name as keyof OriginFormData])
       setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
   };
 
   const validateForm = () => {
     const nextErrors: Partial<Record<keyof OriginFormData, string>> = {};
-
-    if (!formData.name.trim()) {
-      nextErrors.name = "Vui lòng nhập tên xuất xứ.";
-    }
-
+    if (!formData.name.trim()) nextErrors.name = "Vui lòng nhập tên xuất xứ.";
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -160,34 +135,25 @@ const ProductOriginPage: React.FC = () => {
   };
 
   const saveDescriptionFromModal = () => {
-    setFormData((prev) => ({
-      ...prev,
-      description: descriptionDraft,
-    }));
+    setFormData((prev) => ({ ...prev, description: descriptionDraft }));
     setIsDescriptionModalOpen(false);
   };
 
   const handleEdit = async (id: number) => {
     try {
       setSubmitting(true);
-
       const res = await http<ApiDetail<Origin>>(
         "GET",
         `/api/v1/admin/origins/edit/${id}`,
       );
-
-      const data = res.data;
-
       setEditingId(id);
       setFormData({
-        name: data.name || "",
-        country_code: data.country_code || data.countryCode || "",
-        description: data.description || "",
+        name: res.data.name || "",
+        country_code: res.data.country_code || res.data.countryCode || "",
+        description: res.data.description || "",
       });
-
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
-      console.error(err);
       showErrorToast(err?.message || "Không tải được dữ liệu xuất xứ.");
     } finally {
       setSubmitting(false);
@@ -196,17 +162,14 @@ const ProductOriginPage: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-
     if (!validateForm()) return;
 
     try {
       setSubmitting(true);
       setErrors({});
-
       const updatedDescription = await uploadImagesInContent(
         formData.description || "",
       );
-
       const payload = {
         name: formData.name.trim(),
         description: updatedDescription || null,
@@ -219,7 +182,6 @@ const ProductOriginPage: React.FC = () => {
           `/api/v1/admin/origins/edit/${editingId}`,
           payload,
         );
-
         if (res.success) {
           showSuccessToast({ message: "Cập nhật xuất xứ thành công!" });
           await fetchOrigins();
@@ -231,7 +193,6 @@ const ProductOriginPage: React.FC = () => {
           "/api/v1/admin/origins/create",
           payload,
         );
-
         if (res.success) {
           showSuccessToast({ message: "Thêm mới xuất xứ thành công!" });
           await fetchOrigins();
@@ -239,12 +200,9 @@ const ProductOriginPage: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error(err);
       showErrorToast(
         err?.message ||
-          (editingId
-            ? "Cập nhật xuất xứ thất bại."
-            : "Thêm mới xuất xứ thất bại."),
+          (editingId ? "Cập nhật thất bại." : "Thêm mới thất bại."),
       );
     } finally {
       setSubmitting(false);
@@ -252,24 +210,15 @@ const ProductOriginPage: React.FC = () => {
   };
 
   const handleDeleteOne = async (id: number) => {
-    const confirmed = window.confirm("Bạn có chắc muốn xóa xuất xứ này?");
-    if (!confirmed) return;
-
+    if (!window.confirm("Bạn có chắc muốn xóa xuất xứ này?")) return;
     try {
       setSubmitting(true);
-
       await http<ApiOk>("DELETE", `/api/v1/admin/origins/${id}`);
-
       setOrigins((prev) => prev.filter((item) => item.id !== id));
       setSelectedIds((prev) => prev.filter((x) => x !== id));
-
-      if (editingId === id) {
-        resetForm();
-      }
-
+      if (editingId === id) resetForm();
       showSuccessToast({ message: "Xóa xuất xứ thành công." });
     } catch (err: any) {
-      console.error(err);
       showErrorToast(err?.message || "Xóa xuất xứ thất bại.");
     } finally {
       setSubmitting(false);
@@ -278,94 +227,159 @@ const ProductOriginPage: React.FC = () => {
 
   const handleBulkDelete = async () => {
     if (selectedIds.length === 0) return;
-
-    const confirmed = window.confirm(
-      `Bạn có chắc muốn xóa ${selectedIds.length} xuất xứ đã chọn?`,
-    );
-    if (!confirmed) return;
-
+    if (
+      !window.confirm(
+        `Bạn có chắc muốn xóa ${selectedIds.length} xuất xứ đã chọn?`,
+      )
+    )
+      return;
     try {
       setSubmitting(true);
-
       await http<ApiOk>("POST", "/api/v1/admin/origins/bulk-delete", {
         ids: selectedIds,
       });
-
       setOrigins((prev) =>
         prev.filter((item) => !selectedIds.includes(item.id)),
       );
-
-      if (editingId && selectedIds.includes(editingId)) {
-        resetForm();
-      }
-
-      const deletedCount = selectedIds.length;
+      if (editingId && selectedIds.includes(editingId)) resetForm();
+      showSuccessToast({ message: `Đã xóa ${selectedIds.length} xuất xứ.` });
       setSelectedIds([]);
-
-      showSuccessToast({
-        message: `Đã xóa ${deletedCount} xuất xứ.`,
-      });
     } catch (err: any) {
-      console.error(err);
       showErrorToast(err?.message || "Xóa nhiều xuất xứ thất bại.");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const allSelected =
-    origins.length > 0 && selectedIds.length === origins.length;
+  // Insights & Filtering logic
+  const insights = useMemo(() => {
+    let withDesc = 0,
+      missingCode = 0;
+    origins.forEach((o) => {
+      if (o.description && stripHtml(o.description) !== "—") withDesc++;
+      if (!o.countryCode && !o.country_code) missingCode++;
+    });
+    return { total: origins.length, withDesc, missingCode };
+  }, [origins]);
 
-  const selectedCount = selectedIds.length;
+  const filteredOrigins = useMemo(() => {
+    let list = origins;
+    if (filterMode === "with_desc")
+      list = list.filter(
+        (o) => o.description && stripHtml(o.description) !== "—",
+      );
+    else if (filterMode === "missing_code")
+      list = list.filter((o) => !o.countryCode && !o.country_code);
 
-  const handleToggleSelectAll = () => {
-    if (allSelected) {
-      setSelectedIds([]);
-      return;
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      list = list.filter(
+        (o) =>
+          o.name.toLowerCase().includes(term) ||
+          (o.countryCode || o.country_code || "").toLowerCase().includes(term),
+      );
     }
-    setSelectedIds(origins.map((item) => item.id));
-  };
+    return list;
+  }, [origins, searchTerm, filterMode]);
 
-  const handleToggleSelectOne = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
-
-  const descriptionPreview = useMemo(() => {
-    const plain = stripHtml(formData.description);
-    return plain === "—" ? "Chưa có mô tả." : plain.slice(0, 180);
-  }, [formData.description]);
+  const allSelected =
+    filteredOrigins.length > 0 && selectedIds.length === filteredOrigins.length;
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div className="w-full pb-16 space-y-6">
+      {/* 🔹 HEADER TẦNG 1 */}
+      <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+            Catalog Origins
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+            Quản lý từ điển xuất xứ áp dụng trên toàn hệ thống sản phẩm.
+          </p>
+        </div>
+      </section>
+
+      {/* 🔹 KPI CARDS */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="p-5 flex flex-col justify-center border-l-4 border-blue-500 bg-gradient-to-r from-white to-blue-50/30 dark:from-gray-800 dark:to-blue-900/10">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              Tổng cộng
+            </span>
+            <MapPin className="w-5 h-5 text-blue-400" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+            {insights.total}
+          </p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center border-l-4 border-emerald-500">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              Có thông tin mô tả
+            </span>
+            <FileText className="w-5 h-5 text-emerald-400" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+            {insights.withDesc}
+          </p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center border-l-4 border-amber-500">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              Thiếu Mã Quốc Gia
+            </span>
+            <Globe2 className="w-5 h-5 text-amber-400" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+            {insights.missingCode}
+          </p>
+        </Card>
+        <Card className="p-5 flex flex-col justify-center border-l-4 border-indigo-500">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-500 uppercase">
+              Đang được chọn
+            </span>
+            <CheckCircle2 className="w-5 h-5 text-indigo-400" />
+          </div>
+          <p className="mt-2 text-2xl font-black text-indigo-600 dark:text-indigo-400">
+            {selectedIds.length}
+          </p>
+        </Card>
+      </section>
+
+      {/* 🔹 QUICK CREATE / EDIT PANEL */}
+      <Card
+        className={`overflow-hidden transition-all duration-300 border-t-4 ${editingId ? "border-t-amber-400 shadow-md bg-amber-50/10" : "border-t-blue-500"}`}
+      >
+        <div
+          className={`px-6 py-4 flex items-center justify-between border-b ${editingId ? "border-amber-100 bg-amber-50/50 dark:border-amber-900/30 dark:bg-amber-900/10" : "border-gray-100 dark:border-gray-800"}`}
+        >
           <div>
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-              Xuất xứ sản phẩm
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Quản lý thêm, sửa, xóa xuất xứ ngay trên một trang
+            <h2
+              className={`text-lg font-bold ${editingId ? "text-amber-800 dark:text-amber-400" : "text-gray-900 dark:text-white"}`}
+            >
+              {editingId ? "Đang chỉnh sửa dữ liệu" : "Thêm Nhanh Xuất Xứ Mới"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {editingId
+                ? `Bản ghi ID: #${editingId}`
+                : "Nhập nhanh tên và mã quốc gia (Tuỳ chọn)"}
             </p>
           </div>
-
-          {editingId ? (
+          {editingId && (
             <button
-              type="button"
               onClick={resetForm}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-amber-700 bg-amber-100 rounded-lg hover:bg-amber-200 transition-colors"
             >
-              <RotateCcw className="w-4 h-4" />
-              Hủy chế độ sửa
+              <RotateCcw className="w-4 h-4" /> Hủy sửa
             </button>
-          ) : null}
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5 p-2">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <form onSubmit={handleSubmit} className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            <div className="md:col-span-4">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Tên xuất xứ <span className="text-red-500">*</span>
               </label>
               <input
@@ -373,21 +387,18 @@ const ProductOriginPage: React.FC = () => {
                 name="name"
                 value={formData.name}
                 onChange={handleInputChange}
-                className={`w-full border ${
-                  errors.name
-                    ? "border-red-500 dark:border-red-500"
-                    : "border-gray-300 dark:border-gray-600"
-                } rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
+                placeholder="VD: Nhật Bản, Mỹ..."
+                className={`w-full border rounded-lg p-2.5 text-sm font-semibold focus:ring-2 focus:ring-blue-500 outline-none transition-colors ${errors.name ? "border-red-500 bg-red-50" : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"}`}
               />
               {errors.name && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                <p className="text-[11px] font-bold text-red-500 mt-1.5">
                   {errors.name}
                 </p>
               )}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-3">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                 Mã quốc gia
               </label>
               <input
@@ -395,191 +406,193 @@ const ProductOriginPage: React.FC = () => {
                 name="country_code"
                 value={formData.country_code}
                 onChange={handleInputChange}
-                placeholder="Ví dụ: VN, US, JP..."
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                placeholder="VD: VN, US, JP"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 text-sm font-semibold uppercase focus:ring-2 focus:ring-blue-500 outline-none transition-colors bg-white dark:bg-gray-800"
               />
             </div>
-          </div>
 
-          <div>
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Mô tả
+            <div className="md:col-span-5 flex flex-col justify-end">
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                Mô tả chi tiết
               </label>
-
-              <button
-                type="button"
-                onClick={openDescriptionModal}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 transition-colors"
-              >
-                <FilePenLine className="w-4 h-4" />
-                Mở TinyMCE
-              </button>
+              <div className="flex gap-3 h-11">
+                <button
+                  type="button"
+                  onClick={openDescriptionModal}
+                  className={`flex-1 flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700 rounded-lg px-4 text-sm font-medium transition-colors ${stripHtml(formData.description) !== "—" ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300" : "bg-gray-50 text-gray-600 hover:bg-gray-100 dark:bg-gray-800 dark:text-gray-300"}`}
+                >
+                  <FilePenLine className="w-4 h-4" />{" "}
+                  {stripHtml(formData.description) !== "—"
+                    ? "Sửa mô tả"
+                    : "Soạn mô tả"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className={`w-32 flex items-center justify-center gap-2 rounded-lg text-sm font-bold text-white shadow-sm transition-colors disabled:opacity-50 ${editingId ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"}`}
+                >
+                  {submitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : editingId ? (
+                    "Cập nhật"
+                  ) : (
+                    "Tạo mới"
+                  )}
+                </button>
+              </div>
             </div>
-
-            <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-800/60">
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                {descriptionPreview}
-                {descriptionPreview !== "Chưa có mô tả." &&
-                stripHtml(formData.description).length > 180
-                  ? "..."
-                  : ""}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
-            >
-              Làm mới form
-            </button>
-
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex items-center gap-2 px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 font-medium"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Đang lưu...
-                </>
-              ) : editingId ? (
-                <>
-                  <Edit className="w-4 h-4" />
-                  Cập nhật xuất xứ
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  Thêm xuất xứ
-                </>
-              )}
-            </button>
           </div>
         </form>
       </Card>
 
-      <Card>
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
-            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
-              Danh sách xuất xứ
-            </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Tổng: {origins.length} xuất xứ
+      {/* 🔹 BULK ACTION BAR */}
+      {selectedIds.length > 0 && (
+        <div className="flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 rounded-xl shadow-sm z-10 sticky top-0">
+          <div className="flex items-center gap-3">
+            <span className="bg-indigo-600 text-white text-sm font-bold px-3 py-1 rounded-full">
+              {selectedIds.length}
+            </span>
+            <p className="text-sm font-medium text-indigo-900 dark:text-indigo-200">
+              mục đang được chọn
             </p>
           </div>
-
-          {selectedCount > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              disabled={submitting}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white font-medium rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
-            >
-              <Trash2 className="w-5 h-5" />
-              Xóa đã chọn ({selectedCount})
-            </button>
-          )}
+          <button
+            onClick={handleBulkDelete}
+            disabled={submitting}
+            className="px-5 py-2 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" /> Xóa hàng loạt
+          </button>
         </div>
+      )}
 
+      {/* 🔹 DICTIONARY CONTROL BAR */}
+      <section className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full lg:w-96">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Tìm theo tên hoặc mã quốc gia..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="block w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+      </section>
+
+      {/* 🔹 DICTIONARY LIST (TABLE) */}
+      <Card className="overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl">
         <div className="overflow-x-auto">
           {loading ? (
             <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-              <span className="ml-2 text-gray-600 dark:text-gray-400">
-                Đang tải xuất xứ...
-              </span>
+              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
             </div>
           ) : error ? (
-            <p className="text-center text-red-500 py-6">{error}</p>
-          ) : origins.length === 0 ? (
-            <p className="text-center text-gray-500 py-6">
-              Không có xuất xứ nào.
-            </p>
+            <div className="text-center py-16">
+              <p className="text-red-600 font-medium">{error}</p>
+            </div>
+          ) : filteredOrigins.length === 0 ? (
+            <div className="text-center py-20 flex flex-col items-center">
+              <Globe2 className="w-16 h-16 text-gray-300 dark:text-gray-600 mb-4" />
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                Từ điển trống
+              </h3>
+              <p className="text-gray-500 mt-1 text-sm">
+                Chưa có xuất xứ nào trong hệ thống hoặc không khớp kết quả lọc.
+              </p>
+            </div>
           ) : (
-            <table className="min-w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-              <thead className="bg-gray-100 dark:bg-gray-800">
+            <table className="min-w-full text-left">
+              <thead className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-700">
                 <tr>
-                  <th className="w-[56px] px-4 py-3 text-center">
+                  <th className="px-4 py-4 w-12 text-center">
                     <input
                       type="checkbox"
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                       checked={allSelected}
-                      onChange={handleToggleSelectAll}
+                      onChange={() => {
+                        if (allSelected) setSelectedIds([]);
+                        else setSelectedIds(filteredOrigins.map((o) => o.id));
+                      }}
                     />
                   </th>
-                  <th className="w-[80px] px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    STT
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-1/3">
+                    Định danh xuất xứ
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Tên xuất xứ
+                  <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider w-1/2">
+                    Bản xem trước mô tả
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Mã quốc gia
-                  </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Hành động
+                  <th className="px-4 py-4 text-right pr-6 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                    Thao tác
                   </th>
                 </tr>
               </thead>
-
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {origins.map((origin, index) => {
-                  const countryCode =
-                    origin.countryCode || origin.country_code || "—";
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                {filteredOrigins.map((origin) => {
+                  const countryCode = origin.countryCode || origin.country_code;
+                  const isEditing = editingId === origin.id;
 
                   return (
                     <tr
                       key={origin.id}
-                      className={`hover:bg-gray-50 dark:hover:bg-gray-800 ${
-                        editingId === origin.id
-                          ? "bg-blue-50 dark:bg-blue-900/10"
-                          : ""
-                      }`}
+                      className={`hover:bg-blue-50/50 dark:hover:bg-gray-800/50 transition-colors group ${isEditing ? "bg-amber-50/30 dark:bg-amber-900/10" : ""}`}
                     >
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-4 text-center align-top pt-5">
                         <input
                           type="checkbox"
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
                           checked={selectedIds.includes(origin.id)}
-                          onChange={() => handleToggleSelectOne(origin.id)}
+                          onChange={() =>
+                            setSelectedIds((p) =>
+                              p.includes(origin.id)
+                                ? p.filter((x) => x !== origin.id)
+                                : [...p, origin.id],
+                            )
+                          }
                         />
                       </td>
-
-                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        {index + 1}
-                      </td>
-
-                      <td className="px-4 py-4">
-                        <div className="font-medium text-gray-900 dark:text-white">
-                          {origin.name}
+                      <td className="px-4 py-4 align-top">
+                        <div className="flex flex-col">
+                          <span
+                            className={`text-base font-bold ${isEditing ? "text-amber-700 dark:text-amber-400" : "text-gray-900 dark:text-white"}`}
+                          >
+                            {origin.name}
+                          </span>
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className="px-2 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 text-[10px] font-bold uppercase tracking-wider border border-gray-200 dark:border-gray-700">
+                              {countryCode ? countryCode : "NO CODE"}
+                            </span>
+                            {isEditing && (
+                              <span className="text-[10px] font-bold text-amber-500 uppercase">
+                                Đang chỉnh sửa
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
-                          {stripHtml(origin.description).slice(0, 120)}
-                        </div>
                       </td>
-
-                      <td className="px-4 py-4 text-sm text-gray-700 dark:text-gray-300">
-                        {countryCode}
+                      <td className="px-4 py-4 align-top">
+                        <p
+                          className={`text-sm leading-relaxed line-clamp-2 ${stripHtml(origin.description) === "—" ? "text-gray-400 italic" : "text-gray-600 dark:text-gray-300"}`}
+                        >
+                          {stripHtml(origin.description)}
+                        </p>
                       </td>
-
-                      <td className="px-4 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-4 py-4 align-top text-right pr-6">
+                        <div className="flex items-center justify-end gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handleEdit(origin.id)}
                             disabled={submitting}
-                            className="p-2 rounded-md bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:hover:bg-blue-900/50 disabled:opacity-50"
-                            title="Chỉnh sửa"
+                            className="p-2 text-gray-500 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-md transition-colors"
+                            title="Sửa bản ghi"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-
                           <button
                             onClick={() => handleDeleteOne(origin.id)}
                             disabled={submitting}
-                            className="p-2 rounded-md bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-300 dark:hover:bg-red-900/50 disabled:opacity-50"
+                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
                             title="Xóa"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -595,45 +608,41 @@ const ProductOriginPage: React.FC = () => {
         </div>
       </Card>
 
+      {/* 🔹 DESCRIPTION MODAL */}
       {isDescriptionModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">
-                Nhập mô tả xuất xứ
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Soạn thảo Mô tả Từ điển
               </h3>
-
               <button
-                type="button"
                 onClick={() => setIsDescriptionModalOpen(false)}
-                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300"
+                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <div className="p-5 overflow-y-auto max-h-[calc(90vh-140px)]">
-              <RichTextEditor
-                value={descriptionDraft}
-                onChange={setDescriptionDraft}
-              />
+            <div className="p-6 overflow-y-auto flex-1">
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+                <RichTextEditor
+                  value={descriptionDraft}
+                  onChange={setDescriptionDraft}
+                />
+              </div>
             </div>
-
-            <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
               <button
-                type="button"
                 onClick={() => setIsDescriptionModalOpen(false)}
-                className="px-4 py-2 rounded-md border border-gray-400 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-transparent hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-medium"
+                className="px-5 py-2.5 rounded-lg font-bold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 shadow-sm transition-colors"
               >
-                Hủy
+                Hủy bỏ
               </button>
-
               <button
-                type="button"
                 onClick={saveDescriptionFromModal}
-                className="px-5 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+                className="px-6 py-2.5 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors"
               >
-                Áp dụng mô tả
+                Áp dụng nội dung
               </button>
             </div>
           </div>

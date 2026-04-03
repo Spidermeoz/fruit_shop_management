@@ -120,6 +120,12 @@ export const makeProductsController = (uc: {
           featured,
           minPrice,
           maxPrice,
+          minStock,
+          maxStock,
+          stockStatus,
+          missingThumbnail,
+          hasPendingReviews,
+          lowStockThreshold,
           sortBy,
           order,
         } = req.query as Record<string, string>;
@@ -142,6 +148,13 @@ export const makeProductsController = (uc: {
           featured: toBool(featured),
           minPrice: minPrice !== undefined ? Number(minPrice) : undefined,
           maxPrice: maxPrice !== undefined ? Number(maxPrice) : undefined,
+          minStock: minStock !== undefined ? Number(minStock) : undefined,
+          maxStock: maxStock !== undefined ? Number(maxStock) : undefined,
+          stockStatus: (stockStatus as any) ?? "all",
+          missingThumbnail: toBool(missingThumbnail),
+          hasPendingReviews: toBool(hasPendingReviews),
+          lowStockThreshold:
+            lowStockThreshold !== undefined ? Number(lowStockThreshold) : 10,
           sortBy: (sortBy as any) ?? "id",
           order: (order as any) ?? "DESC",
         });
@@ -153,6 +166,7 @@ export const makeProductsController = (uc: {
             total: data.count,
             page: normalizedPage,
             limit: normalizedLimit,
+            summary: data.summary,
           },
         });
       } catch (e) {

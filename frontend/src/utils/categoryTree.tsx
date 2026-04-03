@@ -1,12 +1,14 @@
-import React, { useState, type JSX } from "react";
+import React, { useEffect, useMemo, useState, type JSX } from "react";
 import {
-  Eye,
   Edit,
   Trash2,
-  Folder,
   FolderOpen,
   ChevronRight,
   ChevronDown,
+  Plus,
+  Activity,
+  Layers,
+  Image as ImageIcon,
 } from "lucide-react";
 
 export interface ProductCategoryNode {
@@ -19,292 +21,33 @@ export interface ProductCategoryNode {
   children?: ProductCategoryNode[];
 }
 
-// Chuyển danh sách phẳng → cây
+// ============================================
+// 1. DATA UTILITIES
+// ============================================
 export const buildCategoryTree = (categories: ProductCategoryNode[]) => {
   const map = new Map<number, ProductCategoryNode>();
   const roots: ProductCategoryNode[] = [];
 
   categories.forEach((cat) => map.set(cat.id, { ...cat, children: [] }));
+
   categories.forEach((cat) => {
-    const parentKey = (cat as any).parent_id ?? (cat as any).parentId; // ✅ fix
+    const parentKey = (cat as any).parent_id ?? (cat as any).parentId;
     if (parentKey) {
       const parent = map.get(parentKey);
       if (parent) parent.children!.push(map.get(cat.id)!);
       else roots.push(map.get(cat.id)!);
-    } else roots.push(map.get(cat.id)!);
+    } else {
+      roots.push(map.get(cat.id)!);
+    }
   });
 
   return roots;
 };
 
-// Render từng dòng danh mục
-const CategoryRow: React.FC<{
-  cat: ProductCategoryNode;
-  level: number;
-  expanded: Record<number, boolean>;
-  toggleExpand: (id: number) => void;
-  selectedCategories: number[];
-  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
-  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
-  navigate: (path: string) => void;
-  handleToggleStatus: (cat: ProductCategoryNode) => void;
-  handleDelete: (id: number) => void;
-}> = ({
-  cat,
-  level,
-  expanded,
-  toggleExpand,
-  selectedCategories,
-  setSelectedCategories,
-  setCategories,
-  navigate,
-  handleToggleStatus,
-  handleDelete,
-}) => {
-  const hasChildren = cat.children && cat.children.length > 0;
-  const isExpanded = expanded[cat.id] ?? false;
-
-  return (
-    <>
-      <tr
-        className={`border-b border-gray-200 dark:border-gray-700 transition-colors
-          ${
-            level === 0
-              ? "bg-gray-50 dark:bg-gray-800"
-              : "bg-gray-100 dark:bg-gray-700"
-          }
-          hover:bg-blue-50 dark:hover:bg-gray-600`}
-      >
-        {/* Checkbox */}
-        <td className="px-4 py-3 text-center align-middle">
-          <input
-            type="checkbox"
-            checked={selectedCategories.includes(cat.id)}
-            onChange={(e) => {
-              if (e.target.checked)
-                setSelectedCategories((prev) => [...prev, cat.id]);
-              else
-                setSelectedCategories((prev) =>
-                  prev.filter((id) => id !== cat.id)
-                );
-            }}
-          />
-        </td>
-
-        {/* Thumbnail */}
-        <td className="px-4 py-3 text-center align-middle">
-          <img
-            src={
-              cat.thumbnail || "https://via.placeholder.com/60x60?text=No+Img"
-            }
-            alt={cat.title}
-            className="h-10 w-10 mx-auto rounded-md object-cover border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800"
-          />
-        </td>
-
-        {/* Tên danh mục */}
-        <td className="px-6 py-3 text-sm text-gray-900 dark:text-white align-middle">
-          <div
-            className="flex items-center gap-2"
-            style={{
-              paddingLeft: `${level * 24}px`,
-              borderLeft:
-                level > 0
-                  ? "1px dashed rgba(0,0,0,0.15)"
-                  : "none",
-            }}
-          >
-            {/* Toggle mở/đóng */}
-            {hasChildren && (
-              <button
-                onClick={() => toggleExpand(cat.id)}
-                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition"
-                title={isExpanded ? "Thu gọn" : "Mở rộng"}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="w-4 h-4 text-blue-500" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-blue-500" />
-                )}
-              </button>
-            )}
-
-            {/* Icon folder */}
-            {level === 0 ? (
-              <FolderOpen className="w-4 h-4 text-blue-500 shrink-0" />
-            ) : (
-              <Folder className="w-4 h-4 text-gray-400 shrink-0" />
-            )}
-
-            {/* Tên danh mục */}
-            <span
-              className={`truncate ${
-                level === 0
-                  ? "font-semibold text-gray-900 dark:text-white"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
-            >
-              {level > 0 && (
-                <span className="text-gray-400 dark:text-gray-500 mr-1">
-                  ↳
-                </span>
-              )}
-              {cat.title}
-            </span>
-          </div>
-        </td>
-
-        {/* Vị trí */}
-        <td className="px-6 py-3 text-sm text-gray-800 dark:text-gray-200 text-center align-middle">
-          <input
-            type="number"
-            value={cat.position || ""}
-            onChange={(e) => {
-              const newPos = Number(e.target.value);
-              setCategories((prev) =>
-                prev.map((c) =>
-                  c.id === cat.id ? { ...c, position: newPos } : c
-                )
-              );
-            }}
-            className="w-20 border border-gray-300 dark:border-gray-600 rounded-md p-1 text-center bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-          />
-        </td>
-
-        {/* Trạng thái */}
-        <td className="px-6 py-3 text-center align-middle">
-          <span
-            onClick={() => handleToggleStatus(cat)}
-            className={`cursor-pointer text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-              cat.status === "active"
-                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
-                : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
-            }`}
-          >
-            {cat.status === "active" ? "active" : "inactive"}
-          </span>
-        </td>
-
-        {/* Hành động */}
-        <td className="px-6 py-3 text-right align-middle">
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() =>
-                navigate(`/admin/products/categories/detail/${cat.id}`)
-              }
-              className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-              title="Xem chi tiết"
-            >
-              <Eye className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => navigate(`/admin/products/categories/edit/${cat.id}`)}
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400"
-              title="Chỉnh sửa"
-            >
-              <Edit className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleDelete(cat.id)}
-              className="text-red-600 hover:text-red-800 dark:text-red-400"
-              title="Xóa"
-            >
-              <Trash2 className="w-5 h-5" />
-            </button>
-          </div>
-        </td>
-      </tr>
-
-      {/* Hiển thị danh mục con */}
-      {hasChildren &&
-        expanded[cat.id] &&
-        cat.children!.map((child) => (
-          <CategoryRow
-            key={child.id}
-            cat={child}
-            level={level + 1}
-            expanded={expanded}
-            toggleExpand={toggleExpand}
-            selectedCategories={selectedCategories}
-            setSelectedCategories={setSelectedCategories}
-            setCategories={setCategories}
-            navigate={navigate}
-            handleToggleStatus={handleToggleStatus}
-            handleDelete={handleDelete}
-          />
-        ))}
-    </>
-  );
-};
-
-// ✅ Component chính hiển thị toàn bộ cây
-export const CategoryTreeTableBody: React.FC<{
-  categories: ProductCategoryNode[];
-  selectedCategories: number[];
-  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
-  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
-  navigate: (path: string) => void;
-  handleToggleStatus: (cat: ProductCategoryNode) => void;
-  handleDelete: (id: number) => void;
-}> = ({
-  categories,
-  selectedCategories,
-  setSelectedCategories,
-  setCategories,
-  navigate,
-  handleToggleStatus,
-  handleDelete,
-}) => {
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-
-  const toggleExpand = (id: number) => {
-    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  // 🆕 Hàm mở / đóng tất cả
-  const expandAll = () => {
-    const all: Record<number, boolean> = {};
-    const traverse = (cats: ProductCategoryNode[]) => {
-      cats.forEach((c) => {
-        all[c.id] = true;
-        if (c.children) traverse(c.children);
-      });
-    };
-    traverse(categories);
-    setExpanded(all);
-  };
-
-  const collapseAll = () => setExpanded({});
-
-  // 👉 Đăng ký global để nút ngoài bảng có thể gọi
-  (window as any).expandAllCategories = expandAll;
-  (window as any).collapseAllCategories = collapseAll;
-
-  return (
-    <>
-      {categories.map((cat) => (
-        <CategoryRow
-          key={cat.id}
-          cat={cat}
-          level={0}
-          expanded={expanded}
-          toggleExpand={toggleExpand}
-          selectedCategories={selectedCategories}
-          setSelectedCategories={setSelectedCategories}
-          setCategories={setCategories}
-          navigate={navigate}
-          handleToggleStatus={handleToggleStatus}
-          handleDelete={handleDelete}
-        />
-      ))}
-    </>
-  );
-};
-
-// 🧩 Dùng cho dropdown select danh mục cha
+// Dùng cho dropdown select danh mục cha
 export const renderCategoryOptions = (
   categories: ProductCategoryNode[],
-  level = 0
+  level = 0,
 ): JSX.Element[] => {
   return categories.flatMap((cat) => [
     <option key={cat.id} value={cat.id}>
@@ -314,4 +57,344 @@ export const renderCategoryOptions = (
     </option>,
     ...(cat.children ? renderCategoryOptions(cat.children, level + 1) : []),
   ]);
+};
+
+// ============================================
+// 2. HELPERS
+// ============================================
+const collectAllIds = (nodes: ProductCategoryNode[]) => {
+  const ids: number[] = [];
+
+  const walk = (items: ProductCategoryNode[]) => {
+    items.forEach((item) => {
+      ids.push(item.id);
+      if (item.children?.length) walk(item.children);
+    });
+  };
+
+  walk(nodes);
+  return ids;
+};
+
+const shouldHighlightTitle = (title: string, keyword: string) => {
+  return keyword.trim() && title.toLowerCase().includes(keyword.toLowerCase());
+};
+
+// ============================================
+// 3. RECURSIVE NODE RENDERER
+// ============================================
+const MerchandisingNodeRow: React.FC<{
+  cat: ProductCategoryNode;
+  level: number;
+  expanded: Record<number, boolean>;
+  toggleExpand: (id: number) => void;
+  selectedCategories: number[];
+  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
+  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
+  handleToggleStatus: (cat: ProductCategoryNode) => void;
+  handleDelete: (id: number) => void;
+  onAddChild: (id: number) => void;
+  onEditNode: (id: number) => void;
+  searchTerm?: string;
+}> = ({
+  cat,
+  level,
+  expanded,
+  toggleExpand,
+  selectedCategories,
+  setSelectedCategories,
+  setCategories,
+  handleToggleStatus,
+  handleDelete,
+  onAddChild,
+  onEditNode,
+  searchTerm = "",
+}) => {
+  const hasChildren = !!(cat.children && cat.children.length > 0);
+  const isExpanded = expanded[cat.id] ?? false;
+  const childCount = cat.children?.length || 0;
+  const isMatched = shouldHighlightTitle(cat.title, searchTerm);
+
+  return (
+    <>
+      <tr
+        className={`border-b border-gray-100 dark:border-gray-800 transition-all hover:bg-blue-50/50 dark:hover:bg-blue-900/10 group ${
+          level === 0
+            ? "bg-white dark:bg-gray-900"
+            : "bg-gray-50/50 dark:bg-gray-800/20"
+        }`}
+      >
+        {/* Selection */}
+        <td className="px-4 py-4 w-12 text-center align-middle">
+          <input
+            type="checkbox"
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+            checked={selectedCategories.includes(cat.id)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setSelectedCategories((prev) =>
+                  prev.includes(cat.id) ? prev : [...prev, cat.id],
+                );
+              } else {
+                setSelectedCategories((prev) =>
+                  prev.filter((id) => id !== cat.id),
+                );
+              }
+            }}
+          />
+        </td>
+
+        {/* Identity */}
+        <td className="px-4 py-4 align-middle">
+          <div
+            className="flex items-center"
+            style={{ paddingLeft: `${level * 32}px` }}
+          >
+            <div className="flex items-center gap-3 relative">
+              {level > 0 && (
+                <div className="absolute -left-6 top-1/2 w-4 h-px bg-gray-300 dark:bg-gray-600"></div>
+              )}
+              {level > 0 && (
+                <div className="absolute -left-6 -top-1/2 bottom-1/2 w-px bg-gray-300 dark:bg-gray-600"></div>
+              )}
+
+              <button
+                onClick={() => toggleExpand(cat.id)}
+                className={`w-6 h-6 flex items-center justify-center rounded-md transition-colors ${
+                  hasChildren
+                    ? "hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer"
+                    : "opacity-0 cursor-default"
+                }`}
+                disabled={!hasChildren}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                )}
+              </button>
+
+              <div className="relative shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 flex items-center justify-center border border-gray-200 dark:border-gray-700 shadow-sm">
+                {cat.thumbnail ? (
+                  <img
+                    src={cat.thumbnail}
+                    alt={cat.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : level === 0 ? (
+                  <FolderOpen className="w-5 h-5 text-blue-500" />
+                ) : (
+                  <ImageIcon className="w-5 h-5 text-gray-400" />
+                )}
+              </div>
+
+              <div className="flex flex-col">
+                <span
+                  className={`text-sm ${
+                    level === 0
+                      ? "font-bold text-gray-900 dark:text-white"
+                      : "font-semibold text-gray-700 dark:text-gray-300"
+                  }`}
+                >
+                  {isMatched ? (
+                    <span className="px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                      {cat.title}
+                    </span>
+                  ) : (
+                    cat.title
+                  )}
+                </span>
+
+                <div className="flex items-center gap-2 mt-1 text-[11px] font-medium">
+                  {level === 0 && (
+                    <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+                      Gốc
+                    </span>
+                  )}
+
+                  <span className="flex items-center gap-1 text-gray-500">
+                    <Layers className="w-3 h-3" /> {childCount} nhánh con
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </td>
+
+        {/* Position */}
+        <td className="px-4 py-4 w-32 align-middle">
+          <div className="flex items-center justify-center">
+            <input
+              type="number"
+              value={cat.position ?? ""}
+              onChange={(e) => {
+                const newPos = Number(e.target.value);
+                setCategories((prev) =>
+                  prev.map((c) =>
+                    c.id === cat.id ? { ...c, position: newPos } : c,
+                  ),
+                );
+              }}
+              placeholder="0"
+              className="w-16 border border-gray-200 dark:border-gray-700 rounded-md p-1.5 text-center text-sm font-semibold bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 hover:border-blue-400 transition-colors"
+            />
+          </div>
+        </td>
+
+        {/* Status */}
+        <td className="px-4 py-4 w-32 align-middle text-center">
+          <button
+            onClick={() => handleToggleStatus(cat)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+              cat.status === "active"
+                ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400"
+            }`}
+            title="Đổi trạng thái hiển thị"
+          >
+            <Activity className="w-3 h-3" />
+            {cat.status === "active" ? "Đang hiện" : "Đang ẩn"}
+          </button>
+        </td>
+
+        {/* Actions */}
+        <td className="px-4 py-4 w-48 align-middle text-right pr-6">
+          <div className="flex items-center justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => onAddChild(cat.id)}
+              className="p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded-md transition-colors flex items-center gap-1 text-xs font-bold"
+              title="Tạo nhánh con"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden xl:inline">Thêm con</span>
+            </button>
+
+            <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1"></div>
+
+            <button
+              onClick={() => onEditNode(cat.id)}
+              className="p-1.5 text-gray-500 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 rounded-md transition-colors"
+              title="Chỉnh sửa cấu trúc"
+            >
+              <Edit className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => handleDelete(cat.id)}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors"
+              title="Xóa danh mục"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+
+      {hasChildren &&
+        isExpanded &&
+        cat.children!.map((child) => (
+          <MerchandisingNodeRow
+            key={child.id}
+            cat={child}
+            level={level + 1}
+            expanded={expanded}
+            toggleExpand={toggleExpand}
+            selectedCategories={selectedCategories}
+            setSelectedCategories={setSelectedCategories}
+            setCategories={setCategories}
+            handleToggleStatus={handleToggleStatus}
+            handleDelete={handleDelete}
+            onAddChild={onAddChild}
+            onEditNode={onEditNode}
+            searchTerm={searchTerm}
+          />
+        ))}
+    </>
+  );
+};
+
+// ============================================
+// 4. TREE BODY WRAPPER
+// ============================================
+export const CategoryTreeTableBody: React.FC<{
+  categories: ProductCategoryNode[];
+  selectedCategories: number[];
+  setSelectedCategories: React.Dispatch<React.SetStateAction<number[]>>;
+  setCategories: React.Dispatch<React.SetStateAction<any[]>>;
+  handleToggleStatus: (cat: ProductCategoryNode) => void;
+  handleDelete: (id: number) => void;
+  onAddChild: (id: number) => void;
+  onEditNode: (id: number) => void;
+  searchTerm?: string;
+  autoExpandAll?: boolean;
+}> = ({
+  categories,
+  selectedCategories,
+  setSelectedCategories,
+  setCategories,
+  handleToggleStatus,
+  handleDelete,
+  onAddChild,
+  onEditNode,
+  searchTerm = "",
+  autoExpandAll = false,
+}) => {
+  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
+
+  const allIds = useMemo(() => collectAllIds(categories), [categories]);
+
+  const toggleExpand = (id: number) =>
+    setExpanded((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  const expandAll = () => {
+    const all: Record<number, boolean> = {};
+    allIds.forEach((id) => {
+      all[id] = true;
+    });
+    setExpanded(all);
+  };
+
+  const collapseAll = () => setExpanded({});
+
+  useEffect(() => {
+    if (autoExpandAll) {
+      const all: Record<number, boolean> = {};
+      allIds.forEach((id) => {
+        all[id] = true;
+      });
+      setExpanded(all);
+    }
+  }, [autoExpandAll, allIds]);
+
+  useEffect(() => {
+    (window as any).expandAllCategories = expandAll;
+    (window as any).collapseAllCategories = collapseAll;
+
+    return () => {
+      delete (window as any).expandAllCategories;
+      delete (window as any).collapseAllCategories;
+    };
+  }, [allIds]);
+
+  return (
+    <>
+      {categories.map((cat) => (
+        <MerchandisingNodeRow
+          key={cat.id}
+          cat={cat}
+          level={0}
+          expanded={expanded}
+          toggleExpand={toggleExpand}
+          selectedCategories={selectedCategories}
+          setSelectedCategories={setSelectedCategories}
+          setCategories={setCategories}
+          handleToggleStatus={handleToggleStatus}
+          handleDelete={handleDelete}
+          onAddChild={onAddChild}
+          onEditNode={onEditNode}
+          searchTerm={searchTerm}
+        />
+      ))}
+    </>
+  );
 };
