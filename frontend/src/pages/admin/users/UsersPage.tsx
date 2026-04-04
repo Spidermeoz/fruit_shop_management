@@ -1,587 +1,618 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Card from "../../../components/admin/layouts/Card";
 import {
   Search,
   Plus,
-  Edit,
   Trash2,
-  Eye,
   Loader2,
-  Shield,
   User,
   Calendar,
+  Shield,
   GitBranch,
+  FolderOpen,
+  FilterX,
+  PhoneOff,
+  ImageMinus,
+  AlertTriangle,
+  CheckCircle2,
   Users,
+  PowerOff,
+  Layers,
+  RefreshCw,
 } from "lucide-react";
-import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+import Card from "../../../components/admin/layouts/Card";
 import Pagination from "../../../components/admin/common/Pagination";
-import { http } from "../../../services/http";
 import { useAuth } from "../../../context/AuthContextAdmin";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-interface BranchSummary {
-  id: number;
-  name?: string | null;
-  code?: string | null;
-  status?: string | null;
-  is_primary?: boolean;
-}
+import {
+  bulkEditUsers,
+  deleteUser,
+  fetchUsers,
+  updateUserStatus,
+} from "./shared/userApi";
+import {
+  formatUserDate,
+  getUserBranchScopeHealth,
+  getUserBranchScopeSummary,
+  getPrimaryBranch,
+  type UserListItem,
+  type UserType,
+} from "./shared/userMappers";
 
-interface UserRow {
-  id: number;
-  full_name?: string | null;
-  email: string;
-  avatar?: string | null;
-  status: "active" | "inactive" | "banned" | string;
-  role?: {
-    id: number;
-    title: string;
-  } | null;
-  created_at?: string;
-  primary_branch_id?: number | null;
-  branch_ids?: number[];
-  branches?: BranchSummary[];
-}
-
-type UserTypeTab = "internal" | "customer";
-
-const RoleBadge: React.FC<{ user: UserRow }> = ({ user }) => {
-  const isInternal = !!user.role;
-
-  return (
-    <div
-      className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-        isInternal
-          ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-          : "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-      }`}
-    >
-      {isInternal ? (
-        <>
-          <Shield className="w-3 h-3 mr-1" />
-          {user.role?.title || "Nhân sự nội bộ"}
-        </>
-      ) : (
-        <>
-          <User className="w-3 h-3 mr-1" />
-          Customer
-        </>
-      )}
-    </div>
-  );
-};
+// ==========================================
+// INTERNAL COMPONENTS & HELPERS
+// ==========================================
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const statusConfig = {
     active: {
       color:
-        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800",
       label: "Hoạt động",
     },
     inactive: {
       color:
-        "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+        "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200 dark:border-gray-700",
       label: "Tạm dừng",
     },
     banned: {
-      color: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      color:
+        "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800",
       label: "Bị khóa",
     },
   };
 
   const config = statusConfig[status as keyof typeof statusConfig] || {
-    color: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+    color:
+      "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300 border-gray-200",
     label: status,
   };
 
   return (
     <span
-      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${config.color}`}
+      className={`px-2.5 py-1 inline-flex text-[10px] font-bold uppercase tracking-wider rounded-md border ${config.color}`}
     >
       {config.label}
     </span>
   );
 };
 
-const BranchBadgeList: React.FC<{ user: UserRow }> = ({ user }) => {
-  const branches = Array.isArray(user.branches) ? user.branches : [];
-
-  if (!branches.length) {
-    return <span className="text-xs text-gray-500 dark:text-gray-400">—</span>;
+const RoleBadge: React.FC<{ user: UserListItem }> = ({ user }) => {
+  if (user.userType === "customer") {
+    return (
+      <div className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800/50">
+        <User className="w-3 h-3 mr-1" /> Khách hàng
+      </div>
+    );
   }
+  return (
+    <div className="inline-flex items-center px-2 py-1 rounded text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-100 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800/50">
+      <Shield className="w-3 h-3 mr-1" /> {user.role?.title || "Nhân sự nội bộ"}
+    </div>
+  );
+};
 
-  const primary =
-    branches.find((b) => b.is_primary) ??
-    branches.find((b) => b.id === user.primary_branch_id) ??
-    branches[0];
+const BranchScopeCell: React.FC<{ user: UserListItem }> = ({ user }) => {
+  const health = getUserBranchScopeHealth(user);
+  const summary = getUserBranchScopeSummary(user);
+  const primary = getPrimaryBranch(user);
 
-  const secondaryCount = Math.max(0, branches.length - 1);
+  const colors: Record<string, string> = {
+    "no-branches":
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400",
+    "missing-primary":
+      "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400",
+    "orphan-primary":
+      "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400",
+    single:
+      "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400",
+    multi:
+      "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400",
+  };
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200 w-fit">
-        <GitBranch className="w-3 h-3" />
-        {primary?.name || primary?.code || `Branch #${primary?.id}`}
-        <span className="opacity-80">(chính)</span>
-      </div>
-      {secondaryCount > 0 && (
-        <span className="text-xs text-gray-500 dark:text-gray-400">
-          +{secondaryCount} chi nhánh phụ
+    <div className="flex flex-col gap-1.5">
+      <span
+        className={`inline-flex w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${colors[health] || "bg-gray-100"}`}
+      >
+        {summary.label}
+      </span>
+      {health !== "no-branches" && (
+        <span className="text-xs text-gray-600 dark:text-gray-400 font-medium flex items-center gap-1">
+          <GitBranch className="w-3 h-3" />
+          <span className="truncate max-w-[140px]">
+            {primary?.name || primary?.code || "Chưa có Primary"}
+          </span>
+          {user.branchIds.length > 1 && (
+            <span className="font-bold text-indigo-600 dark:text-indigo-400">
+              (+{user.branchIds.length - 1})
+            </span>
+          )}
         </span>
       )}
     </div>
   );
 };
 
+// ==========================================
+// MAIN PAGE COMPONENT
+// ==========================================
+
 const UsersPage: React.FC = () => {
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
-  const [bulkAction, setBulkAction] = useState<string>("");
-
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState<string>(
-    searchParams.get("keyword") || "",
-  );
-  const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string>("");
-  const [totalPages, setTotalPages] = useState<number>(1);
-
-  const statusFilter = searchParams.get("status") || "all";
-  const currentPage = Number(searchParams.get("page")) || 1;
-  const sortOrder = searchParams.get("sort") || "";
-
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const userType: UserTypeTab = location.pathname.includes("/users/customers")
-    ? "customer"
-    : "internal";
-
-  const selectedBranchId = searchParams.get("branchId") || "all";
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const { user: currentUser, branches: actorBranches } = useAuth();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  const isSuperAdmin = Number(currentUser?.role_id) === 1;
-  const visibleBranchOptions = isSuperAdmin ? actorBranches : actorBranches;
+  // --- States ---
+  const [rows, setRows] = useState<UserListItem[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [bulkAction, setBulkAction] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>(
+    searchParams.get("keyword") || "",
+  );
 
-  const fetchUsers = async () => {
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+
+  // --- Query Params Parsing ---
+  const userType = (searchParams.get("type") as UserType) || "customer";
+  const currentPage = Number(searchParams.get("page")) || 1;
+  const statusFilter = searchParams.get("status") || "all";
+  const sortOrder = searchParams.get("sort") || "";
+  const selectedBranchId = searchParams.get("branchId") || "all";
+  const smartFilter = searchParams.get("smartFilter") || "all"; // Frontend filter
+
+  const visibleBranchOptions = actorBranches || [];
+
+  // --- API Fetch ---
+  const loadUsers = async () => {
     try {
       setLoading(true);
       setError("");
 
-      let url = `/api/v1/admin/users?page=${currentPage}&limit=10`;
+      const result = await fetchUsers({
+        page: currentPage,
+        limit: 15,
+        keyword: searchParams.get("keyword") || "",
+        status: statusFilter,
+        sort: sortOrder,
+        userType: userType,
+        branchId: userType === "internal" ? selectedBranchId : undefined,
+      });
 
-      if (statusFilter !== "all") url += `&status=${statusFilter}`;
-      if (userType) url += `&type=${encodeURIComponent(userType)}`;
-
-      if (userType === "internal" && selectedBranchId !== "all") {
-        url += `&branchId=${encodeURIComponent(selectedBranchId)}`;
-      }
-
-      if (sortOrder) {
-        const [field, dir] = String(sortOrder).split(":");
-        if (field) {
-          url += `&sortBy=${encodeURIComponent(field)}`;
-          if (dir) url += `&order=${encodeURIComponent(dir.toUpperCase())}`;
-        }
-      }
-
-      if (searchTerm.trim()) {
-        url += `&keyword=${encodeURIComponent(searchTerm.trim())}`;
-      }
-
-      const json = await http<any>("GET", url);
-
-      if (Array.isArray(json.data)) {
-        setUsers(json.data);
-        const total = Number(json.meta?.total ?? 0);
-        const limit = Number(json.meta?.limit ?? 10);
-        setTotalPages(Math.max(1, Math.ceil(total / limit)));
-      } else {
-        setError("Không thể tải danh sách người dùng.");
-      }
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : "Lỗi kết nối server.");
+      setRows(result.rows);
+      setTotalCount(result.total);
+      setTotalPages(Math.max(1, Math.ceil(result.total / result.limit)));
+    } catch (err: any) {
+      console.error("Fetch users error:", err);
+      setError(err?.message || "Không thể tải danh sách người dùng.");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
+    loadUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    statusFilter,
     currentPage,
+    statusFilter,
     sortOrder,
-    searchTerm,
-    userType,
     selectedBranchId,
+    userType,
+    searchParams,
   ]);
 
   useEffect(() => {
+    if (!searchParams.get("type")) {
+      const params = new URLSearchParams(searchParams);
+      params.set("type", "customer");
+      setSearchParams(params, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  // Debounced Search
+  useEffect(() => {
     const delay = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
-      if (searchTerm.trim()) params.set("keyword", searchTerm.trim());
+      if (searchInput.trim()) params.set("keyword", searchInput.trim());
       else params.delete("keyword");
       params.delete("page");
       setSearchParams(params);
-    }, 500);
+    }, 400);
     return () => clearTimeout(delay);
-  }, [searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(
-      (u) =>
-        u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (u.full_name || "")?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (u.role?.title || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (u.branches || []).some((b) =>
-          `${b.name || ""} ${b.code || ""}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()),
-        ),
-    );
-  }, [users, searchTerm]);
+  // --- Data Derivation & Filtering ---
+  // Apply frontend smart filtering over the current page rows
+  const displayedRows = useMemo(() => {
+    if (smartFilter === "all") return rows;
 
-  const handleAddUser = () => {
-    navigate(
-      userType === "customer"
-        ? "/admin/users/customers/create"
-        : "/admin/users/internal/create",
-    );
+    return rows.filter((r) => {
+      if (userType === "customer") {
+        if (smartFilter === "missing-phone") return !r.phone;
+        if (smartFilter === "missing-avatar") return !r.avatar;
+      } else {
+        const health = getUserBranchScopeHealth(r);
+        if (smartFilter === "no-branches") return health === "no-branches";
+        if (smartFilter === "missing-primary")
+          return health === "missing-primary" || health === "orphan-primary";
+        if (smartFilter === "multi-branch") return health === "multi";
+      }
+      return true;
+    });
+  }, [rows, smartFilter, userType]);
+
+  const selectableUsers = useMemo(
+    () => displayedRows.filter((u) => u.id !== currentUser?.id),
+    [displayedRows, currentUser?.id],
+  );
+  const safeSelectedIds = useMemo(
+    () => selectedUsers.filter((id) => id !== currentUser?.id),
+    [selectedUsers, currentUser?.id],
+  );
+
+  // --- Handlers ---
+  const handleTypeChange = (type: UserType) => {
+    const params = new URLSearchParams(); // Reset most filters on tab change
+    params.set("type", type);
+    setSearchParams(params);
+    setSelectedUsers([]);
+    setSearchInput("");
   };
 
-  const handleEditUser = (id: number) =>
-    navigate(
-      userType === "customer"
-        ? `/admin/users/customers/edit/${id}`
-        : `/admin/users/internal/edit/${id}`,
-    );
+  const handleFilterChange = (key: string, value: string) => {
+    const params = new URLSearchParams(searchParams);
+    if (value === "all" || !value) params.delete(key);
+    else params.set(key, value);
+    params.delete("page");
+    setSearchParams(params);
+    setSelectedUsers([]);
+  };
 
-  const handleViewUser = (id: number) =>
-    navigate(
-      userType === "customer"
-        ? `/admin/users/customers/detail/${id}`
-        : `/admin/users/internal/detail/${id}`,
-    );
+  const clearAllFilters = () => {
+    const params = new URLSearchParams();
+    params.set("type", userType);
+    setSearchParams(params);
+    setSearchInput("");
+    setSelectedUsers([]);
+  };
 
   const handleDeleteUser = async (id: number) => {
-    if (!window.confirm("Bạn có chắc muốn xóa người dùng này?")) return;
-
+    if (
+      !window.confirm(
+        "Bạn có chắc muốn xóa tài khoản này? Thao tác này có thể ảnh hưởng đến dữ liệu liên kết.",
+      )
+    )
+      return;
     try {
-      setLoading(true);
-      await http("DELETE", `/api/v1/admin/users/delete/${id}`);
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      showSuccessToast({ message: "Đã xóa người dùng thành công!" });
-    } catch (err) {
-      console.error("Delete user error:", err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Không thể xóa người dùng!",
-      );
-    } finally {
-      setLoading(false);
+      await deleteUser(id);
+      showSuccessToast({ message: "Đã xóa tài khoản thành công!" });
+      loadUsers();
+    } catch (err: any) {
+      showErrorToast(err?.message || "Không thể xóa tài khoản.");
     }
   };
 
-  const handleToggleStatus = async (user: UserRow) => {
+  const handleToggleStatus = async (user: UserListItem) => {
+    if (user.id === currentUser?.id) return;
     const newStatus =
       user.status.toLowerCase() === "active" ? "inactive" : "active";
+    try {
+      await updateUserStatus(user.id, newStatus);
+      showSuccessToast({
+        message: `Đã ${newStatus === "active" ? "kích hoạt" : "tạm dừng"} tài khoản!`,
+      });
+      setRows((prev) =>
+        prev.map((item) =>
+          item.id === user.id ? { ...item, status: newStatus } : item,
+        ),
+      );
+    } catch (err: any) {
+      showErrorToast(err?.message || "Không thể cập nhật trạng thái.");
+    }
+  };
+
+  const handleApplyBulkAction = async () => {
+    if (!bulkAction || !safeSelectedIds.length) return;
+    if (
+      !window.confirm(
+        `Thực hiện '${bulkAction}' cho ${safeSelectedIds.length} tài khoản?`,
+      )
+    )
+      return;
 
     try {
-      await http("PATCH", `/api/v1/admin/users/${user.id}/status`, {
-        status: newStatus,
-      });
+      const body = {
+        ids: safeSelectedIds,
+        action: bulkAction === "delete" ? "delete" : "status",
+        value:
+          bulkAction === "delete"
+            ? undefined
+            : bulkAction === "activate"
+              ? "active"
+              : "inactive",
+      } as const;
 
-      setUsers((prev) =>
-        prev.map((u) => (u.id === user.id ? { ...u, status: newStatus } : u)),
-      );
-
-      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
-    } catch (err) {
-      console.error(err);
-      showErrorToast(
-        err instanceof Error ? err.message : "Không thể cập nhật trạng thái",
-      );
+      await bulkEditUsers(body as any);
+      showSuccessToast({ message: "Cập nhật hàng loạt thành công!" });
+      setSelectedUsers([]);
+      setBulkAction("");
+      loadUsers();
+    } catch (err: any) {
+      showErrorToast(err?.message || "Lỗi thao tác hàng loạt.");
     }
   };
 
-  const setTab = (type: UserTypeTab) => {
-    const params = new URLSearchParams(searchParams);
-    params.delete("page");
-    params.delete("keyword");
-    if (type === "customer") {
-      params.delete("branchId");
-    }
+  // --- Sub-components (Cards) ---
+  const SummaryCards = () => {
+    const kpis =
+      userType === "customer"
+        ? [
+            {
+              id: "all",
+              label: "Tổng số",
+              value: totalCount,
+              icon: Users,
+              color: "text-blue-600",
+              bg: "bg-blue-50",
+            },
+            {
+              id: "missing-phone",
+              label: "Thiếu SĐT",
+              value: rows.filter((r) => !r.phone).length,
+              icon: PhoneOff,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              isWarning: rows.filter((r) => !r.phone).length > 0,
+            },
+            {
+              id: "missing-avatar",
+              label: "Thiếu Avatar",
+              value: rows.filter((r) => !r.avatar).length,
+              icon: ImageMinus,
+              color: "text-gray-600",
+              bg: "bg-gray-100",
+            },
+          ]
+        : [
+            {
+              id: "all",
+              label: "Tổng nhân sự",
+              value: totalCount,
+              icon: Shield,
+              color: "text-purple-600",
+              bg: "bg-purple-50",
+            },
+            {
+              id: "no-branches",
+              label: "Thiếu Branch",
+              value: rows.filter(
+                (r) => getUserBranchScopeHealth(r) === "no-branches",
+              ).length,
+              icon: AlertTriangle,
+              color: "text-red-600",
+              bg: "bg-red-50",
+              isWarning:
+                rows.filter(
+                  (r) => getUserBranchScopeHealth(r) === "no-branches",
+                ).length > 0,
+            },
+            {
+              id: "missing-primary",
+              label: "Thiếu Primary",
+              value: rows.filter(
+                (r) =>
+                  getUserBranchScopeHealth(r) === "missing-primary" ||
+                  getUserBranchScopeHealth(r) === "orphan-primary",
+              ).length,
+              icon: GitBranch,
+              color: "text-amber-600",
+              bg: "bg-amber-50",
+              isWarning:
+                rows.filter(
+                  (r) =>
+                    getUserBranchScopeHealth(r) === "missing-primary" ||
+                    getUserBranchScopeHealth(r) === "orphan-primary",
+                ).length > 0,
+            },
+            {
+              id: "multi-branch",
+              label: "Multi-branch",
+              value: rows.filter((r) => getUserBranchScopeHealth(r) === "multi")
+                .length,
+              icon: Layers,
+              color: "text-indigo-600",
+              bg: "bg-indigo-50",
+            },
+          ];
 
-    setSelectedUsers([]);
-    setBulkAction("");
-
-    navigate({
-      pathname:
-        type === "customer"
-          ? "/admin/users/customers"
-          : "/admin/users/internal",
-      search: params.toString() ? `?${params.toString()}` : "",
-    });
+    return (
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-6">
+        {kpis.map((kpi) => (
+          <div
+            key={kpi.id}
+            onClick={() => handleFilterChange("smartFilter", kpi.id)}
+            className={`p-4 bg-white dark:bg-gray-800 rounded-xl border flex flex-col justify-center transition-all ${
+              smartFilter === kpi.id
+                ? "border-blue-500 shadow-md ring-1 ring-blue-200 dark:ring-blue-900"
+                : "cursor-pointer hover:border-blue-400 hover:shadow-sm border-gray-200 dark:border-gray-700"
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-1.5 rounded-lg ${kpi.bg} dark:bg-gray-700`}>
+                <kpi.icon
+                  className={`w-4 h-4 ${kpi.color} dark:text-gray-300`}
+                />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+                {kpi.label}
+              </span>
+            </div>
+            <div
+              className={`text-2xl font-black pl-1 ${kpi.isWarning && kpi.value > 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}
+            >
+              {kpi.value}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
-  const handleFilterChange = (status: "all" | "active" | "inactive") => {
-    const params = new URLSearchParams(searchParams);
-    if (status === "all") params.delete("status");
-    else params.set("status", status);
-    params.delete("page");
-    setSearchParams(params);
-    setSelectedUsers([]);
-  };
-
-  const handleBranchFilterChange = (branchId: string) => {
-    const params = new URLSearchParams(searchParams);
-    if (branchId === "all") params.delete("branchId");
-    else params.set("branchId", branchId);
-    params.delete("page");
-    setSearchParams(params);
-    setSelectedUsers([]);
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "—";
-    const date = new Date(dateString);
-    return date.toLocaleDateString("vi-VN", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
-  const selectableUsers = filteredUsers.filter((u) => u.id !== currentUser?.id);
-  const safeIds = selectedUsers.filter((id) => id !== currentUser?.id);
-
-  const title =
-    userType === "internal" ? "Quản lý nhân sự nội bộ" : "Quản lý khách hàng";
-
-  const description =
-    userType === "internal"
-      ? "Danh sách staff/admin theo phạm vi chi nhánh được phép quản lý."
-      : "Danh sách khách hàng hệ thống.";
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    sortOrder !== "" ||
+    selectedBranchId !== "all" ||
+    smartFilter !== "all" ||
+    searchInput !== "";
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div className="w-full pb-10 space-y-6">
+      {/* Tầng A: Header / Command Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-            {title}
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            User Administration
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {description}
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
+            Quản lý khách hàng và nhân sự nội bộ trong một hệ thống phân quyền
+            và hồ sơ thống nhất.
           </p>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto relative">
-          <div className="relative w-full sm:w-64">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full pl-10 pr-8 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder={
-                userType === "internal"
-                  ? "Tìm kiếm nhân sự..."
-                  : "Tìm kiếm khách hàng..."
-              }
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
-            onClick={handleAddUser}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 transition-colors"
+            onClick={loadUsers}
+            className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
+            title="Làm mới"
           >
-            <Plus className="w-5 h-5" />
-            {userType === "internal" ? "Thêm nhân sự" : "Thêm khách hàng"}
+            <RefreshCw className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => navigate(`/admin/users/create?type=${userType}`)}
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm ml-auto md:ml-0"
+          >
+            <Plus className="w-4 h-4" /> Tạo{" "}
+            {userType === "customer" ? "khách hàng" : "nhân sự"}
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
+      {/* Tầng 2: Segmented Tabs */}
+      <div className="flex p-1 bg-gray-100 dark:bg-gray-800/80 rounded-xl w-fit border border-gray-200 dark:border-gray-700">
         <button
-          onClick={() => setTab("internal")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            userType === "internal"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
+          onClick={() => handleTypeChange("customer")}
+          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${userType === "customer" ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
         >
-          <span className="inline-flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Nhân sự nội bộ
-          </span>
+          Khách hàng
         </button>
-
         <button
-          onClick={() => setTab("customer")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            userType === "customer"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
+          onClick={() => handleTypeChange("internal")}
+          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${userType === "internal" ? "bg-white dark:bg-gray-700 text-purple-600 dark:text-purple-400 shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"}`}
         >
-          <span className="inline-flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Khách hàng
-          </span>
+          Nhân sự nội bộ
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <button
-          onClick={() => handleFilterChange("all")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            statusFilter === "all"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          Tất cả
-        </button>
+      {/* Tầng 3: Summary Cards */}
+      <SummaryCards />
 
-        <button
-          onClick={() => handleFilterChange("active")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            statusFilter === "active"
-              ? "bg-green-600 text-white border-green-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          Hoạt động
-        </button>
+      {/* Tầng 4: Control Bar */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col lg:flex-row gap-4 items-center justify-between">
+        <div className="relative w-full lg:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder={
+              userType === "customer"
+                ? "Tìm tên, email, SĐT..."
+                : "Tìm nhân sự, email, vai trò..."
+            }
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
 
-        <button
-          onClick={() => handleFilterChange("inactive")}
-          className={`px-4 py-2 rounded-md text-sm font-medium border ${
-            statusFilter === "inactive"
-              ? "bg-yellow-600 text-white border-yellow-600"
-              : "bg-white dark:bg-gray-700 text-gray-800 dark:text-gray-200 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          Tạm dừng
-        </button>
+        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+          <select
+            value={statusFilter}
+            onChange={(e) => handleFilterChange("status", e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 min-w-[150px]"
+          >
+            <option value="all">Mọi trạng thái</option>
+            <option value="active">Hoạt động</option>
+            <option value="inactive">Tạm dừng</option>
+            <option value="banned">Bị khóa</option>
+          </select>
 
-        {/* Cập nhật điều kiện hiển thị filter chi nhánh ở đây */}
-        {userType === "internal" &&
-          visibleBranchOptions &&
-          visibleBranchOptions.length > 1 && (
+          {userType === "internal" && visibleBranchOptions.length > 1 && (
             <select
               value={selectedBranchId}
-              onChange={(e) => handleBranchFilterChange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => handleFilterChange("branchId", e.target.value)}
+              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 min-w-[180px]"
             >
-              <option value="all">Tất cả chi nhánh trong scope</option>
-              {visibleBranchOptions.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name || `Branch #${branch.id}`}
+              <option value="all">Tất cả chi nhánh (Scope)</option>
+              {visibleBranchOptions.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name || `Branch #${b.id}`}
                 </option>
               ))}
             </select>
           )}
+
+          <select
+            value={sortOrder}
+            onChange={(e) => handleFilterChange("sort", e.target.value)}
+            className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 min-w-[180px]"
+          >
+            <option value="">Mới nhất (Mặc định)</option>
+            <option value="created_at:asc">Cũ nhất</option>
+            <option value="full_name:asc">Tên A → Z</option>
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              onClick={clearAllFilters}
+              className="p-2 text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 dark:bg-gray-700 dark:hover:bg-red-900/30 rounded-lg transition"
+              title="Xóa bộ lọc"
+            >
+              <FilterX className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 mb-3">
-        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          Sắp xếp:
-        </label>
-        <select
-          value={sortOrder}
-          onChange={(e) => {
-            const params = new URLSearchParams(searchParams);
-            if (e.target.value) params.set("sort", e.target.value);
-            else params.delete("sort");
-            params.delete("page");
-            setSearchParams(params);
-          }}
-          className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">-- Mặc định --</option>
-          <option value="created_at:desc">Mới nhất</option>
-          <option value="created_at:asc">Cũ nhất</option>
-          <option value="full_name:asc">Tên A → Z</option>
-          <option value="full_name:desc">Tên Z → A</option>
-          <option value="email:asc">Email A → Z</option>
-          <option value="email:desc">Email Z → A</option>
-        </select>
-      </div>
-
+      {/* Tầng 5: Bulk Action Bar */}
       {selectedUsers.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 mb-4 bg-blue-50 dark:bg-gray-800 border border-blue-200 dark:border-gray-700 rounded-md">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-blue-50 dark:bg-gray-800/80 border border-blue-200 dark:border-blue-900/50 rounded-xl shadow-sm">
+          <div className="flex items-center gap-2 text-sm text-blue-800 dark:text-blue-300 font-medium">
+            <CheckCircle2 className="w-5 h-5" />
             Đã chọn <strong>{selectedUsers.length}</strong>{" "}
-            {userType === "internal" ? "nhân sự" : "khách hàng"}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
+            {userType === "customer" ? "khách hàng" : "nhân sự"}
+          </div>
+          <div className="flex items-center gap-3">
             <select
               value={bulkAction}
               onChange={(e) => setBulkAction(e.target.value)}
-              className="border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white"
+              className="border border-blue-200 dark:border-gray-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="">-- Chọn hành động --</option>
-              <option value="activate">Hoạt động</option>
-              <option value="deactivate">Tạm dừng</option>
-              <option value="delete">Xóa mềm</option>
+              <option value="activate">Kích hoạt tài khoản</option>
+              <option value="deactivate">Tạm dừng tài khoản</option>
+              <option value="delete">Xóa tài khoản</option>
             </select>
-
             <button
-              onClick={async () => {
-                if (!bulkAction) {
-                  showErrorToast("Vui lòng chọn hành động!");
-                  return;
-                }
-
-                if (
-                  !window.confirm(
-                    `Xác nhận thực hiện '${bulkAction}' cho ${selectedUsers.length} người dùng?`,
-                  )
-                )
-                  return;
-
-                try {
-                  const body = {
-                    ids: safeIds,
-                    action: bulkAction === "delete" ? "delete" : "status",
-                    value:
-                      bulkAction === "delete"
-                        ? undefined
-                        : bulkAction === "activate"
-                          ? "active"
-                          : "inactive",
-                  };
-
-                  await http("PATCH", "/api/v1/admin/users/bulk-edit", body);
-                  showSuccessToast({ message: "Cập nhật thành công!" });
-                  setSelectedUsers([]);
-                  fetchUsers();
-                } catch (err) {
-                  console.error(err);
-                  showErrorToast(
-                    err instanceof Error ? err.message : "Lỗi kết nối server!",
-                  );
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+              onClick={handleApplyBulkAction}
+              className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition"
             >
               Áp dụng
             </button>
@@ -589,211 +620,213 @@ const UsersPage: React.FC = () => {
         </div>
       )}
 
-      <Card>
+      {/* Tầng 6: Unified Table */}
+      <Card className="!p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
         <div className="overflow-x-auto">
-          {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-              <span className="ml-2 text-gray-600 dark:text-gray-400">
-                Đang tải dữ liệu...
-              </span>
-            </div>
-          ) : error ? (
-            <p className="text-center text-red-500 py-6">{error}</p>
-          ) : filteredUsers.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="mx-auto h-12 w-12 text-gray-400">
-                <User className="w-full h-full" />
-              </div>
-              <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
-                Không tìm thấy người dùng
-              </h3>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Thử thay đổi bộ lọc hoặc tìm kiếm với từ khóa khác.
-              </p>
-            </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 uppercase text-xs font-bold tracking-wider">
+              <tr>
+                <th className="px-5 py-3.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={
+                      selectableUsers.length > 0 &&
+                      selectedUsers.length === selectableUsers.length
+                    }
+                    onChange={(e) =>
+                      setSelectedUsers(
+                        e.target.checked
+                          ? selectableUsers.map((u) => u.id)
+                          : [],
+                      )
+                    }
+                  />
+                </th>
+                <th className="px-5 py-3.5 text-left">Người dùng</th>
+                <th className="px-5 py-3.5 text-left">Thông tin liên hệ</th>
+                {userType === "internal" && (
+                  <th className="px-5 py-3.5 text-left">Vai trò & Scope</th>
+                )}
+                <th className="px-5 py-3.5 text-left">Trạng thái</th>
+                <th className="px-5 py-3.5 text-left">Ngày tạo</th>
+                <th className="px-5 py-3.5 text-right">Thao tác</th>
+              </tr>
+            </thead>
+
+            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+              {loading ? (
                 <tr>
-                  <th className="px-4 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedUsers.length > 0 &&
-                        selectedUsers.length === selectableUsers.length
-                      }
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setSelectedUsers(selectableUsers.map((u) => u.id));
-                        } else {
-                          setSelectedUsers([]);
-                        }
-                      }}
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    STT
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Người dùng
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Vai trò
-                  </th>
-                  {userType === "internal" && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Chi nhánh
-                    </th>
-                  )}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Trạng thái
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Ngày tạo
-                  </th>
-                  <th className="relative px-6 py-3">
-                    <span className="sr-only">Actions</span>
-                  </th>
+                  <td colSpan={7} className="px-5 py-24 text-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-3" />
+                    <p className="text-gray-500 font-medium">
+                      Đang tải danh sách{" "}
+                      {userType === "customer" ? "khách hàng" : "nhân sự"}...
+                    </p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredUsers.map((user, index) => (
+              ) : error ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-24 text-center">
+                    <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+                    <p className="text-red-600 font-medium">{error}</p>
+                  </td>
+                </tr>
+              ) : displayedRows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-24 text-center">
+                    <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                      {userType === "customer" ? (
+                        <Users className="w-8 h-8 text-gray-400" />
+                      ) : (
+                        <Shield className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+                      Không tìm thấy dữ liệu
+                    </p>
+                    <p className="text-gray-500">
+                      Thử thay đổi từ khóa hoặc xóa các bộ lọc hiện tại.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                displayedRows.map((user) => (
                   <tr
                     key={user.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                   >
-                    <td className="px-4 py-4 text-center">
+                    <td className="px-5 py-3.5 text-center">
                       <input
                         type="checkbox"
+                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
                         disabled={user.id === currentUser?.id}
                         checked={selectedUsers.includes(user.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedUsers((prev) => [...prev, user.id]);
-                          } else {
-                            setSelectedUsers((prev) =>
-                              prev.filter((id) => id !== user.id),
-                            );
-                          }
-                        }}
+                        onChange={(e) =>
+                          setSelectedUsers((prev) =>
+                            e.target.checked
+                              ? [...prev, user.id]
+                              : prev.filter((id) => id !== user.id),
+                          )
+                        }
                       />
                     </td>
-
-                    <td className="px-4 py-4 whitespace-nowrap text-center text-sm text-gray-700 dark:text-gray-300">
-                      {(currentPage - 1) * 10 + index + 1}
-                    </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
                         <img
-                          className="h-10 w-10 rounded-full object-cover border-2 border-gray-200"
                           src={
                             user.avatar ||
-                            `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                              user.full_name || user.email,
-                            )}&background=random`
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(user.fullName || user.email)}&background=f3f4f6&color=4b5563`
                           }
-                          alt={user.full_name || "User Avatar"}
+                          alt="Avatar"
+                          className="w-10 h-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
                         />
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {user.full_name || "—"}
+                        <div>
+                          <div className="font-bold text-gray-900 dark:text-white leading-tight">
+                            {user.fullName || "Chưa đặt tên"}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                          <div className="text-[11px] text-gray-500 font-mono mt-1">
                             ID: #{user.id}
                           </div>
                         </div>
                       </div>
                     </td>
-
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <RoleBadge user={user} />
+                    <td className="px-5 py-3.5">
+                      <div className="text-gray-900 dark:text-gray-300 font-medium">
+                        {user.email}
+                      </div>
+                      {user.phone ? (
+                        <div className="text-xs text-gray-500 mt-1">
+                          {user.phone}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-200 dark:bg-amber-900/30 dark:border-amber-800 px-1.5 py-0.5 rounded w-fit mt-1 uppercase">
+                          Thiếu SĐT
+                        </div>
+                      )}
                     </td>
 
                     {userType === "internal" && (
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <BranchBadgeList user={user} />
+                      <td className="px-5 py-3.5">
+                        <div className="space-y-2.5">
+                          <RoleBadge user={user} />
+                          <BranchScopeCell user={user} />
+                        </div>
                       </td>
                     )}
 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {user.email}
+                    <td className="px-5 py-3.5">
+                      <StatusBadge status={user.status} />
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div
-                        onClick={() => {
-                          if (user.id === currentUser?.id) return;
-                          handleToggleStatus(user);
-                        }}
-                        className={
-                          user.id === currentUser?.id
-                            ? "opacity-50 cursor-not-allowed"
-                            : "cursor-pointer"
-                        }
-                      >
-                        <StatusBadge status={user.status} />
+                    <td className="px-5 py-3.5">
+                      <div className="text-gray-600 dark:text-gray-400 flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                        {formatUserDate(user.createdAt)}
                       </div>
                     </td>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-1" />
-                        {formatDate(user.created_at)}
-                      </div>
-                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() =>
+                            navigate(
+                              `/admin/users/edit/${user.id}?type=${userType}`,
+                            )
+                          }
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded border border-transparent hover:border-blue-200 transition-colors text-xs font-semibold dark:hover:bg-gray-800"
+                        >
+                          <FolderOpen className="w-3.5 h-3.5" /> Workspace
+                        </button>
 
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleViewUser(user.id)}
-                          className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-                          title="Xem chi tiết"
-                        >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleEditUser(user.id)}
-                          className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-900 dark:hover:text-indigo-300 transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
+                          onClick={() => handleToggleStatus(user)}
                           disabled={user.id === currentUser?.id}
-                          onClick={() => handleDeleteUser(user.id)}
-                          className={`${
-                            user.id === currentUser?.id
-                              ? "text-gray-400 cursor-not-allowed"
-                              : "text-red-600 hover:text-red-900"
-                          }`}
+                          className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded border border-transparent hover:border-amber-200 transition-colors disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-gray-800"
+                          title="Đổi trạng thái"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <PowerOff className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          disabled={user.id === currentUser?.id}
+                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded border border-transparent hover:border-red-200 transition-colors disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-gray-800"
+                          title="Xóa mềm"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </Card>
 
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={(page) => {
-          const params = new URLSearchParams(searchParams);
-          if (page === 1) params.delete("page");
-          else params.set("page", String(page));
-          setSearchParams(params);
-        }}
-      />
+      {/* Tầng Phân trang */}
+      {!loading && !error && totalPages > 1 && (
+        <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
+            Hiển thị{" "}
+            <span className="font-bold text-gray-900 dark:text-white">
+              {displayedRows.length}
+            </span>{" "}
+            / {totalCount} kết quả
+          </span>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={(page) => {
+              const params = new URLSearchParams(searchParams);
+              params.set("page", String(page));
+              setSearchParams(params);
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

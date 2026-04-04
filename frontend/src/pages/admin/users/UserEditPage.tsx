@@ -1,913 +1,951 @@
-import React, {
-  useEffect,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
-import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { Loader2, Save, ArrowLeft, GitBranch } from "lucide-react";
+import React, { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft,
+  Loader2,
+  Save,
+  Shield,
+  Phone,
+  Mail,
+  AlertCircle,
+  AlertTriangle,
+  GitBranch,
+  Layers,
+  Lock,
+} from "lucide-react";
+
 import Card from "../../../components/admin/layouts/Card";
-import { http } from "../../../services/http";
 import { useAuth } from "../../../context/AuthContextAdmin";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-interface Role {
-  id: number;
-  title: string;
-}
+import {
+  fetchUserEditDetail,
+  updateUser,
+  fetchRoles,
+  fetchBranches,
+  uploadUserAvatar,
+} from "./shared/userApi";
+import {
+  buildUserPayload,
+  getUserBranchScopeHealth,
+  getUserWorkspaceWarnings,
+  mapUserFormFromApi,
+  type UserFormValues,
+  type RoleOption,
+  type BranchOption,
+  type UserType,
+  type UserBranchSummary,
+  type UserListItem,
+} from "./shared/userMappers";
 
-interface Branch {
-  id: number;
-  name: string;
-  code: string;
-  status?: string;
-}
+import UserAvatarField from "./shared/UserAvatarField";
+import UserStatusField from "./shared/UserStatusField";
+import UserBranchAssignment from "./shared/UserBranchAssignment";
 
-interface UserBranch {
-  id: number;
-  name?: string | null;
-  code?: string | null;
-  status?: string | null;
-  is_primary?: boolean;
-}
+// ==========================================
+// INTERFACES & INITIAL STATE
+// ==========================================
 
-interface User {
-  id: number;
-  full_name: string;
-  email: string;
-  role_id: number | "";
-  phone: string;
-  avatar?: string | null;
-  status: "active" | "inactive";
-  primary_branch_id?: number | null;
-  branch_ids?: number[];
-  branches?: UserBranch[];
-}
-
-type ApiDetail<T> = { success: true; data: T; meta?: any };
-type ApiList<T> = { success: true; data: T[]; meta?: any };
-type ApiOk = {
-  success: true;
-  data?: any;
-  url?: string;
-  meta?: any;
-  errors?: any;
+const initialForm: UserFormValues = {
+  fullName: "",
+  email: "",
+  phone: "",
+  avatar: "",
+  status: "active",
+  roleId: "",
 };
 
-const isStaffRole = (roleId: number | "" | null | undefined) =>
-  roleId !== "" && roleId !== null && roleId !== undefined;
-
+// ==========================================
+// MAIN COMPONENT: UNIFIED USER WORKSPACE
+// ==========================================
 const UserEditPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
+  const { user: currentUser } = useAuth();
+  const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  const routeType: "internal" | "customer" = location.pathname.includes(
-    "/users/customers/",
-  )
-    ? "customer"
-    : "internal";
+  // --- Core States ---
+  const [initialUser, setInitialUser] = useState<UserListItem | null>(null);
+  const [userType, setUserType] = useState<UserType>("customer");
 
-  const [user, setUser] = useState<User | null>(null);
-  const [initialUser, setInitialUser] = useState<User | null>(null);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
-  const [initialSelectedBranchIds, setInitialSelectedBranchIds] = useState<
-    number[]
-  >([]);
-  const [primaryBranchId, setPrimaryBranchId] = useState<number | "">("");
-  const [initialPrimaryBranchId, setInitialPrimaryBranchId] = useState<
-    number | ""
-  >("");
+  const [formData, setFormData] = useState<UserFormValues>(initialForm);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewImage, setPreviewImage] = useState<string>("");
-  const [newPassword, setNewPassword] = useState<string>("");
-  const [confirmPassword, setConfirmPassword] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
-  const [errors, setErrors] = useState<
-    Partial<Record<keyof User, string>> & {
-      password?: string;
-      confirmPassword?: string;
-      branches?: string;
-      primaryBranchId?: string;
-    }
-  >({});
+  // --- Avatar States ---
   const [imageMethod, setImageMethod] = useState<"upload" | "url" | "keep">(
     "keep",
   );
-  const [imageUrl, setImageUrl] = useState<string>("");
+  const [avatarUrl, setAvatarUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState("");
 
-  const { user: currentUser, branches: actorBranches } = useAuth();
-  const isSuperAdmin = Number(currentUser?.role_id) === 1;
-  const { showSuccessToast, showErrorToast } = useAdminToast();
+  // --- Internal Access States ---
+  const [roles, setRoles] = useState<RoleOption[]>([]);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
+  const [primaryBranchId, setPrimaryBranchId] = useState<number | "">("");
 
-  const fetchUser = async () => {
+  // --- UX States ---
+  const [loading, setLoading] = useState(true);
+  const [loadingLookups, setLoadingLookups] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const isSelf = currentUser?.id === Number(id);
+
+  // --- Fetch Workspace Data ---
+  const fetchWorkspaceData = async () => {
     try {
       setLoading(true);
-      const res = await http<ApiDetail<User>>(
-        "GET",
-        `/api/v1/admin/users/edit/${id}`,
-      );
-      if (res.success && res.data) {
-        const data = res.data as User;
 
-        // Xác định loại user thực tế từ API và chuyển hướng nếu không khớp với route
-        const actualType = data.role_id ? "internal" : "customer";
-        if (actualType !== routeType) {
-          navigate(
-            actualType === "customer"
-              ? `/admin/users/customers/edit/${id}`
-              : `/admin/users/internal/edit/${id}`,
-            { replace: true },
-          );
-          return;
-        }
+      const user = await fetchUserEditDetail(String(id));
 
-        setUser(data);
-        setInitialUser(data);
-        setPreviewImage(data.avatar || "");
+      setInitialUser(user);
+      setUserType(user.userType);
 
-        const ids = Array.isArray(data.branch_ids)
-          ? data.branch_ids.map(Number)
-          : Array.isArray(data.branches)
-            ? data.branches.map((b) => Number(b.id))
-            : [];
+      setFormData({
+        ...mapUserFormFromApi({
+          id: user.id,
+          full_name: user.fullName,
+          email: user.email,
+          avatar: user.avatar,
+          phone: user.phone,
+          status: user.status,
+          role_id: user.roleId,
+          role: user.role,
+          created_at: user.createdAt ?? undefined,
+          updated_at: user.updatedAt ?? undefined,
+          primary_branch_id: user.primaryBranchId,
+          branch_ids: user.branchIds,
+          branches: user.branches,
+        }),
+      });
 
-        const primary =
-          data.primary_branch_id ??
-          data.branches?.find((b) => b.is_primary)?.id ??
-          "";
-
-        setSelectedBranchIds(ids);
-        setInitialSelectedBranchIds(ids);
-        setPrimaryBranchId(primary === null ? "" : Number(primary));
-        setInitialPrimaryBranchId(primary === null ? "" : Number(primary));
+      if (user.userType === "internal") {
+        setSelectedBranchIds(user.branchIds || []);
+        setPrimaryBranchId(user.primaryBranchId ?? "");
+      } else {
+        setSelectedBranchIds([]);
+        setPrimaryBranchId("");
       }
+
+      setPassword("");
+      setConfirmPassword("");
+      setImageMethod("keep");
+      setSelectedFile(null);
+      setPreviewImage("");
+      setAvatarUrl("");
+      setErrors({});
     } catch (err: any) {
-      console.error(err);
-      setErrors({ email: err?.message || "Không thể kết nối server." });
+      showErrorToast(err?.message || "Lỗi tải thông tin User Workspace.");
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchRoles = async () => {
-    try {
-      const res = await http<ApiList<Role>>("GET", "/api/v1/admin/roles");
-      if (res.success && Array.isArray(res.data)) {
-        setRoles(res.data);
-      }
-    } catch (err) {
-      console.error("fetchRoles error:", err);
-    }
-  };
+  useEffect(() => {
+    if (id) fetchWorkspaceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
-  const fetchBranches = async () => {
-    try {
-      if (isSuperAdmin) {
-        const res = await http<ApiList<Branch>>(
-          "GET",
-          "/api/v1/admin/branches?limit=100&status=active",
-        );
-        if (res.success && Array.isArray(res.data)) {
-          setBranches(res.data);
+  // --- Fetch Lookups (Internal Only) ---
+  useEffect(() => {
+    if (userType !== "internal") return;
+
+    let isMounted = true;
+    const loadLookups = async () => {
+      try {
+        setLoadingLookups(true);
+        const [rolesData, branchesData] = await Promise.all([
+          fetchRoles(),
+          fetchBranches(),
+        ]);
+        if (isMounted) {
+          setRoles(rolesData);
+          setBranches(branchesData);
         }
-      } else {
-        setBranches(
-          (actorBranches || []).map((b) => ({
-            id: b.id,
-            name: b.name || "",
-            code: b.code || "",
-            status: b.status || "active",
-          })),
-        );
-      }
-    } catch (err) {
-      console.error("fetchBranches error:", err);
-    }
-  };
-
-  const isDirty = React.useMemo(() => {
-    if (!user || !initialUser) return false;
-
-    const normalizeIds = (arr: number[]) =>
-      [...arr].map(Number).sort((a, b) => a - b);
-
-    const hasFieldChanges =
-      user.full_name !== initialUser.full_name ||
-      user.email !== initialUser.email ||
-      Number(user.role_id) !== Number(initialUser.role_id) ||
-      (user.phone || "") !== (initialUser.phone || "") ||
-      user.status !== initialUser.status;
-
-    const hasImageChanges =
-      (imageMethod === "upload" && selectedFile !== null) ||
-      (imageMethod === "url" &&
-        imageUrl !== "" &&
-        imageUrl !== (initialUser.avatar || ""));
-
-    const hasPasswordChanges =
-      newPassword.length > 0 || confirmPassword.length > 0;
-
-    const hasBranchChanges =
-      JSON.stringify(normalizeIds(selectedBranchIds)) !==
-        JSON.stringify(normalizeIds(initialSelectedBranchIds)) ||
-      Number(primaryBranchId || 0) !== Number(initialPrimaryBranchId || 0);
-
-    return (
-      hasFieldChanges ||
-      hasImageChanges ||
-      hasPasswordChanges ||
-      hasBranchChanges
-    );
-  }, [
-    user,
-    initialUser,
-    imageMethod,
-    selectedFile,
-    imageUrl,
-    newPassword,
-    confirmPassword,
-    selectedBranchIds,
-    initialSelectedBranchIds,
-    primaryBranchId,
-    initialPrimaryBranchId,
-  ]);
-
-  useEffect(() => {
-    fetchUser();
-    fetchRoles();
-    fetchBranches();
-  }, [id, isSuperAdmin, actorBranches]);
-
-  useEffect(() => {
-    return () => {
-      if (previewImage?.startsWith("blob:")) {
-        URL.revokeObjectURL(previewImage);
+      } catch (err: any) {
+        if (isMounted)
+          showErrorToast("Không thể tải danh sách Vai trò / Chi nhánh.");
+      } finally {
+        if (isMounted) setLoadingLookups(false);
       }
     };
-  }, [previewImage]);
+    loadLookups();
+    return () => {
+      isMounted = false;
+    };
+  }, [userType, showErrorToast]);
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  // --- Handlers ---
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-
-    let newValue: any = value;
-    if (name === "role_id") {
-      newValue = value === "" ? "" : Number(value);
-    }
-
-    setUser((prev) => {
-      if (!prev) return prev;
-
-      const nextUser = { ...prev, [name]: newValue };
-
-      if (name === "role_id" && !isStaffRole(newValue)) {
-        setSelectedBranchIds([]);
-        setPrimaryBranchId("");
-        setErrors((prevErrors) => ({
-          ...prevErrors,
-          branches: undefined,
-          primaryBranchId: undefined,
-        }));
-      }
-
-      return nextUser;
-    });
-
-    if (errors[name as keyof typeof errors]) {
-      setErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-
-    if (name === "role_id") {
-      setErrors((prev) => ({
-        ...prev,
-        role_id: undefined,
-        branches: undefined,
-        primaryBranchId: undefined,
-      }));
-    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleToggleBranch = (branchId: number) => {
     setSelectedBranchIds((prev) => {
-      const exists = prev.includes(branchId);
-      const next = exists
-        ? prev.filter((id) => id !== branchId)
+      const next = prev.includes(branchId)
+        ? prev.filter((bId) => bId !== branchId)
         : [...prev, branchId];
-
-      if (!next.length) {
-        setPrimaryBranchId("");
-      } else if (!next.includes(Number(primaryBranchId))) {
+      if (!next.includes(primaryBranchId as number)) setPrimaryBranchId("");
+      else if (next.length === 1 && primaryBranchId === "")
         setPrimaryBranchId(next[0]);
-      }
-
       return next;
     });
-
-    if (errors.branches || errors.primaryBranchId) {
-      setErrors((prev) => ({
-        ...prev,
-        branches: undefined,
-        primaryBranchId: undefined,
-      }));
-    }
+    if (errors.branches) setErrors((prev) => ({ ...prev, branches: "" }));
   };
 
-  const handleImageSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // --- Derived State (IsDirty) ---
+  const isDirty = useMemo(() => {
+    if (!initialUser) return false;
+    if (formData.fullName !== (initialUser.fullName || "")) return true;
+    if (formData.email !== (initialUser.email || "")) return true;
+    if (formData.phone !== (initialUser.phone || "")) return true;
+    if (
+      formData.status !==
+      (initialUser.status === "inactive" || initialUser.status === "active"
+        ? initialUser.status
+        : "active")
+    )
+      return true;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (password || confirmPassword) return true;
+    if (imageMethod !== "keep") return true;
 
-    if (!allowedTypes.includes(file.type)) {
-      setErrors((prev) => ({
-        ...prev,
-        avatar: "File tải lên phải là ảnh (jpg, png, webp, gif).",
-      }));
-
-      e.target.value = "";
-      setSelectedFile(null);
-      setPreviewImage(user?.avatar || "");
-      return;
+    if (userType === "internal") {
+      if (formData.roleId !== (initialUser.roleId || "")) return true;
+      if (primaryBranchId !== (initialUser.primaryBranchId ?? "")) return true;
+      const initialBranchIds = initialUser.branchIds || [];
+      if (selectedBranchIds.length !== initialBranchIds.length) return true;
+      const sortedSelected = [...selectedBranchIds].sort();
+      const sortedInitial = [...initialBranchIds].sort();
+      if (sortedSelected.some((id, idx) => id !== sortedInitial[idx]))
+        return true;
     }
+    return false;
+  }, [
+    formData,
+    initialUser,
+    password,
+    confirmPassword,
+    imageMethod,
+    userType,
+    selectedBranchIds,
+    primaryBranchId,
+  ]);
 
-    const maxSize = 5 * 1024 * 1024;
-    if (file.size > maxSize) {
-      setErrors((prev) => ({
-        ...prev,
-        avatar: "Ảnh không được lớn hơn 5MB.",
-      }));
-
-      e.target.value = "";
-      setSelectedFile(null);
-      setPreviewImage(user?.avatar || "");
-      return;
-    }
-
-    setSelectedFile(file);
-    setPreviewImage(URL.createObjectURL(file));
-
-    if (errors.avatar) {
-      setErrors((prev) => ({ ...prev, avatar: undefined }));
-    }
-  };
-
+  // --- Validation ---
   const validateForm = () => {
-    const newErrors: typeof errors = {};
-    const isStaff = !!user && isStaffRole(user.role_id);
+    const nextErrors: Record<string, string> = {};
 
-    if (!user?.full_name?.trim()) {
-      newErrors.full_name = "Vui lòng nhập họ và tên.";
+    if (!formData.fullName.trim())
+      nextErrors.fullName = "Yêu cầu nhập họ và tên.";
+    if (!formData.email.trim()) {
+      nextErrors.email = "Yêu cầu nhập email.";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      nextErrors.email = "Email không hợp lệ.";
+    }
+    if (!formData.phone.trim()) {
+      nextErrors.phone = "Yêu cầu nhập số điện thoại.";
+    } else if (!/^(\+84|0)\d{9,10}$/.test(formData.phone.trim())) {
+      nextErrors.phone = "Số điện thoại không hợp lệ.";
     }
 
-    if (!user?.email?.trim()) {
-      newErrors.email = "Vui lòng nhập email.";
-    } else if (!/\S+@\S+\.\S+/.test(user.email)) {
-      newErrors.email = "Địa chỉ email không hợp lệ.";
-    }
-
-    if (!user?.phone?.trim()) {
-      newErrors.phone = "Vui lòng nhập số điện thoại.";
-    } else if (!/^0\d{9}$/.test(user.phone)) {
-      newErrors.phone = "Số điện thoại phải bắt đầu bằng 0 và có 10 chữ số.";
-    }
-
-    if (newPassword || confirmPassword) {
-      if (newPassword.length < 6) {
-        newErrors.password = "Mật khẩu phải có ít nhất 6 ký tự.";
-      }
-      if (newPassword !== confirmPassword) {
-        newErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
-      }
-    }
-
-    if (isStaff) {
-      if (selectedBranchIds.length === 0) {
-        newErrors.branches = "Vui lòng chọn ít nhất 1 chi nhánh.";
+    if (password || confirmPassword) {
+      if (!password) {
+        nextErrors.password = "Yêu cầu nhập mật khẩu mới.";
+      } else if (password.length < 6) {
+        nextErrors.password = "Mật khẩu tối thiểu 6 ký tự.";
       }
 
-      if (
-        selectedBranchIds.length > 0 &&
-        (!primaryBranchId ||
-          !selectedBranchIds.includes(Number(primaryBranchId)))
-      ) {
-        newErrors.primaryBranchId = "Vui lòng chọn chi nhánh chính hợp lệ.";
+      if (!confirmPassword) {
+        nextErrors.confirmPassword = "Yêu cầu xác nhận mật khẩu.";
+      } else if (password !== confirmPassword) {
+        nextErrors.confirmPassword = "Xác nhận mật khẩu không khớp.";
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (imageMethod === "url") {
+      if (!avatarUrl.trim()) {
+        nextErrors.avatarUrl = "Yêu cầu nhập URL ảnh.";
+      } else {
+        try {
+          new URL(avatarUrl.trim());
+        } catch {
+          nextErrors.avatarUrl = "URL ảnh không hợp lệ.";
+        }
+      }
+    }
+
+    if (userType === "internal") {
+      if (!formData.roleId) nextErrors.roleId = "Yêu cầu chọn vai trò.";
+      if (selectedBranchIds.length === 0)
+        nextErrors.branches = "Yêu cầu chọn ít nhất 1 chi nhánh.";
+      if (selectedBranchIds.length > 0 && primaryBranchId === "") {
+        nextErrors.primaryBranchId = "Yêu cầu chọn chi nhánh chính.";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
-    const isSelf = currentUser?.id === user.id;
-    if (isSelf && user.status === "inactive") {
-      showErrorToast("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.");
+    if (!validateForm()) {
+      showErrorToast("Vui lòng kiểm tra lại thông tin nhập.");
       return;
     }
 
-    if (!validateForm()) return;
-
     try {
       setSaving(true);
+      let finalAvatarUrl: string | null | undefined = undefined;
 
-      let avatarUrl = user.avatar;
+      if (imageMethod === "keep") {
+        finalAvatarUrl = undefined;
+      } else {
+        finalAvatarUrl = null;
+      }
 
       if (imageMethod === "upload" && selectedFile) {
-        const formDataImg = new FormData();
-        formDataImg.append("file", selectedFile);
-
-        const up = await http<ApiOk>(
-          "POST",
-          "/api/v1/admin/upload",
-          formDataImg,
-        );
-        const url = up?.data?.url || up?.url;
-        if (!url) {
-          setErrors({ avatar: "Không thể upload ảnh đại diện." });
-          setSaving(false);
-          return;
-        }
-        avatarUrl = url;
-      } else if (imageMethod === "url" && imageUrl) {
-        avatarUrl = imageUrl;
-      } else if (imageMethod === "keep") {
-        avatarUrl = user.avatar;
+        finalAvatarUrl = await uploadUserAvatar(selectedFile);
+      } else if (imageMethod === "url" && avatarUrl.trim()) {
+        finalAvatarUrl = avatarUrl.trim();
       }
 
-      const isStaff = isStaffRole(user.role_id);
+      const payload = buildUserPayload({
+        values: {
+          ...formData,
+          avatar: finalAvatarUrl ?? formData.avatar ?? "",
+          status:
+            formData.status === "inactive" || formData.status === "active"
+              ? formData.status
+              : "active",
+        },
+        userType,
+        avatarUrl: finalAvatarUrl,
+        branchIds: selectedBranchIds,
+        primaryBranchId,
+        password: password || undefined,
+      });
 
-      const body: any = {
-        ...user,
-        role_id: user.role_id === "" ? null : Number(user.role_id),
-        avatar: avatarUrl,
-        branchIds: isStaff ? selectedBranchIds : [],
-        primaryBranchId:
-          isStaff && primaryBranchId !== "" ? Number(primaryBranchId) : null,
-      };
+      const res = await updateUser(String(id), payload);
 
-      if (newPassword.trim()) {
-        body.password = newPassword.trim();
-      }
-
-      const resp = await http<ApiOk>(
-        "PATCH",
-        `/api/v1/admin/users/edit/${id}`,
-        body,
-      );
-
-      if (resp.success) {
-        showSuccessToast({ message: "Cập nhật người dùng thành công!" });
-        navigate(
-          isStaffUser ? "/admin/users/internal" : "/admin/users/customers",
-        );
-      } else if (resp.errors) {
-        setErrors(resp.errors);
+      if (res?.success) {
+        showSuccessToast({ message: "Lưu thay đổi thành công!" });
+        await fetchWorkspaceData();
       } else {
-        showErrorToast((resp as any).message || "Cập nhật thất bại.");
+        showErrorToast("Lưu thất bại.");
       }
     } catch (err: any) {
-      console.error(err);
-      showErrorToast(err?.message || "Không thể kết nối server.");
+      showErrorToast(err?.message || "Lỗi cập nhật tài khoản.");
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  // --- Readiness Derivation for Summary Panel ---
+  const readiness = useMemo(() => {
+    if (!initialUser) return null;
+
+    const profileReady = Boolean(
+      formData.fullName.trim() &&
+      formData.email.trim() &&
+      formData.phone.trim(),
+    );
+    const accountReady = Boolean(
+      (formData.status === "active" || formData.status === "inactive") &&
+      (!password || (password.length >= 6 && password === confirmPassword)),
+    );
+
+    // Simulate mapping to use helper functions
+    const mockUserForWarning = {
+      userType,
+      phone: formData.phone,
+      status: formData.status,
+      branchIds: selectedBranchIds,
+      primaryBranchId: primaryBranchId !== "" ? Number(primaryBranchId) : null,
+      branches: branches
+        .filter((b) => selectedBranchIds.includes(b.id))
+        .map((b) => ({
+          id: b.id,
+          name: b.name,
+          code: b.code,
+        })) as UserBranchSummary[],
+    };
+
+    const warnings = getUserWorkspaceWarnings(mockUserForWarning);
+    const scopeHealth =
+      userType === "internal"
+        ? getUserBranchScopeHealth(mockUserForWarning)
+        : "customer";
+
+    let accessReady = true;
+    if (userType === "internal") {
+      accessReady = Boolean(
+        formData.roleId &&
+        selectedBranchIds.length > 0 &&
+        primaryBranchId !== "",
+      );
+    }
+
+    const overallLevel =
+      warnings.length === 0 && accessReady && profileReady
+        ? "Ready"
+        : warnings.length > 2
+          ? "Needs Attention"
+          : "Partial";
+
+    return {
+      profileReady,
+      accountReady,
+      accessReady,
+      warnings,
+      scopeHealth,
+      overallLevel,
+    };
+  }, [
+    initialUser,
+    formData,
+    password,
+    confirmPassword,
+    userType,
+    selectedBranchIds,
+    primaryBranchId,
+    branches,
+  ]);
+
+  if (loading || !initialUser || !readiness) {
     return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-gray-500 dark:text-gray-400" />
-        <span className="ml-2 text-gray-600 dark:text-gray-400">
-          Đang tải dữ liệu người dùng...
-        </span>
+      <div className="flex flex-col justify-center items-center py-32">
+        <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-200">
+          Đang tải User Workspace...
+        </h2>
       </div>
     );
   }
 
-  if (!user) return null;
-
-  const isSelf = currentUser?.id === user.id;
-  const isStaffUser = isStaffRole(user.role_id);
-
-  const selectedBranches = branches.filter((b) =>
-    selectedBranchIds.includes(b.id),
-  );
+  const primaryBranchObj =
+    userType === "internal" && primaryBranchId !== ""
+      ? branches.find((b) => b.id === primaryBranchId)
+      : null;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
-          {isStaffUser ? "Chỉnh sửa nhân sự nội bộ" : "Chỉnh sửa khách hàng"}
-        </h1>
-        <button
-          onClick={() =>
-            navigate(
-              isStaffUser ? "/admin/users/internal" : "/admin/users/customers",
-            )
-          }
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Quay lại
-        </button>
+    <div className="max-w-[1400px] mx-auto pb-24">
+      {/* A. Workspace Header (Sticky) */}
+      <div className="sticky top-0 z-20 bg-gray-50/90 dark:bg-gray-900/90 backdrop-blur-md pt-4 pb-4 border-b border-gray-200 dark:border-gray-800 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => {
+              if (
+                isDirty &&
+                !window.confirm("Có thay đổi chưa lưu, bạn có chắc muốn thoát?")
+              )
+                return;
+              navigate(`/admin/users?type=${userType}`);
+            }}
+            className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 transition"
+            title="Quay về danh sách User"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          </button>
+          <div className="flex items-center gap-3">
+            <img
+              src={
+                initialUser.avatar ||
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(initialUser.fullName || initialUser.email)}&background=f3f4f6&color=4b5563`
+              }
+              alt="Avatar"
+              className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-700 bg-white"
+            />
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white leading-none">
+                  {initialUser.fullName || "Chưa đặt tên"}
+                </h1>
+                {isDirty && (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 animate-pulse">
+                    Có thay đổi chưa lưu
+                  </span>
+                )}
+              </div>
+              <div className="text-sm text-gray-500 font-medium mt-1 flex items-center gap-2">
+                {initialUser.email}
+                <span className="text-gray-300 dark:text-gray-600">•</span>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${userType === "customer" ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700"}`}
+                >
+                  {userType === "customer" ? "Customer" : "Internal"}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${formData.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-200 text-gray-600"}`}
+                >
+                  {formData.status === "active" ? "Hoạt động" : "Tạm dừng"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            className={`px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 transition-all ${
+              saving || !isDirty
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed dark:bg-gray-800 dark:text-gray-600"
+                : "bg-blue-600 hover:bg-blue-700 text-white shadow-md hover:shadow-lg"
+            }`}
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Save className="w-4 h-4" />
+            )}
+            {isDirty ? "Lưu thay đổi" : "Đã lưu"}
+          </button>
+        </div>
       </div>
 
-      <Card>
-        <form onSubmit={handleSave} className="space-y-4 p-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Họ và tên <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              value={user.full_name || ""}
-              onChange={handleChange}
-              className={`w-full border ${
-                errors.full_name ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            />
-            {errors.full_name && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.full_name}
+      <div className="grid grid-cols-12 gap-8">
+        {/* Left Column: Form Sections (8 cols) */}
+        <div className="col-span-12 lg:col-span-8 space-y-8">
+          {/* Section 1: Basic Profile */}
+          <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">
+                  1
+                </span>
+                Thông tin cơ bản
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Cập nhật danh tính và thông tin liên hệ chính của user.
               </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={user.email || ""}
-              onChange={handleChange}
-              className={`w-full border ${
-                errors.email ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            />
-            {errors.email && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.email}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Mật khẩu mới (tuỳ chọn)
-            </label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="Nhập mật khẩu mới..."
-              className={`w-full border ${
-                errors.password ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            />
-            {errors.password && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.password}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Xác nhận mật khẩu mới
-            </label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Nhập lại mật khẩu mới..."
-              className={`w-full border ${
-                errors.confirmPassword ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            />
-            {errors.confirmPassword && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.confirmPassword}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Số điện thoại <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="phone"
-              value={user.phone || ""}
-              onChange={handleChange}
-              className={`w-full border ${
-                errors.phone ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            />
-            {errors.phone && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.phone}
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Vai trò
-            </label>
-            <select
-              name="role_id"
-              value={user.role_id || ""}
-              onChange={handleChange}
-              className={`w-full border ${
-                errors.role_id ? "border-red-500" : "border-gray-300"
-              } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-            >
-              <option value="">-- Chọn vai trò (Không bắt buộc) --</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.id}>
-                  {role.title}
-                </option>
-              ))}
-            </select>
-            {errors.role_id && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.role_id}
-              </p>
-            )}
-          </div>
-
-          {isStaffUser ? (
-            <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                  Phân quyền chi nhánh <span className="text-red-500">*</span>
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {branches.map((branch) => {
-                  const checked = selectedBranchIds.includes(branch.id);
-                  return (
-                    <label
-                      key={branch.id}
-                      className={`flex items-center justify-between rounded-md border p-3 cursor-pointer transition-colors ${
-                        checked
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                          : "border-gray-300 dark:border-gray-600"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-medium text-gray-800 dark:text-white">
-                          {branch.name}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {branch.code}
-                        </p>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => handleToggleBranch(branch.id)}
-                      />
-                    </label>
-                  );
-                })}
-              </div>
-
-              {errors.branches && (
-                <p className="text-sm text-red-600 dark:text-red-400 mt-2">
-                  {errors.branches}
-                </p>
-              )}
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Chi nhánh chính <span className="text-red-500">*</span>
+            </div>
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2 space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Họ và tên *
                 </label>
-                <select
-                  value={primaryBranchId}
-                  onChange={(e) =>
-                    setPrimaryBranchId(
-                      e.target.value ? Number(e.target.value) : "",
-                    )
-                  }
-                  className={`w-full border ${
-                    errors.primaryBranchId
-                      ? "border-red-500"
-                      : "border-gray-300"
-                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
-                >
-                  <option value="">-- Chọn chi nhánh chính --</option>
-                  {selectedBranches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name} ({branch.code})
-                    </option>
-                  ))}
-                </select>
-                {errors.primaryBranchId && (
-                  <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                    {errors.primaryBranchId}
-                  </p>
+                <input
+                  type="text"
+                  name="fullName"
+                  value={formData.fullName}
+                  onChange={handleInputChange}
+                  className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 ${errors.fullName ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                />
+                {errors.fullName && (
+                  <span className="text-xs text-red-500">
+                    {errors.fullName}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-gray-400" /> Email đăng nhập *
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 ${errors.email ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                />
+                {errors.email && (
+                  <span className="text-xs text-red-500">{errors.email}</span>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-400" /> Số điện thoại *
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 ${errors.phone ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                />
+                {errors.phone && (
+                  <span className="text-xs text-red-500">{errors.phone}</span>
                 )}
               </div>
             </div>
-          ) : (
-            <div className="rounded-lg border border-dashed border-gray-300 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/40">
-              <div className="flex items-center gap-2 mb-2">
-                <GitBranch className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                <h3 className="text-sm font-semibold text-gray-800 dark:text-white">
-                  Phân quyền chi nhánh
+          </section>
+
+          {/* Section 2: Account Setup & Credentials */}
+          <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">
+                    2
+                  </span>
+                  Tài khoản và trạng thái
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Điều chỉnh trạng thái hoạt động và cập nhật mật khẩu nếu cần.
+                </p>
+              </div>
+            </div>
+            <div className="p-6 space-y-6">
+              <UserStatusField
+                value={formData.status}
+                onChange={(val) => setFormData((p) => ({ ...p, status: val }))}
+                disabled={isSelf}
+                disabledHint="Bạn không thể tự thay đổi trạng thái của chính mình."
+              />
+              <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-4">
+                  <Lock className="w-4 h-4 text-gray-400" /> Đổi mật khẩu (Bỏ
+                  trống nếu giữ nguyên)
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Mật khẩu mới
+                    </label>
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrors((p) => ({
+                          ...p,
+                          password: "",
+                          confirmPassword: "",
+                        }));
+                      }}
+                      placeholder="Tối thiểu 6 ký tự"
+                      className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 ${errors.password ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                    />
+                    {errors.password && (
+                      <span className="text-xs text-red-500">
+                        {errors.password}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Xác nhận mật khẩu
+                    </label>
+                    <input
+                      type="password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        setErrors((p) => ({ ...p, confirmPassword: "" }));
+                      }}
+                      placeholder="Nhập lại mật khẩu mới"
+                      className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 ${errors.confirmPassword ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                    />
+                    {errors.confirmPassword && (
+                      <span className="text-xs text-red-500">
+                        {errors.confirmPassword}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Avatar */}
+          <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs">
+                  3
+                </span>
+                Ảnh đại diện
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Tải ảnh mới lên, dùng URL, hoặc giữ nguyên ảnh hiện tại.
+              </p>
+            </div>
+            <div className="p-6 flex flex-col md:flex-row gap-8">
+              <div className="shrink-0 flex flex-col items-center gap-3">
+                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                  Ảnh hiện tại
+                </span>
+                <img
+                  src={
+                    initialUser.avatar ||
+                    `https://ui-avatars.com/api/?name=${encodeURIComponent(initialUser.fullName || initialUser.email)}&background=f3f4f6&color=4b5563`
+                  }
+                  alt="Current Avatar"
+                  className="w-28 h-28 rounded-2xl object-cover border border-gray-200 dark:border-gray-700 bg-white shadow-sm"
+                />
+              </div>
+              <div className="flex-1">
+                <UserAvatarField
+                  previewImage={previewImage}
+                  imageMethod={imageMethod}
+                  imageUrl={avatarUrl}
+                  error={errors.avatarUrl}
+                  uploadLabel="Tải ảnh mới"
+                  urlLabel="Đổi bằng URL"
+                  keepLabel="Giữ ảnh cũ"
+                  allowKeep={true}
+                  onImageMethodChange={(val) => {
+                    setImageMethod(val);
+                    setErrors((p) => ({ ...p, avatarUrl: "" }));
+                  }}
+                  onImageUrlChange={(val) => {
+                    setAvatarUrl(val);
+                    setPreviewImage(val);
+                    setErrors((p) => ({ ...p, avatarUrl: "" }));
+                  }}
+                  onFileSelect={(file) => {
+                    const allowedTypes = [
+                      "image/jpeg",
+                      "image/png",
+                      "image/webp",
+                      "image/gif",
+                    ];
+                    const maxSize = 5 * 1024 * 1024;
+
+                    if (!allowedTypes.includes(file.type)) {
+                      setErrors((p) => ({
+                        ...p,
+                        avatarUrl: "Chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.",
+                      }));
+                      return;
+                    }
+
+                    if (file.size > maxSize) {
+                      setErrors((p) => ({
+                        ...p,
+                        avatarUrl: "Ảnh đại diện không được vượt quá 5MB.",
+                      }));
+                      return;
+                    }
+
+                    setErrors((p) => ({ ...p, avatarUrl: "" }));
+                    setSelectedFile(file);
+                    setPreviewImage(URL.createObjectURL(file));
+                  }}
+                  onClear={() => {
+                    setSelectedFile(null);
+                    setPreviewImage("");
+                    setAvatarUrl("");
+                    setImageMethod("keep");
+                  }}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Section 4: Access & Scope (Internal Only) */}
+          {userType === "internal" && (
+            <section className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-purple-200 dark:border-purple-800 overflow-hidden ring-1 ring-purple-100 dark:ring-purple-900/30 mb-10">
+              <div className="p-6 border-b border-purple-100 dark:border-purple-800/50 bg-purple-50/50 dark:bg-purple-900/10">
+                <h2 className="text-lg font-bold text-purple-900 dark:text-purple-300 flex items-center gap-2">
+                  <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-200 text-purple-700 text-xs">
+                    4
+                  </span>
+                  Vai trò và Phạm vi truy cập (Scope)
+                </h2>
+                <p className="text-sm text-purple-700 dark:text-purple-400 mt-1">
+                  Thiết lập capability nội bộ và phạm vi chi nhánh được phép vận
+                  hành.
+                </p>
+              </div>
+              <div className="p-6 space-y-8">
+                {loadingLookups ? (
+                  <div className="flex flex-col items-center justify-center py-10">
+                    <Loader2 className="w-6 h-6 animate-spin text-purple-500 mb-2" />
+                    <span className="text-sm text-gray-500">
+                      Đang tải Roles và Branches...
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5 max-w-md">
+                      <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Vai trò nội bộ (Role) *
+                      </label>
+                      <select
+                        name="roleId"
+                        value={formData.roleId}
+                        onChange={handleInputChange}
+                        className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 ${errors.roleId ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                      >
+                        <option value="">-- Chọn vai trò (Role) --</option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.title}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.roleId && (
+                        <span className="text-xs text-red-500">
+                          {errors.roleId}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="border-t border-purple-100 dark:border-purple-800/50 pt-6">
+                      <UserBranchAssignment
+                        title="Gán Chi nhánh (Branch Scope)"
+                        branches={branches}
+                        selectedBranchIds={selectedBranchIds}
+                        primaryBranchId={primaryBranchId}
+                        errors={{
+                          branches: errors.branches,
+                          primaryBranchId: errors.primaryBranchId,
+                        }}
+                        onToggleBranch={handleToggleBranch}
+                        onPrimaryBranchChange={setPrimaryBranchId}
+                      />
+                      <p className="text-[11px] text-gray-500 mt-3 flex items-start gap-1.5 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        Branch scope quyết định phạm vi vận hành và hiển thị dữ
+                        liệu mặc định của nhân sự trong các luồng quản lý đơn
+                        hàng, tồn kho liên quan đến chi nhánh.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right Column: Overview, Readiness & Metadata (4 cols) */}
+        <div className="col-span-12 lg:col-span-4 space-y-6">
+          {/* Workspace Health Panel */}
+          <Card className="!p-0 border-none shadow-sm overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div
+              className={`p-4 border-b ${readiness.overallLevel === "Ready" ? "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800/50" : "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800/50"}`}
+            >
+              <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider text-gray-900 dark:text-white">
+                Workspace Health
+              </h3>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* Overall Status Badge */}
+              <div className="flex justify-center">
+                <span
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
+                    readiness.overallLevel === "Ready"
+                      ? "bg-green-100 text-green-700 border-green-200"
+                      : readiness.overallLevel === "Partial"
+                        ? "bg-amber-100 text-amber-700 border-amber-200"
+                        : "bg-red-100 text-red-700 border-red-200"
+                  }`}
+                >
+                  {readiness.overallLevel === "Ready"
+                    ? "Sẵn sàng vận hành"
+                    : readiness.overallLevel === "Partial"
+                      ? "Đã đủ thông tin cơ bản"
+                      : "Cần hoàn thiện ngay"}
+                </span>
+              </div>
+
+              {/* Warnings List */}
+              {readiness.warnings.length > 0 && (
+                <div className="space-y-2 pt-2 border-t border-gray-100 dark:border-gray-800">
+                  <h4 className="text-[11px] font-bold text-amber-600 uppercase">
+                    Cần lưu ý:
+                  </h4>
+                  <ul className="space-y-2">
+                    {readiness.warnings.map((w, i) => (
+                      <li
+                        key={i}
+                        className="text-xs text-amber-700 dark:text-amber-400 flex items-start gap-1.5"
+                      >
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{" "}
+                        <span>{w}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          {/* Access Snapshot (Internal Only) */}
+          {userType === "internal" && (
+            <Card className="!p-0 border-none shadow-sm overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+              <div className="bg-gray-900 p-4 text-white">
+                <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-wider">
+                  <Layers className="w-4 h-4 text-purple-400" /> Access Scope
+                  Summary
                 </h3>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Người dùng này đang là khách hàng nên không gắn chi nhánh cố
-                định. Nếu chọn vai trò staff/admin, phần phân quyền chi nhánh sẽ
-                trở thành bắt buộc.
+              <div className="p-5 space-y-4 text-sm text-gray-700 dark:text-gray-300">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-500">Vai trò:</span>
+                  <span className="font-bold text-gray-900 dark:text-white">
+                    {initialUser.role?.title ||
+                      (formData.roleId
+                        ? roles.find((r) => r.id === Number(formData.roleId))
+                            ?.title
+                        : "—")}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-500">
+                    Chi nhánh chính:
+                  </span>
+                  <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                    <GitBranch className="w-3.5 h-3.5" />
+                    {primaryBranchObj ? primaryBranchObj.name : "Chưa xác định"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-500">
+                    Tổng CN được gán:
+                  </span>
+                  <span className="font-bold text-gray-900 dark:text-white px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-md">
+                    {selectedBranchIds.length}
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Customer Notice */}
+          {userType === "customer" && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
+              <Shield className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
+                Tài khoản khách hàng không có Role quản trị nội bộ và không bị
+                giới hạn bởi Branch Scope. Các quyền truy cập phụ thuộc vào
+                trạng thái tài khoản.
               </p>
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Ảnh đại diện
-            </label>
-
-            <div className="flex flex-wrap gap-3 mb-4">
-              <button
-                type="button"
-                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  imageMethod === "upload"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                }`}
-                onClick={() => setImageMethod("upload")}
-              >
-                Upload ảnh mới
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  imageMethod === "url"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                }`}
-                onClick={() => setImageMethod("url")}
-              >
-                Nhập URL
-              </button>
-              <button
-                type="button"
-                className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                  imageMethod === "keep"
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                }`}
-                onClick={() => {
-                  setImageMethod("keep");
-                  setPreviewImage(user.avatar || "");
-                }}
-              >
-                Giữ ảnh hiện tại
-              </button>
-            </div>
-
-            {imageMethod === "upload" ? (
-              <div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-gray-700 dark:file:text-gray-200 dark:hover:file:bg-gray-600 cursor-pointer"
-                />
-              </div>
-            ) : imageMethod === "url" ? (
-              <div>
-                <input
-                  type="url"
-                  placeholder="Nhập URL ảnh đại diện"
-                  value={imageUrl}
-                  onChange={(e) => {
-                    setImageUrl(e.target.value);
-                    setPreviewImage(e.target.value);
-                    setUser((prev) =>
-                      prev ? { ...prev, avatar: e.target.value } : prev,
-                    );
-                  }}
-                  className={`w-full border ${
-                    errors.avatar ? "border-red-500" : "border-gray-300"
-                  } dark:border-gray-600 rounded-md p-2 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors`}
-                />
-              </div>
-            ) : (
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Sẽ giữ nguyên ảnh hiện tại
-              </div>
-            )}
-
-            {errors.avatar && (
-              <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                {errors.avatar}
-              </p>
-            )}
-
-            {previewImage && (
-              <div className="mt-4 relative w-fit">
-                <img
-                  src={previewImage}
-                  alt="preview"
-                  className="h-24 w-24 object-cover rounded-md border border-gray-300 dark:border-gray-600"
-                />
-                {imageMethod !== "keep" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedFile(null);
-                      setImageUrl("");
-                      setImageMethod("keep");
-                      setPreviewImage(user.avatar || "");
-                    }}
-                    className="absolute -top-2 -right-2 bg-gray-500 dark:bg-gray-600 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            )}
+          {/* Metadata Panel */}
+          <div className="text-[11px] text-gray-400 dark:text-gray-500 space-y-1.5 pt-4 px-2">
+            <p>
+              <strong>ID Hệ thống:</strong> #{initialUser.id}
+            </p>
+            <p>
+              <strong>Tạo lúc:</strong>{" "}
+              {initialUser.createdAt
+                ? new Date(initialUser.createdAt).toLocaleString()
+                : "—"}
+            </p>
+            <p>
+              <strong>Cập nhật lần cuối:</strong>{" "}
+              {initialUser.updatedAt
+                ? new Date(initialUser.updatedAt).toLocaleString()
+                : "—"}
+            </p>
           </div>
-
-          <div className="pt-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Trạng thái
-            </label>
-            <div className="flex gap-6">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="active"
-                  checked={user.status === "active"}
-                  onChange={handleChange}
-                  disabled={isSelf}
-                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                />
-                <span className="text-gray-800 dark:text-gray-200">
-                  Hoạt động
-                </span>
-              </label>
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="status"
-                  value="inactive"
-                  checked={user.status === "inactive"}
-                  onChange={handleChange}
-                  disabled={isSelf}
-                  className="text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                />
-                <span className="text-gray-800 dark:text-gray-200">
-                  Tạm dừng
-                </span>
-              </label>
-              {isSelf && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Bạn không thể thay đổi trạng thái tài khoản đang đăng nhập.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={saving || !isDirty}
-              className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-400 dark:disabled:bg-gray-600"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
-                </>
-              ) : (
-                <>
-                  <Save className="w-5 h-5" /> Lưu thay đổi
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };

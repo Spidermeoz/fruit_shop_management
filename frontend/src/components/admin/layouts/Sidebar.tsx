@@ -18,8 +18,8 @@ import {
   Store,
   Package2,
   ScrollText,
-  UserCog,
-  UserRound,
+  PanelsTopLeft,
+  Users2,
   Truck,
   Clock3,
   Link2,
@@ -123,15 +123,16 @@ const shippingChildren: SidebarItem[] = [
 
 const userChildren: SidebarItem[] = [
   {
-    name: "Internal",
-    href: "/admin/users/internal",
-    icon: UserCog,
+    name: "Hub",
+    href: "/admin/users/hub",
+    icon: PanelsTopLeft,
     permission: { module: "user", action: "view" },
   },
   {
-    name: "Customers",
-    href: "/admin/users/customers",
-    icon: UserRound,
+    name: "Users",
+    href: "/admin/users",
+    icon: Users2,
+    exact: true,
     permission: { module: "user", action: "view" },
   },
 ];
@@ -417,7 +418,7 @@ const Sidebar: React.FC = () => {
           <Can module="user" action="view">
             {renderGroup({
               title: "Users",
-              href: "/admin/users/internal",
+              href: "/admin/users/hub",
               icon: Users,
               isActive: isUsersSectionActive,
               isOpen: isUsersOpen,

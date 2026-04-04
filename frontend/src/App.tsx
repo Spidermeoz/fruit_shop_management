@@ -8,37 +8,29 @@ import { CartProvider } from "./context/CartContext";
 // Admin Layout & Pages
 import Sidebar from "./components/admin/layouts/Sidebar";
 import DashboardHeader from "./components/admin/layouts/DashboardHeader";
-import DashboardPage from "./pages/admin/DashboardPage";
+import DashboardPage from "./pages/admin/dashboard/DashboardPage";
 import ProductsPage from "./pages/admin/products/ProductsPage";
 import ProductEditPage from "./pages/admin/products/ProductEditPage";
 import ProductCreatePage from "./pages/admin/products/ProductCreatePage";
 import ProductCategoryPage from "./pages/admin/categories/ProductCategoryPage";
 import RolesPage from "./pages/admin/roles/RolesPage";
-import RoleDetailPage from "./pages/admin/roles/RoleDetailPage";
 import RoleEditPage from "./pages/admin/roles/RoleEditPage";
 import RoleCreatePage from "./pages/admin/roles/RoleCreatePage";
 import PermissionsPage from "./pages/admin/roles/PermissionsPage";
 
-import InternalUsersPage from "./pages/admin/users/internal/InternalUsersPage";
-import InternalUserCreatePage from "./pages/admin/users/internal/InternalUserCreatePage";
-import InternalUserEditPage from "./pages/admin/users/internal/InternalUserEditPage";
-import InternalUserDetailPage from "./pages/admin/users/internal/InternalUserDetailPage";
-
-import CustomersPage from "./pages/admin/users/customers/CustomersPage";
-import CustomerCreatePage from "./pages/admin/users/customers/CustomerCreatePage";
-import CustomerEditPage from "./pages/admin/users/customers/CustomerEditPage";
-import CustomerDetailPage from "./pages/admin/users/customers/CustomerDetailPage";
+import UsersHubPage from "./pages/admin/users/UsersHubPage";
+import UsersPage from "./pages/admin/users/UsersPage";
+import UserCreatePage from "./pages/admin/users/UserCreatePage";
+import UserEditPage from "./pages/admin/users/UserEditPage";
 
 import OrdersPage from "./pages/admin/orders/OrdersPage";
-import OrdersDetailPageAdmin from "./pages/admin/orders/OrdersDetailPageAdmin";
-import OrderDeliveryTimelinePage from "./pages/admin/orders/OrderDeliveryTimelinePage";
+import OrderWorkspacePage from "./pages/admin/orders/OrderWorkspacePage";
 import SettingsGeneralPage from "./pages/admin/settings/SettingsGeneralPage";
 import { AdminToastProvider } from "./context/AdminToastContext";
 import ProductOriginPage from "./pages/admin/origins/ProductOriginPage";
 import ProductTagPage from "./pages/admin/tags/ProductTagPage";
 import BranchesPage from "./pages/admin/branches/BranchesPage";
 import BranchCreatePage from "./pages/admin/branches/BranchCreatePage";
-import BranchDetailPage from "./pages/admin/branches/BranchDetailPage";
 import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 import InventoryPage from "./pages/admin/inventory/InventoryPage";
 import InventoryTransactionHistoryPage from "./pages/admin/inventory/InventoryTransactionHistoryPage";
@@ -72,7 +64,7 @@ import ProfilePage from "./pages/client/Profile/ProfilePage";
 import OrderHistoryPage from "./pages/client/Order/OrderHistoryPage";
 import OrderDetailPage from "./pages/client/Order/OrderDetailPage";
 import ProductListPage from "./components/client/product/ProductList";
-import LoginPageAdmin from "./pages/admin/LoginPageAdmin";
+import LoginPageAdmin from "./pages/admin/auth/LoginPageAdmin";
 import RequireAuth from "./auth/RequireAuth";
 import AboutPage from "./pages/client/Other/AboutPage";
 import ContactPage from "./pages/client/Other/ContactPage";
@@ -111,48 +103,44 @@ const AdminShell: React.FC = () => {
                 <Route path="roles" element={<RolesPage />} />
                 <Route path="roles/create" element={<RoleCreatePage />} />
                 <Route path="roles/edit/:id" element={<RoleEditPage />} />
-                <Route path="roles/detail/:id" element={<RoleDetailPage />} />
                 <Route path="roles/permissions" element={<PermissionsPage />} />
 
+                <Route path="users" element={<UsersPage />} />
+                <Route path="users/hub" element={<UsersHubPage />} />
                 <Route
-                  path="users"
-                  element={<Navigate to="/admin/users/internal" replace />}
+                  path="users/all"
+                  element={<Navigate to="/admin/users" replace />}
                 />
+                <Route path="users/create" element={<UserCreatePage />} />
+                <Route path="users/edit/:id" element={<UserEditPage />} />
 
-                <Route path="users/internal" element={<InternalUsersPage />} />
+                <Route
+                  path="users/internal"
+                  element={
+                    <Navigate to="/admin/users/all?type=internal" replace />
+                  }
+                />
                 <Route
                   path="users/internal/create"
-                  element={<InternalUserCreatePage />}
+                  element={
+                    <Navigate to="/admin/users/create?type=internal" replace />
+                  }
                 />
                 <Route
-                  path="users/internal/edit/:id"
-                  element={<InternalUserEditPage />}
+                  path="users/customers"
+                  element={
+                    <Navigate to="/admin/users/all?type=customer" replace />
+                  }
                 />
-                <Route
-                  path="users/internal/detail/:id"
-                  element={<InternalUserDetailPage />}
-                />
-
-                <Route path="users/customers" element={<CustomersPage />} />
                 <Route
                   path="users/customers/create"
-                  element={<CustomerCreatePage />}
-                />
-                <Route
-                  path="users/customers/edit/:id"
-                  element={<CustomerEditPage />}
-                />
-                <Route
-                  path="users/customers/detail/:id"
-                  element={<CustomerDetailPage />}
+                  element={
+                    <Navigate to="/admin/users/create?type=customer" replace />
+                  }
                 />
 
                 <Route path="branches" element={<BranchesPage />} />
                 <Route path="branches/create" element={<BranchCreatePage />} />
-                <Route
-                  path="branches/detail/:id"
-                  element={<BranchDetailPage />}
-                />
                 <Route path="branches/edit/:id" element={<BranchEditPage />} />
 
                 <Route path="inventory" element={<InventoryPage />} />
@@ -226,12 +214,8 @@ const AdminShell: React.FC = () => {
 
                 <Route path="orders" element={<OrdersPage />} />
                 <Route
-                  path="orders/detail/:id"
-                  element={<OrdersDetailPageAdmin />}
-                />
-                <Route
-                  path="orders/:id/timeline"
-                  element={<OrderDeliveryTimelinePage />}
+                  path="orders/edit/:id"
+                  element={<OrderWorkspacePage />}
                 />
                 <Route
                   path="settings/general"

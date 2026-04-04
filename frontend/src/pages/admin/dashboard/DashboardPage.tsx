@@ -9,9 +9,9 @@ import {
   Truck,
   Store,
 } from "lucide-react";
-import Card from "../../components/admin/layouts/Card";
-import { http } from "../../services/http";
-import { useAuth } from "../../context/AuthContextAdmin";
+import Card from "../../../components/admin/layouts/Card";
+import { http } from "../../../services/http";
+import { useAuth } from "../../../context/AuthContextAdmin";
 
 type DashboardOrder = {
   id: number;

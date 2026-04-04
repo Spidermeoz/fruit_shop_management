@@ -11,6 +11,7 @@ import {
   LayoutGrid,
   Search,
   ShieldAlert,
+  RefreshCw,
 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
@@ -73,9 +74,7 @@ const ProductTagPage: React.FC = () => {
   >({});
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterMode] = useState<"all" | "empty" | "populated">(
-    "all",
-  );
+  const [filterMode] = useState<"all" | "empty" | "populated">("all");
 
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
@@ -120,6 +119,7 @@ const ProductTagPage: React.FC = () => {
 
   useEffect(() => {
     fetchGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 🔹 DATA DERIVATION
@@ -241,7 +241,7 @@ const ProductTagPage: React.FC = () => {
         3000,
       );
       return showErrorToast(
-        `Không thể xóa nhánh "${group.name}". Hãy xóa hết ${tagCount} tag bên trong trước.`,
+        `Không thể xóa nhóm "${group.name}". Hãy xóa hết ${tagCount} tag bên trong trước.`,
       );
     }
 
@@ -371,73 +371,98 @@ const ProductTagPage: React.FC = () => {
   };
 
   return (
-    <div className="w-full pb-16 space-y-6">
-      {/* 🔹 TẦNG 1: HEADER */}
-      <section className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+    <div className="w-full pb-10 space-y-6">
+      {/* 🔹 TẦNG A: HEADER / COMMAND BAR */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
-          <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-            Tag System Manager
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Hệ thống Tag Sản phẩm
+            </h1>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Xây dựng hệ thống nhãn và ngữ nghĩa để phân loại linh hoạt sản phẩm.
           </p>
         </div>
-      </section>
 
-      {/* 🔹 TẦNG 2: KPI CARDS */}
-      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="p-5 flex flex-col justify-center border-l-4 border-blue-500 bg-gradient-to-r from-white to-blue-50/30 dark:from-gray-800 dark:to-blue-900/10">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase">
-              Nhóm phân loại
-            </span>
-            <Layers className="w-5 h-5 text-blue-400" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
-            {insights.totalGroups}
-          </p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-center border-l-4 border-indigo-500">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase">
-              Tổng số Tag
-            </span>
-            <Tags className="w-5 h-5 text-indigo-400" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
-            {insights.totalTags}
-          </p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-center border-l-4 border-amber-500">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase">
-              Nhóm đang rỗng
-            </span>
-            <AlertCircle className="w-5 h-5 text-amber-400" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-amber-600 dark:text-amber-500">
-            {insights.emptyGroups}
-          </p>
-        </Card>
-        <Card className="p-5 flex flex-col justify-center border-l-4 border-emerald-500">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-500 uppercase">
-              Tag / Nhóm (TB)
-            </span>
-            <LayoutGrid className="w-5 h-5 text-emerald-400" />
-          </div>
-          <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
-            {insights.avgTags}
-          </p>
-        </Card>
-      </section>
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <button
+            onClick={fetchGroups}
+            className="p-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition shadow-sm"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
 
-      {/* 🔹 TẦNG 3: QUICK CREATE ZONE */}
-      <Card className="p-5 border border-indigo-100 bg-indigo-50/30 dark:border-indigo-900/30 dark:bg-indigo-900/10">
-        <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-300 mb-3 flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Bắt đầu xây dựng bằng cách tạo Nhóm Tag
-        </h3>
-        <div className="flex flex-col md:flex-row items-center gap-4">
+      {/* 🔹 TẦNG B: KPI CARDS */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          {
+            label: "Nhóm phân loại",
+            value: insights.totalGroups,
+            icon: Layers,
+            color: "text-blue-600",
+            bg: "bg-blue-50",
+          },
+          {
+            label: "Tổng số Tag",
+            value: insights.totalTags,
+            icon: Tags,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
+          },
+          {
+            label: "Nhóm đang rỗng",
+            value: insights.emptyGroups,
+            icon: AlertCircle,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
+            isWarning: insights.emptyGroups > 0,
+          },
+          {
+            label: "Tag / Nhóm (TB)",
+            value: insights.avgTags,
+            icon: LayoutGrid,
+            color: "text-emerald-600",
+            bg: "bg-emerald-50",
+          },
+        ].map((kpi, idx) => (
+          <div
+            key={idx}
+            className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`p-1.5 rounded-lg ${kpi.bg} dark:bg-gray-800`}>
+                <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
+              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+                {kpi.label}
+              </span>
+            </div>
+            <div
+              className={`text-xl font-black ${
+                kpi.isWarning
+                  ? "text-amber-600 dark:text-amber-400"
+                  : "text-gray-900 dark:text-white"
+              }`}
+            >
+              {kpi.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* 🔹 TẦNG C: QUICK CREATE ZONE */}
+      <Card className="!p-0 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 flex items-center gap-2">
+          <Plus className="w-4 h-4 text-gray-500" />
+          <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">
+            Thêm Nhanh Nhóm Tag
+          </h2>
+        </div>
+        <div className="p-5 flex flex-col md:flex-row items-center gap-4">
           <input
             type="text"
             value={newGroupName}
@@ -445,12 +470,16 @@ const ProductTagPage: React.FC = () => {
             onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
             disabled={creatingGroup}
             placeholder="Ví dụ: Phong cách, Chất liệu, Theo Mùa..."
-            className={`flex-1 w-full rounded-lg border px-4 py-2.5 text-sm font-medium transition-all outline-none disabled:opacity-60 dark:bg-gray-800 dark:text-white ${flashNewGroup ? "border-emerald-500 ring-2 ring-emerald-200" : "border-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 dark:border-gray-600"}`}
+            className={`w-full flex-1 px-3 py-2 text-sm rounded-lg border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-60 ${
+              flashNewGroup
+                ? "border-emerald-500 ring-2 ring-emerald-200"
+                : "border-gray-300 dark:border-gray-600"
+            }`}
           />
           <button
             onClick={handleCreateGroup}
             disabled={creatingGroup}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            className="px-5 py-2 w-full md:w-auto bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 text-sm"
           >
             {creatingGroup ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -461,41 +490,47 @@ const ProductTagPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* 🔹 TẦNG 4: CONTROL BAR */}
-      <section className="bg-white dark:bg-gray-800 p-3 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col lg:flex-row gap-4 items-center justify-between">
+      {/* 🔹 TẦNG D: TOOLBAR (SEARCH) */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="relative w-full lg:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+            <Search className="h-4 w-4 text-gray-400" />
           </div>
           <input
             type="text"
             placeholder="Tìm theo tên nhóm hoặc tag..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="block w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="block w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
           />
         </div>
-      </section>
+      </div>
 
-      {/* 🔹 TẦNG 5: TAG SYSTEM MAIN AREA */}
+      {/* 🔹 TẦNG E: TAG SYSTEM MAIN AREA */}
       {loading ? (
-        <div className="flex py-24 justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+        <div className="flex flex-col justify-center items-center py-24 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-3" />
+          <p className="text-gray-500 font-medium">
+            Đang đồng bộ hệ thống tag...
+          </p>
         </div>
       ) : pageError ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
           <ShieldAlert className="w-10 h-10 text-red-500 mx-auto mb-3" />
           <p className="text-red-600 font-medium">{pageError}</p>
         </div>
       ) : filteredGroups.length === 0 ? (
-        <div className="text-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl">
-          <Layers className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 font-medium">
-            Không tìm thấy nhóm phân loại nào.
+        <div className="text-center py-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm rounded-xl flex flex-col items-center">
+          <Layers className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+            Từ điển trống
+          </h3>
+          <p className="text-sm text-gray-500 mt-1 mb-5">
+            Không tìm thấy nhóm phân loại nào hoặc không khớp kết quả lọc.
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredGroups.map((group) => {
             const isBlocked = deleteBlockedGroupIds.includes(group.id);
             const isFlashing = flashingTagGroupIds.includes(group.id);
@@ -504,11 +539,15 @@ const ProductTagPage: React.FC = () => {
             return (
               <div
                 key={group.id}
-                className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden"
               >
                 {/* Group Header */}
                 <div
-                  className={`p-4 border-b transition-colors ${groupDirty ? "bg-amber-50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-900/30" : "bg-gray-50/50 border-gray-100 dark:bg-gray-800/50 dark:border-gray-700"}`}
+                  className={`p-4 border-b transition-colors ${
+                    groupDirty
+                      ? "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30"
+                      : "bg-gray-50/50 border-gray-100 dark:bg-gray-800/50 dark:border-gray-700"
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex-1 flex items-center gap-2">
@@ -522,7 +561,11 @@ const ProductTagPage: React.FC = () => {
                           }));
                           markState(setDeleteBlockedGroupIds, group.id, false);
                         }}
-                        className={`text-lg font-bold bg-transparent border-b-2 focus:outline-none transition-colors w-full pb-0.5 ${groupDirty ? "text-amber-700 border-amber-400 dark:text-amber-400" : "text-gray-900 border-transparent hover:border-gray-300 focus:border-blue-500 dark:text-white dark:hover:border-gray-600"}`}
+                        className={`text-base font-bold bg-transparent border-b-2 focus:outline-none transition-colors w-full pb-0.5 px-1 ${
+                          groupDirty
+                            ? "text-amber-700 border-amber-400 dark:text-amber-400"
+                            : "text-gray-900 border-transparent hover:border-gray-300 focus:border-blue-500 dark:text-white dark:hover:border-gray-600"
+                        }`}
                       />
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -547,33 +590,37 @@ const ProductTagPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 px-1">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${group.tags?.length ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400" : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"}`}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                        group.tags?.length
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400"
+                          : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                      }`}
                     >
                       {group.tags?.length || 0} Tags
                     </span>
                     {group.tags?.length === 0 && (
-                      <span className="text-xs text-amber-500 font-semibold flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" /> Nhóm trống
+                      <span className="text-[11px] text-amber-500 font-semibold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" /> Nhóm rỗng
                       </span>
                     )}
                   </div>
                   {isBlocked && (
-                    <p className="text-xs text-red-500 mt-2 font-medium">
+                    <p className="text-[11px] text-red-500 mt-2 font-medium px-1">
                       Cần xóa tất cả tag bên dưới trước khi xóa nhóm.
                     </p>
                   )}
                 </div>
 
                 {/* Tags List */}
-                <div className="p-4 flex-1 flex flex-col gap-2">
+                <div className="p-4 flex-1 flex flex-col gap-2 bg-white dark:bg-gray-900/30">
                   {(group.tags || []).map((tag) => {
                     const tagDirty = isTagDirty(tag);
                     return (
                       <div
                         key={tag.id}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 group/tag"
+                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 group/tag transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
                       >
                         <input
                           type="text"
@@ -584,7 +631,11 @@ const ProductTagPage: React.FC = () => {
                               [tag.id]: e.target.value,
                             }))
                           }
-                          className={`flex-1 bg-transparent border rounded px-2 py-1 text-sm font-medium focus:outline-none transition-colors ${tagDirty ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200" : "border-transparent hover:border-gray-200 focus:border-blue-400 text-gray-700 dark:text-gray-300"}`}
+                          className={`flex-1 bg-transparent border rounded px-2 py-1.5 text-[13px] font-medium focus:outline-none transition-colors ${
+                            tagDirty
+                              ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                              : "border-transparent focus:border-blue-400 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800"
+                          }`}
                         />
                         <div className="flex items-center opacity-0 group-hover/tag:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
                           <button
@@ -592,7 +643,8 @@ const ProductTagPage: React.FC = () => {
                             disabled={
                               !tagDirty || savingTagIds.includes(tag.id)
                             }
-                            className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded disabled:opacity-30"
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30"
+                            title="Lưu thay đổi tag"
                           >
                             <Save className="w-3.5 h-3.5" />
                           </button>
@@ -600,6 +652,7 @@ const ProductTagPage: React.FC = () => {
                             onClick={() => handleDeleteTag(tag)}
                             disabled={deletingTagIds.includes(tag.id)}
                             className="p-1.5 text-red-500 hover:bg-red-50 rounded disabled:opacity-30"
+                            title="Xóa tag"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -610,7 +663,11 @@ const ProductTagPage: React.FC = () => {
 
                   {/* Create Tag Row */}
                   <div
-                    className={`mt-auto pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex items-center gap-2 ${isFlashing ? "bg-emerald-50/50 rounded-lg p-2" : ""}`}
+                    className={`mt-auto pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex items-center gap-2 ${
+                      isFlashing
+                        ? "bg-emerald-50/50 dark:bg-emerald-900/10 rounded-lg p-2"
+                        : ""
+                    }`}
                   >
                     <input
                       type="text"
@@ -625,7 +682,7 @@ const ProductTagPage: React.FC = () => {
                         e.key === "Enter" && handleCreateTag(group)
                       }
                       placeholder="+ Nhập tên tag mới..."
-                      className="flex-1 bg-transparent border border-gray-200 rounded-md px-3 py-1.5 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400 dark:border-gray-700 dark:text-white"
+                      className="flex-1 bg-transparent border border-gray-300 dark:border-gray-600 rounded-md px-3 py-1.5 text-[13px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-gray-900 dark:text-white transition-colors"
                     />
                     <button
                       onClick={() => handleCreateTag(group)}
@@ -633,7 +690,7 @@ const ProductTagPage: React.FC = () => {
                         creatingTagGroupIds.includes(group.id) ||
                         !(createTagValues[group.id] || "").trim()
                       }
-                      className="px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-bold hover:bg-indigo-200 disabled:opacity-50 transition-colors"
+                      className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md text-[13px] font-bold hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
                     >
                       Thêm
                     </button>

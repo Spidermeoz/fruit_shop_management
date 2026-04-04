@@ -23,6 +23,7 @@ import {
   RefreshCcw,
   Clock,
   Filter,
+  MonitorSmartphone,
 } from "lucide-react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import Pagination from "../../../components/admin/common/Pagination";
@@ -951,193 +952,225 @@ const ProductsPage: React.FC = () => {
 
   return (
     <div className="w-full pb-10 space-y-8">
-      {/* A. HEADER */}
-      <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* Tầng A: Header / Command Bar */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-            Bảng Điều Khiển Danh Mục
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1 text-sm">
+          <div className="flex items-center gap-3 mb-1">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Bảng Điều hành Danh mục
+            </h1>
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Quản lý sản phẩm, tình trạng tồn kho, chất lượng dữ liệu và xử lý
-            phản hồi khách hàng ngay trên một màn hình.
+            phản hồi khách hàng.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
             onClick={handleAddProduct}
-            className="flex flex-1 md:flex-none items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+            className="flex items-center justify-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm w-full md:w-auto"
           >
-            <Plus className="w-5 h-5" />
-            Thêm Sản Phẩm
+            <Plus className="w-4 h-4" /> Thêm Sản Phẩm
           </button>
         </div>
-      </section>
+      </div>
 
-      {/* B. KPI */}
-      <section className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="p-5 flex flex-col justify-between border-l-4 border-blue-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Tổng Danh Mục
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {summary.totalItems}
-              </h3>
+      {/* Tầng B: KPI Strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+        {/* KPI 1 */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-gray-800">
+              <PackageOpen className="w-4 h-4 text-blue-600" />
             </div>
-            <PackageOpen className="w-8 h-8 text-blue-100 fill-blue-500" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+              Tổng Danh Mục
+            </span>
           </div>
-        </Card>
+          <div className="text-xl font-black text-gray-900 dark:text-white">
+            {summary.totalItems}
+          </div>
+        </div>
 
-        <Card className="p-5 flex flex-col justify-between border-l-4 border-emerald-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Đang Hoạt Động
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {summary.activeCount}
-              </h3>
+        {/* KPI 2 */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-gray-800">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             </div>
-            <CheckCircle2 className="w-8 h-8 text-emerald-100 fill-emerald-500" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+              Đang Hoạt Động
+            </span>
           </div>
-        </Card>
+          <div className="text-xl font-black text-gray-900 dark:text-white">
+            {summary.activeCount}
+          </div>
+        </div>
 
-        <Card className="p-5 flex flex-col justify-between border-l-4 border-gray-400">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Dừng Hoạt Động
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {summary.inactiveCount}
-              </h3>
+        {/* KPI 3 */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-gray-100 dark:bg-gray-800">
+              <XCircle className="w-4 h-4 text-gray-600" />
             </div>
-            <XCircle className="w-8 h-8 text-gray-200 fill-gray-500" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+              Dừng Hoạt Động
+            </span>
           </div>
-        </Card>
+          <div className="text-xl font-black text-gray-900 dark:text-white">
+            {summary.inactiveCount}
+          </div>
+        </div>
 
-        <Card className="p-5 flex flex-col justify-between border-l-4 border-orange-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Sắp Hết Hàng
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {summary.lowStockCount}
-              </h3>
+        {/* KPI 4 */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm cursor-pointer hover:border-orange-400 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-orange-50 dark:bg-gray-800">
+              <AlertCircle className="w-4 h-4 text-orange-600" />
             </div>
-            <AlertCircle className="w-8 h-8 text-orange-100 fill-orange-500" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+              Sắp Hết Hàng
+            </span>
           </div>
-        </Card>
+          <div
+            className={`text-xl font-black ${summary.lowStockCount > 0 ? "text-orange-600 dark:text-orange-400" : "text-gray-900 dark:text-white"}`}
+          >
+            {summary.lowStockCount}
+          </div>
+        </div>
 
-        <Card className="p-5 flex flex-col justify-between border-l-4 border-purple-500">
-          <div className="flex justify-between items-start">
-            <div>
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Review Chờ Phản Hồi
-              </p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {summary.pendingReviewCount}
-              </h3>
+        {/* KPI 5 */}
+        <div className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center shadow-sm cursor-pointer hover:border-purple-400 transition-all">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="p-1.5 rounded-lg bg-purple-50 dark:bg-gray-800">
+              <MessageSquareWarning className="w-4 h-4 text-purple-600" />
             </div>
-            <MessageSquareWarning className="w-8 h-8 text-purple-100 fill-purple-500" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 truncate">
+              Chờ Phản Hồi
+            </span>
           </div>
-        </Card>
-      </section>
+          <div
+            className={`text-xl font-black ${summary.pendingReviewCount > 0 ? "text-purple-600 dark:text-purple-400" : "text-gray-900 dark:text-white"}`}
+          >
+            {summary.pendingReviewCount}
+          </div>
+        </div>
+      </div>
 
-      {/* C. ACTION CENTER */}
+      {/* Tầng C: Action Center (Attention Section) */}
       {(summary.lowStockCount > 0 ||
         summary.outOfStockCount > 0 ||
         summary.missingThumbnailCount > 0 ||
         summary.pendingReviewCount > 0) && (
-        <section className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Activity className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-            <h3 className="text-base font-semibold text-orange-800 dark:text-orange-300">
-              Trung Tâm Xử Lý Nhanh
+        <Card className="border-orange-200 dark:border-orange-900/50 flex flex-col overflow-hidden !p-0 shadow-sm">
+          <div className="p-4 bg-orange-50/50 dark:bg-orange-900/20 border-b border-orange-100 dark:border-orange-900/50 flex justify-between items-center">
+            <h3 className="font-bold text-orange-800 dark:text-orange-400 flex items-center gap-2">
+              <Activity className="w-5 h-5" />
+              Trung tâm Xử lý nhanh
             </h3>
+            <span className="text-xs text-orange-600 font-medium bg-orange-100 px-2 py-1 rounded">
+              Cần chú ý
+            </span>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
             {summary.pendingReviewCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex justify-between items-center border border-gray-100 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {summary.pendingReviewCount} review đang chờ phản hồi
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Ưu tiên xử lý sản phẩm có khách hàng đang đợi phản hồi
-                  </p>
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-100 dark:border-orange-900/30 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">
+                      {summary.pendingReviewCount} review đang đợi
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
+                      Ưu tiên xử lý sản phẩm có khách hàng đang chờ phản hồi
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
+                    <MessageSquareWarning className="w-4 h-4 text-purple-500" />
+                  </div>
                 </div>
                 <button
                   onClick={() => handleReviewTaskFilterChange("pending_only")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="w-full py-1.5 mt-auto bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold rounded transition"
                 >
-                  Lọc ngay
+                  Lọc xem ngay
                 </button>
               </div>
             )}
 
             {summary.outOfStockCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex justify-between items-center border border-gray-100 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {summary.outOfStockCount} sản phẩm đã hết hàng
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Cần ưu tiên nhập kho ngay
-                  </p>
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-100 dark:border-orange-900/30 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">
+                      {summary.outOfStockCount} sản phẩm hết hàng
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
+                      Cần ưu tiên lên kế hoạch nhập kho ngay lập tức
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-4 h-4 text-red-500" />
+                  </div>
                 </div>
                 <button
                   onClick={() => handleStockStatusFilterChange("out_of_stock")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="w-full py-1.5 mt-auto bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold rounded transition"
                 >
-                  Lọc ngay
+                  Lọc xem ngay
                 </button>
               </div>
             )}
 
             {summary.lowStockCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex justify-between items-center border border-gray-100 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {summary.lowStockCount} sản phẩm sắp hết hàng
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Nên lên kế hoạch nhập kho sớm
-                  </p>
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-100 dark:border-orange-900/30 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">
+                      {summary.lowStockCount} sản phẩm sắp hết
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
+                      Sản phẩm dưới định mức an toàn, cần nhập thêm
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-4 h-4 text-orange-500" />
+                  </div>
                 </div>
                 <button
                   onClick={() => handleStockStatusFilterChange("low_stock")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="w-full py-1.5 mt-auto bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold rounded transition"
                 >
-                  Lọc ngay
+                  Lọc xem ngay
                 </button>
               </div>
             )}
 
             {summary.missingThumbnailCount > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm flex justify-between items-center border border-gray-100 dark:border-gray-700">
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
-                    {summary.missingThumbnailCount} thiếu hình ảnh
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Cần bổ sung thumbnail
-                  </p>
+              <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-orange-100 dark:border-orange-900/30 shadow-sm flex flex-col gap-3">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="font-bold text-gray-900 dark:text-white text-sm line-clamp-1">
+                      {summary.missingThumbnailCount} thiếu hình ảnh
+                    </div>
+                    <div className="text-[11px] text-gray-500 mt-1 line-clamp-2">
+                      Sản phẩm chưa có ảnh đại diện, giảm trải nghiệm mua hàng
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
+                    <MonitorSmartphone className="w-4 h-4 text-blue-500" />
+                  </div>
                 </div>
                 <button
                   onClick={() => handleQuickFilterToggle("missing_thumb")}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="w-full py-1.5 mt-auto bg-orange-50 hover:bg-orange-100 text-orange-700 text-xs font-bold rounded transition"
                 >
-                  {quickFilter === "missing_thumb" ? "Hủy lọc" : "Lọc ngay"}
+                  {quickFilter === "missing_thumb" ? "Hủy lọc" : "Lọc xem ngay"}
                 </button>
               </div>
             )}
           </div>
-        </section>
+        </Card>
       )}
 
       {/* D. FILTER BAR */}

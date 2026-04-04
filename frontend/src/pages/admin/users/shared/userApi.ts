@@ -50,9 +50,7 @@ export type FetchUsersResult = {
   limit: number;
 };
 
-export const fetchUsers = async (
-  params: FetchUsersParams,
-): Promise<FetchUsersResult> => {
+const buildUsersSearchParams = (params: FetchUsersParams) => {
   const search = new URLSearchParams();
 
   search.set("page", String(params.page ?? 1));
@@ -82,6 +80,14 @@ export const fetchUsers = async (
     search.set("branchId", String(params.branchId));
   }
 
+  return search;
+};
+
+export const fetchUsers = async (
+  params: FetchUsersParams,
+): Promise<FetchUsersResult> => {
+  const search = buildUsersSearchParams(params);
+
   const res = await http<ApiList<UserApiItem>>(
     "GET",
     `/api/v1/admin/users?${search.toString()}`,
@@ -95,7 +101,9 @@ export const fetchUsers = async (
   return { rows, total, page, limit };
 };
 
-export const fetchUserDetail = async (id: number | string) => {
+export const fetchUserDetail = async (
+  id: number | string,
+): Promise<UserListItem> => {
   const res = await http<ApiDetail<UserApiItem>>(
     "GET",
     `/api/v1/admin/users/detail/${id}`,
@@ -103,7 +111,9 @@ export const fetchUserDetail = async (id: number | string) => {
   return mapUserFromApi(res.data);
 };
 
-export const fetchUserEditDetail = async (id: number | string) => {
+export const fetchUserEditDetail = async (
+  id: number | string,
+): Promise<UserListItem> => {
   const res = await http<ApiDetail<UserApiItem>>(
     "GET",
     `/api/v1/admin/users/edit/${id}`,
@@ -151,7 +161,15 @@ export const fetchBranches = async (): Promise<BranchOption[]> => {
     "GET",
     "/api/v1/admin/branches?limit=100&status=active",
   );
-  return Array.isArray(res.data) ? res.data : [];
+
+  return Array.isArray(res.data)
+    ? res.data.map((branch) => ({
+        id: Number(branch.id),
+        name: branch.name,
+        code: branch.code,
+        status: branch.status,
+      }))
+    : [];
 };
 
 export const uploadUserAvatar = async (file: File): Promise<string> => {
