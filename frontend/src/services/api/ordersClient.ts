@@ -2,6 +2,18 @@ import { http } from "../http";
 import type { CheckoutQuote, ClientOrder } from "../../types/orders";
 import { mapClientOrder } from "../../utils/mapOrder";
 
+export class CheckoutQuoteChangedError extends Error {
+  code: string;
+  payload: any;
+
+  constructor(message: string, payload: any) {
+    super(message);
+    this.name = "CheckoutQuoteChangedError";
+    this.code = "CHECKOUT_QUOTE_CHANGED";
+    this.payload = payload;
+  }
+}
+
 export interface ClientBranch {
   id: number;
   name: string;
@@ -39,6 +51,13 @@ export interface CheckoutQuotePayload {
 export interface CheckoutPayload extends CheckoutQuotePayload {
   deliveryNote?: string | null;
   paymentMethod?: string;
+  expectedQuoteMeta?: {
+    fingerprint?: string | null;
+    finalPrice?: number | null;
+    shippingFee?: number | null;
+    discountAmount?: number | null;
+    shippingDiscountAmount?: number | null;
+  } | null;
 }
 
 export async function getClientBranches(): Promise<ClientBranch[]> {
@@ -169,6 +188,16 @@ export async function getCheckoutQuote(
         }))
       : [],
     requiresBranchSelection: !!res.data?.requiresBranchSelection,
+    quoteMeta: res.data?.quoteMeta
+      ? {
+          fingerprint: String(res.data.quoteMeta.fingerprint ?? ""),
+          computedAt: String(res.data.quoteMeta.computedAt ?? ""),
+          expiresAt: res.data.quoteMeta.expiresAt ?? null,
+          consistencyVersion: Number(
+            res.data.quoteMeta.consistencyVersion ?? 1,
+          ),
+        }
+      : null,
   };
 }
 
@@ -176,6 +205,13 @@ export async function checkoutOrder(payload: CheckoutPayload): Promise<any> {
   const res = await http("POST", "/api/v1/client/orders/checkout", payload);
 
   if (!res?.success) {
+    if (res?.code === "CHECKOUT_QUOTE_CHANGED") {
+      throw new CheckoutQuoteChangedError(
+        res?.message || "Giá đơn hàng vừa được cập nhật",
+        res?.data ?? null,
+      );
+    }
+
     throw new Error(res?.message || "Đặt hàng thất bại");
   }
 

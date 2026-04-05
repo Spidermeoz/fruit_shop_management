@@ -33,6 +33,31 @@ type CandidateBranch = {
   supportsDelivery?: boolean;
 };
 
+type NormalizedInput = {
+  userId: number;
+  productVariantIds: number[];
+  requestedBranchId: number | null;
+  fulfillmentType: "pickup" | "delivery";
+  deliveryType: "standard" | "same_day" | "scheduled";
+  deliveryDate: string | null;
+  deliveryTimeSlotId: number | null;
+  address: AddressInput;
+};
+
+type MatchedBranchPair = {
+  branch: any;
+  serviceArea: any;
+  matchedZone: any;
+};
+
+type DeliveryContext = {
+  zone: any;
+  matchedZones: any[];
+  matchedBranchPairs: MatchedBranchPair[];
+  candidateBranches: CandidateBranch[];
+  selectedPair?: MatchedBranchPair;
+};
+
 const normalizeNullableText = (value?: string | null): string | null => {
   const normalized = String(value ?? "").trim();
   return normalized ? normalized : null;
@@ -60,6 +85,73 @@ const toDateAtLocalTime = (dateOnly: string, timeValue: string) => {
   return new Date(year, month - 1, day, hour, minute, second || 0, 0);
 };
 
+const toCandidateBranch = (branch: any): CandidateBranch => ({
+  id: Number(branch.props.id),
+  name: branch.props.name,
+  code: branch.props.code ?? null,
+  addressLine1: branch.props.addressLine1 ?? null,
+  district: branch.props.district ?? null,
+  province: branch.props.province ?? null,
+  supportsPickup: !!branch.props.supportsPickup,
+  supportsDelivery: !!branch.props.supportsDelivery,
+});
+
+const toSelectedBranchSummary = (branch: any) => ({
+  id: Number(branch.props.id),
+  name: branch.props.name,
+  code: branch.props.code ?? null,
+  addressLine1: branch.props.addressLine1 ?? null,
+  district: branch.props.district ?? null,
+  province: branch.props.province ?? null,
+  supportsPickup: !!branch.props.supportsPickup,
+  supportsDelivery: !!branch.props.supportsDelivery,
+});
+
+const toShippingZoneSummary = (zone: any) => ({
+  id: Number(zone.id),
+  code: zone.code ?? null,
+  name: zone.name ?? null,
+});
+
+const toSelectedSlotSummary = (slot: any) =>
+  slot
+    ? {
+        id: Number(slot.id),
+        label: slot.label ?? null,
+        startTime: slot.startTime ?? null,
+        endTime: slot.endTime ?? null,
+      }
+    : null;
+
+const computeShippingFee = (input: {
+  subtotal: number;
+  deliveryFeeOverride?: number | null;
+  baseFee?: number | null;
+  freeShipThreshold?: number | null;
+}) => {
+  const shippingFeeRaw =
+    input.deliveryFeeOverride !== null &&
+    input.deliveryFeeOverride !== undefined
+      ? Number(input.deliveryFeeOverride)
+      : Number(input.baseFee ?? 0);
+
+  const freeShipThreshold =
+    input.freeShipThreshold !== null && input.freeShipThreshold !== undefined
+      ? Number(input.freeShipThreshold)
+      : null;
+
+  const shippingFee =
+    freeShipThreshold !== null && input.subtotal >= freeShipThreshold
+      ? 0
+      : Math.max(0, shippingFeeRaw);
+
+  return {
+    shippingFeeRaw,
+    freeShipThreshold,
+    shippingFee,
+  };
+};
+
 export class CalculateShippingQuoteService {
   constructor(
     private readonly cartRepo: CartRepository,
@@ -69,8 +161,9 @@ export class CalculateShippingQuoteService {
     private readonly getAvailableDeliverySlotsService: GetAvailableDeliverySlotsService,
   ) {}
 
-  async execute(input: Input) {
+  private normalizeInput(input: Input): NormalizedInput {
     const userId = Number(input.userId);
+
     const requestedBranchId =
       input.branchId !== undefined && input.branchId !== null
         ? Number(input.branchId)
@@ -92,6 +185,21 @@ export class CalculateShippingQuoteService {
         ? Number(input.deliveryTimeSlotId)
         : null;
 
+    return {
+      userId,
+      productVariantIds: Array.isArray(input.productVariantIds)
+        ? input.productVariantIds.map(Number)
+        : [],
+      requestedBranchId,
+      fulfillmentType,
+      deliveryType,
+      deliveryDate,
+      deliveryTimeSlotId,
+      address: input.address ?? null,
+    };
+  }
+
+  private async loadCheckoutCart(input: NormalizedInput) {
     if (
       !Array.isArray(input.productVariantIds) ||
       input.productVariantIds.length === 0
@@ -99,16 +207,16 @@ export class CalculateShippingQuoteService {
       throw new Error("Bạn chưa chọn sản phẩm để thanh toán");
     }
 
-    if (!["pickup", "delivery"].includes(fulfillmentType)) {
+    if (!["pickup", "delivery"].includes(input.fulfillmentType)) {
       throw new Error("Hình thức nhận hàng không hợp lệ");
     }
 
-    if (!["standard", "same_day", "scheduled"].includes(deliveryType)) {
+    if (!["standard", "same_day", "scheduled"].includes(input.deliveryType)) {
       throw new Error("Loại giao hàng không hợp lệ");
     }
 
     const cartItems = await this.cartRepo.listSelectedItems(
-      userId,
+      input.userId,
       input.productVariantIds,
     );
 
@@ -126,47 +234,42 @@ export class CalculateShippingQuoteService {
       throw new Error("Tạm tính đơn hàng không hợp lệ");
     }
 
-    if (fulfillmentType === "pickup") {
-      if (!requestedBranchId || requestedBranchId <= 0) {
-        throw new Error("Bạn chưa chọn chi nhánh nhận hàng");
-      }
+    return { cartItems, subtotal };
+  }
 
-      const branch = await this.branchRepo.findById(requestedBranchId);
-      if (!branch || branch.props.deleted) {
-        throw new Error("Chi nhánh không tồn tại");
-      }
-
-      if (String(branch.props.status).toLowerCase() !== "active") {
-        throw new Error("Chi nhánh hiện không hoạt động");
-      }
-
-      if (!branch.props.supportsPickup) {
-        throw new Error("Chi nhánh này không hỗ trợ nhận tại cửa hàng");
-      }
-
-      return {
-        subtotal,
-        shippingFee: 0,
-        discountAmount: 0,
-        finalPrice: subtotal,
-        shippingZone: null,
-        availableSlots: [],
-        selectedSlot: null,
-        selectedBranch: {
-          id: Number(branch.props.id),
-          name: branch.props.name,
-          code: branch.props.code ?? null,
-          addressLine1: branch.props.addressLine1 ?? null,
-          district: branch.props.district ?? null,
-          province: branch.props.province ?? null,
-          supportsPickup: !!branch.props.supportsPickup,
-          supportsDelivery: !!branch.props.supportsDelivery,
-        },
-        candidateBranches: [],
-        requiresBranchSelection: false,
-      };
+  private async buildPickupQuote(input: NormalizedInput, subtotal: number) {
+    if (!input.requestedBranchId || input.requestedBranchId <= 0) {
+      throw new Error("Bạn chưa chọn chi nhánh nhận hàng");
     }
 
+    const branch = await this.branchRepo.findById(input.requestedBranchId);
+    if (!branch || branch.props.deleted) {
+      throw new Error("Chi nhánh không tồn tại");
+    }
+
+    if (String(branch.props.status).toLowerCase() !== "active") {
+      throw new Error("Chi nhánh hiện không hoạt động");
+    }
+
+    if (!branch.props.supportsPickup) {
+      throw new Error("Chi nhánh này không hỗ trợ nhận tại cửa hàng");
+    }
+
+    return {
+      subtotal,
+      shippingFee: 0,
+      discountAmount: 0,
+      finalPrice: subtotal,
+      shippingZone: null,
+      availableSlots: [],
+      selectedSlot: null,
+      selectedBranch: toSelectedBranchSummary(branch),
+      candidateBranches: [],
+      requiresBranchSelection: false,
+    };
+  }
+
+  private validateDeliveryRequest(input: NormalizedInput) {
     if (!input.address?.province?.trim()) {
       throw new Error("Thiếu tỉnh/thành phố để tính phí giao hàng");
     }
@@ -183,12 +286,12 @@ export class CalculateShippingQuoteService {
       throw new Error("Thiếu địa chỉ giao hàng");
     }
 
-    if (!deliveryDate) {
+    if (!input.deliveryDate) {
       throw new Error("Bạn chưa chọn ngày giao hàng");
     }
 
     const today = startOfToday();
-    const selectedDeliveryDate = new Date(`${deliveryDate}T00:00:00`);
+    const selectedDeliveryDate = new Date(`${input.deliveryDate}T00:00:00`);
 
     if (Number.isNaN(selectedDeliveryDate.getTime())) {
       throw new Error("Ngày giao hàng không hợp lệ");
@@ -197,7 +300,12 @@ export class CalculateShippingQuoteService {
     if (selectedDeliveryDate < today) {
       throw new Error("Không thể chọn ngày giao hàng trong quá khứ");
     }
+  }
 
+  private async resolveDeliveryContext(
+    input: NormalizedInput,
+    subtotal: number,
+  ): Promise<DeliveryContext> {
     const normalizedProvince = normalizeNullableText(input.address?.province);
     const normalizedDistrict = normalizeNullableText(input.address?.district);
     const normalizedWard = normalizeNullableText(input.address?.ward);
@@ -236,11 +344,7 @@ export class CalculateShippingQuoteService {
         !!String(branch.props.province ?? "").trim(),
     );
 
-    const matchedBranchPairs: Array<{
-      branch: any;
-      serviceArea: any;
-      matchedZone: any;
-    }> = [];
+    const matchedBranchPairs: MatchedBranchPair[] = [];
 
     for (const branch of deliveryCapableBranches) {
       let matchedZoneForBranch: any = null;
@@ -254,8 +358,9 @@ export class CalculateShippingQuoteService {
           );
 
         if (!candidateServiceArea) continue;
-        if (String(candidateServiceArea.status).toLowerCase() !== "active")
+        if (String(candidateServiceArea.status).toLowerCase() !== "active") {
           continue;
+        }
 
         matchedZoneForBranch = candidateZone;
         serviceArea = candidateServiceArea;
@@ -296,7 +401,7 @@ export class CalculateShippingQuoteService {
         continue;
       }
 
-      if (deliveryType === "same_day" && !serviceArea.supportsSameDay) {
+      if (input.deliveryType === "same_day" && !serviceArea.supportsSameDay) {
         continue;
       }
 
@@ -312,29 +417,14 @@ export class CalculateShippingQuoteService {
     }
 
     const candidateBranches: CandidateBranch[] = matchedBranchPairs.map(
-      ({ branch }) => ({
-        id: Number(branch.props.id),
-        name: branch.props.name,
-        code: branch.props.code ?? null,
-        addressLine1: branch.props.addressLine1 ?? null,
-        district: branch.props.district ?? null,
-        province: branch.props.province ?? null,
-        supportsPickup: !!branch.props.supportsPickup,
-        supportsDelivery: !!branch.props.supportsDelivery,
-      }),
+      ({ branch }) => toCandidateBranch(branch),
     );
 
-    let selectedPair:
-      | {
-          branch: any;
-          serviceArea: any;
-          matchedZone: any;
-        }
-      | undefined;
+    let selectedPair: MatchedBranchPair | undefined;
 
-    if (requestedBranchId && requestedBranchId > 0) {
+    if (input.requestedBranchId && input.requestedBranchId > 0) {
       selectedPair = matchedBranchPairs.find(
-        ({ branch }) => Number(branch.props.id) === requestedBranchId,
+        ({ branch }) => Number(branch.props.id) === input.requestedBranchId,
       );
 
       if (!selectedPair) {
@@ -344,17 +434,31 @@ export class CalculateShippingQuoteService {
       }
     } else if (matchedBranchPairs.length === 1) {
       selectedPair = matchedBranchPairs[0];
-    } else {
+    }
+
+    return {
+      zone,
+      matchedZones,
+      matchedBranchPairs,
+      candidateBranches,
+      selectedPair,
+    };
+  }
+
+  private async buildDeliveryQuote(
+    input: NormalizedInput,
+    subtotal: number,
+    context: DeliveryContext,
+  ) {
+    const { zone, candidateBranches, selectedPair } = context;
+
+    if (!selectedPair) {
       return {
         subtotal,
         shippingFee: 0,
         discountAmount: 0,
         finalPrice: subtotal,
-        shippingZone: {
-          id: matchedZones[0].id,
-          code: matchedZones[0].code,
-          name: matchedZones[0].name,
-        },
+        shippingZone: toShippingZoneSummary(zone),
         availableSlots: [],
         selectedSlot: null,
         selectedBranch: null,
@@ -367,39 +471,23 @@ export class CalculateShippingQuoteService {
     const selectedServiceArea = selectedPair.serviceArea;
     const selectedMatchedZone = selectedPair.matchedZone;
 
-    const shippingFeeRaw =
-      selectedServiceArea.deliveryFeeOverride !== null &&
-      selectedServiceArea.deliveryFeeOverride !== undefined
-        ? Number(selectedServiceArea.deliveryFeeOverride)
-        : Number(selectedMatchedZone.baseFee ?? 0);
-
-    const freeShipThreshold =
-      selectedMatchedZone.freeShipThreshold !== null &&
-      selectedMatchedZone.freeShipThreshold !== undefined
-        ? Number(selectedMatchedZone.freeShipThreshold)
-        : null;
-
-    const shippingFee =
-      freeShipThreshold !== null && subtotal >= freeShipThreshold
-        ? 0
-        : Math.max(0, shippingFeeRaw);
+    const { shippingFee } = computeShippingFee({
+      subtotal,
+      deliveryFeeOverride: selectedServiceArea.deliveryFeeOverride,
+      baseFee: selectedMatchedZone.baseFee,
+      freeShipThreshold: selectedMatchedZone.freeShipThreshold,
+    });
 
     const availableSlots = await this.getAvailableDeliverySlotsService.execute({
       branchId: Number(selectedBranch.props.id),
-      deliveryDate,
+      deliveryDate: input.deliveryDate!,
     });
-
-    if (!Array.isArray(availableSlots) || availableSlots.length === 0) {
-      throw new Error(
-        "Chi nhánh đã chọn hiện chưa có khung giờ giao hàng khả dụng",
-      );
-    }
 
     let selectedSlot: any = null;
 
-    if (deliveryTimeSlotId && deliveryTimeSlotId > 0) {
+    if (input.deliveryTimeSlotId && input.deliveryTimeSlotId > 0) {
       selectedSlot =
-        availableSlots.find((x) => x.id === deliveryTimeSlotId) ?? null;
+        availableSlots.find((x) => x.id === input.deliveryTimeSlotId) ?? null;
 
       if (!selectedSlot) {
         throw new Error("Khung giờ giao hàng không tồn tại");
@@ -410,17 +498,6 @@ export class CalculateShippingQuoteService {
           selectedSlot.reason || "Khung giờ giao hàng không khả dụng",
         );
       }
-
-      if (deliveryType === "same_day") {
-        const now = new Date();
-        const slotStart = toDateAtLocalTime(
-          deliveryDate,
-          selectedSlot.startTime,
-        );
-        if (slotStart <= now) {
-          throw new Error("Không thể chọn khung giờ đã bắt đầu");
-        }
-      }
     }
 
     return {
@@ -428,32 +505,30 @@ export class CalculateShippingQuoteService {
       shippingFee,
       discountAmount: 0,
       finalPrice: subtotal + shippingFee,
-      shippingZone: {
-        id: matchedZones[0].id,
-        code: matchedZones[0].code,
-        name: matchedZones[0].name,
-      },
+      shippingZone: toShippingZoneSummary(zone),
       availableSlots,
-      selectedSlot: selectedSlot
-        ? {
-            id: selectedSlot.id,
-            label: selectedSlot.label,
-            startTime: selectedSlot.startTime,
-            endTime: selectedSlot.endTime,
-          }
-        : null,
-      selectedBranch: {
-        id: Number(selectedBranch.props.id),
-        name: selectedBranch.props.name,
-        code: selectedBranch.props.code ?? null,
-        addressLine1: selectedBranch.props.addressLine1 ?? null,
-        district: selectedBranch.props.district ?? null,
-        province: selectedBranch.props.province ?? null,
-        supportsPickup: !!selectedBranch.props.supportsPickup,
-        supportsDelivery: !!selectedBranch.props.supportsDelivery,
-      },
+      selectedSlot: toSelectedSlotSummary(selectedSlot),
+      selectedBranch: toSelectedBranchSummary(selectedBranch),
       candidateBranches,
       requiresBranchSelection: false,
     };
+  }
+
+  async execute(input: Input) {
+    const normalized = this.normalizeInput(input);
+    const { subtotal } = await this.loadCheckoutCart(normalized);
+
+    if (normalized.fulfillmentType === "pickup") {
+      return await this.buildPickupQuote(normalized, subtotal);
+    }
+
+    this.validateDeliveryRequest(normalized);
+
+    const deliveryContext = await this.resolveDeliveryContext(
+      normalized,
+      subtotal,
+    );
+
+    return await this.buildDeliveryQuote(normalized, subtotal, deliveryContext);
   }
 }

@@ -5,6 +5,57 @@ const normalizeDateOnly = (value?: string | null): string | null => {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
 };
 
+const roundMoney = (value: unknown): number =>
+  Math.max(0, Math.round(Number(value ?? 0) * 100) / 100);
+
+const stableStringify = (value: any): string => {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const buildQuoteFingerprint = (input: {
+  subtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  shippingDiscountAmount: number;
+  finalPrice: number;
+  fulfillmentType?: string | null;
+  deliveryType?: string | null;
+  deliveryDate?: string | null;
+  selectedBranchId?: number | null;
+  selectedSlotId?: number | null;
+  shippingZoneId?: number | null;
+  promotionCode?: string | null;
+  productVariantIds?: number[];
+}) => {
+  return stableStringify({
+    subtotal: roundMoney(input.subtotal),
+    shippingFee: roundMoney(input.shippingFee),
+    discountAmount: roundMoney(input.discountAmount),
+    shippingDiscountAmount: roundMoney(input.shippingDiscountAmount),
+    finalPrice: roundMoney(input.finalPrice),
+    fulfillmentType: input.fulfillmentType ?? null,
+    deliveryType: input.deliveryType ?? null,
+    deliveryDate: input.deliveryDate ?? null,
+    selectedBranchId: input.selectedBranchId ?? null,
+    selectedSlotId: input.selectedSlotId ?? null,
+    shippingZoneId: input.shippingZoneId ?? null,
+    promotionCode: input.promotionCode ?? null,
+    productVariantIds: Array.isArray(input.productVariantIds)
+      ? [...input.productVariantIds].map(Number).sort((a, b) => a - b)
+      : [],
+  });
+};
+
 export class CreateOrderFromCart {
   constructor(
     private readonly orderRepo: any,
@@ -30,6 +81,7 @@ export class CreateOrderFromCart {
       userInfo,
       paymentMethod,
       promotionCode,
+      expectedQuoteMeta,
     } = payload ?? {};
 
     const requestedBranchId =
@@ -161,6 +213,126 @@ export class CreateOrderFromCart {
       cartItems: promotionCartItems,
       allowAutoApply: true,
     });
+
+    const currentDiscountAmount = Number(promotionResult.discountAmount ?? 0);
+    const currentShippingDiscountAmount = Number(
+      promotionResult.shippingDiscountAmount ?? 0,
+    );
+    const currentFinalPrice = Number(
+      promotionResult.finalPrice ??
+        Number(quote.subtotal ?? 0) + Number(quote.shippingFee ?? 0),
+    );
+
+    const currentQuoteMeta = {
+      fingerprint: buildQuoteFingerprint({
+        subtotal: Number(quote.subtotal ?? 0),
+        shippingFee: Number(quote.shippingFee ?? 0),
+        discountAmount: currentDiscountAmount,
+        shippingDiscountAmount: currentShippingDiscountAmount,
+        finalPrice: currentFinalPrice,
+        fulfillmentType,
+        deliveryType,
+        deliveryDate,
+        selectedBranchId: resolvedBranchId,
+        selectedSlotId:
+          fulfillmentType === "delivery"
+            ? Number(quote.selectedSlot?.id ?? deliveryTimeSlotId ?? 0) || null
+            : null,
+        shippingZoneId:
+          fulfillmentType === "delivery"
+            ? Number(quote.shippingZone?.id ?? 0) || null
+            : null,
+        promotionCode: promotionResult.promotionCode ?? null,
+        productVariantIds: Array.isArray(productVariantIds)
+          ? productVariantIds.map(Number)
+          : [],
+      }),
+      finalPrice: currentFinalPrice,
+      shippingFee: Number(quote.shippingFee ?? 0),
+      discountAmount: currentDiscountAmount,
+      shippingDiscountAmount: currentShippingDiscountAmount,
+    };
+
+    const expectedFingerprint =
+      expectedQuoteMeta?.fingerprint !== undefined &&
+      expectedQuoteMeta?.fingerprint !== null
+        ? String(expectedQuoteMeta.fingerprint)
+        : null;
+
+    const expectedFinalPrice =
+      expectedQuoteMeta?.finalPrice !== undefined &&
+      expectedQuoteMeta?.finalPrice !== null
+        ? Number(expectedQuoteMeta.finalPrice)
+        : null;
+
+    const expectedShippingFee =
+      expectedQuoteMeta?.shippingFee !== undefined &&
+      expectedQuoteMeta?.shippingFee !== null
+        ? Number(expectedQuoteMeta.shippingFee)
+        : null;
+
+    const expectedDiscountAmount =
+      expectedQuoteMeta?.discountAmount !== undefined &&
+      expectedQuoteMeta?.discountAmount !== null
+        ? Number(expectedQuoteMeta.discountAmount)
+        : null;
+
+    const expectedShippingDiscountAmount =
+      expectedQuoteMeta?.shippingDiscountAmount !== undefined &&
+      expectedQuoteMeta?.shippingDiscountAmount !== null
+        ? Number(expectedQuoteMeta.shippingDiscountAmount)
+        : null;
+
+    const hasQuoteDrift =
+      !!expectedFingerprint &&
+      (expectedFingerprint !== currentQuoteMeta.fingerprint ||
+        (expectedFinalPrice !== null &&
+          Math.abs(expectedFinalPrice - currentQuoteMeta.finalPrice) > 0.009) ||
+        (expectedShippingFee !== null &&
+          Math.abs(expectedShippingFee - currentQuoteMeta.shippingFee) >
+            0.009) ||
+        (expectedDiscountAmount !== null &&
+          Math.abs(expectedDiscountAmount - currentQuoteMeta.discountAmount) >
+            0.009) ||
+        (expectedShippingDiscountAmount !== null &&
+          Math.abs(
+            expectedShippingDiscountAmount -
+              currentQuoteMeta.shippingDiscountAmount,
+          ) > 0.009));
+
+    if (hasQuoteDrift) {
+      const error: any = new Error(
+        "Giá đơn hàng vừa được cập nhật do khuyến mãi, khung giờ, chi nhánh hoặc tồn kho thay đổi.",
+      );
+
+      error.code = "CHECKOUT_QUOTE_CHANGED";
+      error.status = 409;
+      error.data = {
+        previousQuote: {
+          fingerprint: expectedFingerprint,
+          finalPrice: expectedFinalPrice,
+          shippingFee: expectedShippingFee,
+          discountAmount: expectedDiscountAmount,
+          shippingDiscountAmount: expectedShippingDiscountAmount,
+        },
+        currentQuote: {
+          fingerprint: currentQuoteMeta.fingerprint,
+          subtotal: Number(quote.subtotal ?? 0),
+          shippingFee: currentQuoteMeta.shippingFee,
+          discountAmount: currentQuoteMeta.discountAmount,
+          shippingDiscountAmount: currentQuoteMeta.shippingDiscountAmount,
+          finalPrice: currentQuoteMeta.finalPrice,
+          selectedBranch: quote.selectedBranch ?? null,
+          selectedSlot: quote.selectedSlot ?? null,
+          promotionCode: promotionResult.promotionCode ?? null,
+          promotionMessages: Array.isArray(promotionResult.messages)
+            ? promotionResult.messages
+            : [],
+        },
+      };
+
+      throw error;
+    }
 
     const transaction = await this.orderRepo.startTransaction();
 
@@ -382,6 +554,12 @@ export class CreateOrderFromCart {
         shippingDiscountAmount: Number(order.props.shippingDiscountAmount ?? 0),
         promotionCode: order.props.promotionCode ?? null,
         promotionSnapshot: order.props.promotionSnapshot ?? null,
+        quoteMeta: {
+          fingerprint: currentQuoteMeta.fingerprint,
+          computedAt: new Date().toISOString(),
+          expiresAt: null,
+          consistencyVersion: 1,
+        },
       };
     } catch (err) {
       await transaction.rollback();

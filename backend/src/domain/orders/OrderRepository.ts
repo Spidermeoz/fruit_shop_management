@@ -17,6 +17,22 @@ export interface OrderListFilter {
   q?: string;
 }
 
+export interface OrderListSummary {
+  totalOrders: number;
+  pending: number;
+  processing: number;
+  shipping: number;
+  delivered: number;
+  completed: number;
+  cancelled: number;
+  unpaidActive: number;
+  paid: number;
+  pickup: number;
+  delivery: number;
+  grossRevenue: number;
+  netRevenue: number;
+}
+
 export interface OrderCreateItemInput {
   productId: number | null;
   productVariantId: number | null;
@@ -70,7 +86,11 @@ export interface OrderRepository {
     filter: OrderListFilter,
   ): Promise<{ rows: Order[]; count: number }>;
 
-  list(filter: OrderListFilter): Promise<{ rows: Order[]; count: number }>;
+  list(filter: OrderListFilter): Promise<{
+    rows: Order[];
+    count: number;
+    summary: OrderListSummary;
+  }>;
 
   updateStatus(
     id: number,

@@ -5,6 +5,22 @@ export interface OrdersSummary {
   pendingOrders: number;
 }
 
+export interface OrderListSummary {
+  totalOrders: number;
+  pending: number;
+  processing: number;
+  shipping: number;
+  delivered: number;
+  completed: number;
+  cancelled: number;
+  unpaidActive: number;
+  paid: number;
+  pickup: number;
+  delivery: number;
+  grossRevenue: number;
+  netRevenue: number;
+}
+
 export interface BranchSummary {
   id: number;
   name?: string | null;
@@ -57,6 +73,40 @@ export interface AppliedPromotionSummary {
   affectedOriginIds?: number[];
 }
 
+export interface CheckoutQuoteMeta {
+  fingerprint: string;
+  computedAt: string;
+  expiresAt?: string | null;
+  consistencyVersion: number;
+}
+
+export interface CheckoutQuoteChangedPayload {
+  previousQuote?: {
+    fingerprint?: string | null;
+    finalPrice?: number | null;
+    shippingFee?: number | null;
+    discountAmount?: number | null;
+    shippingDiscountAmount?: number | null;
+  } | null;
+  currentQuote?: {
+    fingerprint: string;
+    subtotal: number;
+    shippingFee: number;
+    discountAmount: number;
+    shippingDiscountAmount: number;
+    finalPrice: number;
+    selectedBranch?: QuoteBranchSummary | null;
+    selectedSlot?: {
+      id: number;
+      label?: string | null;
+      startTime?: string | null;
+      endTime?: string | null;
+    } | null;
+    promotionCode?: string | null;
+    promotionMessages?: string[];
+  } | null;
+}
+
 export interface CheckoutQuote {
   subtotal: number;
   shippingFee: number;
@@ -80,6 +130,7 @@ export interface CheckoutQuote {
   selectedBranch?: QuoteBranchSummary | null;
   candidateBranches?: QuoteBranchSummary[];
   requiresBranchSelection?: boolean;
+  quoteMeta?: CheckoutQuoteMeta | null;
 }
 
 // =========================
@@ -114,31 +165,69 @@ export interface OrderAddress {
 export interface Order {
   id: number;
   user_id?: number;
-  user_name: string | null;
+  user_name?: string | null;
   customer?: string | null;
-  final_price: number;
+
+  final_price?: number;
+  finalPrice?: number;
+
   total_price?: number;
+  totalPrice?: number;
+
   discount_amount?: number;
+  discountAmount?: number;
+
   shipping_discount_amount?: number;
+  shippingDiscountAmount?: number;
+
   promotion_code?: string | null;
+  promotionCode?: string | null;
+
   promotion_snapshot_json?: Record<string, any> | null;
+  promotionSnapshot?: Record<string, any> | null;
+
   shipping_fee?: number;
+  shippingFee?: number;
+
   status: string;
+
   payment_status?: string;
-  created_at: string;
+  paymentStatus?: string;
+
+  created_at?: string;
+  createdAt?: string;
+
   code?: string;
   phone?: string | null;
   branch_id?: number | null;
+  branchId?: number | null;
+
   fulfillment_type?: "pickup" | "delivery" | string | null;
+  fulfillmentType?: "pickup" | "delivery" | string | null;
 
   delivery_type?: "standard" | "same_day" | "scheduled" | string | null;
+  deliveryType?: "standard" | "same_day" | "scheduled" | string | null;
+
   delivery_date?: string | null;
+  deliveryDate?: string | null;
+
   delivery_time_slot_id?: number | null;
+  deliveryTimeSlotId?: number | null;
+
   delivery_time_slot_label?: string | null;
+  deliveryTimeSlotLabel?: string | null;
+
   shipping_zone_id?: number | null;
+  shippingZoneId?: number | null;
+
   shipping_zone_code?: string | null;
+  shippingZoneCode?: string | null;
+
   shipping_zone_name?: string | null;
+  shippingZoneName?: string | null;
+
   delivery_note?: string | null;
+  deliveryNote?: string | null;
 
   branch?: BranchSummary | null;
   items?: OrderItem[];

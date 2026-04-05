@@ -39,6 +39,7 @@ type OrderStatus =
   | "delivered"
   | "completed"
   | "cancelled";
+
 type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
 type FulfillmentType = "pickup" | "delivery";
 
@@ -69,8 +70,9 @@ interface OrderProps {
   paymentStatus: PaymentStatus;
   shippingFee: number;
   discountAmount: number;
+  shippingDiscountAmount?: number;
   totalPrice: number;
-  finalPrice: number;
+  finalPrice?: number;
   trackingToken?: string;
   createdAt: string;
   address: {
@@ -78,6 +80,22 @@ interface OrderProps {
     phone?: string | null;
   } | null;
   items: OrderItem[];
+}
+
+interface OrderListSummary {
+  totalOrders: number;
+  pending: number;
+  processing: number;
+  shipping: number;
+  delivered: number;
+  completed: number;
+  cancelled: number;
+  unpaidActive: number;
+  paid: number;
+  pickup: number;
+  delivery: number;
+  grossRevenue: number;
+  netRevenue: number;
 }
 
 // ==========================================
@@ -125,6 +143,22 @@ const statusConfig: Record<
   },
 };
 
+const emptySummary: OrderListSummary = {
+  totalOrders: 0,
+  pending: 0,
+  processing: 0,
+  shipping: 0,
+  delivered: 0,
+  completed: 0,
+  cancelled: 0,
+  unpaidActive: 0,
+  paid: 0,
+  pickup: 0,
+  delivery: 0,
+  grossRevenue: 0,
+  netRevenue: 0,
+};
+
 const getOperationalHint = (order: OrderProps) => {
   if (order.status === "pending") return "Bước tiếp theo: Duyệt đơn";
   if (order.status === "processing") return "Bước tiếp theo: Giao hàng";
@@ -150,6 +184,22 @@ const getRowPriorityClass = (order: OrderProps) => {
   return "border-l-4 border-l-transparent";
 };
 
+const getOrderFinalPrice = (order: OrderProps) => {
+  if (
+    typeof order.finalPrice === "number" &&
+    Number.isFinite(order.finalPrice)
+  ) {
+    return order.finalPrice;
+  }
+
+  return (
+    Number(order.totalPrice ?? 0) +
+    Number(order.shippingFee ?? 0) -
+    Number(order.discountAmount ?? 0) -
+    Number(order.shippingDiscountAmount ?? 0)
+  );
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -160,6 +210,7 @@ const ModalPortal: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
 const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<OrderProps[]>([]);
+  const [summary, setSummary] = useState<OrderListSummary>(emptySummary);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
 
@@ -176,13 +227,11 @@ const OrdersPage: React.FC = () => {
   const { showSuccessToast, showErrorToast } = useAdminToast();
   const { branches, currentBranchId } = useAuth();
 
-  // Modals States
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [confirmCompleteModal, setConfirmCompleteModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<OrderProps | null>(null);
 
-  // --- Data Fetching ---
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -190,14 +239,18 @@ const OrdersPage: React.FC = () => {
 
       let url = `/api/v1/admin/orders?page=${currentPage}&limit=12`;
 
-      if (statusFilter !== "all")
+      if (statusFilter !== "all") {
         url += `&status=${encodeURIComponent(statusFilter)}`;
-      if (fulfillmentFilter !== "all")
+      }
+      if (fulfillmentFilter !== "all") {
         url += `&fulfillmentType=${encodeURIComponent(fulfillmentFilter)}`;
-      if (searchTerm.trim())
+      }
+      if (searchTerm.trim()) {
         url += `&q=${encodeURIComponent(searchTerm.trim())}`;
-      if (currentBranchId)
+      }
+      if (currentBranchId) {
         url += `&branchId=${encodeURIComponent(String(currentBranchId))}`;
+      }
 
       const json = await http<any>("GET", url);
 
@@ -205,14 +258,36 @@ const OrdersPage: React.FC = () => {
         const mapped = Array.isArray(json.data)
           ? json.data.map((item: any) => item?.props ?? item).filter(Boolean)
           : [];
+
         setOrders(mapped);
 
         const total = Number(json.meta?.total ?? 0);
         const limit = Number(json.meta?.limit ?? 12);
         setTotalCount(total);
         setTotalPages(Math.max(1, Math.ceil(total / limit)));
+
+        setSummary({
+          totalOrders: Number(json.summary?.totalOrders ?? 0),
+          pending: Number(json.summary?.pending ?? 0),
+          processing: Number(json.summary?.processing ?? 0),
+          shipping: Number(json.summary?.shipping ?? 0),
+          delivered: Number(json.summary?.delivered ?? 0),
+          completed: Number(json.summary?.completed ?? 0),
+          cancelled: Number(json.summary?.cancelled ?? 0),
+          unpaidActive: Number(json.summary?.unpaidActive ?? 0),
+          paid: Number(json.summary?.paid ?? 0),
+          pickup: Number(json.summary?.pickup ?? 0),
+          delivery: Number(json.summary?.delivery ?? 0),
+          grossRevenue: Number(json.summary?.grossRevenue ?? 0),
+          netRevenue: Number(json.summary?.netRevenue ?? 0),
+        });
+      } else {
+        setOrders([]);
+        setSummary(emptySummary);
       }
     } catch (err: any) {
+      setOrders([]);
+      setSummary(emptySummary);
       setError(err.message || "Lỗi tải dữ liệu đơn hàng");
     } finally {
       setLoading(false);
@@ -231,6 +306,7 @@ const OrdersPage: React.FC = () => {
   ]);
 
   const [searchInput, setSearchInput] = useState(searchTerm);
+
   useEffect(() => {
     const delay = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
@@ -239,26 +315,10 @@ const OrdersPage: React.FC = () => {
       params.delete("page");
       setSearchParams(params);
     }, 500);
+
     return () => clearTimeout(delay);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
-
-  // --- Metrics (Calculated from current page fallback) ---
-  const metrics = useMemo(() => {
-    let pending = 0,
-      processing = 0,
-      shipping = 0,
-      unpaidCOD = 0,
-      completed = 0;
-    orders.forEach((o) => {
-      if (o.status === "pending") pending++;
-      if (o.status === "processing") processing++;
-      if (o.status === "shipping") shipping++;
-      if (o.status === "completed") completed++;
-      if (o.paymentStatus !== "paid" && o.status !== "cancelled") unpaidCOD++;
-    });
-    return { pending, processing, shipping, unpaidCOD, completed };
-  }, [orders]);
 
   const branchName = useMemo(() => {
     if (!currentBranchId) return "Toàn bộ hệ thống";
@@ -268,7 +328,6 @@ const OrdersPage: React.FC = () => {
     );
   }, [branches, currentBranchId]);
 
-  // --- Handlers ---
   const handleFilterChange = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams);
     if (value === "all") params.delete(key);
@@ -300,12 +359,8 @@ const OrdersPage: React.FC = () => {
   const hasActiveFilters =
     statusFilter !== "all" || fulfillmentFilter !== "all" || searchTerm !== "";
 
-  // ==========================================
-  // RENDER
-  // ==========================================
   return (
     <div className="w-full pb-10 space-y-6">
-      {/* Tầng A: Header / Command Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div>
           <div className="flex items-center gap-3 mb-1">
@@ -332,12 +387,11 @@ const OrdersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tầng B: KPI Strip */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {[
           {
             label: "Tổng số",
-            value: totalCount,
+            value: summary.totalOrders,
             icon: ArchiveRestore,
             color: "text-gray-600",
             bg: "bg-gray-100",
@@ -345,7 +399,7 @@ const OrdersPage: React.FC = () => {
           },
           {
             label: "Chờ duyệt",
-            value: metrics.pending,
+            value: summary.pending,
             icon: Clock,
             color: "text-amber-600",
             bg: "bg-amber-50",
@@ -353,7 +407,7 @@ const OrdersPage: React.FC = () => {
           },
           {
             label: "Đang xử lý",
-            value: metrics.processing,
+            value: summary.processing,
             icon: Activity,
             color: "text-blue-600",
             bg: "bg-blue-50",
@@ -361,7 +415,7 @@ const OrdersPage: React.FC = () => {
           },
           {
             label: "Đang giao",
-            value: metrics.shipping,
+            value: summary.shipping,
             icon: Truck,
             color: "text-purple-600",
             bg: "bg-purple-50",
@@ -369,15 +423,15 @@ const OrdersPage: React.FC = () => {
           },
           {
             label: "Cần thu COD",
-            value: metrics.unpaidCOD,
+            value: summary.unpaidActive,
             icon: Banknote,
             color: "text-orange-600",
             bg: "bg-orange-50",
             isWarning: true,
           },
           {
-            label: "Hoàn tất (Trang)",
-            value: metrics.completed,
+            label: "Hoàn tất",
+            value: summary.completed,
             icon: CheckCircle2,
             color: "text-green-600",
             bg: "bg-green-50",
@@ -404,7 +458,11 @@ const OrdersPage: React.FC = () => {
               </span>
             </div>
             <div
-              className={`text-xl font-black ${kpi.isWarning && kpi.value > 0 ? "text-orange-600 dark:text-orange-400" : "text-gray-900 dark:text-white"}`}
+              className={`text-xl font-black ${
+                kpi.isWarning && kpi.value > 0
+                  ? "text-orange-600 dark:text-orange-400"
+                  : "text-gray-900 dark:text-white"
+              }`}
             >
               {kpi.value}
             </div>
@@ -412,9 +470,7 @@ const OrdersPage: React.FC = () => {
         ))}
       </div>
 
-      {/* Tầng D: Toolbar Phân tầng */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
-        {/* Quick Filters */}
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 dark:border-gray-700 pb-4">
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-2 flex items-center gap-1.5">
             Tiến trình:
@@ -442,7 +498,6 @@ const OrdersPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Advanced Filters */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
             <select
@@ -482,9 +537,9 @@ const OrdersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
       <p className="text-sm text-gray-500 font-medium pl-1">
-        Hiển thị {orders.length} đơn hàng ở trang hiện tại.
+        Hiển thị {orders.length} đơn hàng ở trang hiện tại / {totalCount} đơn
+        phù hợp với bộ lọc.
       </p>
 
       <Card className="!p-0 overflow-hidden mt-4 border border-gray-200 dark:border-gray-700">
@@ -560,13 +615,13 @@ const OrdersPage: React.FC = () => {
                 orders.map((order) => {
                   const priorityClass = getRowPriorityClass(order);
                   const statusInfo = statusConfig[order.status];
+                  const payableAmount = getOrderFinalPrice(order);
 
                   return (
                     <tr
                       key={order.id}
                       className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group ${priorityClass}`}
                     >
-                      {/* Order Column */}
                       <td className="px-5 py-4">
                         <div className="font-semibold text-gray-900 dark:text-white text-sm">
                           {order.code}
@@ -580,7 +635,6 @@ const OrdersPage: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Customer Column */}
                       <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-300">
                         <div className="font-medium text-gray-800 dark:text-gray-200">
                           {order.address?.fullName || "—"}
@@ -590,7 +644,6 @@ const OrdersPage: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Routing Column */}
                       <td className="px-5 py-4">
                         <div className="font-medium text-sm text-gray-800 dark:text-gray-200 mb-1.5">
                           {order.branch?.name || "—"}
@@ -613,17 +666,15 @@ const OrdersPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Value Column */}
                       <td className="px-5 py-4">
                         <div className="font-bold text-green-700 dark:text-green-400 text-sm">
-                          {order.finalPrice.toLocaleString()} đ
+                          {payableAmount.toLocaleString()} đ
                         </div>
                         <div className="text-[11px] text-gray-500 mt-1">
                           {order.items?.length ?? 0} sản phẩm
                         </div>
                       </td>
 
-                      {/* Workflow Status Column */}
                       <td className="px-5 py-4">
                         <div
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider border ${statusInfo.colorClass}`}
@@ -636,7 +687,6 @@ const OrdersPage: React.FC = () => {
                         </div>
                       </td>
 
-                      {/* Payment Column */}
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
@@ -656,7 +706,6 @@ const OrdersPage: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Actions Column */}
                       <td className="px-5 py-4 text-right">
                         <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
@@ -708,7 +757,6 @@ const OrdersPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Pagination */}
       {!loading && !error && totalPages > 1 && (
         <div className="flex justify-end mt-6">
           <Pagination
@@ -723,7 +771,6 @@ const OrdersPage: React.FC = () => {
         </div>
       )}
 
-      {/* MODAL 1: Update Workflow */}
       {showStatusModal && selectedOrder && (
         <ModalPortal>
           <div className="fixed left-0 top-0 h-screen w-screen z-[9999] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -851,7 +898,6 @@ const OrdersPage: React.FC = () => {
         </ModalPortal>
       )}
 
-      {/* MODAL 2: Payment COD Collection */}
       {showPaymentModal && selectedOrder && (
         <ModalPortal>
           <div className="fixed left-0 top-0 h-screen w-screen z-[9999] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -895,7 +941,7 @@ const OrdersPage: React.FC = () => {
                   Số tiền cần thu
                 </p>
                 <p className="text-3xl font-black text-orange-600 dark:text-orange-500 mt-1">
-                  {selectedOrder.finalPrice.toLocaleString()} đ
+                  {getOrderFinalPrice(selectedOrder).toLocaleString()} đ
                 </p>
               </div>
 
@@ -920,7 +966,7 @@ const OrdersPage: React.FC = () => {
                       await http(
                         "POST",
                         `/api/v1/admin/orders/${selectedOrder.id}/payment`,
-                        { amount: selectedOrder.finalPrice },
+                        { amount: getOrderFinalPrice(selectedOrder) },
                       );
                       showSuccessToast({
                         message: "Xác nhận thanh toán thành công!",
@@ -944,7 +990,6 @@ const OrdersPage: React.FC = () => {
         </ModalPortal>
       )}
 
-      {/* MODAL 3: Confirm Complete Order (Post-payment) */}
       {confirmCompleteModal && selectedOrder && (
         <ModalPortal>
           <div className="fixed left-0 top-0 h-screen w-screen z-[9999] bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">

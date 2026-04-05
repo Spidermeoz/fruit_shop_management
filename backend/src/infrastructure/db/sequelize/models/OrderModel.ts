@@ -23,7 +23,6 @@ type OrderAttributes = {
   promotion_snapshot_json: object | null;
   promotion_code: string | null;
   total_price: string;
-  final_price: string | null;
   tracking_token: string;
   inventory_applied: number;
   user_info: object | null;
@@ -39,7 +38,6 @@ type OrderCreationAttributes = Optional<
   | "fulfillment_type"
   | "shipping_fee"
   | "discount_amount"
-  | "final_price"
   | "inventory_applied"
   | "user_info"
   | "delivery_type"
@@ -50,6 +48,9 @@ type OrderCreationAttributes = Optional<
   | "shipping_zone_code"
   | "shipping_zone_name"
   | "delivery_note"
+  | "shipping_discount_amount"
+  | "promotion_snapshot_json"
+  | "promotion_code"
   | "deleted"
   | "deleted_at"
   | "created_at"
@@ -69,8 +70,10 @@ class OrderModel
   declare fulfillment_type: string;
   declare shipping_fee: string;
   declare discount_amount: string;
+  declare shipping_discount_amount: string;
+  declare promotion_snapshot_json: object | null;
+  declare promotion_code: string | null;
   declare total_price: string;
-  declare final_price: string | null;
   declare tracking_token: string;
   declare inventory_applied: number;
   declare user_info: object | null;
@@ -82,9 +85,6 @@ class OrderModel
   declare shipping_zone_code: string | null;
   declare shipping_zone_name: string | null;
   declare delivery_note: string | null;
-  declare shipping_discount_amount: string;
-  declare promotion_snapshot_json: object | null;
-  declare promotion_code: string | null;
   declare deleted: number;
   declare deleted_at: Date | null;
   declare created_at: Date;
@@ -176,14 +176,6 @@ OrderModel.init(
       allowNull: false,
       defaultValue: 0.0,
     },
-    total_price: {
-      type: DataTypes.DECIMAL(12, 2),
-      allowNull: false,
-    },
-    final_price: {
-      type: DataTypes.DECIMAL(12, 2),
-      allowNull: true,
-    },
     shipping_discount_amount: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false,
@@ -198,6 +190,10 @@ OrderModel.init(
       type: DataTypes.STRING(100),
       allowNull: true,
       defaultValue: null,
+    },
+    total_price: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
     },
     tracking_token: {
       type: DataTypes.CHAR(36),

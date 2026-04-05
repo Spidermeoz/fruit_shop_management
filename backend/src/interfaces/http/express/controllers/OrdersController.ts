@@ -34,6 +34,7 @@ export const makeOrdersController = (uc: {
             page: Number(page ?? 1),
             limit: Number(limit ?? 10),
           },
+          summary: data.summary,
         });
       } catch (e) {
         next(e);

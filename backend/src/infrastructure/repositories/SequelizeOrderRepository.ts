@@ -4,10 +4,107 @@ import { Order } from "../../domain/orders/Order";
 import type {
   OrderRepository,
   OrderListFilter,
+  OrderListSummary,
 } from "../../domain/orders/OrderRepository";
 
 export class SequelizeOrderRepository implements OrderRepository {
   constructor(private models: any) {}
+
+  private computeFinalPrice(row: any): number {
+    return (
+      Number(row.total_price ?? 0) +
+      Number(row.shipping_fee ?? 0) -
+      Number(row.discount_amount ?? 0) -
+      Number(row.shipping_discount_amount ?? 0)
+    );
+  }
+
+  private buildListWhere(filter: OrderListFilter) {
+    const { status, userId, q, branchId, allowedBranchIds, fulfillmentType } =
+      filter as any;
+
+    const where: any = { deleted: 0 };
+
+    if (status) where.status = status;
+    if (userId) where.user_id = userId;
+    if (branchId) where.branch_id = branchId;
+    if (fulfillmentType) where.fulfillment_type = fulfillmentType;
+
+    if (Array.isArray(allowedBranchIds) && allowedBranchIds.length > 0) {
+      where.branch_id = {
+        ...(where.branch_id && typeof where.branch_id === "object"
+          ? where.branch_id
+          : {}),
+        [Op.in]: allowedBranchIds,
+      };
+
+      if (branchId) {
+        where.branch_id = {
+          [Op.in]: allowedBranchIds.filter((x: number) => x === branchId),
+        };
+      }
+    }
+
+    if (q) {
+      where[Op.or] = [
+        { code: { [Op.like]: `%${q}%` } },
+        { tracking_token: { [Op.like]: `%${q}%` } },
+      ];
+    }
+
+    return where;
+  }
+
+  private buildSummary(rows: any[]): OrderListSummary {
+    const summary: OrderListSummary = {
+      totalOrders: rows.length,
+      pending: 0,
+      processing: 0,
+      shipping: 0,
+      delivered: 0,
+      completed: 0,
+      cancelled: 0,
+      unpaidActive: 0,
+      paid: 0,
+      pickup: 0,
+      delivery: 0,
+      grossRevenue: 0,
+      netRevenue: 0,
+    };
+
+    for (const row of rows) {
+      const status = row.status;
+      const paymentStatus = row.payment_status;
+      const fulfillmentType = row.fulfillment_type;
+
+      if (status === "pending") summary.pending++;
+      if (status === "processing") summary.processing++;
+      if (status === "shipping") summary.shipping++;
+      if (status === "delivered") summary.delivered++;
+      if (status === "completed") summary.completed++;
+      if (status === "cancelled") summary.cancelled++;
+
+      if (paymentStatus === "paid") summary.paid++;
+      if (paymentStatus !== "paid" && status !== "cancelled") {
+        summary.unpaidActive++;
+      }
+
+      if (fulfillmentType === "pickup") summary.pickup++;
+      if (fulfillmentType === "delivery") summary.delivery++;
+
+      const gross = Number(row.total_price ?? 0);
+      const net =
+        Number(row.total_price ?? 0) +
+        Number(row.shipping_fee ?? 0) -
+        Number(row.discount_amount ?? 0) -
+        Number(row.shipping_discount_amount ?? 0);
+
+      summary.grossRevenue += gross;
+      summary.netRevenue += net;
+    }
+
+    return summary;
+  }
 
   private mapRow(row: any): Order {
     return Order.create({
@@ -31,7 +128,7 @@ export class SequelizeOrderRepository implements OrderRepository {
       promotionCode: row.promotion_code ?? null,
       promotionSnapshot: row.promotion_snapshot_json ?? null,
       totalPrice: Number(row.total_price),
-      finalPrice: Number(row.final_price),
+      finalPrice: this.computeFinalPrice(row),
       trackingToken: row.tracking_token,
       inventoryApplied: !!row.inventory_applied,
       userInfo: row.user_info,
@@ -294,45 +391,8 @@ export class SequelizeOrderRepository implements OrderRepository {
   }
 
   async list(filter: OrderListFilter) {
-    const {
-      page = 1,
-      limit = 10,
-      status,
-      userId,
-      q,
-      branchId,
-      allowedBranchIds,
-      fulfillmentType,
-    } = filter as any;
-
-    const where: any = { deleted: 0 };
-
-    if (status) where.status = status;
-    if (userId) where.user_id = userId;
-    if (branchId) where.branch_id = branchId;
-    if (fulfillmentType) where.fulfillment_type = fulfillmentType;
-
-    if (Array.isArray(allowedBranchIds) && allowedBranchIds.length > 0) {
-      where.branch_id = {
-        ...(where.branch_id && typeof where.branch_id === "object"
-          ? where.branch_id
-          : {}),
-        [Op.in]: allowedBranchIds,
-      };
-      if (branchId) {
-        where.branch_id = {
-          [Op.in]: allowedBranchIds.filter((x: number) => x === branchId),
-        };
-      }
-    }
-
-    if (q) {
-      where[Op.or] = [
-        { code: { [Op.like]: `%${q}%` } },
-        { tracking_token: { [Op.like]: `%${q}%` } },
-      ];
-    }
-
+    const { page = 1, limit = 10 } = filter as any;
+    const where = this.buildListWhere(filter);
     const offset = (page - 1) * limit;
 
     const { rows, count } = await this.models.Order.findAndCountAll({
@@ -360,7 +420,27 @@ export class SequelizeOrderRepository implements OrderRepository {
       offset,
     });
 
-    return { rows: rows.map((r: any) => this.mapRow(r)), count };
+    const summaryRows = await this.models.Order.findAll({
+      where,
+      raw: true,
+      attributes: [
+        "status",
+        "payment_status",
+        "fulfillment_type",
+        "total_price",
+        "shipping_fee",
+        "discount_amount",
+        "shipping_discount_amount",
+      ],
+    });
+
+    const summary = this.buildSummary(summaryRows);
+
+    return {
+      rows: rows.map((r: any) => this.mapRow(r)),
+      count,
+      summary,
+    };
   }
 
   async findDistinctAddressesByUser(userId: number) {

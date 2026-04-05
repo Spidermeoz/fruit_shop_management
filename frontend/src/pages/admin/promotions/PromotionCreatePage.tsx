@@ -1,4 +1,5 @@
 import React, {
+  useEffect,
   useMemo,
   useState,
   type ChangeEvent,
@@ -33,6 +34,21 @@ type PromotionScope = "order" | "shipping";
 type DiscountType = "fixed" | "percent" | "free_shipping";
 type PromotionStatus = "active" | "inactive";
 
+interface PromotionTargetOption {
+  id: number;
+  label: string;
+  subLabel?: string;
+}
+
+interface PromotionCodeDraft {
+  localId: string;
+  code: string;
+  status: PromotionStatus;
+  usageLimit: number | "";
+  startAt: string;
+  endAt: string;
+}
+
 interface PromotionFormData {
   name: string;
   description: string;
@@ -49,15 +65,25 @@ interface PromotionFormData {
   startAt: string;
   endAt: string;
   status: PromotionStatus;
-  codesText: string;
-  productIdsText: string;
-  categoryIdsText: string;
-  variantIdsText: string;
-  originIdsText: string;
-  branchIdsText: string;
+
+  codesDraftText: string;
+  couponCodes: PromotionCodeDraft[];
+
+  selectedProducts: PromotionTargetOption[];
+  selectedCategories: PromotionTargetOption[];
+  selectedVariants: PromotionTargetOption[];
+  selectedOrigins: PromotionTargetOption[];
+  selectedBranches: PromotionTargetOption[];
 }
 
 type NextStep = "workspace" | "board";
+
+type ReviewLevel = "ready" | "warning" | "danger";
+
+interface ReviewNote {
+  level: "info" | "warning" | "danger";
+  text: string;
+}
 
 type ApiOk<T> = { success: true; data: T; meta?: any; message?: string };
 type ApiErr = { success: false; message?: string; errors?: any };
@@ -78,12 +104,15 @@ const INITIAL_FORM: PromotionFormData = {
   startAt: "",
   endAt: "",
   status: "active",
-  codesText: "",
-  productIdsText: "",
-  categoryIdsText: "",
-  variantIdsText: "",
-  originIdsText: "",
-  branchIdsText: "",
+
+  codesDraftText: "",
+  couponCodes: [],
+
+  selectedProducts: [],
+  selectedCategories: [],
+  selectedVariants: [],
+  selectedOrigins: [],
+  selectedBranches: [],
 };
 
 // ==========================================
@@ -93,33 +122,6 @@ const parseNumberOrNull = (value: number | "" | string) => {
   if (value === "" || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parseIdList = (raw: string): number[] => {
-  if (!raw.trim()) return [];
-  return Array.from(
-    new Set(
-      raw
-        .split(/[,\n]/g)
-        .map((x) => Number(String(x).trim()))
-        .filter((x) => Number.isFinite(x) && x > 0),
-    ),
-  );
-};
-
-const parseCodes = (raw: string) => {
-  if (!raw.trim()) return [];
-  return Array.from(
-    new Set(
-      raw
-        .split(/[,\n]/g)
-        .map((x) => String(x).trim().toUpperCase())
-        .filter(Boolean),
-    ),
-  ).map((code) => ({
-    code,
-    status: "active" as PromotionStatus,
-  }));
 };
 
 const getNextStepButtonLabel = (step: NextStep) => {
@@ -151,6 +153,71 @@ const getHeadlinePreview = (form: PromotionFormData) => {
     : "0 đ";
 };
 
+const formatDateTimeCompact = (value?: string | null) => {
+  if (!value) return "Chưa đặt";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Không hợp lệ";
+  return d.toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const makeLocalId = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+const normalizeCouponCode = (value: string) =>
+  String(value || "")
+    .trim()
+    .toUpperCase();
+
+const dedupeById = (items: PromotionTargetOption[]) => {
+  const map = new Map<number, PromotionTargetOption>();
+  for (const item of items) {
+    map.set(item.id, item);
+  }
+  return Array.from(map.values());
+};
+
+const filterTargetOptions = (
+  items: PromotionTargetOption[],
+  keyword: string,
+): PromotionTargetOption[] => {
+  const q = keyword.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((item) => {
+    const label = item.label.toLowerCase();
+    const sub = String(item.subLabel || "").toLowerCase();
+    return label.includes(q) || sub.includes(q);
+  });
+};
+
+const buildTargetSummary = (form: PromotionFormData) => {
+  const parts: string[] = [];
+
+  if (form.selectedProducts.length) {
+    parts.push(`${form.selectedProducts.length} sản phẩm`);
+  }
+  if (form.selectedCategories.length) {
+    parts.push(`${form.selectedCategories.length} danh mục`);
+  }
+  if (form.selectedVariants.length) {
+    parts.push(`${form.selectedVariants.length} biến thể`);
+  }
+  if (form.selectedOrigins.length) {
+    parts.push(`${form.selectedOrigins.length} nguồn gốc`);
+  }
+  if (form.selectedBranches.length) {
+    parts.push(`${form.selectedBranches.length} chi nhánh`);
+  }
+
+  if (!parts.length) return "Áp dụng toàn phạm vi";
+  return `Áp dụng cho ${parts.join(" + ")}`;
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -166,37 +233,360 @@ const PromotionCreatePage: React.FC = () => {
     Partial<Record<keyof PromotionFormData | "general", string>>
   >({});
 
-  // --- Derived Data ---
-  const parsedCodes = useMemo(
-    () => parseCodes(formData.codesText),
-    [formData.codesText],
+  const [branchOptions, setBranchOptions] = useState<PromotionTargetOption[]>(
+    [],
+  );
+  const [categoryOptions, setCategoryOptions] = useState<
+    PromotionTargetOption[]
+  >([]);
+  const [originOptions, setOriginOptions] = useState<PromotionTargetOption[]>(
+    [],
+  );
+  const [productOptions, setProductOptions] = useState<PromotionTargetOption[]>(
+    [],
+  );
+  const [variantOptions, setVariantOptions] = useState<PromotionTargetOption[]>(
+    [],
   );
 
-  const parsedTargets = useMemo(
+  const [referencesLoading, setReferencesLoading] = useState(false);
+
+  const [branchSearch, setBranchSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [originSearch, setOriginSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [variantSearch, setVariantSearch] = useState("");
+
+  const [productSelectorOpen, setProductSelectorOpen] = useState(false);
+  const [variantSelectorOpen, setVariantSelectorOpen] = useState(false);
+
+  // --- Fetch References ---
+  const fetchReferenceData = async () => {
+    try {
+      setReferencesLoading(true);
+
+      const [branchRes, categoryRes, originRes, productRes] = await Promise.all(
+        [
+          http<any>("GET", "/api/v1/admin/branches?limit=1000"),
+          http<any>("GET", "/api/v1/admin/product-category?limit=1000"),
+          http<any>(
+            "GET",
+            "/api/v1/admin/origins?limit=1000&sortBy=position&order=ASC",
+          ),
+          http<any>("GET", "/api/v1/admin/products?page=1&limit=200"),
+        ],
+      );
+
+      const mappedBranches: PromotionTargetOption[] = Array.isArray(
+        branchRes?.data,
+      )
+        ? branchRes.data.map((row: any) => ({
+            id: Number(row.id),
+            label: row.name,
+            subLabel: [
+              row.code,
+              row.status === "active" ? "Hoạt động" : "Tạm dừng",
+            ]
+              .filter(Boolean)
+              .join(" • "),
+          }))
+        : [];
+
+      const mappedCategories: PromotionTargetOption[] = Array.isArray(
+        categoryRes?.data,
+      )
+        ? categoryRes.data.map((row: any) => ({
+            id: Number(row.id),
+            label: row.title,
+            subLabel: row.parent_id ? "Danh mục con" : "Danh mục gốc",
+          }))
+        : [];
+
+      const mappedOrigins: PromotionTargetOption[] = Array.isArray(
+        originRes?.data,
+      )
+        ? originRes.data.map((row: any) => ({
+            id: Number(row.id),
+            label: row.name,
+            subLabel: row.country_code || row.countryCode || "",
+          }))
+        : [];
+
+      const rawProducts = Array.isArray(productRes?.data)
+        ? productRes.data
+        : [];
+
+      const mappedProducts: PromotionTargetOption[] = rawProducts.map(
+        (row: any) => ({
+          id: Number(row.id),
+          label: row.title,
+          subLabel:
+            row.category?.title ||
+            row.category_name ||
+            row.slug ||
+            `Product #${row.id}`,
+        }),
+      );
+
+      const mappedVariants: PromotionTargetOption[] = rawProducts.flatMap(
+        (row: any) =>
+          Array.isArray(row.variants)
+            ? row.variants.map((variant: any) => ({
+                id: Number(variant.id),
+                label: variant.title || variant.sku || `Variant #${variant.id}`,
+                subLabel: row.title,
+              }))
+            : [],
+      );
+
+      setBranchOptions(mappedBranches);
+      setCategoryOptions(mappedCategories);
+      setOriginOptions(mappedOrigins);
+      setProductOptions(mappedProducts);
+      setVariantOptions(mappedVariants);
+    } catch (err: any) {
+      showErrorToast(
+        err?.message || "Không thể tải dữ liệu tham chiếu cho promotions.",
+      );
+    } finally {
+      setReferencesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReferenceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // --- Derived Data ---
+  const normalizedCodes = useMemo(() => {
+    return formData.couponCodes
+      .map((item) => ({
+        code: normalizeCouponCode(item.code),
+        status: item.status,
+        usageLimit:
+          item.usageLimit === "" || item.usageLimit === undefined
+            ? null
+            : Number(item.usageLimit),
+        startAt: item.startAt ? new Date(item.startAt).toISOString() : null,
+        endAt: item.endAt ? new Date(item.endAt).toISOString() : null,
+      }))
+      .filter((item) => item.code);
+  }, [formData.couponCodes]);
+
+  const targetIds = useMemo(
     () => ({
-      productIds: parseIdList(formData.productIdsText),
-      categoryIds: parseIdList(formData.categoryIdsText),
-      variantIds: parseIdList(formData.variantIdsText),
-      originIds: parseIdList(formData.originIdsText),
-      branchIds: parseIdList(formData.branchIdsText),
+      productIds: formData.selectedProducts.map((x) => x.id),
+      categoryIds: formData.selectedCategories.map((x) => x.id),
+      variantIds: formData.selectedVariants.map((x) => x.id),
+      originIds: formData.selectedOrigins.map((x) => x.id),
+      branchIds: formData.selectedBranches.map((x) => x.id),
     }),
-    [
-      formData.productIdsText,
-      formData.categoryIdsText,
-      formData.variantIdsText,
-      formData.originIdsText,
-      formData.branchIdsText,
-    ],
+    [formData],
   );
 
   const targetCount = useMemo(
     () =>
-      parsedTargets.productIds.length +
-      parsedTargets.categoryIds.length +
-      parsedTargets.variantIds.length +
-      parsedTargets.originIds.length +
-      parsedTargets.branchIds.length,
-    [parsedTargets],
+      formData.selectedProducts.length +
+      formData.selectedCategories.length +
+      formData.selectedVariants.length +
+      formData.selectedOrigins.length +
+      formData.selectedBranches.length,
+    [formData],
+  );
+
+  const applicationModeLabel = useMemo(() => {
+    if (formData.isAutoApply && normalizedCodes.length > 0) {
+      return "Auto apply + coupon codes";
+    }
+    if (formData.isAutoApply) return "Auto apply";
+    return normalizedCodes.length > 0 ? "Code-based" : "Chưa rõ cơ chế";
+  }, [formData.isAutoApply, normalizedCodes.length]);
+
+  const targetSummary = useMemo(() => {
+    return buildTargetSummary(formData);
+  }, [formData]);
+
+  const reviewNotes = useMemo<ReviewNote[]>(() => {
+    const notes: ReviewNote[] = [];
+
+    const hasAnyTarget =
+      formData.selectedProducts.length > 0 ||
+      formData.selectedCategories.length > 0 ||
+      formData.selectedVariants.length > 0 ||
+      formData.selectedOrigins.length > 0 ||
+      formData.selectedBranches.length > 0;
+
+    const discountValue = Number(formData.discountValue || 0);
+    const maxDiscountAmount = parseNumberOrNull(formData.maxDiscountAmount);
+    const minOrderValue = parseNumberOrNull(formData.minOrderValue);
+    const usageLimit = parseNumberOrNull(formData.usageLimit);
+
+    if (!formData.name.trim()) {
+      notes.push({
+        level: "danger",
+        text: "Campaign chưa có tên rõ ràng.",
+      });
+    }
+
+    if (
+      formData.discountType === "free_shipping" &&
+      formData.promotionScope !== "shipping"
+    ) {
+      notes.push({
+        level: "danger",
+        text: "Free shipping chỉ phù hợp với shipping promotion.",
+      });
+    }
+
+    if (!formData.isAutoApply && normalizedCodes.length === 0) {
+      notes.push({
+        level: "danger",
+        text: "Campaign nhập mã nhưng hiện chưa có coupon code hợp lệ.",
+      });
+    }
+
+    if (
+      formData.startAt &&
+      formData.endAt &&
+      new Date(formData.startAt) > new Date(formData.endAt)
+    ) {
+      notes.push({
+        level: "danger",
+        text: "Khoảng thời gian chạy không hợp lệ: thời điểm bắt đầu đang sau thời điểm kết thúc.",
+      });
+    }
+
+    if (
+      formData.discountType === "percent" &&
+      discountValue > 0 &&
+      maxDiscountAmount === null
+    ) {
+      notes.push({
+        level: "warning",
+        text: "Khuyến mãi theo phần trăm chưa có mức giảm tối đa, cần kiểm tra rủi ro với đơn giá trị lớn.",
+      });
+    }
+
+    if (formData.discountType === "free_shipping" && minOrderValue === null) {
+      notes.push({
+        level: "warning",
+        text: "Freeship chưa có giá trị đơn tối thiểu, phạm vi áp dụng có thể quá rộng.",
+      });
+    }
+
+    if (!hasAnyTarget) {
+      notes.push({
+        level: "warning",
+        text: "Campaign hiện chưa giới hạn target, có thể áp dụng toàn catalog/toàn hệ thống.",
+      });
+    }
+
+    if (
+      formData.selectedProducts.length > 0 &&
+      formData.selectedVariants.length > 0 &&
+      formData.selectedCategories.length > 0
+    ) {
+      notes.push({
+        level: "warning",
+        text: "Bạn đang target đồng thời product + variant + category. Hãy kiểm tra lại để tránh phạm vi áp dụng chồng chéo.",
+      });
+    }
+
+    if (
+      formData.promotionScope === "shipping" &&
+      formData.selectedBranches.length === 0
+    ) {
+      notes.push({
+        level: "warning",
+        text: "Shipping promotion chưa giới hạn chi nhánh, nên kiểm tra xem có đang áp quá rộng không.",
+      });
+    }
+
+    if (formData.isAutoApply && normalizedCodes.length > 0) {
+      notes.push({
+        level: "info",
+        text: "Campaign đang bật auto apply nhưng vẫn có coupon codes. Hãy chắc rằng cơ chế áp dụng đã được thống nhất với nghiệp vụ.",
+      });
+    }
+
+    if (!formData.startAt && formData.status === "active") {
+      notes.push({
+        level: "info",
+        text: "Campaign đang để active nhưng chưa đặt thời gian bắt đầu cụ thể.",
+      });
+    }
+
+    if (usageLimit !== null && usageLimit === 0) {
+      notes.push({
+        level: "warning",
+        text: "Giới hạn sử dụng đang bằng 0, campaign sẽ không thể chạy đúng kỳ vọng.",
+      });
+    }
+
+    if (notes.length === 0) {
+      notes.push({
+        level: "info",
+        text: "Cấu hình hiện tại trông hợp lý để tiếp tục tạo campaign.",
+      });
+    }
+
+    return notes;
+  }, [formData, normalizedCodes]);
+
+  const reviewLevel = useMemo<ReviewLevel>(() => {
+    if (reviewNotes.some((note) => note.level === "danger")) return "danger";
+    if (reviewNotes.some((note) => note.level === "warning")) return "warning";
+    return "ready";
+  }, [reviewNotes]);
+
+  const reviewLevelUi = useMemo(() => {
+    if (reviewLevel === "danger") {
+      return {
+        label: "Cần sửa trước khi publish",
+        chip: "bg-red-100 text-red-700 border-red-200",
+        box: "bg-red-50 border-red-200",
+      };
+    }
+
+    if (reviewLevel === "warning") {
+      return {
+        label: "Nên rà soát trước khi publish",
+        chip: "bg-amber-100 text-amber-700 border-amber-200",
+        box: "bg-amber-50 border-amber-200",
+      };
+    }
+
+    return {
+      label: "Sẵn sàng để publish",
+      chip: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      box: "bg-emerald-50 border-emerald-200",
+    };
+  }, [reviewLevel]);
+
+  const filteredBranchOptions = useMemo(
+    () => filterTargetOptions(branchOptions, branchSearch),
+    [branchOptions, branchSearch],
+  );
+
+  const filteredCategoryOptions = useMemo(
+    () => filterTargetOptions(categoryOptions, categorySearch),
+    [categoryOptions, categorySearch],
+  );
+
+  const filteredOriginOptions = useMemo(
+    () => filterTargetOptions(originOptions, originSearch),
+    [originOptions, originSearch],
+  );
+
+  const filteredProductOptions = useMemo(
+    () => filterTargetOptions(productOptions, productSearch),
+    [productOptions, productSearch],
+  );
+
+  const filteredVariantOptions = useMemo(
+    () => filterTargetOptions(variantOptions, variantSearch),
+    [variantOptions, variantSearch],
   );
 
   // --- Handlers ---
@@ -239,6 +629,101 @@ const PromotionCreatePage: React.FC = () => {
     if (errors.description) {
       setErrors((prev) => ({ ...prev, description: undefined }));
     }
+  };
+
+  const addCodesFromDraftText = () => {
+    const raw = formData.codesDraftText;
+    if (!raw.trim()) return;
+
+    const nextCodes = raw
+      .split(/[,\n]/g)
+      .map((x) => normalizeCouponCode(x))
+      .filter(Boolean)
+      .map(
+        (code): PromotionCodeDraft => ({
+          localId: makeLocalId(),
+          code,
+          status: "active",
+          usageLimit: "",
+          startAt: "",
+          endAt: "",
+        }),
+      );
+
+    setFormData((prev) => {
+      const merged = [...prev.couponCodes, ...nextCodes];
+      const dedupedMap = new Map<string, PromotionCodeDraft>();
+
+      for (const item of merged) {
+        const normalized = normalizeCouponCode(item.code);
+        if (!normalized) continue;
+        if (!dedupedMap.has(normalized)) {
+          dedupedMap.set(normalized, { ...item, code: normalized });
+        }
+      }
+
+      return {
+        ...prev,
+        couponCodes: Array.from(dedupedMap.values()),
+        codesDraftText: "",
+      };
+    });
+  };
+
+  const updateCouponCode = (
+    localId: string,
+    patch: Partial<PromotionCodeDraft>,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      couponCodes: prev.couponCodes.map((item) =>
+        item.localId === localId ? { ...item, ...patch } : item,
+      ),
+    }));
+  };
+
+  const removeCouponCode = (localId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      couponCodes: prev.couponCodes.filter((item) => item.localId !== localId),
+    }));
+  };
+
+  const toggleTargetSelection = (
+    field:
+      | "selectedProducts"
+      | "selectedCategories"
+      | "selectedVariants"
+      | "selectedOrigins"
+      | "selectedBranches",
+    option: PromotionTargetOption,
+  ) => {
+    setFormData((prev) => {
+      const exists = prev[field].some((item) => item.id === option.id);
+      const next = exists
+        ? prev[field].filter((item) => item.id !== option.id)
+        : dedupeById([...prev[field], option]);
+
+      return {
+        ...prev,
+        [field]: next,
+      };
+    });
+  };
+
+  const removeTargetById = (
+    field:
+      | "selectedProducts"
+      | "selectedCategories"
+      | "selectedVariants"
+      | "selectedOrigins"
+      | "selectedBranches",
+    id: number,
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: prev[field].filter((item) => item.id !== id),
+    }));
   };
 
   const validateForm = () => {
@@ -299,18 +784,29 @@ const PromotionCreatePage: React.FC = () => {
       nextErrors.usageLimitPerUser = "Giới hạn mỗi người không hợp lệ.";
     }
 
-    if (
-      formData.startAt &&
-      formData.endAt &&
-      new Date(formData.startAt) > new Date(formData.endAt)
-    ) {
+    if (!formData.isAutoApply && normalizedCodes.length === 0) {
       nextErrors.general =
-        "Thời gian bắt đầu không được sau thời gian kết thúc.";
+        "Nếu không bật auto apply, bạn nên có ít nhất một coupon code hợp lệ.";
     }
 
-    if (!formData.isAutoApply && parsedCodes.length === 0) {
-      nextErrors.codesText =
-        "Nếu không bật auto apply, bạn nên nhập ít nhất một coupon code.";
+    const codeSet = new Set<string>();
+    for (const code of normalizedCodes) {
+      if (codeSet.has(code.code)) {
+        nextErrors.general = `Coupon code bị trùng: ${code.code}`;
+        break;
+      }
+      codeSet.add(code.code);
+    }
+
+    for (const code of formData.couponCodes) {
+      if (
+        code.startAt &&
+        code.endAt &&
+        new Date(code.startAt) > new Date(code.endAt)
+      ) {
+        nextErrors.general = `Khoảng thời gian của mã ${code.code || "(chưa nhập)"} không hợp lệ.`;
+        break;
+      }
     }
 
     setErrors(nextErrors);
@@ -350,12 +846,18 @@ const PromotionCreatePage: React.FC = () => {
           : null,
         endAt: formData.endAt ? new Date(formData.endAt).toISOString() : null,
         status: formData.status,
-        codes: parsedCodes,
-        productIds: parsedTargets.productIds,
-        categoryIds: parsedTargets.categoryIds,
-        variantIds: parsedTargets.variantIds,
-        originIds: parsedTargets.originIds,
-        branchIds: parsedTargets.branchIds,
+        codes: normalizedCodes.map((item) => ({
+          code: item.code,
+          status: item.status,
+          usageLimit: item.usageLimit,
+          startAt: item.startAt,
+          endAt: item.endAt,
+        })),
+        productIds: targetIds.productIds,
+        categoryIds: targetIds.categoryIds,
+        variantIds: targetIds.variantIds,
+        originIds: targetIds.originIds,
+        branchIds: targetIds.branchIds,
       };
 
       const res = await http<ApiOk<any> | ApiErr>(
@@ -844,90 +1346,547 @@ const PromotionCreatePage: React.FC = () => {
                 </h2>
               </div>
 
-              <div className="p-5 space-y-6">
-                <div>
-                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
-                    Coupon codes
-                  </label>
-                  <textarea
-                    name="codesText"
-                    value={formData.codesText}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        codesText: e.target.value,
-                      }))
-                    }
-                    placeholder="Nhập mỗi mã trên một dòng hoặc phân tách bằng dấu phẩy&#10;VD: FREESHIP50, FRUIT10"
-                    rows={4}
-                    className={`w-full px-4 py-3 rounded-lg border ${
-                      errors.codesText
-                        ? "border-red-500"
-                        : "border-gray-300 dark:border-gray-600"
-                    } bg-white dark:bg-gray-900 text-gray-900 dark:text-white`}
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
-                    Nếu bật auto apply thì có thể để trống phần này.
-                  </p>
-                  {errors.codesText && (
-                    <p className="text-sm text-red-600 dark:text-red-400 mt-1.5">
-                      {errors.codesText}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {[
-                    {
-                      name: "productIdsText",
-                      label: "Product IDs",
-                      placeholder: "1, 2, 3",
-                    },
-                    {
-                      name: "categoryIdsText",
-                      label: "Category IDs",
-                      placeholder: "10, 12",
-                    },
-                    {
-                      name: "variantIdsText",
-                      label: "Variant IDs",
-                      placeholder: "101, 102",
-                    },
-                    {
-                      name: "originIdsText",
-                      label: "Origin IDs",
-                      placeholder: "5, 8",
-                    },
-                    {
-                      name: "branchIdsText",
-                      label: "Branch IDs",
-                      placeholder: "1, 3",
-                    },
-                  ].map((field) => (
-                    <div
-                      key={field.name}
-                      className={
-                        field.name === "branchIdsText" ? "sm:col-span-2" : ""
-                      }
-                    >
-                      <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
-                        {field.label}
-                      </label>
-                      <input
-                        type="text"
-                        value={(formData as any)[field.name]}
+              <div className="p-5 space-y-8">
+                {/* Coupon codes manager */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                      Coupon codes
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <textarea
+                        value={formData.codesDraftText}
                         onChange={(e) =>
                           setFormData((prev) => ({
                             ...prev,
-                            [field.name]: e.target.value,
+                            codesDraftText: e.target.value,
                           }))
                         }
-                        placeholder={field.placeholder}
-                        className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                        placeholder="Bulk paste mã, mỗi dòng một mã hoặc ngăn cách bằng dấu phẩy"
+                        rows={4}
+                        className="flex-1 px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                       />
+                      <div className="sm:w-44 flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={addCodesFromDraftText}
+                          className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition"
+                        >
+                          Thêm mã
+                        </button>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {formData.isAutoApply
+                            ? "Auto apply đang bật, có thể để trống."
+                            : "Campaign nhập mã nên có ít nhất một code."}
+                        </p>
+                      </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {formData.couponCodes.length > 0 && (
+                    <div className="space-y-3">
+                      {formData.couponCodes.map((item) => (
+                        <div
+                          key={item.localId}
+                          className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                        >
+                          <div className="md:col-span-4">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                              Code
+                            </label>
+                            <input
+                              type="text"
+                              value={item.code}
+                              onChange={(e) =>
+                                updateCouponCode(item.localId, {
+                                  code: normalizeCouponCode(e.target.value),
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                              Status
+                            </label>
+                            <select
+                              value={item.status}
+                              onChange={(e) =>
+                                updateCouponCode(item.localId, {
+                                  status: e.target.value as PromotionStatus,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </select>
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                              Usage limit
+                            </label>
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.usageLimit}
+                              onChange={(e) =>
+                                updateCouponCode(item.localId, {
+                                  usageLimit:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                              Start
+                            </label>
+                            <input
+                              type="datetime-local"
+                              value={item.startAt}
+                              onChange={(e) =>
+                                updateCouponCode(item.localId, {
+                                  startAt: e.target.value,
+                                })
+                              }
+                              className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                            />
+                          </div>
+
+                          <div className="md:col-span-2">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
+                              End
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="datetime-local"
+                                value={item.endAt}
+                                onChange={(e) =>
+                                  updateCouponCode(item.localId, {
+                                    endAt: e.target.value,
+                                  })
+                                }
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeCouponCode(item.localId)}
+                                className="px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+
+                {/* Dictionary targets */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Categories */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Categories
+                      </label>
+                      <span className="text-xs font-semibold text-gray-500">
+                        {formData.selectedCategories.length} đã chọn
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={categorySearch}
+                      onChange={(e) => setCategorySearch(e.target.value)}
+                      placeholder="Tìm category..."
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+                    />
+                    <div className="max-h-48 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                      {filteredCategoryOptions.map((item) => {
+                        const checked = formData.selectedCategories.some(
+                          (x) => x.id === item.id,
+                        );
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                toggleTargetSelection(
+                                  "selectedCategories",
+                                  item,
+                                )
+                              }
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {item.label}
+                              </div>
+                              {item.subLabel && (
+                                <div className="text-xs text-gray-500">
+                                  {item.subLabel}
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.selectedCategories.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedCategories.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold"
+                          >
+                            {item.label}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeTargetById("selectedCategories", item.id)
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Origins */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Origins
+                      </label>
+                      <span className="text-xs font-semibold text-gray-500">
+                        {formData.selectedOrigins.length} đã chọn
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={originSearch}
+                      onChange={(e) => setOriginSearch(e.target.value)}
+                      placeholder="Tìm origin..."
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+                    />
+                    <div className="max-h-48 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                      {filteredOriginOptions.map((item) => {
+                        const checked = formData.selectedOrigins.some(
+                          (x) => x.id === item.id,
+                        );
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                toggleTargetSelection("selectedOrigins", item)
+                              }
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {item.label}
+                              </div>
+                              {item.subLabel && (
+                                <div className="text-xs text-gray-500">
+                                  {item.subLabel}
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.selectedOrigins.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedOrigins.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold"
+                          >
+                            {item.label}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeTargetById("selectedOrigins", item.id)
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Branches full row */}
+                  <div className="lg:col-span-2 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Branches
+                      </label>
+                      <span className="text-xs font-semibold text-gray-500">
+                        {formData.selectedBranches.length} đã chọn
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={branchSearch}
+                      onChange={(e) => setBranchSearch(e.target.value)}
+                      placeholder="Tìm branch..."
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+                    />
+                    <div className="max-h-52 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {filteredBranchOptions.map((item) => {
+                        const checked = formData.selectedBranches.some(
+                          (x) => x.id === item.id,
+                        );
+                        return (
+                          <label
+                            key={item.id}
+                            className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                toggleTargetSelection("selectedBranches", item)
+                              }
+                              className="mt-1"
+                            />
+                            <div>
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                {item.label}
+                              </div>
+                              {item.subLabel && (
+                                <div className="text-xs text-gray-500">
+                                  {item.subLabel}
+                                </div>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {formData.selectedBranches.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedBranches.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-semibold"
+                          >
+                            {item.label}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeTargetById("selectedBranches", item.id)
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Product / Variant selectors */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Products
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setProductSelectorOpen((prev) => !prev)}
+                        className="text-sm font-semibold text-blue-600"
+                      >
+                        {productSelectorOpen
+                          ? "Đóng danh sách"
+                          : "Mở danh sách chọn"}
+                      </button>
+                    </div>
+
+                    {productSelectorOpen && (
+                      <>
+                        <input
+                          type="text"
+                          value={productSearch}
+                          onChange={(e) => setProductSearch(e.target.value)}
+                          placeholder="Tìm sản phẩm..."
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+                        />
+                        <div className="max-h-64 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                          {filteredProductOptions.map((item) => {
+                            const checked = formData.selectedProducts.some(
+                              (x) => x.id === item.id,
+                            );
+                            return (
+                              <label
+                                key={item.id}
+                                className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    toggleTargetSelection(
+                                      "selectedProducts",
+                                      item,
+                                    )
+                                  }
+                                  className="mt-1"
+                                />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {item.label}
+                                  </div>
+                                  {item.subLabel && (
+                                    <div className="text-xs text-gray-500">
+                                      {item.subLabel}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {formData.selectedProducts.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedProducts.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200 text-xs font-semibold"
+                          >
+                            {item.label}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeTargetById("selectedProducts", item.id)
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Variants
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setVariantSelectorOpen((prev) => !prev)}
+                        className="text-sm font-semibold text-blue-600"
+                      >
+                        {variantSelectorOpen
+                          ? "Đóng danh sách"
+                          : "Mở danh sách chọn"}
+                      </button>
+                    </div>
+
+                    {variantSelectorOpen && (
+                      <>
+                        <input
+                          type="text"
+                          value={variantSearch}
+                          onChange={(e) => setVariantSearch(e.target.value)}
+                          placeholder="Tìm variant..."
+                          className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900"
+                        />
+                        <div className="max-h-64 overflow-auto rounded-xl border border-gray-200 dark:border-gray-700 p-2 space-y-1">
+                          {filteredVariantOptions.map((item) => {
+                            const checked = formData.selectedVariants.some(
+                              (x) => x.id === item.id,
+                            );
+                            return (
+                              <label
+                                key={item.id}
+                                className="flex items-start gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  onChange={() =>
+                                    toggleTargetSelection(
+                                      "selectedVariants",
+                                      item,
+                                    )
+                                  }
+                                  className="mt-1"
+                                />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900 dark:text-white">
+                                    {item.label}
+                                  </div>
+                                  {item.subLabel && (
+                                    <div className="text-xs text-gray-500">
+                                      {item.subLabel}
+                                    </div>
+                                  )}
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+
+                    {formData.selectedVariants.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.selectedVariants.map((item) => (
+                          <span
+                            key={item.id}
+                            className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-xs font-semibold"
+                          >
+                            {item.label}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                removeTargetById("selectedVariants", item.id)
+                              }
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {referencesLoading && (
+                  <div className="text-sm text-gray-500 dark:text-gray-400">
+                    Đang tải dữ liệu tham chiếu để chọn target...
+                  </div>
+                )}
               </div>
             </Card>
           </div>
@@ -936,67 +1895,237 @@ const PromotionCreatePage: React.FC = () => {
           <div className="space-y-6">
             {/* Summary */}
             <Card className="border-gray-200 dark:border-gray-700 !p-0 overflow-hidden">
-              <div className="p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50">
-                <h3 className="font-bold text-gray-900 dark:text-white">
-                  Tóm tắt campaign
-                </h3>
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/50 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-gray-900 dark:text-white">
+                    Pre-publish review
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Kiểm tra nhanh trước khi tạo campaign
+                  </p>
+                </div>
+
+                <span
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${reviewLevelUi.chip}`}
+                >
+                  {reviewLevelUi.label}
+                </span>
               </div>
 
-              <div className="p-4 space-y-4 text-sm font-medium">
-                <div className="flex justify-between items-start gap-4">
-                  <span className="text-gray-500 dark:text-gray-400 shrink-0">
-                    Tên
-                  </span>
-                  <span className="text-gray-900 dark:text-white text-right line-clamp-2">
-                    {formData.name || (
-                      <span className="text-gray-400 italic">Chưa nhập</span>
-                    )}
-                  </span>
+              <div className="p-4 space-y-5 text-sm">
+                {/* 1. Campaign snapshot */}
+                <div className="space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    1. Snapshot
+                  </div>
+
+                  <div className="flex justify-between items-start gap-4">
+                    <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                      Tên
+                    </span>
+                    <span className="text-gray-900 dark:text-white text-right line-clamp-2 font-semibold">
+                      {formData.name || (
+                        <span className="text-gray-400 italic">Chưa nhập</span>
+                      )}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Loại promotion
+                    </span>
+                    <span className="text-blue-600 dark:text-blue-400 font-semibold text-right">
+                      {getScopeLabel(formData.promotionScope)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Discount type
+                    </span>
+                    <span className="text-gray-900 dark:text-white text-right font-semibold">
+                      {getDiscountTypeLabel(formData.discountType)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Mức giảm thực tế
+                    </span>
+                    <span className="text-gray-900 dark:text-white font-bold text-right">
+                      {getHeadlinePreview(formData)}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between items-center gap-4">
+                    <span className="text-gray-500 dark:text-gray-400">
+                      Cơ chế áp dụng
+                    </span>
+                    <span className="text-gray-900 dark:text-white text-right font-semibold">
+                      {applicationModeLabel}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Scope
-                  </span>
-                  <span className="text-blue-600 dark:text-blue-400">
-                    {getScopeLabel(formData.promotionScope)}
-                  </span>
+                {/* 2. Applies to */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    2. Applies to
+                  </div>
+
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/40 p-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Target count
+                      </span>
+                      <span className="font-bold text-gray-900 dark:text-white">
+                        {targetCount}
+                      </span>
+                    </div>
+
+                    <div className="text-xs leading-relaxed text-gray-700 dark:text-gray-300">
+                      {targetSummary}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500">Products</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {formData.selectedProducts.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500">Categories</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {formData.selectedCategories.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500">Variants</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {formData.selectedVariants.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2">
+                        <span className="text-gray-500">Origins</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {formData.selectedOrigins.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-2 col-span-2">
+                        <span className="text-gray-500">Branches</span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {formData.selectedBranches.length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Discount
-                  </span>
-                  <span className="text-gray-900 dark:text-white text-right">
-                    {getDiscountTypeLabel(formData.discountType)}
-                  </span>
+                {/* 3. Runtime */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    3. Runtime
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Trạng thái
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">
+                        {formData.status === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Bắt đầu
+                      </span>
+                      <span className="text-gray-900 dark:text-white text-right font-semibold">
+                        {formatDateTimeCompact(formData.startAt)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Kết thúc
+                      </span>
+                      <span className="text-gray-900 dark:text-white text-right font-semibold">
+                        {formatDateTimeCompact(formData.endAt)}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Coupon codes
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">
+                        {normalizedCodes.length}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Tổng lượt dùng
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">
+                        {formData.usageLimit !== ""
+                          ? formData.usageLimit
+                          : "Không giới hạn"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center gap-4">
+                      <span className="text-gray-500 dark:text-gray-400">
+                        Lượt / người
+                      </span>
+                      <span className="text-gray-900 dark:text-white font-semibold">
+                        {formData.usageLimitPerUser !== ""
+                          ? formData.usageLimitPerUser
+                          : "Không giới hạn"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-3 border-t border-gray-100 dark:border-gray-700/50">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Headline
-                  </span>
-                  <span className="text-gray-900 dark:text-white font-bold">
-                    {getHeadlinePreview(formData)}
-                  </span>
-                </div>
+                {/* 4. Risk notes */}
+                <div className="pt-4 border-t border-gray-100 dark:border-gray-700/50 space-y-3">
+                  <div className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                    4. Risk notes
+                  </div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Coupon codes
-                  </span>
-                  <span className="text-gray-900 dark:text-white">
-                    {parsedCodes.length}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 dark:text-gray-400">
-                    Target count
-                  </span>
-                  <span className="text-gray-900 dark:text-white">
-                    {targetCount}
-                  </span>
+                  <div
+                    className={`rounded-xl border p-3 space-y-2 ${reviewLevelUi.box}`}
+                  >
+                    {reviewNotes.map((note, idx) => (
+                      <div
+                        key={`${note.level}-${idx}`}
+                        className="flex items-start gap-2 text-xs leading-relaxed"
+                      >
+                        <span
+                          className={`mt-0.5 inline-block w-2 h-2 rounded-full shrink-0 ${
+                            note.level === "danger"
+                              ? "bg-red-500"
+                              : note.level === "warning"
+                                ? "bg-amber-500"
+                                : "bg-blue-500"
+                          }`}
+                        />
+                        <span
+                          className={
+                            note.level === "danger"
+                              ? "text-red-700"
+                              : note.level === "warning"
+                                ? "text-amber-800"
+                                : "text-slate-700"
+                          }
+                        >
+                          {note.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -1056,15 +2185,16 @@ const PromotionCreatePage: React.FC = () => {
               </div>
               <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-2 list-disc pl-4">
                 <li>
-                  Chỉ dùng <strong>free shipping</strong> khi scope là shipping.
+                  Ưu tiên chọn category, origin hoặc branch trước; chỉ chọn
+                  product hoặc variant khi cần target thật chi tiết.
                 </li>
                 <li>
-                  Với campaign nhập mã thủ công, nên nhập ít nhất một{" "}
-                  <strong>coupon code</strong>.
+                  Nếu campaign không phải auto apply, nên có ít nhất một coupon
+                  code hợp lệ và dễ nhận biết.
                 </li>
                 <li>
-                  Nếu giới hạn theo product/category/variant/origin/branch, hãy
-                  kiểm tra lại target IDs trước khi publish.
+                  Sau khi chọn target, hãy nhìn lại chip preview để tránh áp sai
+                  phạm vi campaign.
                 </li>
               </ul>
             </Card>
@@ -1095,6 +2225,14 @@ const PromotionCreatePage: React.FC = () => {
                   </>
                 )}
               </button>
+
+              <p className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center leading-relaxed">
+                {reviewLevel === "danger"
+                  ? "Campaign đang có cấu hình rủi ro cao. Nên sửa các điểm đỏ trước khi tạo."
+                  : reviewLevel === "warning"
+                    ? "Campaign có vài điểm nên rà soát thêm trước khi publish."
+                    : "Campaign hiện trông ổn để tiếp tục tạo và chuyển sang workspace."}
+              </p>
 
               <button
                 type="button"

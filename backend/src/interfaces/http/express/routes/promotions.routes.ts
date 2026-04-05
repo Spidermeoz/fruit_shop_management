@@ -11,7 +11,7 @@ export const promotionsRoutes = (
 
   r.get("/", auth, can("promotion", "view"), controller.list);
   r.get("/usages", auth, can("promotion", "view"), controller.listUsages);
-  r.post("/validate-code", auth, can("promotion", "create"), controller.validateCode);
+  r.post("/validate-code", auth, can("promotion", "view"), controller.validateCode);
   r.get("/:id", auth, can("promotion", "view"), controller.detail);
   r.post("/", auth, can("promotion", "create"), controller.create);
   r.put("/:id", auth, can("promotion", "edit"), controller.edit);

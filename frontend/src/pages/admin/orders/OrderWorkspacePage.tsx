@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -38,6 +39,19 @@ type OrderStatus =
   | "cancelled";
 type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
 type FulfillmentType = "pickup" | "delivery";
+
+type ConfirmActionType = "workflow" | "cancel" | "collect_cod" | "complete";
+
+interface ConfirmActionState {
+  open: boolean;
+  type: ConfirmActionType | null;
+  nextStatus?: OrderStatus;
+  title: string;
+  description: string;
+  confirmLabel: string;
+  confirmTone: "blue" | "purple" | "orange" | "green" | "red";
+  blockingReason?: string | null;
+}
 
 interface OrderItem {
   productId: number | null;
@@ -167,6 +181,32 @@ const getOperationalHint = (order: Order) => {
   return "";
 };
 
+const confirmToneClassMap: Record<
+  NonNullable<ConfirmActionState["confirmTone"]>,
+  string
+> = {
+  blue: "bg-blue-600 hover:bg-blue-700 text-white",
+  purple: "bg-purple-600 hover:bg-purple-700 text-white",
+  orange: "bg-orange-500 hover:bg-orange-600 text-white",
+  green: "bg-green-600 hover:bg-green-700 text-white",
+  red: "bg-red-600 hover:bg-red-700 text-white",
+};
+
+const getOrderFinalPrice = (order: Order) => {
+  if (
+    typeof order.finalPrice === "number" &&
+    Number.isFinite(order.finalPrice)
+  ) {
+    return order.finalPrice;
+  }
+
+  return (
+    Number(order.totalPrice ?? 0) +
+    Number(order.shippingFee ?? 0) -
+    Number(order.discountAmount ?? 0)
+  );
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -181,7 +221,15 @@ const OrderWorkspacePage: React.FC = () => {
 
   // Modals
   const [showInvoice, setShowInvoice] = useState(false);
-  const [showCodModal, setShowCodModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({
+    open: false,
+    type: null,
+    title: "",
+    description: "",
+    confirmLabel: "",
+    confirmTone: "blue",
+    blockingReason: null,
+  });
   const printRef = useRef<HTMLDivElement>(null);
 
   // --- API Fetching ---
@@ -211,45 +259,132 @@ const OrderWorkspacePage: React.FC = () => {
   }, [id]);
 
   // --- Action Handlers ---
-  const handleUpdateWorkflow = async (newStatus: OrderStatus) => {
+  const closeConfirmAction = () => {
+    if (actionLoading) return;
+
+    setConfirmAction({
+      open: false,
+      type: null,
+      title: "",
+      description: "",
+      confirmLabel: "",
+      confirmTone: "blue",
+      blockingReason: null,
+    });
+  };
+
+  const openWorkflowConfirm = (newStatus: OrderStatus) => {
     if (!order) return;
-    if (newStatus === "completed" && order.paymentStatus !== "paid") {
-      showErrorToast("Không thể hoàn tất. Đơn hàng chưa được thanh toán.");
+
+    if (newStatus === "cancelled") {
+      setConfirmAction({
+        open: true,
+        type: "cancel",
+        nextStatus: "cancelled",
+        title: "Xác nhận hủy đơn hàng",
+        description:
+          "Thao tác này sẽ đóng workflow của đơn hàng và không thể tiếp tục vận hành như một đơn bình thường.",
+        confirmLabel: "Xác nhận hủy đơn",
+        confirmTone: "red",
+        blockingReason:
+          order.status === "completed"
+            ? "Đơn hàng đã hoàn tất nên không thể hủy."
+            : order.status === "cancelled"
+              ? "Đơn hàng đã ở trạng thái hủy."
+              : null,
+      });
       return;
     }
 
-    const confirmMsg =
-      newStatus === "cancelled"
-        ? "Bạn có chắc chắn muốn hủy đơn hàng này?"
-        : `Xác nhận chuyển sang: ${statusConfig[newStatus].label}?`;
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      setActionLoading(true);
-      await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
-        status: newStatus,
+    if (newStatus === "completed") {
+      setConfirmAction({
+        open: true,
+        type: "complete",
+        nextStatus: "completed",
+        title: "Xác nhận hoàn tất đơn hàng",
+        description:
+          "Thao tác này dùng để khép vòng vận hành của đơn hàng sau khi hàng đã được giao/nhận và thanh toán đã hoàn tất.",
+        confirmLabel: "Đánh dấu hoàn tất",
+        confirmTone: "green",
+        blockingReason:
+          order.paymentStatus !== "paid"
+            ? "Đơn hàng chưa được thanh toán nên chưa thể hoàn tất."
+            : order.status === "cancelled"
+              ? "Đơn hàng đã bị hủy nên không thể hoàn tất."
+              : null,
       });
-      showSuccessToast({ message: "Cập nhật Workflow thành công!" });
-      await fetchDetail();
-    } catch (err: any) {
-      showErrorToast(err?.message || "Lỗi cập nhật trạng thái");
-    } finally {
-      setActionLoading(false);
+      return;
     }
+
+    setConfirmAction({
+      open: true,
+      type: "workflow",
+      nextStatus: newStatus,
+      title: "Xác nhận chuyển bước workflow",
+      description:
+        "Hãy kiểm tra lại ngữ cảnh đơn hàng trước khi chuyển sang bước tiếp theo để tránh sai lệch vận hành.",
+      confirmLabel: `Chuyển sang ${statusConfig[newStatus].label}`,
+      confirmTone: newStatus === "shipping" ? "purple" : "blue",
+      blockingReason:
+        order.status === "cancelled" || order.status === "completed"
+          ? "Đơn hàng đã khép vòng nên không thể chuyển workflow."
+          : null,
+    });
   };
 
-  const handleConfirmCOD = async () => {
+  const openCodConfirm = () => {
     if (!order) return;
+
+    setConfirmAction({
+      open: true,
+      type: "collect_cod",
+      title: "Xác nhận thu COD",
+      description:
+        "Xác nhận rằng nhân viên đã thu đủ tiền từ khách và payment status sẽ được chuyển sang Đã thanh toán.",
+      confirmLabel: "Xác nhận đã thu COD",
+      confirmTone: "orange",
+      blockingReason:
+        order.paymentStatus === "paid"
+          ? "Đơn hàng đã được thanh toán trước đó."
+          : order.status === "cancelled"
+            ? "Đơn hàng đã hủy nên không thể xác nhận thu COD."
+            : null,
+    });
+  };
+
+  const executeConfirmedAction = async () => {
+    if (!order || !confirmAction.type || confirmAction.blockingReason) return;
+
     try {
       setActionLoading(true);
-      await http("POST", `/api/v1/admin/orders/${order.id}/payment`, {
-        amount: order.finalPrice,
-      });
-      showSuccessToast({ message: "Xác nhận thu COD thành công!" });
-      setShowCodModal(false);
+
+      if (
+        confirmAction.type === "workflow" ||
+        confirmAction.type === "cancel" ||
+        confirmAction.type === "complete"
+      ) {
+        const nextStatus = confirmAction.nextStatus;
+        if (!nextStatus) return;
+
+        await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
+          status: nextStatus,
+        });
+
+        showSuccessToast({ message: "Cập nhật workflow thành công!" });
+      }
+
+      if (confirmAction.type === "collect_cod") {
+        await http("POST", `/api/v1/admin/orders/${order.id}/payment`, {
+          amount: getOrderFinalPrice(order),
+        });
+
+        showSuccessToast({ message: "Xác nhận thu COD thành công!" });
+      }
+
+      closeConfirmAction();
       await fetchDetail();
     } catch (err: any) {
-      showErrorToast(err?.message || "Lỗi xác nhận thanh toán");
+      showErrorToast(err?.message || "Không thể thực hiện thao tác");
     } finally {
       setActionLoading(false);
     }
@@ -677,13 +812,13 @@ const OrderWorkspacePage: React.FC = () => {
                     {order.status === "pending" && (
                       <>
                         <button
-                          onClick={() => handleUpdateWorkflow("processing")}
+                          onClick={() => openWorkflowConfirm("processing")}
                           className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                         >
                           Duyệt đơn <ArrowRight className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleUpdateWorkflow("cancelled")}
+                          onClick={() => openWorkflowConfirm("cancelled")}
                           className="w-full py-2.5 bg-white hover:bg-red-50 text-red-600 font-bold rounded-xl border border-red-200 transition"
                         >
                           Hủy đơn hàng
@@ -695,14 +830,14 @@ const OrderWorkspacePage: React.FC = () => {
                       <>
                         {order.fulfillmentType === "delivery" ? (
                           <button
-                            onClick={() => handleUpdateWorkflow("shipping")}
+                            onClick={() => openWorkflowConfirm("shipping")}
                             className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                           >
                             Giao cho Vận chuyển <Truck className="w-4 h-4" />
                           </button>
                         ) : (
                           <button
-                            onClick={() => handleUpdateWorkflow("delivered")}
+                            onClick={() => openWorkflowConfirm("delivered")}
                             className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                           >
                             Khách đã đến nhận{" "}
@@ -710,7 +845,7 @@ const OrderWorkspacePage: React.FC = () => {
                           </button>
                         )}
                         <button
-                          onClick={() => handleUpdateWorkflow("cancelled")}
+                          onClick={() => openWorkflowConfirm("cancelled")}
                           className="w-full py-2.5 bg-white hover:bg-red-50 text-red-600 font-bold rounded-xl border border-red-200 transition"
                         >
                           Hủy đơn hàng
@@ -720,7 +855,7 @@ const OrderWorkspacePage: React.FC = () => {
 
                     {order.status === "shipping" && (
                       <button
-                        onClick={() => handleUpdateWorkflow("delivered")}
+                        onClick={() => openWorkflowConfirm("delivered")}
                         className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                       >
                         Đánh dấu Đã Giao <MapPin className="w-4 h-4" />
@@ -730,14 +865,14 @@ const OrderWorkspacePage: React.FC = () => {
                     {order.status === "delivered" &&
                       (order.paymentStatus === "paid" ? (
                         <button
-                          onClick={() => handleUpdateWorkflow("completed")}
+                          onClick={() => openWorkflowConfirm("completed")}
                           className="w-full py-3.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                         >
                           Hoàn tất đơn hàng <CheckCircle2 className="w-5 h-5" />
                         </button>
                       ) : (
                         <button
-                          onClick={() => setShowCodModal(true)}
+                          onClick={openCodConfirm}
                           className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
                         >
                           Xác nhận thu COD <Banknote className="w-5 h-5" />
@@ -795,14 +930,14 @@ const OrderWorkspacePage: React.FC = () => {
                   Tổng cộng
                 </span>
                 <span className="text-2xl font-black text-green-600 dark:text-green-500">
-                  {order.finalPrice.toLocaleString()} đ
+                  {getOrderFinalPrice(order).toLocaleString()} đ
                 </span>
               </div>
             </div>
             {order.paymentStatus !== "paid" && order.status !== "cancelled" && (
               <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border-t border-orange-100 dark:border-orange-900/50 text-center">
                 <button
-                  onClick={() => setShowCodModal(true)}
+                  onClick={openCodConfirm}
                   className="text-sm font-bold text-orange-600 hover:text-orange-800"
                 >
                   Nhấn để Xác nhận đã thu tiền
@@ -864,149 +999,231 @@ const OrderWorkspacePage: React.FC = () => {
       {/* MODALS */}
       {/* ========================================== */}
 
-      {/* PAYMENT COD MODAL */}
-      {showCodModal && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <Banknote className="w-5 h-5 text-orange-500" /> Xác nhận thu
-                COD
-              </h2>
-              <button
-                onClick={() => setShowCodModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-xl p-6 text-center mb-6">
-              <p className="text-sm text-orange-800 dark:text-orange-400 font-medium mb-1">
-                Số tiền cần thu từ khách
-              </p>
-              <p className="text-4xl font-black text-orange-600 dark:text-orange-500">
-                {order.finalPrice.toLocaleString()} đ
-              </p>
-            </div>
-            <p className="text-xs text-gray-500 text-center mb-6 px-4">
-              Hành động này sẽ cập nhật Payment Status thành{" "}
-              <strong>Đã thanh toán</strong>.{" "}
-              {order.status === "delivered" &&
-                "Sau đó bạn có thể Hoàn tất đơn hàng."}
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowCodModal(false)}
-                className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleConfirmCOD}
-                disabled={actionLoading}
-                className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition shadow-md"
-              >
-                {actionLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
-                ) : (
-                  "Xác nhận đã thu"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* TÍCH HỢP CONFIRM MODAL MỚI (Thay thế cho window.confirm và showCodModal cũ) */}
+      {confirmAction.open &&
+        order &&
+        createPortal(
+          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-start gap-4 mb-5">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {confirmAction.title}
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {confirmAction.description}
+                  </p>
+                </div>
+                <button
+                  onClick={closeConfirmAction}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <XCircle className="w-5 h-5" />
+                </button>
+              </div>
 
-      {/* INVOICE MODAL (Giữ logic preview cũ, bọc trong UI mới) */}
-      {showInvoice && (
-        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
-            <h2 className="text-xl font-bold mb-4 text-gray-900">
-              Xem trước hóa đơn
-            </h2>
-            <div
-              ref={printRef}
-              className="border border-gray-300 p-6 text-sm bg-white text-gray-900 rounded-lg"
-            >
-              <h2 className="text-center text-2xl font-bold mb-2">
-                HÓA ĐƠN FREESH FRUITS
-              </h2>
-              <p>
-                <strong>Mã đơn:</strong> {order.code}
-              </p>
-              <p>
-                <strong>Ngày:</strong>{" "}
-                {new Date(order.createdAt).toLocaleString()}
-              </p>
-              <p>
-                <strong>Chi nhánh:</strong> {order.branch?.name || "—"}
-              </p>
-              <hr className="my-3 border-gray-300" />
-              <h3 className="font-bold mb-1">Khách hàng:</h3>
-              <p>
-                {order.address?.fullName || "—"} - {order.address?.phone || "—"}
-              </p>
-              <p>
-                {order.address
-                  ? `${order.address.addressLine1}, ${order.address.ward}, ${order.address.district}, ${order.address.province}`
-                  : ""}
-              </p>
-              <hr className="my-3 border-gray-300" />
-              <table className="w-full text-sm text-gray-900">
-                <thead>
-                  <tr className="border-b border-gray-400">
-                    <th className="py-2 text-left">Sản phẩm</th>
-                    <th className="py-2 text-center">SL</th>
-                    <th className="py-2 text-right">Đơn giá</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items.map((item, idx) => (
-                    <tr key={idx} className="border-b border-gray-200">
-                      <td className="py-2">
-                        <div>{item.productTitle}</div>
-                        {item.variantTitle && (
-                          <div className="text-[11px] text-gray-500">
-                            {item.variantTitle}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-2 text-center">{item.quantity}</td>
-                      <td className="py-2 text-right">
-                        {(item.price * item.quantity).toLocaleString()} đ
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-4 text-right space-y-1">
-                <p>Tạm tính: {order.totalPrice.toLocaleString()} đ</p>
-                <p>Phí ship: {order.shippingFee.toLocaleString()} đ</p>
-                {order.discountAmount > 0 && (
-                  <p>Giảm giá: -{order.discountAmount.toLocaleString()} đ</p>
+              <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700 space-y-3 mb-5">
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 text-sm">Mã đơn</span>
+                  <span className="font-bold text-gray-900 dark:text-white text-sm">
+                    {order.code}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 text-sm">
+                    Trạng thái hiện tại
+                  </span>
+                  <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                    {statusConfig[order.status].label}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 text-sm">
+                    Trạng thái sau thao tác
+                  </span>
+                  <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                    {confirmAction.type === "collect_cod"
+                      ? order.status === "delivered"
+                        ? "Giữ nguyên workflow, cập nhật thanh toán -> Đã thanh toán"
+                        : "Cập nhật thanh toán -> Đã thanh toán"
+                      : confirmAction.nextStatus
+                        ? statusConfig[confirmAction.nextStatus].label
+                        : "—"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 text-sm">
+                    Thanh toán hiện tại
+                  </span>
+                  <span
+                    className={`font-semibold text-sm ${
+                      order.paymentStatus === "paid"
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-orange-600 dark:text-orange-400"
+                    }`}
+                  >
+                    {order.paymentStatus === "paid"
+                      ? "Đã thanh toán"
+                      : "Chưa thanh toán"}
+                  </span>
+                </div>
+
+                {confirmAction.type === "collect_cod" && (
+                  <div className="flex justify-between gap-4 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-gray-500 text-sm">
+                      Số tiền cần thu
+                    </span>
+                    <span className="font-black text-orange-600 dark:text-orange-400 text-base">
+                      {getOrderFinalPrice(order).toLocaleString()} đ
+                    </span>
+                  </div>
                 )}
-                <p className="font-bold text-lg mt-2">
-                  Tổng cộng: {order.finalPrice.toLocaleString()} đ
-                </p>
+              </div>
+
+              {confirmAction.blockingReason ? (
+                <div className="mb-5 p-4 rounded-xl border border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-800">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-red-700 dark:text-red-400">
+                        Thao tác đang bị chặn
+                      </p>
+                      <p className="text-sm text-red-600 dark:text-red-300 mt-1">
+                        {confirmAction.blockingReason}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-5 p-4 rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Hãy xác nhận rằng thông tin đơn hàng, tình trạng giao nhận
+                    và điều kiện thanh toán đã đúng trước khi tiếp tục.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={closeConfirmAction}
+                  disabled={actionLoading}
+                  className="flex-1 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-xl transition"
+                >
+                  Đóng
+                </button>
+                <button
+                  onClick={executeConfirmedAction}
+                  disabled={!!confirmAction.blockingReason || actionLoading}
+                  className={`flex-1 py-3 font-bold rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${confirmToneClassMap[confirmAction.confirmTone]}`}
+                >
+                  {actionLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                  ) : (
+                    confirmAction.confirmLabel
+                  )}
+                </button>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowInvoice(false)}
-                className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl"
+          </div>,
+          document.body,
+        )}
+
+      {/* INVOICE MODAL (Giữ logic preview cũ, bọc trong UI mới) */}
+      {showInvoice &&
+        createPortal(
+          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4">
+            <div className="bg-white dark:bg-gray-100 rounded-2xl shadow-2xl w-full max-w-lg p-6 relative">
+              <h2 className="text-xl font-bold mb-4 text-gray-900">
+                Xem trước hóa đơn
+              </h2>
+              <div
+                ref={printRef}
+                className="border border-gray-300 p-6 text-sm bg-white text-gray-900 rounded-lg"
               >
-                Đóng
-              </button>
-              <button
-                onClick={handlePrint}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2"
-              >
-                <Printer className="w-4 h-4" /> In hóa đơn
-              </button>
+                <h2 className="text-center text-2xl font-bold mb-2">
+                  HÓA ĐƠN FREESH FRUITS
+                </h2>
+                <p>
+                  <strong>Mã đơn:</strong> {order.code}
+                </p>
+                <p>
+                  <strong>Ngày:</strong>{" "}
+                  {new Date(order.createdAt).toLocaleString()}
+                </p>
+                <p>
+                  <strong>Chi nhánh:</strong> {order.branch?.name || "—"}
+                </p>
+                <hr className="my-3 border-gray-300" />
+                <h3 className="font-bold mb-1">Khách hàng:</h3>
+                <p>
+                  {order.address?.fullName || "—"} -{" "}
+                  {order.address?.phone || "—"}
+                </p>
+                <p>
+                  {order.address
+                    ? `${order.address.addressLine1}, ${order.address.ward}, ${order.address.district}, ${order.address.province}`
+                    : ""}
+                </p>
+                <hr className="my-3 border-gray-300" />
+                <table className="w-full text-sm text-gray-900">
+                  <thead>
+                    <tr className="border-b border-gray-400">
+                      <th className="py-2 text-left">Sản phẩm</th>
+                      <th className="py-2 text-center">SL</th>
+                      <th className="py-2 text-right">Đơn giá</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {order.items.map((item, idx) => (
+                      <tr key={idx} className="border-b border-gray-200">
+                        <td className="py-2">
+                          <div>{item.productTitle}</div>
+                          {item.variantTitle && (
+                            <div className="text-[11px] text-gray-500">
+                              {item.variantTitle}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2 text-center">{item.quantity}</td>
+                        <td className="py-2 text-right">
+                          {(item.price * item.quantity).toLocaleString()} đ
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="mt-4 text-right space-y-1">
+                  <p>Tạm tính: {order.totalPrice.toLocaleString()} đ</p>
+                  <p>Phí ship: {order.shippingFee.toLocaleString()} đ</p>
+                  {order.discountAmount > 0 && (
+                    <p>Giảm giá: -{order.discountAmount.toLocaleString()} đ</p>
+                  )}
+                  <p className="font-bold text-lg mt-2">
+                    Tổng cộng: {getOrderFinalPrice(order).toLocaleString()} đ
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  onClick={() => setShowInvoice(false)}
+                  className="px-5 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-xl"
+                >
+                  Đóng
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl flex items-center gap-2"
+                >
+                  <Printer className="w-4 h-4" /> In hóa đơn
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

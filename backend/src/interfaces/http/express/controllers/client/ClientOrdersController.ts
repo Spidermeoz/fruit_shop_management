@@ -51,7 +51,16 @@ export const makeClientOrdersController = (uc: {
           success: true,
           data: result,
         });
-      } catch (e) {
+      } catch (e: any) {
+        if (e?.code === "CHECKOUT_QUOTE_CHANGED") {
+          return res.status(409).json({
+            success: false,
+            code: e.code,
+            message: e.message,
+            data: e.data ?? null,
+          });
+        }
+
         next(e);
       }
     },

@@ -6,6 +6,57 @@ const normalizeNullableNumber = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const roundMoney = (value: unknown): number =>
+  Math.max(0, Math.round(Number(value ?? 0) * 100) / 100);
+
+const stableStringify = (value: any): string => {
+  if (value === null || value === undefined) return "null";
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
+  }
+  if (typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const buildQuoteFingerprint = (input: {
+  subtotal: number;
+  shippingFee: number;
+  discountAmount: number;
+  shippingDiscountAmount: number;
+  finalPrice: number;
+  fulfillmentType?: string | null;
+  deliveryType?: string | null;
+  deliveryDate?: string | null;
+  selectedBranchId?: number | null;
+  selectedSlotId?: number | null;
+  shippingZoneId?: number | null;
+  promotionCode?: string | null;
+  productVariantIds?: number[];
+}) => {
+  return stableStringify({
+    subtotal: roundMoney(input.subtotal),
+    shippingFee: roundMoney(input.shippingFee),
+    discountAmount: roundMoney(input.discountAmount),
+    shippingDiscountAmount: roundMoney(input.shippingDiscountAmount),
+    finalPrice: roundMoney(input.finalPrice),
+    fulfillmentType: input.fulfillmentType ?? null,
+    deliveryType: input.deliveryType ?? null,
+    deliveryDate: input.deliveryDate ?? null,
+    selectedBranchId: input.selectedBranchId ?? null,
+    selectedSlotId: input.selectedSlotId ?? null,
+    shippingZoneId: input.shippingZoneId ?? null,
+    promotionCode: input.promotionCode ?? null,
+    productVariantIds: Array.isArray(input.productVariantIds)
+      ? [...input.productVariantIds].map(Number).sort((a, b) => a - b)
+      : [],
+  });
+};
+
 export class GetCheckoutQuote {
   constructor(
     private readonly calculateShippingQuoteService: any,
@@ -108,16 +159,61 @@ export class GetCheckoutQuote {
       allowAutoApply: true,
     });
 
+    const discountAmount = Number(promotionResult.discountAmount ?? 0);
+    const shippingDiscountAmount = Number(
+      promotionResult.shippingDiscountAmount ?? 0,
+    );
+    const finalPrice = Number(
+      promotionResult.finalPrice ??
+        Number(quote?.subtotal ?? 0) + Number(quote?.shippingFee ?? 0),
+    );
+
+    const selectedBranchIdForMeta =
+      quote?.selectedBranch?.id !== undefined &&
+      quote?.selectedBranch?.id !== null
+        ? Number(quote.selectedBranch.id)
+        : resolvedBranchId;
+
+    const selectedSlotIdForMeta =
+      quote?.selectedSlot?.id !== undefined && quote?.selectedSlot?.id !== null
+        ? Number(quote.selectedSlot.id)
+        : deliveryTimeSlotId !== undefined && deliveryTimeSlotId !== null
+          ? Number(deliveryTimeSlotId)
+          : null;
+
+    const shippingZoneIdForMeta =
+      quote?.shippingZone?.id !== undefined && quote?.shippingZone?.id !== null
+        ? Number(quote.shippingZone.id)
+        : null;
+
+    const quoteMeta = {
+      fingerprint: buildQuoteFingerprint({
+        subtotal: Number(quote?.subtotal ?? 0),
+        shippingFee: Number(quote?.shippingFee ?? 0),
+        discountAmount,
+        shippingDiscountAmount,
+        finalPrice,
+        fulfillmentType: fulfillmentType ?? null,
+        deliveryType: deliveryType ?? null,
+        deliveryDate: deliveryDate ?? null,
+        selectedBranchId: selectedBranchIdForMeta,
+        selectedSlotId: selectedSlotIdForMeta,
+        shippingZoneId: shippingZoneIdForMeta,
+        promotionCode: promotionResult.promotionCode ?? null,
+        productVariantIds: Array.isArray(productVariantIds)
+          ? productVariantIds.map(Number)
+          : [],
+      }),
+      computedAt: new Date().toISOString(),
+      expiresAt: null,
+      consistencyVersion: 1,
+    };
+
     return {
       ...quote,
-      discountAmount: Number(promotionResult.discountAmount ?? 0),
-      shippingDiscountAmount: Number(
-        promotionResult.shippingDiscountAmount ?? 0,
-      ),
-      finalPrice: Number(
-        promotionResult.finalPrice ??
-          Number(quote?.subtotal ?? 0) + Number(quote?.shippingFee ?? 0),
-      ),
+      discountAmount,
+      shippingDiscountAmount,
+      finalPrice,
       promotionCode: promotionResult.promotionCode ?? null,
       appliedPromotions: Array.isArray(promotionResult.appliedPromotions)
         ? promotionResult.appliedPromotions
@@ -127,6 +223,7 @@ export class GetCheckoutQuote {
         ? promotionResult.messages
         : [],
       selectedBranchId: normalizeNullableNumber(resolvedBranchId),
+      quoteMeta,
     };
   }
 }
