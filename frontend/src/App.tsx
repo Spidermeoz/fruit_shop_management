@@ -50,6 +50,9 @@ import BranchDeliveryTimeSlotEditPage from "./pages/admin/shipping/BranchDeliver
 import BranchDeliverySlotCapacitiesPage from "./pages/admin/shipping/BranchDeliverySlotCapacitiesPage";
 import BranchDeliverySlotCapacityCreatePage from "./pages/admin/shipping/BranchDeliverySlotCapacityCreatePage";
 import BranchDeliverySlotCapacityEditPage from "./pages/admin/shipping/BranchDeliverySlotCapacityEditPage";
+import PromotionsPage from "./pages/admin/promotions/PromotionsPage";
+import PromotionCreatePage from "./pages/admin/promotions/PromotionCreatePage";
+import PromotionEditPage from "./pages/admin/promotions/PromotionEditPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -217,6 +220,15 @@ const AdminShell: React.FC = () => {
                   path="orders/edit/:id"
                   element={<OrderWorkspacePage />}
                 />
+                  <Route path="promotions" element={<PromotionsPage />} />
+                  <Route
+                    path="promotions/create"
+                    element={<PromotionCreatePage />}
+                  />
+                  <Route
+                    path="promotions/edit/:id"
+                    element={<PromotionEditPage />}
+                  />
                 <Route
                   path="settings/general"
                   element={<SettingsGeneralPage />}

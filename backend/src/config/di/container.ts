@@ -31,6 +31,14 @@ import BranchServiceAreaModel from "../../infrastructure/db/sequelize/models/Bra
 import DeliveryTimeSlotModel from "../../infrastructure/db/sequelize/models/DeliveryTimeSlotModel";
 import BranchDeliveryTimeSlotModel from "../../infrastructure/db/sequelize/models/BranchDeliveryTimeSlotModel";
 import BranchDeliverySlotCapacityModel from "../../infrastructure/db/sequelize/models/BranchDeliverySlotCapacityModel";
+import PromotionModel from "../../infrastructure/db/sequelize/models/PromotionModel";
+import PromotionCodeModel from "../../infrastructure/db/sequelize/models/PromotionCodeModel";
+import PromotionUsageModel from "../../infrastructure/db/sequelize/models/PromotionUsageModel";
+import PromotionProductModel from "../../infrastructure/db/sequelize/models/PromotionProductModel";
+import PromotionCategoryModel from "../../infrastructure/db/sequelize/models/PromotionCategoryModel";
+import PromotionVariantModel from "../../infrastructure/db/sequelize/models/PromotionVariantModel";
+import PromotionOriginModel from "../../infrastructure/db/sequelize/models/PromotionOriginModel";
+import PromotionBranchModel from "../../infrastructure/db/sequelize/models/PromotionBranchModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -51,6 +59,7 @@ import { SequelizeDeliveryTimeSlotRepository } from "../../infrastructure/reposi
 import { SequelizeBranchServiceAreaRepository } from "../../infrastructure/repositories/SequelizeBranchServiceAreaRepository";
 import { SequelizeBranchDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeBranchDeliveryTimeSlotRepository";
 import { SequelizeBranchDeliverySlotCapacityRepository } from "../../infrastructure/repositories/SequelizeBranchDeliverySlotCapacityRepository";
+import { SequelizePromotionRepository } from "../../infrastructure/repositories/SequelizePromotionRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -233,6 +242,18 @@ import { EditBranchDeliverySlotCapacity } from "../../application/shipping/useca
 import { ChangeBranchDeliverySlotCapacityStatus } from "../../application/shipping/usecases/ChangeBranchDeliverySlotCapacityStatus";
 import { SoftDeleteBranchDeliverySlotCapacity } from "../../application/shipping/usecases/SoftDeleteBranchDeliverySlotCapacity";
 
+// ===== Promotion usecases =====
+import { ValidatePromotionCodeService } from "../../application/promotions/services/ValidatePromotionCodeService";
+import { EvaluatePromotionService } from "../../application/promotions/services/EvaluatePromotionService";
+import { ListPromotions } from "../../application/promotions/usecases/ListPromotions";
+import { GetPromotionDetail } from "../../application/promotions/usecases/GetPromotionDetail";
+import { CreatePromotion } from "../../application/promotions/usecases/CreatePromotion";
+import { EditPromotion } from "../../application/promotions/usecases/EditPromotion";
+import { ChangePromotionStatus } from "../../application/promotions/usecases/ChangePromotionStatus";
+import { SoftDeletePromotion } from "../../application/promotions/usecases/SoftDeletePromotion";
+import { ValidatePromotionCode } from "../../application/promotions/usecases/ValidatePromotionCode";
+import { ListPromotionUsages } from "../../application/promotions/usecases/ListPromotionUsages";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -290,6 +311,10 @@ import { makeBranchDeliveryTimeSlotsController } from "../../interfaces/http/exp
 import type { BranchDeliveryTimeSlotsController } from "../../interfaces/http/express/controllers/BranchDeliveryTimeSlotsController";
 import { makeBranchDeliverySlotCapacitiesController } from "../../interfaces/http/express/controllers/BranchDeliverySlotCapacitiesController";
 import type { BranchDeliverySlotCapacitiesController } from "../../interfaces/http/express/controllers/BranchDeliverySlotCapacitiesController";
+import {
+  makePromotionsController,
+  type PromotionsController,
+} from "../../interfaces/http/express/controllers/PromotionsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -688,6 +713,86 @@ ProductReviewModel.hasMany(ProductReviewModel, {
   as: "replies",
   foreignKey: "parent_id",
 });
+PromotionModel.hasMany(PromotionCodeModel, {
+  as: "codes",
+  foreignKey: "promotion_id",
+});
+PromotionCodeModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionModel.hasMany(PromotionUsageModel, {
+  as: "usages",
+  foreignKey: "promotion_id",
+});
+PromotionUsageModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionCodeModel.hasMany(PromotionUsageModel, {
+  as: "usages",
+  foreignKey: "promotion_code_id",
+});
+PromotionUsageModel.belongsTo(PromotionCodeModel, {
+  as: "promotionCode",
+  foreignKey: "promotion_code_id",
+});
+OrderModel.hasMany(PromotionUsageModel, {
+  as: "promotionUsages",
+  foreignKey: "order_id",
+});
+PromotionUsageModel.belongsTo(OrderModel, {
+  as: "order",
+  foreignKey: "order_id",
+});
+UserModel.hasMany(PromotionUsageModel, {
+  as: "promotionUsages",
+  foreignKey: "user_id",
+});
+PromotionUsageModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+PromotionModel.hasMany(PromotionProductModel, {
+  as: "promotionProducts",
+  foreignKey: "promotion_id",
+});
+PromotionProductModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionModel.hasMany(PromotionCategoryModel, {
+  as: "promotionCategories",
+  foreignKey: "promotion_id",
+});
+PromotionCategoryModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionModel.hasMany(PromotionVariantModel, {
+  as: "promotionVariants",
+  foreignKey: "promotion_id",
+});
+PromotionVariantModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionModel.hasMany(PromotionOriginModel, {
+  as: "promotionOrigins",
+  foreignKey: "promotion_id",
+});
+PromotionOriginModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
+PromotionModel.hasMany(PromotionBranchModel, {
+  as: "promotionBranches",
+  foreignKey: "promotion_id",
+});
+PromotionBranchModel.belongsTo(PromotionModel, {
+  as: "promotion",
+  foreignKey: "promotion_id",
+});
 
 // ===== Models & Repos =====
 const productModels = {
@@ -854,6 +959,28 @@ const productTagRepo = new SequelizeProductTagRepository(ProductTagModel);
 const productTagGroupRepo = new SequelizeProductTagGroupRepository(
   ProductTagGroupModel,
   ProductTagModel,
+);
+
+const promotionModels = {
+  Promotion: PromotionModel,
+  PromotionCode: PromotionCodeModel,
+  PromotionUsage: PromotionUsageModel,
+  PromotionProduct: PromotionProductModel,
+  PromotionCategory: PromotionCategoryModel,
+  PromotionVariant: PromotionVariantModel,
+  PromotionOrigin: PromotionOriginModel,
+  PromotionBranch: PromotionBranchModel,
+};
+
+const promotionRepo = new SequelizePromotionRepository(promotionModels);
+
+const validatePromotionCodeService = new ValidatePromotionCodeService(
+  promotionRepo,
+);
+
+const evaluatePromotionService = new EvaluatePromotionService(
+  promotionRepo,
+  validatePromotionCodeService,
 );
 
 // ===== Usecases =====
@@ -1032,13 +1159,20 @@ export const usecases = {
   },
 
   orders: {
-    quoteCheckout: new GetCheckoutQuote(calculateShippingQuoteService),
+    quoteCheckout: new GetCheckoutQuote(
+      calculateShippingQuoteService,
+      cartRepo,
+      evaluatePromotionService,
+    ),
     createFromCart: new CreateOrderFromCart(
       orderRepo,
       cartRepo,
       productRepo,
       inventoryRepo,
       calculateShippingQuoteService,
+      evaluatePromotionService,
+      validatePromotionCodeService,
+      promotionRepo,
     ),
     myOrders: new GetMyOrders(orderRepo),
     myOrderDetail: new GetMyOrderDetail(orderRepo),
@@ -1099,6 +1233,17 @@ export const usecases = {
     transfer: new TransferInventoryStock(inventoryRepo, productRepo, sequelize),
     listTransactions: new ListInventoryTransactions(inventoryRepo),
   },
+
+  promotions: {
+    list: new ListPromotions(promotionRepo),
+    detail: new GetPromotionDetail(promotionRepo),
+    create: new CreatePromotion(promotionRepo),
+    edit: new EditPromotion(promotionRepo),
+    changeStatus: new ChangePromotionStatus(promotionRepo),
+    softDelete: new SoftDeletePromotion(promotionRepo),
+    validateCode: new ValidatePromotionCode(validatePromotionCodeService),
+    listUsages: new ListPromotionUsages(promotionRepo),
+  },
 };
 
 // ===== Controllers =====
@@ -1122,6 +1267,7 @@ type Controllers = {
   productTags: ProductTagsController;
   productTagGroups: ProductTagGroupsController;
   inventory: InventoryController;
+  promotions: PromotionsController;
 };
 
 export const controllers: Controllers = {
@@ -1189,6 +1335,17 @@ export const controllers: Controllers = {
     edit: usecases.shippingZones.edit,
     changeStatus: usecases.shippingZones.changeStatus,
     softDelete: usecases.shippingZones.softDelete,
+  }),
+
+  promotions: makePromotionsController({
+    list: usecases.promotions.list,
+    detail: usecases.promotions.detail,
+    create: usecases.promotions.create,
+    edit: usecases.promotions.edit,
+    changeStatus: usecases.promotions.changeStatus,
+    softDelete: usecases.promotions.softDelete,
+    validateCode: usecases.promotions.validateCode,
+    listUsages: usecases.promotions.listUsages,
   }),
 
   branchServiceAreas: makeBranchServiceAreasController({

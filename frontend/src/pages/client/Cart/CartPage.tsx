@@ -44,6 +44,7 @@ const CartPage: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [qtyInputs, setQtyInputs] = useState<Record<number, number>>({});
+  const [promotionCode, setPromotionCode] = useState("");
 
   const { showErrorToast } = useToast();
 
@@ -146,7 +147,12 @@ const CartPage: React.FC = () => {
       );
       return;
     }
-    navigate("/checkout", { state: { selectedItems } });
+    navigate("/checkout", {
+      state: {
+        selectedItems,
+        promotionCode: promotionCode.trim().toUpperCase() || null,
+      },
+    });
   };
 
   return (
@@ -468,6 +474,26 @@ const CartPage: React.FC = () => {
                         </span>
                         Tóm tắt đơn hàng
                       </h3>
+
+                      <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                          Mã khuyến mãi
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500 font-medium">
+                          Bạn có thể nhập trước và hệ thống sẽ áp ở bước thanh
+                          toán.
+                        </p>
+
+                        <input
+                          type="text"
+                          value={promotionCode}
+                          onChange={(e) =>
+                            setPromotionCode(e.target.value.toUpperCase())
+                          }
+                          placeholder="VD: FREESHIP50"
+                          className="mt-3 w-full px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 font-semibold text-slate-900"
+                        />
+                      </div>
 
                       {selectedItems.length === 0 ? (
                         <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 border-dashed mb-6">

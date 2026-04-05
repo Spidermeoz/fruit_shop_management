@@ -12,6 +12,9 @@ export class CreateOrderFromCart {
     private readonly productRepo: any,
     private readonly inventoryRepo: any,
     private readonly calculateShippingQuoteService: any,
+    private readonly evaluatePromotionService: any,
+    private readonly validatePromotionCodeService: any,
+    private readonly promotionRepo: any,
   ) {}
 
   async execute(userId: number, payload: any) {
@@ -26,6 +29,7 @@ export class CreateOrderFromCart {
       deliveryNote: rawDeliveryNote,
       userInfo,
       paymentMethod,
+      promotionCode,
     } = payload ?? {};
 
     const requestedBranchId =
@@ -134,6 +138,29 @@ export class CreateOrderFromCart {
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
       throw new Error("Không tìm thấy sản phẩm trong giỏ hàng");
     }
+
+    const promotionCartItems = cartItems.map((i: any) => ({
+      productId: i.productId ?? null,
+      categoryId: i.product?.categoryId ?? i.product?.productCategoryId ?? null,
+      originId: i.product?.originId ?? null,
+      productVariantId: i.productVariantId ?? null,
+      quantity: Number(i.quantity ?? 0),
+      unitPrice: Number(i.variant?.price ?? i.price ?? 0),
+      lineSubtotal:
+        Number(i.quantity ?? 0) * Number(i.variant?.price ?? i.price ?? 0),
+      title: i.product?.title ?? i.title ?? null,
+      variantTitle: i.variant?.title ?? i.variantTitle ?? null,
+    }));
+
+    const promotionResult = await this.evaluatePromotionService.execute({
+      userId,
+      branchId: resolvedBranchId,
+      promotionCode: promotionCode ?? null,
+      subtotal: Number(quote.subtotal ?? 0),
+      shippingFee: Number(quote.shippingFee ?? 0),
+      cartItems: promotionCartItems,
+      allowAutoApply: true,
+    });
 
     const transaction = await this.orderRepo.startTransaction();
 
@@ -267,7 +294,12 @@ export class CreateOrderFromCart {
                   notes: deliveryNote ?? "",
                 },
           shippingFee: Number(quote.shippingFee ?? 0),
-          discountAmount: Number(quote.discountAmount ?? 0),
+          discountAmount: Number(promotionResult.discountAmount ?? 0),
+          shippingDiscountAmount: Number(
+            promotionResult.shippingDiscountAmount ?? 0,
+          ),
+          promotionCode: promotionResult.promotionCode ?? null,
+          promotionSnapshot: promotionResult.promotionSnapshotJson ?? null,
           totalPrice: Number(quote.subtotal ?? 0),
           userInfo: {
             ...(userInfo ?? {}),
@@ -276,6 +308,34 @@ export class CreateOrderFromCart {
         },
         transaction,
       );
+
+      const appliedPromotion = Array.isArray(promotionResult.appliedPromotions)
+        ? promotionResult.appliedPromotions[0]
+        : null;
+
+      if (appliedPromotion && appliedPromotion.promotionId) {
+        await this.promotionRepo.createUsage(
+          {
+            promotionId: Number(appliedPromotion.promotionId),
+            promotionCodeId: appliedPromotion.promotionCodeId ?? null,
+            orderId: Number(order.props.id),
+            userId,
+            discountAmount: Number(appliedPromotion.discountAmount ?? 0),
+            shippingDiscountAmount: Number(
+              appliedPromotion.shippingDiscountAmount ?? 0,
+            ),
+            snapshotJson: promotionResult.promotionSnapshotJson ?? null,
+          },
+          transaction,
+        );
+
+        if (appliedPromotion.promotionCodeId) {
+          await this.promotionRepo.incrementCodeUsage(
+            Number(appliedPromotion.promotionCodeId),
+            transaction,
+          );
+        }
+      }
 
       for (const item of cartItems) {
         await this.inventoryRepo.decreaseStock(
@@ -319,6 +379,9 @@ export class CreateOrderFromCart {
         discountAmount: Number(order.props.discountAmount ?? 0),
         totalPrice: Number(order.props.totalPrice ?? 0),
         finalPrice: Number(order.props.finalPrice ?? 0),
+        shippingDiscountAmount: Number(order.props.shippingDiscountAmount ?? 0),
+        promotionCode: order.props.promotionCode ?? null,
+        promotionSnapshot: order.props.promotionSnapshot ?? null,
       };
     } catch (err) {
       await transaction.rollback();

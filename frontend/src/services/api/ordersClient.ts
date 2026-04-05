@@ -33,6 +33,7 @@ export interface CheckoutQuotePayload {
     postalCode?: string;
     notes?: string;
   } | null;
+  promotionCode?: string | null;
 }
 
 export interface CheckoutPayload extends CheckoutQuotePayload {
@@ -75,7 +76,41 @@ export async function getCheckoutQuote(
     subtotal: Number(res.data?.subtotal ?? 0),
     shippingFee: Number(res.data?.shippingFee ?? 0),
     discountAmount: Number(res.data?.discountAmount ?? 0),
+    shippingDiscountAmount: Number(res.data?.shippingDiscountAmount ?? 0),
     finalPrice: Number(res.data?.finalPrice ?? 0),
+    promotionCode: res.data?.promotionCode ?? null,
+    appliedPromotions: Array.isArray(res.data?.appliedPromotions)
+      ? res.data.appliedPromotions.map((item: any) => ({
+          promotionId: Number(item.promotionId),
+          promotionName: item.promotionName ?? "",
+          promotionScope: item.promotionScope ?? "order",
+          discountType: item.discountType ?? "fixed",
+          discountValue: Number(item.discountValue ?? 0),
+          promotionCodeId:
+            item.promotionCodeId !== undefined && item.promotionCodeId !== null
+              ? Number(item.promotionCodeId)
+              : null,
+          promotionCode: item.promotionCode ?? null,
+          discountAmount: Number(item.discountAmount ?? 0),
+          shippingDiscountAmount: Number(item.shippingDiscountAmount ?? 0),
+          affectedProductIds: Array.isArray(item.affectedProductIds)
+            ? item.affectedProductIds.map((x: any) => Number(x))
+            : [],
+          affectedVariantIds: Array.isArray(item.affectedVariantIds)
+            ? item.affectedVariantIds.map((x: any) => Number(x))
+            : [],
+          affectedCategoryIds: Array.isArray(item.affectedCategoryIds)
+            ? item.affectedCategoryIds.map((x: any) => Number(x))
+            : [],
+          affectedOriginIds: Array.isArray(item.affectedOriginIds)
+            ? item.affectedOriginIds.map((x: any) => Number(x))
+            : [],
+        }))
+      : [],
+    promotionSnapshotJson: res.data?.promotionSnapshotJson ?? null,
+    promotionMessages: Array.isArray(res.data?.promotionMessages)
+      ? res.data.promotionMessages
+      : [],
     shippingZone: res.data?.shippingZone
       ? {
           id: Number(res.data.shippingZone.id),

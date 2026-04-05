@@ -38,6 +38,8 @@ export interface OrderItemProps {
   variantSku?: string | null;
   variantLabel?: string | null;
   optionSummary?: string | null;
+  lineDiscountAmount?: number;
+  promotionSnapshot?: Record<string, any> | null;
   price: number;
   quantity: number;
   thumbnail?: string | null;
@@ -81,6 +83,9 @@ export interface OrderProps {
   discountAmount: number;
   totalPrice: number;
   finalPrice: number;
+  shippingDiscountAmount: number;
+  promotionCode?: string | null;
+  promotionSnapshot?: Record<string, any> | null;
   trackingToken: string;
   inventoryApplied: boolean;
   userInfo?: any | null;

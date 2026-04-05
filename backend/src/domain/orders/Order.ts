@@ -43,6 +43,18 @@ export class Order {
     return this.props.branchId;
   }
 
+  get shippingDiscountAmount() {
+    return this.props.shippingDiscountAmount;
+  }
+
+  get promotionCode() {
+    return this.props.promotionCode ?? null;
+  }
+
+  get promotionSnapshot() {
+    return this.props.promotionSnapshot ?? null;
+  }
+
   get fulfillmentType() {
     return this.props.fulfillmentType;
   }

@@ -135,6 +135,13 @@ const CheckoutPage: React.FC = () => {
   const [quote, setQuote] = useState<CheckoutQuote | any>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteError, setQuoteError] = useState<string>("");
+  const [promotionCode, setPromotionCode] = useState<string>(
+    location.state?.promotionCode || "",
+  );
+  const [promotionInput, setPromotionInput] = useState<string>(
+    location.state?.promotionCode || "",
+  );
+  const [promotionTouched, setPromotionTouched] = useState(false);
 
   const [availableSlots, setAvailableSlots] = useState<DeliverySlotSummary[]>(
     [],
@@ -350,7 +357,18 @@ const CheckoutPage: React.FC = () => {
 
   const shippingFee = Number(quote?.shippingFee ?? 0);
   const discountAmount = Number(quote?.discountAmount ?? 0);
+  const shippingDiscountAmount = Number(quote?.shippingDiscountAmount ?? 0);
   const total = Number(quote?.finalPrice ?? subtotal);
+
+  const appliedPromotions = Array.isArray(quote?.appliedPromotions)
+    ? quote.appliedPromotions
+    : [];
+
+  const promotionMessages = Array.isArray(quote?.promotionMessages)
+    ? quote.promotionMessages
+    : [];
+
+  const activePromotionCode = quote?.promotionCode ?? promotionCode ?? null;
 
   const selectedBranch = useMemo(() => {
     return branches.find((b) => b.id === selectedBranchId) || null;
@@ -370,6 +388,7 @@ const CheckoutPage: React.FC = () => {
     deliveryDate: fulfillmentType === "delivery" ? deliveryDate || null : null,
     deliveryTimeSlotId:
       fulfillmentType === "delivery" ? (deliveryTimeSlotId ?? null) : null,
+    promotionCode: promotionCode.trim() || null,
     address:
       fulfillmentType === "pickup"
         ? {
@@ -397,6 +416,25 @@ const CheckoutPage: React.FC = () => {
             notes: orderInfo.note.trim(),
           },
   });
+
+  const handleApplyPromotion = () => {
+    const normalized = promotionInput.trim().toUpperCase();
+
+    if (!normalized) {
+      setPromotionCode("");
+      setPromotionTouched(true);
+      return;
+    }
+
+    setPromotionCode(normalized);
+    setPromotionTouched(true);
+  };
+
+  const handleClearPromotion = () => {
+    setPromotionInput("");
+    setPromotionCode("");
+    setPromotionTouched(true);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -495,6 +533,7 @@ const CheckoutPage: React.FC = () => {
     orderInfo.district,
     orderInfo.ward,
     orderInfo.address,
+    promotionCode,
   ]);
 
   useEffect(() => {
@@ -1679,6 +1718,100 @@ const CheckoutPage: React.FC = () => {
                   ))}
                 </div>
 
+                <div className="mb-5 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Mã khuyến mãi
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-slate-600">
+                        Nhập coupon để áp giảm giá hoặc freeship
+                      </p>
+                    </div>
+
+                    {activePromotionCode ? (
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 text-xs font-bold border border-emerald-200">
+                        Đã áp mã
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promotionInput}
+                      onChange={(e) =>
+                        setPromotionInput(e.target.value.toUpperCase())
+                      }
+                      placeholder="VD: FREESHIP50"
+                      className="flex-1 px-4 py-3 rounded-2xl border border-slate-200 bg-white focus:outline-none focus:ring-4 focus:ring-green-500/10 focus:border-green-500 font-semibold text-slate-900"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={handleApplyPromotion}
+                      className="px-4 py-3 rounded-2xl bg-slate-900 text-white font-bold hover:bg-green-700 transition-all"
+                    >
+                      Áp mã
+                    </button>
+                  </div>
+
+                  {(promotionTouched || activePromotionCode) && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      {activePromotionCode ? (
+                        <span className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-sm font-bold text-slate-900">
+                          {activePromotionCode}
+                        </span>
+                      ) : null}
+
+                      {activePromotionCode ? (
+                        <button
+                          type="button"
+                          onClick={handleClearPromotion}
+                          className="text-sm font-bold text-red-500 hover:text-red-600"
+                        >
+                          Xóa mã
+                        </button>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {promotionMessages.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {promotionMessages.map((msg: string, idx: number) => (
+                        <div
+                          key={`${msg}-${idx}`}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600"
+                        >
+                          {msg}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {appliedPromotions.length > 0 && (
+                  <div className="mb-4 flex flex-wrap gap-2">
+                    {appliedPromotions.map((promo: any) => (
+                      <div
+                        key={`${promo.promotionId}-${promo.promotionCode || "auto"}`}
+                        className="px-3 py-2 rounded-2xl bg-green-50 border border-green-200 text-sm"
+                      >
+                        <p className="font-bold text-green-700">
+                          {promo.promotionName}
+                        </p>
+                        <p className="text-green-600 text-xs mt-0.5">
+                          {promo.promotionScope === "shipping"
+                            ? `Giảm ship ${Number(
+                                promo.shippingDiscountAmount ?? 0,
+                              ).toLocaleString()} đ`
+                            : `Giảm ${Number(promo.discountAmount ?? 0).toLocaleString()} đ`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 {quoteLoading && (
                   <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500 font-medium">
                     Đang tính phí vận chuyển...
@@ -1710,7 +1843,7 @@ const CheckoutPage: React.FC = () => {
 
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-sm text-slate-600">
-                      <span>Giảm giá</span>
+                      <span>Giảm giá sản phẩm / đơn hàng</span>
                       <span className="font-bold text-slate-900">
                         -{discountAmount.toLocaleString()} đ
                       </span>
@@ -1723,6 +1856,15 @@ const CheckoutPage: React.FC = () => {
                       {shippingFee.toLocaleString()} đ
                     </span>
                   </div>
+
+                  {shippingDiscountAmount > 0 && (
+                    <div className="flex justify-between text-sm text-slate-600">
+                      <span>Giảm phí vận chuyển</span>
+                      <span className="font-bold text-slate-900">
+                        -{shippingDiscountAmount.toLocaleString()} đ
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-end pt-4 border-t border-slate-100">
                     <span className="text-sm font-bold uppercase tracking-wider text-slate-400">

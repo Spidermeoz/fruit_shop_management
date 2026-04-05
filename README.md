@@ -282,6 +282,19 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ListProducts.ts
 │   │   │   │   │   └── 📄 SoftDeleteProduct.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 promotions
+│   │   │   │   ├── 📁 services
+│   │   │   │   │   ├── 📄 EvaluatePromotionService.ts
+│   │   │   │   │   └── 📄 ValidatePromotionCodeService.ts
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 ChangePromotionStatus.ts
+│   │   │   │       ├── 📄 CreatePromotion.ts
+│   │   │   │       ├── 📄 EditPromotion.ts
+│   │   │   │       ├── 📄 GetPromotionDetail.ts
+│   │   │   │       ├── 📄 ListPromotionUsages.ts
+│   │   │   │       ├── 📄 ListPromotions.ts
+│   │   │   │       ├── 📄 SoftDeletePromotion.ts
+│   │   │   │       └── 📄 ValidatePromotionCode.ts
 │   │   │   ├── 📁 reviews
 │   │   │   │   └── 📁 usecases
 │   │   │   │       ├── 📄 CheckReviewed.ts
@@ -387,6 +400,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 ProductTagRepository.ts
 │   │   │   │   ├── 📄 Products.ts
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 promotions
+│   │   │   │   ├── 📄 Promotion.ts
+│   │   │   │   ├── 📄 PromotionRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 reviews
 │   │   │   │   └── 📄 ReviewRepository.ts
 │   │   │   ├── 📁 roles
@@ -444,6 +461,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 ProductTagModel.ts
 │   │   │   │       │   ├── 📄 ProductVariantModel.ts
 │   │   │   │       │   ├── 📄 ProductVariantValueModel.ts
+│   │   │   │       │   ├── 📄 PromotionBranchModel.ts
+│   │   │   │       │   ├── 📄 PromotionCategoryModel.ts
+│   │   │   │       │   ├── 📄 PromotionCodeModel.ts
+│   │   │   │       │   ├── 📄 PromotionModel.ts
+│   │   │   │       │   ├── 📄 PromotionOriginModel.ts
+│   │   │   │       │   ├── 📄 PromotionProductModel.ts
+│   │   │   │       │   ├── 📄 PromotionUsageModel.ts
+│   │   │   │       │   ├── 📄 PromotionVariantModel.ts
 │   │   │   │       │   ├── 📄 RoleModel.ts
 │   │   │   │       │   ├── 📄 SettingGeneralModel.ts
 │   │   │   │       │   ├── 📄 ShippingZoneModel.ts
@@ -466,6 +491,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeProductRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagGroupRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagRepository.ts
+│   │   │   │   ├── 📄 SequelizePromotionRepository.ts
 │   │   │   │   ├── 📄 SequelizeReviewRepository.ts
 │   │   │   │   ├── 📄 SequelizeRoleRepository.ts
 │   │   │   │   ├── 📄 SequelizeSettingGeneralRepository.ts
@@ -502,6 +528,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 ProductTagGroupsController.ts
 │   │   │           │   ├── 📄 ProductTagsController.ts
 │   │   │           │   ├── 📄 ProductsController.ts
+│   │   │           │   ├── 📄 PromotionsController.ts
 │   │   │           │   ├── 📄 RolesController.ts
 │   │   │           │   ├── 📄 SettingsGeneralController.ts
 │   │   │           │   ├── 📄 ShippingZonesController.ts
@@ -537,6 +564,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 productTagGroups.routes.ts
 │   │   │               ├── 📄 productTags.routes.ts
 │   │   │               ├── 📄 products.routes.ts
+│   │   │               ├── 📄 promotions.routes.ts
 │   │   │               ├── 📄 roles.routes.ts
 │   │   │               ├── 📄 shippingZones.routes.ts
 │   │   │               ├── 📄 upload.routes.ts
@@ -592,37 +620,37 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   └── 📄 useTheme.ts
 │   │   ├── 📁 pages
 │   │   │   ├── 📁 admin
+│   │   │   │   ├── 📁 auth
+│   │   │   │   │   └── 📄 LoginPageAdmin.tsx
 │   │   │   │   ├── 📁 branches
 │   │   │   │   │   ├── 📄 BranchCreatePage.tsx
-│   │   │   │   │   ├── 📄 BranchDetailPage.tsx
 │   │   │   │   │   ├── 📄 BranchEditPage.tsx
 │   │   │   │   │   └── 📄 BranchesPage.tsx
 │   │   │   │   ├── 📁 categories
 │   │   │   │   │   ├── 📄 ProductCategoryCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductCategoryDetailPage.tsx
 │   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
+│   │   │   │   ├── 📁 dashboard
+│   │   │   │   │   └── 📄 DashboardPage.tsx
 │   │   │   │   ├── 📁 inventory
 │   │   │   │   │   ├── 📄 InventoryPage.tsx
 │   │   │   │   │   └── 📄 InventoryTransactionHistoryPage.tsx
 │   │   │   │   ├── 📁 orders
-│   │   │   │   │   ├── 📄 OrderDeliveryTimelinePage.tsx
-│   │   │   │   │   ├── 📄 OrdersDetailPageAdmin.tsx
+│   │   │   │   │   ├── 📄 OrderWorkspacePage.tsx
 │   │   │   │   │   └── 📄 OrdersPage.tsx
 │   │   │   │   ├── 📁 origins
-│   │   │   │   │   ├── 📄 ProductOriginCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductOriginDetailPage.tsx
-│   │   │   │   │   ├── 📄 ProductOriginEditPage.tsx
 │   │   │   │   │   └── 📄 ProductOriginPage.tsx
 │   │   │   │   ├── 📁 products
 │   │   │   │   │   ├── 📄 ProductCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductDetailPage.tsx
 │   │   │   │   │   ├── 📄 ProductEditPage.tsx
 │   │   │   │   │   └── 📄 ProductsPage.tsx
+│   │   │   │   ├── 📁 promotions
+│   │   │   │   │   ├── 📄 PromotionCreatePage.tsx
+│   │   │   │   │   ├── 📄 PromotionEditPage.tsx
+│   │   │   │   │   └── 📄 PromotionsPage.tsx
 │   │   │   │   ├── 📁 roles
 │   │   │   │   │   ├── 📄 PermissionsPage.tsx
 │   │   │   │   │   ├── 📄 RoleCreatePage.tsx
-│   │   │   │   │   ├── 📄 RoleDetailPage.tsx
 │   │   │   │   │   ├── 📄 RoleEditPage.tsx
 │   │   │   │   │   └── 📄 RolesPage.tsx
 │   │   │   │   ├── 📁 settings
@@ -630,49 +658,33 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📁 shipping
 │   │   │   │   │   ├── 📄 BranchDeliverySlotCapacitiesPage.tsx
 │   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityCreatePage.tsx
-│   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityDetailPage.tsx
 │   │   │   │   │   ├── 📄 BranchDeliverySlotCapacityEditPage.tsx
 │   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotCreatePage.tsx
-│   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotDetailPage.tsx
 │   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotEditPage.tsx
 │   │   │   │   │   ├── 📄 BranchDeliveryTimeSlotsPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreaCreatePage.tsx
-│   │   │   │   │   ├── 📄 BranchServiceAreaDetailPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreaEditPage.tsx
 │   │   │   │   │   ├── 📄 BranchServiceAreasPage.tsx
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotCreatePage.tsx
-│   │   │   │   │   ├── 📄 DeliveryTimeSlotDetailPage.tsx
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotEditPage.tsx
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotsPage.tsx
+│   │   │   │   │   ├── 📄 ShippingDashboardPage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneCreatePage.tsx
-│   │   │   │   │   ├── 📄 ShippingZoneDetailPage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneEditPage.tsx
 │   │   │   │   │   └── 📄 ShippingZonesPage.tsx
 │   │   │   │   ├── 📁 tags
 │   │   │   │   │   └── 📄 ProductTagPage.tsx
-│   │   │   │   ├── 📁 users
-│   │   │   │   │   ├── 📁 customers
-│   │   │   │   │   │   ├── 📄 CustomerCreatePage.tsx
-│   │   │   │   │   │   ├── 📄 CustomerDetailPage.tsx
-│   │   │   │   │   │   ├── 📄 CustomerEditPage.tsx
-│   │   │   │   │   │   └── 📄 CustomersPage.tsx
-│   │   │   │   │   ├── 📁 internal
-│   │   │   │   │   │   ├── 📄 InternalUserCreatePage.tsx
-│   │   │   │   │   │   ├── 📄 InternalUserDetailPage.tsx
-│   │   │   │   │   │   ├── 📄 InternalUserEditPage.tsx
-│   │   │   │   │   │   └── 📄 InternalUsersPage.tsx
-│   │   │   │   │   ├── 📁 shared
-│   │   │   │   │   │   ├── 📄 UserAvatarField.tsx
-│   │   │   │   │   │   ├── 📄 UserBranchAssignment.tsx
-│   │   │   │   │   │   ├── 📄 UserStatusField.tsx
-│   │   │   │   │   │   ├── 📄 userApi.ts
-│   │   │   │   │   │   └── 📄 userMappers.ts
-│   │   │   │   │   ├── 📄 UserCreatePage.tsx
-│   │   │   │   │   ├── 📄 UserDetailPage.tsx
-│   │   │   │   │   ├── 📄 UserEditPage.tsx
-│   │   │   │   │   └── 📄 UsersPage.tsx
-│   │   │   │   ├── 📄 DashboardPage.tsx
-│   │   │   │   └── 📄 LoginPageAdmin.tsx
+│   │   │   │   └── 📁 users
+│   │   │   │       ├── 📁 shared
+│   │   │   │       │   ├── 📄 UserAvatarField.tsx
+│   │   │   │       │   ├── 📄 UserBranchAssignment.tsx
+│   │   │   │       │   ├── 📄 UserStatusField.tsx
+│   │   │   │       │   ├── 📄 userApi.ts
+│   │   │   │       │   └── 📄 userMappers.ts
+│   │   │   │       ├── 📄 UserCreatePage.tsx
+│   │   │   │       ├── 📄 UserEditPage.tsx
+│   │   │   │       ├── 📄 UsersHubPage.tsx
+│   │   │   │       └── 📄 UsersPage.tsx
 │   │   │   └── 📁 client
 │   │   │       ├── 📁 Auth
 │   │   │       │   ├── 📄 ForgotPasswordPage.tsx

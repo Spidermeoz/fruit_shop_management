@@ -51,6 +51,9 @@ export interface OrderRepository {
       shippingZoneName?: string | null;
       deliveryNote?: string | null;
       items: OrderCreateItemInput[];
+      shippingDiscountAmount?: number;
+      promotionCode?: string | null;
+      promotionSnapshot?: Record<string, any> | null;
       address: any;
       shippingFee: number;
       discountAmount: number;

@@ -41,11 +41,32 @@ export interface QuoteBranchSummary {
   supportsDelivery?: boolean;
 }
 
+export interface AppliedPromotionSummary {
+  promotionId: number;
+  promotionName: string;
+  promotionScope?: "order" | "shipping" | string;
+  discountType?: "fixed" | "percent" | "free_shipping" | string;
+  discountValue?: number;
+  promotionCodeId?: number | null;
+  promotionCode?: string | null;
+  discountAmount: number;
+  shippingDiscountAmount: number;
+  affectedProductIds?: number[];
+  affectedVariantIds?: number[];
+  affectedCategoryIds?: number[];
+  affectedOriginIds?: number[];
+}
+
 export interface CheckoutQuote {
   subtotal: number;
   shippingFee: number;
   discountAmount: number;
+  shippingDiscountAmount?: number;
   finalPrice: number;
+  promotionCode?: string | null;
+  appliedPromotions?: AppliedPromotionSummary[];
+  promotionSnapshotJson?: Record<string, any> | null;
+  promotionMessages?: string[];
   shippingZone: {
     id: number;
     code?: string | null;
@@ -98,6 +119,9 @@ export interface Order {
   final_price: number;
   total_price?: number;
   discount_amount?: number;
+  shipping_discount_amount?: number;
+  promotion_code?: string | null;
+  promotion_snapshot_json?: Record<string, any> | null;
   shipping_fee?: number;
   status: string;
   payment_status?: string;
@@ -159,6 +183,9 @@ export interface ClientOrder {
   finalPrice: number;
   totalPrice?: number;
   discountAmount?: number;
+  shippingDiscountAmount?: number;
+  promotionCode?: string | null;
+  promotionSnapshot?: Record<string, any> | null;
   shippingFee?: number;
   paymentStatus?: string;
   status: string;

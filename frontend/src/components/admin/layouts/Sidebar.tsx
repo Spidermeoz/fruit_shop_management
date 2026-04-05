@@ -24,6 +24,7 @@ import {
   Clock3,
   Link2,
   CalendarDays,
+  TicketPercent,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -150,6 +151,12 @@ const sidebarItems: SidebarItem[] = [
     href: "/admin/orders",
     icon: Receipt,
     permission: { module: "order", action: "view" },
+  },
+  {
+    name: "Promotions",
+    href: "/admin/promotions",
+    icon: TicketPercent,
+    permission: { module: "promotion", action: "view" },
   },
   {
     name: "Roles",

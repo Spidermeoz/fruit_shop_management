@@ -19,6 +19,9 @@ type OrderAttributes = {
   delivery_note: string | null;
   shipping_fee: string;
   discount_amount: string;
+  shipping_discount_amount: string;
+  promotion_snapshot_json: object | null;
+  promotion_code: string | null;
   total_price: string;
   final_price: string | null;
   tracking_token: string;
@@ -79,6 +82,9 @@ class OrderModel
   declare shipping_zone_code: string | null;
   declare shipping_zone_name: string | null;
   declare delivery_note: string | null;
+  declare shipping_discount_amount: string;
+  declare promotion_snapshot_json: object | null;
+  declare promotion_code: string | null;
   declare deleted: number;
   declare deleted_at: Date | null;
   declare created_at: Date;
@@ -177,9 +183,21 @@ OrderModel.init(
     final_price: {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: true,
-      get() {
-        return this.getDataValue("final_price");
-      },
+    },
+    shipping_discount_amount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: false,
+      defaultValue: 0.0,
+    },
+    promotion_snapshot_json: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: null,
+    },
+    promotion_code: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: null,
     },
     tracking_token: {
       type: DataTypes.CHAR(36),

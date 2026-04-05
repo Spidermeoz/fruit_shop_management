@@ -1,5 +1,5 @@
 // src/services/http.ts
-type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
+type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 const BASE = import.meta.env.VITE_API_BASE_URL; // Set base URL for backend
 
 let accessToken: string | null = null;
