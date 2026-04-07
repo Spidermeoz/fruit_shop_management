@@ -35,6 +35,9 @@ import { deliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/delive
 import { branchDeliveryTimeSlotsRoutes } from "./interfaces/http/express/routes/branchDeliveryTimeSlots.routes";
 import { branchDeliverySlotCapacitiesRoutes } from "./interfaces/http/express/routes/branchDeliverySlotCapacities.routes";
 import { promotionsRoutes } from "./interfaces/http/express/routes/promotions.routes";
+import { postsRoutes } from "./interfaces/http/express/routes/posts.routes";
+import { postCategoriesRoutes } from "./interfaces/http/express/routes/postCategories.routes";
+import { postTagsRoutes } from "./interfaces/http/express/routes/postTags.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -107,6 +110,17 @@ app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
 app.use(
   "/api/v1/admin/products",
   productsRoutes(controllers.products, auth, can),
+);
+app.use("/api/v1/admin/posts", postsRoutes(controllers.posts, auth, can));
+
+app.use(
+  "/api/v1/admin/post-categories",
+  postCategoriesRoutes(controllers.postsCategories, auth, can),
+);
+
+app.use(
+  "/api/v1/admin/post-tags",
+  postTagsRoutes(controllers.postTags, auth, can),
 );
 app.use(
   "/api/v1/admin/product-category",

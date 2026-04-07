@@ -53,6 +53,11 @@ import BranchDeliverySlotCapacityEditPage from "./pages/admin/shipping/BranchDel
 import PromotionsPage from "./pages/admin/promotions/PromotionsPage";
 import PromotionCreatePage from "./pages/admin/promotions/PromotionCreatePage";
 import PromotionEditPage from "./pages/admin/promotions/PromotionEditPage";
+import PostsPage from "./pages/admin/content/PostsPage";
+import PostCreatePage from "./pages/admin/content/PostCreatePage";
+import PostEditPage from "./pages/admin/content/PostEditPage";
+import PostCategoriesPage from "./pages/admin/content/PostCategoriesPage";
+import PostTagsPage from "./pages/admin/content/PostTagsPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -102,6 +107,21 @@ const AdminShell: React.FC = () => {
                   path="products/categories"
                   element={<ProductCategoryPage />}
                 />
+
+                <Route path="content/posts" element={<PostsPage />} />
+                <Route
+                  path="content/posts/create"
+                  element={<PostCreatePage />}
+                />
+                <Route
+                  path="content/posts/edit/:id"
+                  element={<PostEditPage />}
+                />
+                <Route
+                  path="content/categories"
+                  element={<PostCategoriesPage />}
+                />
+                <Route path="content/tags" element={<PostTagsPage />} />
 
                 <Route path="roles" element={<RolesPage />} />
                 <Route path="roles/create" element={<RoleCreatePage />} />
@@ -220,15 +240,15 @@ const AdminShell: React.FC = () => {
                   path="orders/edit/:id"
                   element={<OrderWorkspacePage />}
                 />
-                  <Route path="promotions" element={<PromotionsPage />} />
-                  <Route
-                    path="promotions/create"
-                    element={<PromotionCreatePage />}
-                  />
-                  <Route
-                    path="promotions/edit/:id"
-                    element={<PromotionEditPage />}
-                  />
+                <Route path="promotions" element={<PromotionsPage />} />
+                <Route
+                  path="promotions/create"
+                  element={<PromotionCreatePage />}
+                />
+                <Route
+                  path="promotions/edit/:id"
+                  element={<PromotionEditPage />}
+                />
                 <Route
                   path="settings/general"
                   element={<SettingsGeneralPage />}

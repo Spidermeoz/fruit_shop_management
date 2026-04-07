@@ -24,8 +24,8 @@ import {
 } from "../../../utils/categoryTree";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
-import { ProductCategoryForm } from "./ProductCategoryCreatePage";
-import { ProductCategoryEditForm } from "./ProductCategoryEditPage";
+import { ProductCategoryForm } from "./ProductCategoryCreateModal";
+import { ProductCategoryEditForm } from "./ProductCategoryEditModal";
 
 interface ProductCategory {
   id: number;

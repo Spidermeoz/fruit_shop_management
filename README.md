@@ -252,6 +252,44 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ListOrigins.ts
 │   │   │   │   │   └── 📄 SoftDeleteOrigin.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 post-categories
+│   │   │   │   ├── 📁 services
+│   │   │   │   │   └── 📄 PostCategoryTreeGuard.ts
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 BulkEditPostCategories.ts
+│   │   │   │       ├── 📄 CanDeletePostCategory.ts
+│   │   │   │       ├── 📄 ChangePostCategoryStatus.ts
+│   │   │   │       ├── 📄 CreatePostCategory.ts
+│   │   │   │       ├── 📄 EditPostCategory.ts
+│   │   │   │       ├── 📄 GetPostCategoryDetail.ts
+│   │   │   │       ├── 📄 GetPostCategorySummary.ts
+│   │   │   │       ├── 📄 ListPostCategories.ts
+│   │   │   │       ├── 📄 ReorderPostCategoryPositions.ts
+│   │   │   │       └── 📄 SoftDeletePostCategory.ts
+│   │   │   ├── 📁 post-tags
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 BulkEditPostTags.ts
+│   │   │   │       ├── 📄 CanDeletePostTag.ts
+│   │   │   │       ├── 📄 ChangePostTagStatus.ts
+│   │   │   │       ├── 📄 CreatePostTag.ts
+│   │   │   │       ├── 📄 EditPostTag.ts
+│   │   │   │       ├── 📄 GetPostTagDetail.ts
+│   │   │   │       ├── 📄 GetPostTagSummary.ts
+│   │   │   │       ├── 📄 GetPostTagUsage.ts
+│   │   │   │       ├── 📄 ListPostTags.ts
+│   │   │   │       ├── 📄 ReorderPostTagPositions.ts
+│   │   │   │       └── 📄 SoftDeletePostTag.ts
+│   │   │   ├── 📁 posts
+│   │   │   │   └── 📁 usecase
+│   │   │   │       ├── 📄 BulkEditPosts.ts
+│   │   │   │       ├── 📄 ChangePostStatus.ts
+│   │   │   │       ├── 📄 CreatePost.ts
+│   │   │   │       ├── 📄 EditPost.ts
+│   │   │   │       ├── 📄 GetPostDetail.ts
+│   │   │   │       ├── 📄 GetPostSummary.ts
+│   │   │   │       ├── 📄 ListPosts.ts
+│   │   │   │       ├── 📄 ReorderPostPositions.ts
+│   │   │   │       └── 📄 SoftDeletePost.ts
 │   │   │   ├── 📁 product-tag-groups
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 CreateProductTagGroup.ts
@@ -393,6 +431,18 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 Order.ts
 │   │   │   │   ├── 📄 OrderRepository.ts
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 post-categories
+│   │   │   │   ├── 📄 PostCategory.ts
+│   │   │   │   ├── 📄 PostCategoryRepository.ts
+│   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 post-tags
+│   │   │   │   ├── 📄 PostTag.ts
+│   │   │   │   ├── 📄 PostTagRepository.ts
+│   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 posts
+│   │   │   │   ├── 📄 Post.ts
+│   │   │   │   ├── 📄 PostRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 products
 │   │   │   │   ├── 📄 OriginRepository.ts
 │   │   │   │   ├── 📄 ProductRepository.ts
@@ -451,6 +501,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 OrderModel.ts
 │   │   │   │       │   ├── 📄 OriginModel.ts
 │   │   │   │       │   ├── 📄 PaymentModel.ts
+│   │   │   │       │   ├── 📄 PostCategoryModel.ts
+│   │   │   │       │   ├── 📄 PostModel.ts
+│   │   │   │       │   ├── 📄 PostRelatedProductModel.ts
+│   │   │   │       │   ├── 📄 PostTagMapModel.ts
+│   │   │   │       │   ├── 📄 PostTagModel.ts
 │   │   │   │       │   ├── 📄 ProductCategoryModel.ts
 │   │   │   │       │   ├── 📄 ProductModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionModel.ts
@@ -487,6 +542,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
 │   │   │   │   ├── 📄 SequelizeOriginRepository.ts
+│   │   │   │   ├── 📄 SequelizePostCategoryRepository.ts
+│   │   │   │   ├── 📄 SequelizePostRepository.ts
+│   │   │   │   ├── 📄 SequelizePostTagRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductCategoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagGroupRepository.ts
@@ -524,6 +582,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 InventoryController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
 │   │   │           │   ├── 📄 OriginsController.ts
+│   │   │           │   ├── 📄 PostCategoriesController.ts
+│   │   │           │   ├── 📄 PostTagsController.ts
+│   │   │           │   ├── 📄 PostsController.ts
 │   │   │           │   ├── 📄 ProductCategoriesController.ts
 │   │   │           │   ├── 📄 ProductTagGroupsController.ts
 │   │   │           │   ├── 📄 ProductTagsController.ts
@@ -560,6 +621,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 inventory.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
 │   │   │               ├── 📄 origins.routes.ts
+│   │   │               ├── 📄 postCategories.routes.ts
+│   │   │               ├── 📄 postTags.routes.ts
+│   │   │               ├── 📄 posts.routes.ts
 │   │   │               ├── 📄 productCategories.routes.ts
 │   │   │               ├── 📄 productTagGroups.routes.ts
 │   │   │               ├── 📄 productTags.routes.ts
@@ -627,9 +691,17 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 BranchEditPage.tsx
 │   │   │   │   │   └── 📄 BranchesPage.tsx
 │   │   │   │   ├── 📁 categories
-│   │   │   │   │   ├── 📄 ProductCategoryCreatePage.tsx
-│   │   │   │   │   ├── 📄 ProductCategoryEditPage.tsx
+│   │   │   │   │   ├── 📄 ProductCategoryCreateModal.tsx
+│   │   │   │   │   ├── 📄 ProductCategoryEditModal.tsx
 │   │   │   │   │   └── 📄 ProductCategoryPage.tsx
+│   │   │   │   ├── 📁 content
+│   │   │   │   │   ├── 📄 PostCategoriesPage.tsx
+│   │   │   │   │   ├── 📄 PostCategoryCreateModal.tsx
+│   │   │   │   │   ├── 📄 PostCategoryEditModal.tsx
+│   │   │   │   │   ├── 📄 PostCreatePage.tsx
+│   │   │   │   │   ├── 📄 PostEditPage.tsx
+│   │   │   │   │   ├── 📄 PostTagsPage.tsx
+│   │   │   │   │   └── 📄 PostsPage.tsx
 │   │   │   │   ├── 📁 dashboard
 │   │   │   │   │   └── 📄 DashboardPage.tsx
 │   │   │   │   ├── 📁 inventory

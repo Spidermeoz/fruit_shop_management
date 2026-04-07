@@ -39,6 +39,11 @@ import PromotionCategoryModel from "../../infrastructure/db/sequelize/models/Pro
 import PromotionVariantModel from "../../infrastructure/db/sequelize/models/PromotionVariantModel";
 import PromotionOriginModel from "../../infrastructure/db/sequelize/models/PromotionOriginModel";
 import PromotionBranchModel from "../../infrastructure/db/sequelize/models/PromotionBranchModel";
+import PostModel from "../../infrastructure/db/sequelize/models/PostModel";
+import PostCategoryModel from "../../infrastructure/db/sequelize/models/PostCategoryModel";
+import PostTagModel from "../../infrastructure/db/sequelize/models/PostTagModel";
+import PostTagMapModel from "../../infrastructure/db/sequelize/models/PostTagMapModel";
+import PostRelatedProductModel from "../../infrastructure/db/sequelize/models/PostRelatedProductModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -60,6 +65,9 @@ import { SequelizeBranchServiceAreaRepository } from "../../infrastructure/repos
 import { SequelizeBranchDeliveryTimeSlotRepository } from "../../infrastructure/repositories/SequelizeBranchDeliveryTimeSlotRepository";
 import { SequelizeBranchDeliverySlotCapacityRepository } from "../../infrastructure/repositories/SequelizeBranchDeliverySlotCapacityRepository";
 import { SequelizePromotionRepository } from "../../infrastructure/repositories/SequelizePromotionRepository";
+import { SequelizePostRepository } from "../../infrastructure/repositories/SequelizePostRepository";
+import { SequelizePostCategoryRepository } from "../../infrastructure/repositories/SequelizePostCategoryRepository";
+import { SequelizePostTagRepository } from "../../infrastructure/repositories/SequelizePostTagRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -254,6 +262,42 @@ import { SoftDeletePromotion } from "../../application/promotions/usecases/SoftD
 import { ValidatePromotionCode } from "../../application/promotions/usecases/ValidatePromotionCode";
 import { ListPromotionUsages } from "../../application/promotions/usecases/ListPromotionUsages";
 
+// ===== Post usecases =====
+import { ListPosts } from "../../application/posts/usecase/ListPosts";
+import { GetPostDetail } from "../../application/posts/usecase/GetPostDetail";
+import { CreatePost } from "../../application/posts/usecase/CreatePost";
+import { EditPost } from "../../application/posts/usecase/EditPost";
+import { ChangePostStatus } from "../../application/posts/usecase/ChangePostStatus";
+import { SoftDeletePost } from "../../application/posts/usecase/SoftDeletePost";
+import { BulkEditPosts } from "../../application/posts/usecase/BulkEditPosts";
+import { ReorderPostPositions } from "../../application/posts/usecase/ReorderPostPositions";
+import { GetPostSummary } from "../../application/posts/usecase/GetPostSummary";
+
+// ===== Post category usecases =====
+// ===== Post category usecases =====
+import { ListPostCategories } from "../../application/post-categories/usecases/ListPostCategories";
+import { GetPostCategoryDetail } from "../../application/post-categories/usecases/GetPostCategoryDetail";
+import { CreatePostCategory } from "../../application/post-categories/usecases/CreatePostCategory";
+import { EditPostCategory } from "../../application/post-categories/usecases/EditPostCategory";
+import { ChangePostCategoryStatus } from "../../application/post-categories/usecases/ChangePostCategoryStatus";
+import { SoftDeletePostCategory } from "../../application/post-categories/usecases/SoftDeletePostCategory";
+import { BulkEditPostCategories } from "../../application/post-categories/usecases/BulkEditPostCategories";
+import { ReorderPostCategoryPositions } from "../../application/post-categories/usecases/ReorderPostCategoryPositions";
+import { GetPostCategorySummary } from "../../application/post-categories/usecases/GetPostCategorySummary";
+
+// ===== Post tag usecases =====
+import { ListPostTags } from "../../application/post-tags/usecases/ListPostTags";
+import { GetPostTagDetail } from "../../application/post-tags/usecases/GetPostTagDetail";
+import { CreatePostTag } from "../../application/post-tags/usecases/CreatePostTag";
+import { EditPostTag } from "../../application/post-tags/usecases/EditPostTag";
+import { ChangePostTagStatus } from "../../application/post-tags/usecases/ChangePostTagStatus";
+import { SoftDeletePostTag } from "../../application/post-tags/usecases/SoftDeletePostTag";
+import { BulkEditPostTags } from "../../application/post-tags/usecases/BulkEditPostTags";
+import { ReorderPostTagPositions } from "../../application/post-tags/usecases/ReorderPostTagPositions";
+import { GetPostTagSummary } from "../../application/post-tags/usecases/GetPostTagSummary";
+import { CanDeletePostTag } from "../../application/post-tags/usecases/CanDeletePostTag";
+import { GetPostTagUsage } from "../../application/post-tags/usecases/GetPostTagUsage";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -315,6 +359,18 @@ import {
   makePromotionsController,
   type PromotionsController,
 } from "../../interfaces/http/express/controllers/PromotionsController";
+import {
+  makePostsController,
+  type PostsController,
+} from "../../interfaces/http/express/controllers/PostsController";
+import {
+  makePostCategoriesController,
+  type PostCategoriesController,
+} from "../../interfaces/http/express/controllers/PostCategoriesController";
+import {
+  makePostTagsController,
+  type PostTagsController,
+} from "../../interfaces/http/express/controllers/PostTagsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -477,6 +533,54 @@ ProductOptionValueModel.hasMany(ProductVariantValueModel, {
 ProductVariantValueModel.belongsTo(ProductOptionValueModel, {
   as: "optionValue",
   foreignKey: "product_option_value_id",
+});
+
+// Post category self relation
+PostCategoryModel.hasMany(PostCategoryModel, {
+  as: "children",
+  foreignKey: "parent_id",
+});
+PostCategoryModel.belongsTo(PostCategoryModel, {
+  as: "parent",
+  foreignKey: "parent_id",
+});
+
+// Post -> Category
+PostModel.belongsTo(PostCategoryModel, {
+  as: "category",
+  foreignKey: "post_category_id",
+});
+PostCategoryModel.hasMany(PostModel, {
+  as: "posts",
+  foreignKey: "post_category_id",
+});
+
+// Post <-> Post tags
+PostModel.belongsToMany(PostTagModel, {
+  through: PostTagMapModel,
+  as: "tags",
+  foreignKey: "post_id",
+  otherKey: "post_tag_id",
+});
+PostTagModel.belongsToMany(PostModel, {
+  through: PostTagMapModel,
+  as: "posts",
+  foreignKey: "post_tag_id",
+  otherKey: "post_id",
+});
+
+// Post <-> Product (related products)
+PostModel.belongsToMany(ProductModel, {
+  through: PostRelatedProductModel,
+  as: "relatedProducts",
+  foreignKey: "post_id",
+  otherKey: "product_id",
+});
+ProductModel.belongsToMany(PostModel, {
+  through: PostRelatedProductModel,
+  as: "relatedPosts",
+  foreignKey: "product_id",
+  otherKey: "post_id",
 });
 
 // Order -> User
@@ -810,6 +914,24 @@ const productModels = {
 };
 const productRepo = new SequelizeProductRepository(productModels);
 
+export const postCategoryRepo = new SequelizePostCategoryRepository({
+  PostCategory: PostCategoryModel,
+});
+
+export const postTagRepo = new SequelizePostTagRepository({
+  PostTag: PostTagModel,
+  PostTagMap: PostTagMapModel,
+});
+
+export const postRepo = new SequelizePostRepository({
+  Post: PostModel,
+  PostCategory: PostCategoryModel,
+  PostTag: PostTagModel,
+  PostTagMap: PostTagMapModel,
+  PostRelatedProduct: PostRelatedProductModel,
+  Product: ProductModel,
+});
+
 const inventoryModels = {
   InventoryStock: InventoryStockModel,
   InventoryTransaction: InventoryTransactionModel,
@@ -1005,6 +1127,44 @@ export const usecases = {
     softDelete: new SoftDeleteProduct(productRepo),
     bulkEdit: new BulkEditProducts(productRepo),
     reorder: new BulkReorderProducts(productRepo),
+  },
+
+  posts: {
+    list: new ListPosts(postRepo),
+    detail: new GetPostDetail(postRepo),
+    create: new CreatePost(postRepo),
+    edit: new EditPost(postRepo),
+    changeStatus: new ChangePostStatus(postRepo),
+    softDelete: new SoftDeletePost(postRepo),
+    bulkEdit: new BulkEditPosts(postRepo),
+    reorder: new ReorderPostPositions(postRepo),
+    summary: new GetPostSummary(postRepo),
+  },
+
+  postsCategories: {
+    list: new ListPostCategories(postCategoryRepo),
+    detail: new GetPostCategoryDetail(postCategoryRepo),
+    create: new CreatePostCategory(postCategoryRepo),
+    edit: new EditPostCategory(postCategoryRepo),
+    changeStatus: new ChangePostCategoryStatus(postCategoryRepo),
+    softDelete: new SoftDeletePostCategory(postCategoryRepo),
+    bulkEdit: new BulkEditPostCategories(postCategoryRepo),
+    reorder: new ReorderPostCategoryPositions(postCategoryRepo),
+    summary: new GetPostCategorySummary(postCategoryRepo),
+  },
+
+  postTags: {
+    list: new ListPostTags(postTagRepo),
+    detail: new GetPostTagDetail(postTagRepo),
+    create: new CreatePostTag(postTagRepo),
+    edit: new EditPostTag(postTagRepo),
+    changeStatus: new ChangePostTagStatus(postTagRepo),
+    softDelete: new SoftDeletePostTag(postTagRepo),
+    bulkEdit: new BulkEditPostTags(postTagRepo),
+    reorder: new ReorderPostTagPositions(postTagRepo),
+    summary: new GetPostTagSummary(postTagRepo),
+    canDelete: new CanDeletePostTag(postTagRepo),
+    usage: new GetPostTagUsage(postTagRepo),
   },
 
   upload: {
@@ -1249,6 +1409,9 @@ export const usecases = {
 // ===== Controllers =====
 type Controllers = {
   products: ProductsController;
+  posts: PostsController;
+  postsCategories: PostCategoriesController;
+  postTags: PostTagsController;
   upload: UploadController;
   categories: ProductCategoriesController;
   roles: RolesController;
@@ -1280,6 +1443,44 @@ export const controllers: Controllers = {
     softDelete: usecases.products.softDelete,
     bulkEdit: usecases.products.bulkEdit,
     reorder: usecases.products.reorder,
+  }),
+
+  posts: makePostsController({
+    list: usecases.posts.list,
+    detail: usecases.posts.detail,
+    create: usecases.posts.create,
+    edit: usecases.posts.edit,
+    changeStatus: usecases.posts.changeStatus,
+    softDelete: usecases.posts.softDelete,
+    bulkEdit: usecases.posts.bulkEdit,
+    reorder: usecases.posts.reorder,
+    summary: usecases.posts.summary,
+  }),
+
+  postsCategories: makePostCategoriesController({
+    list: usecases.postsCategories.list,
+    detail: usecases.postsCategories.detail,
+    create: usecases.postsCategories.create,
+    edit: usecases.postsCategories.edit,
+    changeStatus: usecases.postsCategories.changeStatus,
+    softDelete: usecases.postsCategories.softDelete,
+    bulkEdit: usecases.postsCategories.bulkEdit,
+    reorder: usecases.postsCategories.reorder,
+    summary: usecases.postsCategories.summary,
+  }),
+
+  postTags: makePostTagsController({
+    list: usecases.postTags.list,
+    detail: usecases.postTags.detail,
+    create: usecases.postTags.create,
+    edit: usecases.postTags.edit,
+    changeStatus: usecases.postTags.changeStatus,
+    softDelete: usecases.postTags.softDelete,
+    bulkEdit: usecases.postTags.bulkEdit,
+    reorder: usecases.postTags.reorder,
+    summary: usecases.postTags.summary,
+    canDelete: usecases.postTags.canDelete,
+    usage: usecases.postTags.usage,
   }),
 
   upload: makeUploadController({

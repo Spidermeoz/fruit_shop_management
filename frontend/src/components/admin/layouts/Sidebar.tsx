@@ -25,6 +25,9 @@ import {
   Link2,
   CalendarDays,
   TicketPercent,
+  FileText,
+  BookOpen,
+  Hash,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -138,6 +141,28 @@ const userChildren: SidebarItem[] = [
   },
 ];
 
+const contentChildren: SidebarItem[] = [
+  {
+    name: "Posts",
+    href: "/admin/content/posts",
+    icon: FileText,
+    exact: true,
+    permission: { module: "post", action: "view" },
+  },
+  {
+    name: "Categories",
+    href: "/admin/content/categories",
+    icon: BookOpen,
+    permission: { module: "post_category", action: "view" },
+  },
+  {
+    name: "Tags",
+    href: "/admin/content/tags",
+    icon: Hash,
+    permission: { module: "post_tag", action: "view" },
+  },
+];
+
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   {
@@ -192,6 +217,10 @@ const Sidebar: React.FC = () => {
     location.pathname === "/admin/users" ||
     location.pathname.startsWith("/admin/users/");
 
+  const isContentSectionActive =
+    location.pathname === "/admin/content/posts" ||
+    location.pathname.startsWith("/admin/content/");
+
   const [isProductsOpen, setIsProductsOpen] = useState(isProductsSectionActive);
   const [isInventoryOpen, setIsInventoryOpen] = useState(
     isInventorySectionActive,
@@ -199,12 +228,15 @@ const Sidebar: React.FC = () => {
   const [isShippingOpen, setIsShippingOpen] = useState(isShippingSectionActive);
   const [isUsersOpen, setIsUsersOpen] = useState(isUsersSectionActive);
 
+  const [isContentOpen, setIsContentOpen] = useState(isContentSectionActive);
+
   useEffect(() => {
     if (isCollapsed) {
       setIsProductsOpen(false);
       setIsInventoryOpen(false);
       setIsShippingOpen(false);
       setIsUsersOpen(false);
+      setIsContentOpen(false);
       return;
     }
 
@@ -212,12 +244,14 @@ const Sidebar: React.FC = () => {
     if (isInventorySectionActive) setIsInventoryOpen(true);
     if (isShippingSectionActive) setIsShippingOpen(true);
     if (isUsersSectionActive) setIsUsersOpen(true);
+    if (isContentSectionActive) setIsContentOpen(true);
   }, [
     isCollapsed,
     isProductsSectionActive,
     isInventorySectionActive,
     isShippingSectionActive,
     isUsersSectionActive,
+    isContentSectionActive,
   ]);
 
   const renderMenuItem = (item: SidebarItem) => {
@@ -401,6 +435,18 @@ const Sidebar: React.FC = () => {
             setIsOpen: setIsProductsOpen,
             children: productChildren,
           })}
+
+          <Can module="post" action="view">
+            {renderGroup({
+              title: "Content",
+              href: "/admin/content/posts",
+              icon: FileText,
+              isActive: isContentSectionActive,
+              isOpen: isContentOpen,
+              setIsOpen: setIsContentOpen,
+              children: contentChildren,
+            })}
+          </Can>
 
           {renderGroup({
             title: "Inventory",
