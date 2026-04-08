@@ -20,13 +20,8 @@ export class CreatePostTag {
 
     const created = await this.repo.create({
       name: input.name.trim(),
-      slug: normalizeNullableText(input.slug),
       description: normalizeNullableText(input.description),
       status: input.status ?? "active",
-      position:
-        input.position !== undefined && input.position !== null
-          ? Number(input.position)
-          : 0,
     });
 
     return { id: created.props.id! };

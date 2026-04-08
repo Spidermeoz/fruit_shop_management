@@ -293,7 +293,6 @@ import { EditPostTag } from "../../application/post-tags/usecases/EditPostTag";
 import { ChangePostTagStatus } from "../../application/post-tags/usecases/ChangePostTagStatus";
 import { SoftDeletePostTag } from "../../application/post-tags/usecases/SoftDeletePostTag";
 import { BulkEditPostTags } from "../../application/post-tags/usecases/BulkEditPostTags";
-import { ReorderPostTagPositions } from "../../application/post-tags/usecases/ReorderPostTagPositions";
 import { GetPostTagSummary } from "../../application/post-tags/usecases/GetPostTagSummary";
 import { CanDeletePostTag } from "../../application/post-tags/usecases/CanDeletePostTag";
 import { GetPostTagUsage } from "../../application/post-tags/usecases/GetPostTagUsage";
@@ -1161,7 +1160,6 @@ export const usecases = {
     changeStatus: new ChangePostTagStatus(postTagRepo),
     softDelete: new SoftDeletePostTag(postTagRepo),
     bulkEdit: new BulkEditPostTags(postTagRepo),
-    reorder: new ReorderPostTagPositions(postTagRepo),
     summary: new GetPostTagSummary(postTagRepo),
     canDelete: new CanDeletePostTag(postTagRepo),
     usage: new GetPostTagUsage(postTagRepo),
@@ -1477,7 +1475,6 @@ export const controllers: Controllers = {
     changeStatus: usecases.postTags.changeStatus,
     softDelete: usecases.postTags.softDelete,
     bulkEdit: usecases.postTags.bulkEdit,
-    reorder: usecases.postTags.reorder,
     summary: usecases.postTags.summary,
     canDelete: usecases.postTags.canDelete,
     usage: usecases.postTags.usage,

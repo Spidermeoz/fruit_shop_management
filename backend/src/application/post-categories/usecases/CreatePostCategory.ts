@@ -56,7 +56,6 @@ export class CreatePostCategory {
         input.position !== undefined && input.position !== null
           ? Number(input.position)
           : null,
-      slug: normalizeNullableText(input.slug),
 
       seoTitle: normalizeNullableText(input.seoTitle),
       seoDescription: normalizeNullableText(input.seoDescription),

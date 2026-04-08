@@ -30,8 +30,8 @@ export interface PostProps extends PostSeoInput {
   deleted?: boolean;
   deletedAt?: Date | null;
 
-  createdAt?: Date;
-  updatedAt?: Date;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
 
   category?: PostCategoryRef | null;
   tags?: PostTagRef[];
@@ -200,7 +200,7 @@ export class Post {
     const normalized: PostProps = {
       ...p,
       title: String(p.title).trim(),
-      slug: p.slug ? String(p.slug).trim() : null,
+      slug: p.slug != null ? String(p.slug).trim() || null : null,
       excerpt: p.excerpt != null ? String(p.excerpt).trim() : null,
       content: p.content != null ? String(p.content) : null,
       thumbnail: p.thumbnail != null ? String(p.thumbnail).trim() : null,
@@ -243,6 +243,8 @@ export class Post {
       deleted: p.deleted ?? false,
       deletedAt: p.deletedAt ?? null,
 
+      createdAt: p.createdAt ?? null,
+      updatedAt: p.updatedAt ?? null,
       publishedAt: normalizedPublishedAt,
 
       category: normalizedCategory,

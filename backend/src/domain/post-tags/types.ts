@@ -6,7 +6,7 @@ export type Pagination = {
 };
 
 export type Sort = {
-  sortBy?: "id" | "name" | "position" | "createdAt" | "updatedAt";
+  sortBy?: "id" | "name" | "createdAt" | "updatedAt";
   order?: "ASC" | "DESC";
 };
 
@@ -23,7 +23,6 @@ export type PostTagListSummary = {
 
   missingDescriptionCount: number;
   missingSlugCount: number;
-  zeroPositionCount: number;
   duplicateNameCount: number;
 
   usedCount: number;

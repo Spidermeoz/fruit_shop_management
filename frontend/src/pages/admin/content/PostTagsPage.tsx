@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import Card from "../../../components/admin/layouts/Card";
 import Pagination from "../../../components/admin/common/Pagination";
 import {
@@ -16,76 +15,58 @@ import {
   Pencil,
   Trash2,
   Power,
-  Hash,
-  Clock3,
   Sparkles,
   LayoutGrid,
   List,
-  Link2,
   FileText,
   CopyCheck,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
+import PostTagFormModal from "./PostTagFormModal";
 
 // =============================
 // TYPES
 // =============================
 type TagStatus = "active" | "inactive";
-type SortValue =
-  | "newest"
-  | "updated_desc"
-  | "name_asc"
-  | "name_desc"
-  | "position_asc";
-type QuickFilterType =
-  | "all"
-  | "missing-description"
-  | "slug-issue"
-  | "position-issue";
+type SortValue = "newest" | "updated_desc" | "name_asc" | "name_desc";
+
+type QuickFilterType = "all" | "missing-description" | "slug-issue";
 type BulkActionValue = "" | "active" | "inactive" | "delete";
 
 interface PostTag {
   id: number;
   name: string;
-  slug?: string | null;
-  description?: string | null;
+  slug: string | null;
+  description: string | null;
   status: TagStatus;
-  position?: number | null;
-  created_at?: string | null;
-  updated_at?: string | null;
-  createdAt?: string | null;
-  updatedAt?: string | null;
+  deleted?: boolean;
+  deleted_at?: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface PostTagListSummary {
   totalItems: number;
   activeCount: number;
   inactiveCount: number;
-
   missingDescriptionCount: number;
   missingSlugCount: number;
-  zeroPositionCount: number;
   duplicateNameCount: number;
-
   usedCount: number;
   unusedCount: number;
 }
 
 interface TagFormData {
   name: string;
-  slug: string;
   description: string;
   status: TagStatus;
-  position: string;
 }
 
 interface TagFormErrors {
   name?: string;
-  slug?: string;
   status?: string;
-  position?: string;
 }
 
 type ApiList<T> = {
@@ -179,18 +160,6 @@ function formatShortDate(value?: string | null): string {
   }).format(date);
 }
 
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
-
 function hasDescription(tag: PostTag): boolean {
   return Boolean(tag.description?.trim());
 }
@@ -201,7 +170,7 @@ function hasValidSlug(tag: PostTag): boolean {
   return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
 }
 
-function normalizeTagListRow(raw: any): PostTag {
+function normalizeTag(raw: any): PostTag {
   const safeStatus = String(raw?.status || "active").toLowerCase();
   const normalizedStatus: TagStatus = (
     ["active", "inactive"].includes(safeStatus) ? safeStatus : "active"
@@ -213,78 +182,40 @@ function normalizeTagListRow(raw: any): PostTag {
     slug: raw?.slug ?? null,
     description: raw?.description ?? null,
     status: normalizedStatus,
-    position:
-      raw?.position != null && raw?.position !== ""
-        ? Number(raw.position)
-        : null,
-    created_at: raw?.created_at ?? raw?.createdAt ?? null,
-    updated_at: raw?.updated_at ?? raw?.updatedAt ?? null,
-    createdAt: raw?.createdAt ?? raw?.created_at ?? null,
-    updatedAt: raw?.updatedAt ?? raw?.updated_at ?? null,
-  };
-}
-
-function normalizeTagEditDetail(raw: any): PostTag {
-  const payload = raw?.data ?? raw ?? {};
-  const safeStatus = String(payload?.status || "active").toLowerCase();
-  const normalizedStatus: TagStatus = (
-    ["active", "inactive"].includes(safeStatus) ? safeStatus : "active"
-  ) as TagStatus;
-
-  return {
-    id: Number(payload?.id),
-    name: String(payload?.name || "Untitled tag"),
-    slug: payload?.slug ?? null,
-    description: payload?.description ?? null,
-    status: normalizedStatus,
-    position:
-      payload?.position != null && payload?.position !== ""
-        ? Number(payload.position)
-        : null,
-    created_at: payload?.created_at ?? payload?.createdAt ?? null,
-    updated_at: payload?.updated_at ?? payload?.updatedAt ?? null,
-    createdAt: payload?.createdAt ?? payload?.created_at ?? null,
-    updatedAt: payload?.updatedAt ?? payload?.updated_at ?? null,
+    deleted: Boolean(raw?.deleted),
+    deleted_at: raw?.deleted_at ?? null,
+    created_at: raw?.created_at ?? null,
+    updated_at: raw?.updated_at ?? null,
   };
 }
 
 function getTagHealth(tag: PostTag) {
   const hasSlug = hasValidSlug(tag);
   const hasDesc = hasDescription(tag);
-  const hasPosition =
-    tag.position != null &&
-    tag.position !== undefined &&
-    Number.isFinite(Number(tag.position));
 
-  const checks = [hasSlug, hasDesc, hasPosition];
+  const checks = [hasSlug, hasDesc];
   const passed = checks.filter(Boolean).length;
   const percent = Math.round((passed / checks.length) * 100);
 
   const missingSignals: string[] = [];
   if (!hasSlug) missingSignals.push("Slug chưa chuẩn");
   if (!hasDesc) missingSignals.push("Thiếu mô tả");
-  if (!hasPosition) missingSignals.push("Position chưa chuẩn");
 
   let label = "Hoàn chỉnh";
   let tone =
     "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800";
   let barColor = "bg-emerald-500";
 
-  if (percent < 40) {
+  if (percent < 50) {
     label = "Chưa chuẩn";
     tone =
       "bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800";
     barColor = "bg-rose-500";
-  } else if (percent < 70) {
+  } else if (percent < 100) {
     label = "Cần bổ sung";
     tone =
       "bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800";
     barColor = "bg-amber-500";
-  } else if (percent < 100) {
-    label = "Khá tốt";
-    tone =
-      "bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800";
-    barColor = "bg-blue-500";
   }
 
   return {
@@ -294,7 +225,6 @@ function getTagHealth(tag: PostTag) {
     barColor,
     hasSlug,
     hasDescription: hasDesc,
-    hasPosition,
     missingSignals,
   };
 }
@@ -319,7 +249,7 @@ function buildQueryUrl(
 }
 
 function mapTagSort(sort: SortValue): {
-  sortBy: "id" | "name" | "position" | "createdAt" | "updatedAt";
+  sortBy: "id" | "name" | "createdAt" | "updatedAt";
   order: "ASC" | "DESC";
 } {
   switch (sort) {
@@ -329,8 +259,6 @@ function mapTagSort(sort: SortValue): {
       return { sortBy: "name", order: "ASC" };
     case "name_desc":
       return { sortBy: "name", order: "DESC" };
-    case "position_asc":
-      return { sortBy: "position", order: "ASC" };
     case "newest":
     default:
       return { sortBy: "id", order: "DESC" };
@@ -339,10 +267,8 @@ function mapTagSort(sort: SortValue): {
 
 const emptyFormData: TagFormData = {
   name: "",
-  slug: "",
   description: "",
   status: "active",
-  position: "",
 };
 
 // =============================
@@ -369,7 +295,6 @@ const PostTagsPage: React.FC = () => {
     inactiveCount: 0,
     missingDescriptionCount: 0,
     missingSlugCount: 0,
-    zeroPositionCount: 0,
     duplicateNameCount: 0,
     usedCount: 0,
     unusedCount: 0,
@@ -395,7 +320,6 @@ const PostTagsPage: React.FC = () => {
   const [editingTag, setEditingTag] = useState<PostTag | null>(null);
   const [formData, setFormData] = useState<TagFormData>(emptyFormData);
   const [formErrors, setFormErrors] = useState<TagFormErrors>({});
-  const [isSlugTouched, setIsSlugTouched] = useState(false);
 
   // fetchers
   const fetchSummary = useCallback(async () => {
@@ -416,7 +340,6 @@ const PostTagsPage: React.FC = () => {
             res.data.missingDescriptionCount ?? 0,
           ),
           missingSlugCount: Number(res.data.missingSlugCount ?? 0),
-          zeroPositionCount: Number(res.data.zeroPositionCount ?? 0),
           duplicateNameCount: Number(res.data.duplicateNameCount ?? 0),
           usedCount: Number(res.data.usedCount ?? 0),
           unusedCount: Number(res.data.unusedCount ?? 0),
@@ -449,7 +372,7 @@ const PostTagsPage: React.FC = () => {
       const res = await http<ApiList<any>>("GET", queryUrl);
 
       if (res?.success && Array.isArray(res.data)) {
-        const normalized = res.data.map(normalizeTagListRow);
+        const normalized = res.data.map(normalizeTag);
         setTags(normalized);
 
         const total = Number(res.meta?.total ?? normalized.length ?? 0);
@@ -483,13 +406,16 @@ const PostTagsPage: React.FC = () => {
   }, [currentPage, statusFilter, sortOrder, searchParams]);
 
   const fetchTagEditDetail = useCallback(async (id: number) => {
-    const res = await http<any>("GET", `/api/v1/admin/post-tags/edit/${id}`);
+    const res = await http<ApiResponse<any>>(
+      "GET",
+      `/api/v1/admin/post-tags/edit/${id}`,
+    );
 
     if (!res?.success || !res.data) {
       throw new Error("Không thể tải dữ liệu chỉnh sửa tag.");
     }
 
-    return normalizeTagEditDetail(res);
+    return normalizeTag(res.data);
   }, []);
 
   useEffect(() => {
@@ -534,12 +460,6 @@ const PostTagsPage: React.FC = () => {
 
     if (quickFilter === "slug-issue") {
       rows = rows.filter((item) => !item.ui.hasSlug);
-    }
-
-    if (quickFilter === "position-issue") {
-      rows = rows.filter(
-        (item) => !item.ui.hasPosition || Number(item.position) === 0,
-      );
     }
 
     return rows;
@@ -602,7 +522,6 @@ const PostTagsPage: React.FC = () => {
     setFormErrors({});
     setEditingTag(null);
     setFormData(emptyFormData);
-    setIsSlugTouched(false);
     setIsCreateOpen(true);
   };
 
@@ -616,21 +535,14 @@ const PostTagsPage: React.FC = () => {
 
       setEditingTag(detail);
       setFormData({
-        name: detail.name || "",
-        slug: detail.slug || "",
-        description: detail.description || "",
-        status: detail.status || "active",
-        position:
-          detail.position != null && detail.position !== undefined
-            ? String(detail.position)
-            : "",
+        name: detail.name ?? "",
+        description: detail.description ?? "",
+        status: detail.status ?? "active",
       });
-      setIsSlugTouched(Boolean(detail.slug?.trim()));
     } catch (err: any) {
       setIsEditOpen(false);
       setEditingTag(null);
       setFormData(emptyFormData);
-      setIsSlugTouched(false);
       showErrorToast(err?.message || "Không thể tải dữ liệu chỉnh sửa tag.");
     } finally {
       setEditLoading(false);
@@ -644,7 +556,6 @@ const PostTagsPage: React.FC = () => {
     setEditingTag(null);
     setFormErrors({});
     setFormData(emptyFormData);
-    setIsSlugTouched(false);
   };
 
   const validateForm = (): boolean => {
@@ -658,20 +569,6 @@ const PostTagsPage: React.FC = () => {
       nextErrors.status = "Trạng thái không hợp lệ.";
     }
 
-    if (formData.position.trim()) {
-      const value = Number(formData.position.trim());
-      if (!Number.isFinite(value) || value < 0) {
-        nextErrors.position = "Position phải là số không âm hợp lệ.";
-      }
-    }
-
-    if (
-      formData.slug.trim() &&
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(formData.slug.trim())
-    ) {
-      nextErrors.slug = "Slug chỉ nên chứa chữ thường, số và dấu gạch nối.";
-    }
-
     setFormErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -680,36 +577,22 @@ const PostTagsPage: React.FC = () => {
     key: K,
     value: TagFormData[K],
   ) => {
-    setFormData((prev) => {
-      const next = {
-        ...prev,
-        [key]: value,
-      };
-
-      if (key === "name" && !isSlugTouched) {
-        next.slug = slugify(String(value));
-      }
-
-      return next;
-    });
+    setFormData((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
 
     setFormErrors((prev) => ({
       ...prev,
       [key]: undefined,
-      ...(key === "name" && !isSlugTouched ? { slug: undefined } : {}),
     }));
   };
 
   const buildPayload = () => {
     return {
       name: formData.name.trim(),
-      slug: formData.slug.trim() || null,
       description: formData.description.trim() || null,
       status: formData.status,
-      position:
-        formData.position.trim() !== ""
-          ? Number(formData.position.trim())
-          : null,
     };
   };
 
@@ -869,7 +752,6 @@ const PostTagsPage: React.FC = () => {
     const items = [
       { label: "Slug", ok: tag.ui.hasSlug },
       { label: "Description", ok: tag.ui.hasDescription },
-      { label: "Position", ok: tag.ui.hasPosition },
     ];
 
     return (
@@ -887,160 +769,6 @@ const PostTagsPage: React.FC = () => {
           </div>
         ))}
       </div>
-    );
-  };
-
-  const renderTagForm = () => {
-    return (
-      <form
-        onSubmit={isEditOpen ? handleEditSubmit : handleCreateSubmit}
-        className="flex flex-col h-full"
-      >
-        <div className="p-5 overflow-y-auto max-h-[80vh] space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                Tên tag <span className="text-red-500">*</span>
-              </label>
-              <input
-                value={formData.name}
-                onChange={(e) => handleFormChange("name", e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                placeholder="Ví dụ: self-help, marketing, review-sach..."
-              />
-              {formErrors.name && (
-                <p className="mt-1.5 text-xs text-red-600">{formErrors.name}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                Slug
-              </label>
-              <input
-                value={formData.slug}
-                onChange={(e) => {
-                  setIsSlugTouched(true);
-                  handleFormChange("slug", e.target.value);
-                }}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                placeholder="slug-tag"
-              />
-              <p className="mt-1.5 text-xs text-gray-500">
-                Slug dùng trong URL/taxonomy của tag.
-              </p>
-              {formErrors.slug && (
-                <p className="mt-1.5 text-xs text-red-600">{formErrors.slug}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                Trạng thái
-              </label>
-              <select
-                value={formData.status}
-                onChange={(e) =>
-                  handleFormChange("status", e.target.value as TagStatus)
-                }
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-              >
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </select>
-              {formErrors.status && (
-                <p className="mt-1.5 text-xs text-red-600">
-                  {formErrors.status}
-                </p>
-              )}
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                Mô tả
-              </label>
-              <textarea
-                rows={3}
-                value={formData.description}
-                onChange={(e) =>
-                  handleFormChange("description", e.target.value)
-                }
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white resize-none"
-                placeholder="Mô tả ngắn cho tag..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                Position
-              </label>
-              <input
-                type="number"
-                value={formData.position}
-                onChange={(e) => handleFormChange("position", e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                placeholder="0"
-              />
-              {formErrors.position && (
-                <p className="mt-1.5 text-xs text-red-600">
-                  {formErrors.position}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {isEditOpen && editingTag && (
-            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock3 className="w-4 h-4 text-gray-500" />
-                <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                  Metadata
-                </h4>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300">
-                <div>
-                  <span className="font-medium">Created:</span>{" "}
-                  {formatDateTime(
-                    editingTag.created_at || editingTag.createdAt,
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium">Updated:</span>{" "}
-                  {formatDateTime(
-                    editingTag.updated_at || editingTag.updatedAt,
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3 bg-white dark:bg-gray-800">
-          <button
-            type="button"
-            onClick={closeModals}
-            className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-300"
-          >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {submitting ? (
-              <span className="inline-flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Đang lưu...
-              </span>
-            ) : isEditOpen ? (
-              "Lưu thay đổi"
-            ) : (
-              "Tạo tag"
-            )}
-          </button>
-        </div>
-      </form>
     );
   };
 
@@ -1183,8 +911,7 @@ const PostTagsPage: React.FC = () => {
         (summary.inactiveCount > 0 ||
           summary.missingDescriptionCount > 0 ||
           summary.missingSlugCount > 0 ||
-          summary.duplicateNameCount > 0 ||
-          summary.zeroPositionCount > 0) && (
+          summary.duplicateNameCount > 0) && (
           <Card className="border-amber-200 dark:border-amber-900/40 !p-0 overflow-hidden">
             <div className="p-4 bg-amber-50/70 dark:bg-amber-900/10 border-b border-amber-100 dark:border-amber-900/40 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
@@ -1231,14 +958,6 @@ const PostTagsPage: React.FC = () => {
                   onClick: () => {
                     setQuickFilter("slug-issue");
                   },
-                },
-                {
-                  title: `${summary.zeroPositionCount} tags cần rà soát position`,
-                  note: "Vị trí hiển thị có thể chưa tối ưu",
-                  visible: summary.zeroPositionCount > 0,
-                  icon: Hash,
-                  tone: "text-orange-600 bg-orange-50 border-orange-200",
-                  onClick: () => setQuickFilter("position-issue"),
                 },
                 {
                   title: `${summary.duplicateNameCount} nhóm tên tag đang bị trùng`,
@@ -1317,7 +1036,6 @@ const PostTagsPage: React.FC = () => {
               <option value="updated_desc">Cập nhật gần nhất</option>
               <option value="name_asc">Tên A-Z</option>
               <option value="name_desc">Tên Z-A</option>
-              <option value="position_asc">Position tăng dần</option>
             </select>
 
             <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-xl">
@@ -1405,38 +1123,6 @@ const PostTagsPage: React.FC = () => {
               }`}
             >
               Thiếu mô tả
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setQuickFilter((prev) =>
-                  prev === "slug-issue" ? "all" : "slug-issue",
-                );
-              }}
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                quickFilter === "slug-issue"
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-gray-900 dark:border-white"
-                  : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Slug lỗi / thiếu slug
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                setQuickFilter((prev) =>
-                  prev === "position-issue" ? "all" : "position-issue",
-                )
-              }
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
-                quickFilter === "position-issue"
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-gray-900 dark:border-white"
-                  : "bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300"
-              }`}
-            >
-              Position chưa tối ưu
             </button>
           </div>
 
@@ -1679,20 +1365,9 @@ const PostTagsPage: React.FC = () => {
                             {renderHealthDots(tag)}
 
                             <div className="flex flex-wrap gap-1">
-                              {!tag.ui.hasSlug && (
-                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800">
-                                  Slug cần rà soát
-                                </span>
-                              )}
                               {!tag.ui.hasDescription && (
                                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800">
                                   No description
-                                </span>
-                              )}
-                              {(!tag.ui.hasPosition ||
-                                Number(tag.position) === 0) && (
-                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800">
-                                  Position issue
                                 </span>
                               )}
                             </div>
@@ -1701,23 +1376,11 @@ const PostTagsPage: React.FC = () => {
 
                         <td className="px-4 py-4 min-w-[210px]">
                           <div className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                            <div className="flex items-center gap-2">
-                              <Hash className="w-4 h-4 text-gray-400" />
-                              <span>Position: {tag.position ?? "—"}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Link2 className="w-4 h-4 text-gray-400" />
-                              <span>
-                                Slug: {tag.ui.hasSlug ? "OK" : "Cần rà soát"}
-                              </span>
-                            </div>
                             <div className="text-xs text-gray-500 pt-1">
-                              Updated:{" "}
-                              {formatShortDate(tag.updated_at || tag.updatedAt)}
+                              Updated: {formatShortDate(tag.updated_at)}
                             </div>
                             <div className="text-xs text-gray-500">
-                              Created:{" "}
-                              {formatShortDate(tag.created_at || tag.createdAt)}
+                              Created: {formatShortDate(tag.created_at)}
                             </div>
                           </div>
                         </td>
@@ -1853,17 +1516,8 @@ const PostTagsPage: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300">
-                      <div className="flex items-center gap-2">
-                        <Hash className="w-4 h-4 text-gray-400" />
-                        <span>Pos: {tag.position ?? "—"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Link2 className="w-4 h-4 text-gray-400" />
-                        <span>{tag.ui.hasSlug ? "Slug OK" : "Slug issue"}</span>
-                      </div>
                       <div className="col-span-2 text-xs text-gray-500">
-                        Updated:{" "}
-                        {formatDateTime(tag.updated_at || tag.updatedAt)}
+                        Updated: {formatDateTime(tag.updated_at)}
                       </div>
                     </div>
                   </div>
@@ -1928,79 +1582,29 @@ const PostTagsPage: React.FC = () => {
           )}
         </>
       )}
+      <PostTagFormModal
+        open={isCreateOpen}
+        mode="create"
+        submitting={submitting}
+        formData={formData}
+        formErrors={formErrors}
+        onClose={closeModals}
+        onChange={handleFormChange}
+        onSubmit={handleCreateSubmit}
+      />
 
-      {/* Create Modal */}
-      {isCreateOpen &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4">
-            <div className="w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Tạo tag mới
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Tạo tag nhanh ngay trong taxonomy workspace.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeModals}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-              {renderTagForm()}
-            </div>
-          </div>,
-          document.body,
-        )}
-
-      {/* Edit Modal */}
-      {isEditOpen &&
-        createPortal(
-          <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4">
-            <div className="w-full max-w-3xl max-h-[90vh] rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Chỉnh sửa tag
-                  </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Cập nhật tên, slug, mô tả và trạng thái của tag này.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closeModals}
-                  className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              {editLoading ? (
-                <div className="py-20 flex flex-col items-center justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                    Đang tải dữ liệu tag...
-                  </p>
-                </div>
-              ) : editingTag ? (
-                renderTagForm()
-              ) : (
-                <div className="py-20 flex flex-col items-center justify-center">
-                  <AlertTriangle className="w-8 h-8 text-red-500" />
-                  <p className="mt-3 text-sm text-red-600">
-                    Không thể tải dữ liệu chỉnh sửa tag.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>,
-          document.body,
-        )}
+      <PostTagFormModal
+        open={isEditOpen}
+        mode="edit"
+        loading={editLoading}
+        submitting={submitting}
+        formData={formData}
+        formErrors={formErrors}
+        editingTag={editingTag}
+        onClose={closeModals}
+        onChange={handleFormChange}
+        onSubmit={handleEditSubmit}
+      />
     </div>
   );
 };

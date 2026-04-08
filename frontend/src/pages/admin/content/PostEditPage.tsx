@@ -168,17 +168,6 @@ const countWords = (html: string) => {
   return text.split(/\s+/).filter(Boolean).length;
 };
 
-const slugify = (value: string) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
-
 const toDatetimeLocal = (value?: string | null) => {
   if (!value) return "";
   const date = new Date(value);
@@ -226,7 +215,7 @@ const buildSearchPreview = (post: Post) => {
       "SEO description hoặc excerpt sẽ xuất hiện tại đây để mô phỏng preview.",
     url:
       normalizeTextForCompare(post.canonical_url) ||
-      `yourdomain.com/${normalizeTextForCompare(post.slug) || "duong-dan-bai-viet"}`,
+      "yourdomain.com/slug-duoc-he-thong-tu-dong-quan-ly",
   };
 };
 
@@ -601,7 +590,6 @@ const PostEditPage: React.FC = () => {
   const [thumbnailPreview, setThumbnailPreview] = useState("");
 
   const [productSearch, setProductSearch] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [ogUseThumbnail, setOgUseThumbnail] = useState(false);
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -622,7 +610,6 @@ const PostEditPage: React.FC = () => {
   const getTabForField = (fieldKey: string): TabKey => {
     if (
       fieldKey.startsWith("title") ||
-      fieldKey.startsWith("slug") ||
       fieldKey.startsWith("excerpt") ||
       fieldKey.startsWith("post_category_id") ||
       fieldKey.startsWith("tag_ids") ||
@@ -794,13 +781,6 @@ const PostEditPage: React.FC = () => {
       issues.push("Thiếu tiêu đề bài viết.");
     }
 
-    if (
-      normalizeTextForCompare(formData.title) &&
-      !normalizeTextForCompare(formData.slug)
-    ) {
-      issues.push("Slug hiện chưa hợp lệ.");
-    }
-
     if (isEditorEmpty(formData.content)) {
       issues.push("Thiếu nội dung bài viết.");
     }
@@ -848,7 +828,6 @@ const PostEditPage: React.FC = () => {
           post.post_category_id ?? (post as any).postCategoryId ?? "",
         ),
         title: normalizeTextForCompare(post.title),
-        slug: normalizeTextForCompare(post.slug),
         excerpt: normalizeTextForCompare(post.excerpt),
         content: normalizeTextForCompare(post.content),
         thumbnail: thumbnailValue,
@@ -887,7 +866,6 @@ const PostEditPage: React.FC = () => {
 
     const hasBasicChange =
       current.title !== initial.title ||
-      current.slug !== initial.slug ||
       current.excerpt !== initial.excerpt ||
       current.post_category_id !== initial.post_category_id ||
       current.position !== initial.position ||
@@ -941,15 +919,6 @@ const PostEditPage: React.FC = () => {
   }, [isDirty]);
 
   useEffect(() => {
-    if (!slugTouched) {
-      setFormData((prev) => ({
-        ...prev,
-        slug: slugify(prev.title),
-      }));
-    }
-  }, [formData.title, slugTouched]);
-
-  useEffect(() => {
     if (!ogUseThumbnail) return;
 
     setFormData((prev) => {
@@ -974,7 +943,6 @@ const PostEditPage: React.FC = () => {
   const applyFetchedPost = useCallback((normalized: Post) => {
     setInitialPost(normalized);
     setFormData(normalized);
-    setSlugTouched(false);
     setThumbnailMode("keep");
     setSelectedThumbnailFile(null);
     setThumbnailUrlDraft("");
@@ -1120,13 +1088,6 @@ const PostEditPage: React.FC = () => {
       nextErrors.title = "Vui lòng nhập tiêu đề bài viết.";
     }
 
-    if (
-      normalizeTextForCompare(formData.title) &&
-      !normalizeTextForCompare(formData.slug)
-    ) {
-      nextErrors.slug = "Slug không hợp lệ. Vui lòng kiểm tra lại.";
-    }
-
     if (mode === "save" && isEditorEmpty(formData.content)) {
       nextErrors.content = "Vui lòng nhập nội dung bài viết.";
     }
@@ -1200,12 +1161,6 @@ const PostEditPage: React.FC = () => {
     const value = e.target.value;
     setFormData((prev) => ({ ...prev, title: value }));
     clearError("title");
-  };
-
-  const handleSlugChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSlugTouched(true);
-    setFormData((prev) => ({ ...prev, slug: slugify(e.target.value) }));
-    clearError("slug");
   };
 
   const handleContentChange = (content: string) => {
@@ -1367,7 +1322,6 @@ const PostEditPage: React.FC = () => {
     return {
       postCategoryId: normalizeSingleId(formData.post_category_id),
       title: normalizeTextForCompare(formData.title),
-      slug: normalizeTextForCompare(formData.slug) || null,
       excerpt: normalizeTextForCompare(formData.excerpt) || null,
       content: uploadedContent,
       thumbnail: thumbnail || null,
@@ -1526,7 +1480,6 @@ const PostEditPage: React.FC = () => {
             </p>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-gray-500">
-              <span>Slug: {formData.slug || "Chưa có"}</span>
               <span>Updated: {formatDateTimeDisplay(formData.updated_at)}</span>
               <span>
                 Published: {formatDateTimeDisplay(formData.published_at)}
@@ -1658,35 +1611,6 @@ const PostEditPage: React.FC = () => {
               <p className="text-xs text-gray-500 mt-1.5">
                 Tiêu đề tốt giúp giữ ngữ cảnh rõ ràng cho cả người đọc lẫn công
                 cụ tìm kiếm.
-              </p>
-            )}
-          </div>
-
-          <div ref={setFieldRef("slug")}>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-              Slug
-            </label>
-            <input
-              type="text"
-              name="slug"
-              value={formData.slug}
-              onChange={handleSlugChange}
-              placeholder="slug-duong-dan-bai-viet"
-              className={`w-full rounded-xl border px-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
-                errors.slug
-                  ? "border-red-500"
-                  : "border-gray-300 dark:border-gray-600"
-              }`}
-            />
-            {errors.slug ? (
-              <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.slug}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1.5">
-                Nếu bạn chưa chỉnh slug thủ công, hệ thống sẽ tiếp tục gợi ý từ
-                tiêu đề.
               </p>
             )}
           </div>

@@ -78,10 +78,6 @@ export class EditPostCategory {
           }
         : {}),
 
-      ...(patch.slug !== undefined
-        ? { slug: normalizeNullableText(patch.slug) }
-        : {}),
-
       ...(patch.seoTitle !== undefined
         ? { seoTitle: normalizeNullableText(patch.seoTitle) }
         : {}),
@@ -166,7 +162,6 @@ export class EditPostCategory {
       thumbnail: updatedCategory.props.thumbnail ?? null,
       status: updatedCategory.props.status,
       position: updatedCategory.props.position ?? null,
-      slug: updatedCategory.props.slug ?? null,
 
       seoTitle: updatedCategory.props.seoTitle ?? null,
       seoDescription: updatedCategory.props.seoDescription ?? null,

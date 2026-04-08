@@ -16,7 +16,6 @@ export type CreatePostTagInput = {
   slug?: string | null;
   description?: string | null;
   status?: PostTagStatus;
-  position?: number | null;
 };
 
 export type UpdatePostTagPatch = Partial<CreatePostTagInput> & {
@@ -26,11 +25,6 @@ export type UpdatePostTagPatch = Partial<CreatePostTagInput> & {
 export type BulkEditPostTagsInput = {
   ids: number[];
   patch: UpdatePostTagPatch;
-};
-
-export type ReorderPostTagPositionsInput = {
-  id: number;
-  position: number;
 };
 
 export interface PostTagRepository {
@@ -48,7 +42,6 @@ export interface PostTagRepository {
   softDelete(id: number): Promise<void>;
 
   bulkEdit(input: BulkEditPostTagsInput): Promise<number>;
-  reorderPositions(pairs: ReorderPostTagPositionsInput[]): Promise<number>;
 
   countPostsUsingTag(id: number): Promise<number>;
   canDelete(id: number): Promise<{

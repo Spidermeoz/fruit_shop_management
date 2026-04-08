@@ -46,13 +46,13 @@ type PostStatus = "draft" | "published" | "inactive" | "archived";
 interface PostCategory {
   id: number;
   title: string;
-  slug?: string | null;
+  slug: string | null;
 }
 
 interface PostTag {
   id: number;
   name: string;
-  slug?: string | null;
+  slug: string | null;
 }
 
 interface RelatedProduct {
@@ -62,44 +62,33 @@ interface RelatedProduct {
 
 interface Post {
   id: number;
-  postCategoryId?: number | null;
-  post_category_id?: number | null;
+  post_category_id: number | null;
 
-  category?: PostCategory | null;
+  category: PostCategory | null;
   title: string;
   slug: string;
-  excerpt?: string | null;
-  content?: string | null;
-  thumbnail?: string | null;
+  excerpt: string;
+  content: string | null;
+  thumbnail: string;
   status: PostStatus;
-  featured?: boolean | null;
-  position?: number | null;
+  featured: boolean;
+  position: number | null;
 
-  publishedAt?: string | null;
-  published_at?: string | null;
+  published_at: string | null;
 
-  seoTitle?: string | null;
-  seoDescription?: string | null;
-  seoKeywords?: string | null;
-  ogImage?: string | null;
-  canonicalUrl?: string | null;
+  seo_title: string;
+  seo_description: string;
+  seo_keywords: string;
+  og_image: string;
+  canonical_url: string;
 
-  seo_title?: string | null;
-  seo_description?: string | null;
-  seo_keywords?: string | null;
-  og_image?: string | null;
-  canonical_url?: string | null;
+  view_count: number;
 
-  viewCount?: number | null;
-  view_count?: number | null;
+  tags: PostTag[];
+  relatedProducts: RelatedProduct[];
 
-  tags?: PostTag[];
-  relatedProducts?: RelatedProduct[];
-
-  createdAt?: string;
-  updatedAt?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 interface PostListSummary {
@@ -259,15 +248,11 @@ function formatShortDate(value?: string | null): string {
 }
 
 function hasThumbnail(post: Post): boolean {
-  return Boolean(
-    post.thumbnail?.trim() || post.ogImage?.trim() || post.og_image?.trim(),
-  );
+  return Boolean(post.thumbnail?.trim() || post.og_image?.trim());
 }
 
 function hasSeoReady(post: Post): boolean {
-  const seoTitle = post.seoTitle ?? post.seo_title ?? "";
-  const seoDescription = post.seoDescription ?? post.seo_description ?? "";
-  return Boolean(seoTitle.trim() && seoDescription.trim());
+  return Boolean(post.seo_title.trim() && post.seo_description.trim());
 }
 
 function normalizePost(raw: any): Post {
@@ -282,59 +267,43 @@ function normalizePost(raw: any): Post {
     raw?.category && typeof raw.category === "object"
       ? {
           id: Number(raw.category.id),
-          title: String(raw.category.title || raw.category.name || "Danh mục"),
+          title: String(raw.category.title || "Danh mục"),
           slug: raw.category.slug ?? null,
         }
-      : raw?.post_category
-        ? {
-            id: Number(raw.post_category.id),
-            title: String(
-              raw.post_category.title || raw.post_category.name || "Danh mục",
-            ),
-            slug: raw.post_category.slug ?? null,
-          }
-        : null;
+      : null;
 
   const tags = Array.isArray(raw?.tags)
-    ? raw.tags.map((tag: any) => ({
-        id: Number(tag?.id),
-        name: String(tag?.name || tag?.title || "Tag"),
-        slug: tag?.slug ?? null,
-      }))
+    ? raw.tags
+        .map((tag: any) => ({
+          id: Number(tag?.id),
+          name: String(tag?.name || "Tag"),
+          slug: tag?.slug ?? null,
+        }))
+        .filter((tag: PostTag) => Number.isInteger(tag.id) && tag.id > 0)
     : [];
 
   const relatedProducts = Array.isArray(raw?.relatedProducts)
-    ? raw.relatedProducts.map((item: any) => ({
-        id: Number(item?.id),
-        title: String(item?.title || item?.name || `#${item?.id ?? ""}`),
-      }))
-    : Array.isArray(raw?.related_products)
-      ? raw.related_products.map((item: any) => ({
+    ? raw.relatedProducts
+        .map((item: any) => ({
           id: Number(item?.id),
-          title: String(item?.title || item?.name || `#${item?.id ?? ""}`),
+          title: String(item?.title || `#${item?.id ?? ""}`),
         }))
-      : [];
+        .filter(
+          (item: RelatedProduct) => Number.isInteger(item.id) && item.id > 0,
+        )
+    : [];
 
   return {
-    id: Number(raw?.id),
-    postCategoryId:
-      raw?.postCategoryId != null
-        ? Number(raw.postCategoryId)
-        : raw?.post_category_id != null
-          ? Number(raw.post_category_id)
-          : null,
+    id: Number(raw?.id ?? 0),
     post_category_id:
-      raw?.post_category_id != null
-        ? Number(raw.post_category_id)
-        : raw?.postCategoryId != null
-          ? Number(raw.postCategoryId)
-          : null,
+      raw?.post_category_id != null ? Number(raw.post_category_id) : null,
+
     category,
-    title: String(raw?.title || "Untitled post"),
-    slug: String(raw?.slug || ""),
-    excerpt: raw?.excerpt ?? null,
-    content: raw?.content ?? null,
-    thumbnail: raw?.thumbnail ?? null,
+    title: String(raw?.title ?? "Untitled post"),
+    slug: String(raw?.slug ?? ""),
+    excerpt: String(raw?.excerpt ?? ""),
+    content: raw?.content != null ? String(raw.content) : null,
+    thumbnail: String(raw?.thumbnail ?? ""),
     status: normalizedStatus,
     featured: Boolean(raw?.featured),
     position:
@@ -342,50 +311,33 @@ function normalizePost(raw: any): Post {
         ? Number(raw.position)
         : null,
 
-    publishedAt: raw?.publishedAt ?? raw?.published_at ?? null,
-    published_at: raw?.published_at ?? raw?.publishedAt ?? null,
+    published_at: raw?.published_at ?? null,
 
-    seoTitle: raw?.seoTitle ?? raw?.seo_title ?? null,
-    seoDescription: raw?.seoDescription ?? raw?.seo_description ?? null,
-    seoKeywords: raw?.seoKeywords ?? raw?.seo_keywords ?? null,
-    ogImage: raw?.ogImage ?? raw?.og_image ?? null,
-    canonicalUrl: raw?.canonicalUrl ?? raw?.canonical_url ?? null,
+    seo_title: String(raw?.seo_title ?? ""),
+    seo_description: String(raw?.seo_description ?? ""),
+    seo_keywords: String(raw?.seo_keywords ?? ""),
+    og_image: String(raw?.og_image ?? ""),
+    canonical_url: String(raw?.canonical_url ?? ""),
 
-    seo_title: raw?.seo_title ?? raw?.seoTitle ?? null,
-    seo_description: raw?.seo_description ?? raw?.seoDescription ?? null,
-    seo_keywords: raw?.seo_keywords ?? raw?.seoKeywords ?? null,
-    og_image: raw?.og_image ?? raw?.ogImage ?? null,
-    canonical_url: raw?.canonical_url ?? raw?.canonicalUrl ?? null,
-
-    viewCount:
-      raw?.viewCount != null && raw?.viewCount !== ""
-        ? Number(raw.viewCount)
-        : raw?.view_count != null && raw?.view_count !== ""
-          ? Number(raw.view_count)
-          : 0,
     view_count:
       raw?.view_count != null && raw?.view_count !== ""
         ? Number(raw.view_count)
-        : raw?.viewCount != null && raw?.viewCount !== ""
-          ? Number(raw.viewCount)
-          : 0,
+        : 0,
 
     tags,
     relatedProducts,
-    createdAt: raw?.createdAt ?? raw?.created_at ?? undefined,
-    updatedAt: raw?.updatedAt ?? raw?.updated_at ?? undefined,
-    created_at: raw?.created_at ?? raw?.createdAt ?? undefined,
-    updated_at: raw?.updated_at ?? raw?.updatedAt ?? undefined,
+    created_at: raw?.created_at ?? null,
+    updated_at: raw?.updated_at ?? null,
   };
 }
 
 function getPostHealth(post: Post) {
   const checks = [
     hasThumbnail(post),
-    Boolean(post.excerpt?.trim()),
-    Boolean(post.category?.id || post.postCategoryId || post.post_category_id),
-    Boolean((post.seoTitle ?? post.seo_title ?? "").trim()),
-    Boolean((post.seoDescription ?? post.seo_description ?? "").trim()),
+    Boolean(post.excerpt.trim()),
+    Boolean(post.category?.id || post.post_category_id),
+    Boolean(post.seo_title.trim()),
+    Boolean(post.seo_description.trim()),
     post.status === "published",
   ];
 
@@ -394,16 +346,16 @@ function getPostHealth(post: Post) {
 
   const missingSignals: string[] = [];
   if (!hasThumbnail(post)) missingSignals.push("Thiếu ảnh đại diện");
-  if (!post.excerpt?.trim()) missingSignals.push("Thiếu mô tả ngắn");
-  if (!(post.category?.id || post.postCategoryId || post.post_category_id)) {
+  if (!post.excerpt.trim()) missingSignals.push("Thiếu mô tả ngắn");
+  if (!(post.category?.id || post.post_category_id)) {
     missingSignals.push("Chưa có danh mục");
   }
 
-  if (!(post.seoTitle ?? post.seo_title ?? "").trim()) {
+  if (!post.seo_title.trim()) {
     missingSignals.push("Thiếu SEO title");
   }
 
-  if (!(post.seoDescription ?? post.seo_description ?? "").trim()) {
+  if (!post.seo_description.trim()) {
     missingSignals.push("Thiếu SEO description");
   }
   if (post.status !== "published") missingSignals.push("Chưa publish");
@@ -430,8 +382,8 @@ function getPostHealth(post: Post) {
     textTone = "text-blue-600 dark:text-blue-400";
   }
 
-  const seoTitle = post.seoTitle ?? post.seo_title ?? "";
-  const seoDescription = post.seoDescription ?? post.seo_description ?? "";
+  const seoTitle = post.seo_title;
+  const seoDescription = post.seo_description;
 
   const publishWarning =
     post.status === "published" &&
@@ -446,13 +398,9 @@ function getPostHealth(post: Post) {
     publishWarning,
     hasThumbnail: hasThumbnail(post),
     hasSeo: hasSeoReady(post),
-    hasExcerpt: Boolean(post.excerpt?.trim()),
-    hasCategory: Boolean(
-      post.category?.id || post.postCategoryId || post.post_category_id,
-    ),
-    hasCanonical: Boolean(
-      (post.canonicalUrl ?? post.canonical_url ?? "").trim(),
-    ),
+    hasExcerpt: Boolean(post.excerpt.trim()),
+    hasCategory: Boolean(post.category?.id || post.post_category_id),
+    hasCanonical: Boolean(post.canonical_url.trim()),
   };
 }
 
@@ -664,10 +612,16 @@ const PostsPage: React.FC = () => {
         setPosts(normalized);
         setLocalOrderRows(normalized);
 
-        const total = Number(res.meta?.total ?? normalized.length ?? 0);
+        const total =
+          res.meta?.total != null ? Number(res.meta.total) : normalized.length;
+
         setTotalCount(total);
         setTotalPages(Math.max(1, Math.ceil(total / limit)));
       } else {
+        setPosts([]);
+        setLocalOrderRows([]);
+        setTotalCount(0);
+        setTotalPages(1);
         setError("Không thể tải danh sách bài viết.");
       }
     } catch (err: any) {
@@ -2028,9 +1982,7 @@ const PostsPage: React.FC = () => {
                             {post.status === "published" && (
                               <div className="text-xs text-gray-500 flex items-center gap-1.5">
                                 <Clock3 className="w-3.5 h-3.5" />
-                                {formatDateTime(
-                                  post.publishedAt || post.published_at,
-                                )}
+                                {formatDateTime(post.published_at)}
                               </div>
                             )}
                             {post.ui.publishWarning && (
@@ -2101,12 +2053,7 @@ const PostsPage: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <Eye className="w-4 h-4 text-gray-400" />
-                              <span>
-                                {Number(
-                                  post.viewCount ?? post.view_count ?? 0,
-                                ) ?? 0}{" "}
-                                lượt xem
-                              </span>
+                              <span>{post.view_count} lượt xem</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <Link2 className="w-4 h-4 text-gray-400" />
@@ -2116,10 +2063,7 @@ const PostsPage: React.FC = () => {
                               </span>
                             </div>
                             <div className="text-xs text-gray-500 pt-1">
-                              Updated:{" "}
-                              {formatShortDate(
-                                post.updatedAt || post.updated_at,
-                              )}
+                              Updated: {formatShortDate(post.updated_at)}
                             </div>
                           </div>
                         </td>
@@ -2263,19 +2207,14 @@ const PostsPage: React.FC = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <Eye className="w-4 h-4 text-gray-400" />
-                        <span>
-                          {Number(post.viewCount ?? post.view_count ?? 0) ?? 0}{" "}
-                          views
-                        </span>
+                        <span>{post.view_count} views</span>
                       </div>
                       <div className="flex items-center gap-2 col-span-2">
                         <Globe className="w-4 h-4 text-gray-400" />
                         <span>
                           Published:{" "}
                           {post.status === "published"
-                            ? formatDateTime(
-                                post.publishedAt || post.published_at,
-                              )
+                            ? formatDateTime(post.published_at)
                             : "Chưa publish"}
                         </span>
                       </div>

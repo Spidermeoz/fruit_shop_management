@@ -6,7 +6,24 @@ import React, {
   type FormEvent,
 } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, Clock3, Loader2, ShieldAlert, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  Clock3,
+  FolderTree,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Loader2,
+  PencilLine,
+  Search,
+  Settings2,
+  Share2,
+  ShieldAlert,
+  Sparkles,
+  X,
+  FileText,
+  RefreshCcw,
+} from "lucide-react";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
@@ -50,7 +67,6 @@ interface CategoryFormData {
   thumbnail: string;
   status: CategoryStatus;
   position: string;
-  slug: string;
   seo_title: string;
   seo_description: string;
   seo_keywords: string;
@@ -90,7 +106,6 @@ const emptyFormData: CategoryFormData = {
   thumbnail: "",
   status: "active",
   position: "",
-  slug: "",
   seo_title: "",
   seo_description: "",
   seo_keywords: "",
@@ -199,7 +214,6 @@ function mapCategoryToFormData(
       category.position != null && category.position !== undefined
         ? String(category.position)
         : "",
-    slug: category.slug || "",
     seo_title: category.seo_title || "",
     seo_description: category.seo_description || "",
     seo_keywords: category.seo_keywords || "",
@@ -217,7 +231,6 @@ function buildPayload(formData: CategoryFormData) {
     status: formData.status,
     position:
       formData.position.trim() !== "" ? Number(formData.position.trim()) : null,
-    slug: formData.slug.trim() || null,
     seoTitle: formData.seo_title.trim() || null,
     seoDescription: formData.seo_description.trim() || null,
     seoKeywords: formData.seo_keywords.trim() || null,
@@ -252,6 +265,34 @@ const PostCategoryEditModal: React.FC<PostCategoryEditModalProps> = ({
     () => new Set(filteredParentOptions.map((item) => item.id)),
     [filteredParentOptions],
   );
+
+  const selectedParent = useMemo(() => {
+    if (!formData.parent_id) return null;
+
+    if (
+      editingCategory?.parent &&
+      editingCategory.parent.id === Number(formData.parent_id)
+    ) {
+      return editingCategory.parent;
+    }
+
+    return (
+      filteredParentOptions.find(
+        (item) => item.id === Number(formData.parent_id),
+      ) || null
+    );
+  }, [formData.parent_id, filteredParentOptions, editingCategory]);
+
+  const currentParentTitle = useMemo(() => {
+    if (!editingCategory?.parent_id) return "Cấp cao nhất (Root)";
+    return (
+      editingCategory.parent?.title ||
+      filteredParentOptions.find(
+        (item) => item.id === Number(editingCategory.parent_id),
+      )?.title ||
+      "Cấp cao nhất (Root)"
+    );
+  }, [editingCategory, filteredParentOptions]);
 
   const resetState = useCallback(() => {
     setEditLoading(false);
@@ -413,87 +454,219 @@ const PostCategoryEditModal: React.FC<PostCategoryEditModalProps> = ({
     ],
   );
 
+  const renderLoadingState = () => (
+    <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-50 dark:bg-blue-900/20">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400" />
+      </div>
+      <h3 className="mt-5 text-lg font-bold text-gray-900 dark:text-white">
+        Đang tải dữ liệu danh mục...
+      </h3>
+      <p className="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">
+        Hệ thống đang chuẩn bị dữ liệu để bạn chỉnh sửa taxonomy này.
+      </p>
+    </div>
+  );
+
+  const renderErrorState = () => (
+    <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-50 dark:bg-red-900/20">
+        <AlertTriangle className="h-8 w-8 text-red-500 dark:text-red-400" />
+      </div>
+      <h3 className="mt-5 text-lg font-bold text-gray-900 dark:text-white">
+        Không thể tải dữ liệu danh mục
+      </h3>
+      <p className="mt-2 max-w-lg text-sm leading-6 text-red-600 dark:text-red-400">
+        {fetchError}
+      </p>
+
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => void fetchCategoryDetail()}
+          className="inline-flex items-center gap-2 rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-blue-700"
+        >
+          <RefreshCcw className="h-4 w-4" />
+          Thử tải lại
+        </button>
+
+        <button
+          type="button"
+          onClick={handleClose}
+          className="inline-flex items-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          Đóng
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderFallbackState = () => (
+    <div className="flex min-h-[420px] flex-col items-center justify-center px-6 py-16 text-center">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-50 dark:bg-amber-900/20">
+        <AlertTriangle className="h-8 w-8 text-amber-500 dark:text-amber-400" />
+      </div>
+      <h3 className="mt-5 text-lg font-bold text-gray-900 dark:text-white">
+        Không thể tải dữ liệu chỉnh sửa danh mục.
+      </h3>
+    </div>
+  );
+
   if (!open) return null;
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-[1px] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]"
       onClick={handleOverlayClick}
       aria-modal="true"
       role="dialog"
     >
-      <div className="w-full max-w-4xl max-h-[90vh] rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden flex flex-col">
-        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-start justify-between gap-4 shrink-0">
-          <div className="min-w-0">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              Chỉnh sửa danh mục
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Cập nhật cấu trúc, metadata và tình trạng taxonomy cho danh mục
-              này.
-            </p>
-          </div>
+      <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] border border-gray-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.24)] dark:border-gray-700 dark:bg-gray-800">
+        {/* TOP UTILITY BAR */}
+        <div className="flex items-center justify-between gap-4 border-b border-gray-200 px-5 py-4 dark:border-gray-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-gray-500 dark:text-gray-400">
+            Edit post category
+          </p>
 
           <button
             type="button"
             onClick={handleClose}
             disabled={submitting}
-            className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white"
             aria-label="Đóng modal"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {editLoading ? (
-          <div className="py-20 px-5 flex flex-col items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-            <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-              Đang tải dữ liệu danh mục...
-            </p>
-          </div>
-        ) : fetchError ? (
-          <div className="py-20 px-5 flex flex-col items-center justify-center text-center">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
-            <p className="mt-3 text-sm text-red-600">{fetchError}</p>
-          </div>
-        ) : editingCategory ? (
-          <form
-            onSubmit={handleSubmit}
-            className="flex flex-col min-h-0 flex-1"
-          >
-            <div className="p-5 overflow-y-auto min-h-0 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Tên danh mục <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    value={formData.title}
-                    onChange={(e) => handleFormChange("title", e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="Ví dụ: Sách kỹ năng, Tin tức, Gợi ý đọc..."
-                  />
-                  {formErrors.title && (
-                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      {formErrors.title}
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 sm:py-6">
+          {editLoading ? (
+            renderLoadingState()
+          ) : fetchError ? (
+            renderErrorState()
+          ) : editingCategory ? (
+            <form onSubmit={handleSubmit} className="space-y-6 pb-28">
+              {/* HERO HEADER */}
+              <section className="relative overflow-hidden rounded-[28px] border border-indigo-100 bg-gradient-to-br from-blue-50 via-indigo-50/80 to-white p-5 shadow-sm sm:p-6 dark:border-indigo-900/30 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-gray-900">
+                <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-indigo-400/12 blur-3xl dark:bg-indigo-500/10" />
+                <div className="absolute right-12 top-10 h-16 w-16 rounded-full bg-blue-300/20 blur-2xl dark:bg-blue-400/10" />
+
+                <div className="relative flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="flex min-w-0 gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[20px] border border-white/70 bg-white text-blue-600 shadow-lg shadow-indigo-500/10 dark:border-gray-700 dark:bg-gray-800 dark:text-blue-300">
+                      {formData.thumbnail.trim() ? (
+                        <img
+                          src={formData.thumbnail}
+                          alt={editingCategory.title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <PencilLine className="h-6 w-6" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-2xl">
+                          Chỉnh sửa node danh mục bài viết
+                        </h2>
+
+                        <span className="inline-flex items-center gap-1 rounded-full border border-indigo-100 bg-white/85 px-3 py-1 text-[11px] font-bold text-indigo-700 shadow-sm dark:border-indigo-900/40 dark:bg-gray-800/85 dark:text-indigo-300">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          In-place edit
+                        </span>
+
+                        <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-300">
+                          Taxonomy update
+                        </span>
+                      </div>
+
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600 dark:text-gray-300">
+                        Bạn đang cập nhật một node hiện có trong cây taxonomy
+                        bài viết mà không rời khỏi workspace hiện tại.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid w-full gap-3 sm:grid-cols-3 lg:max-w-2xl">
+                    <div className="rounded-2xl border border-white/80 bg-white/85 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                        Danh mục hiện tại
+                      </p>
+                      <p className="mt-2 truncate text-sm font-bold text-gray-900 dark:text-white">
+                        {editingCategory.title}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/80 bg-white/85 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                        Vị trí hiện tại
+                      </p>
+                      <p className="mt-2 truncate text-sm font-bold text-gray-900 dark:text-white">
+                        {currentParentTitle}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/80 bg-white/85 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                        Trạng thái
+                      </p>
+                      <p className="mt-2 text-sm font-bold text-gray-900 dark:text-white">
+                        {formData.status === "active" ? "Hoạt động" : "Đang ẩn"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 1 - TREE PLACEMENT */}
+              <section
+                className={`rounded-[28px] border p-5 shadow-sm sm:p-6 ${
+                  formData.parent_id
+                    ? "border-indigo-100 bg-indigo-50/70 dark:border-indigo-900/30 dark:bg-indigo-950/10"
+                    : "border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40"
+                }`}
+              >
+                <div className="mb-5 flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                      formData.parent_id
+                        ? "bg-white text-indigo-600 shadow-sm dark:bg-gray-800 dark:text-indigo-300"
+                        : "bg-white text-gray-600 shadow-sm dark:bg-gray-800 dark:text-gray-300"
+                    }`}
+                  >
+                    <FolderTree className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Vị trí cấu trúc
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      {formData.parent_id
+                        ? "Danh mục này hiện đang nằm trong một nhánh của cây taxonomy và có thể được chuyển sang vị trí mới."
+                        : "Danh mục này hiện là node gốc. Để trống nếu muốn tiếp tục giữ ở root level."}
                     </p>
-                  )}
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                <div className="space-y-3">
+                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
                     Danh mục cha
                   </label>
+
                   <select
                     value={formData.parent_id}
                     onChange={(e) =>
                       handleFormChange("parent_id", e.target.value)
                     }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
+                    className={`w-full rounded-2xl border px-4 py-3 text-sm font-medium outline-none transition focus:ring-2 focus:ring-indigo-500 dark:bg-gray-900 dark:text-white ${
+                      formErrors.parent_id
+                        ? "border-red-400 bg-red-50 text-gray-900 dark:border-red-500 dark:bg-red-950/20"
+                        : "border-gray-300 bg-white text-gray-900 dark:border-gray-700"
+                    }`}
                   >
-                    <option value="">Không có (Danh mục gốc)</option>
+                    <option value="">-- Cấp cao nhất (Root) --</option>
                     {filteredParentOptions.map((option) => (
                       <option key={option.id} value={String(option.id)}>
                         {`${"— ".repeat(option.level)}${
@@ -502,233 +675,512 @@ const PostCategoryEditModal: React.FC<PostCategoryEditModalProps> = ({
                       </option>
                     ))}
                   </select>
-                  {formErrors.parent_id && (
-                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
+
+                  {formErrors.parent_id ? (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                      <ShieldAlert className="h-3.5 w-3.5" />
                       {formErrors.parent_id}
                     </p>
-                  )}
-                </div>
+                  ) : null}
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Trạng thái
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      handleFormChange(
-                        "status",
-                        e.target.value as CategoryStatus,
-                      )
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                  {formErrors.status && (
-                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1.5">
-                      <ShieldAlert className="w-3.5 h-3.5" />
-                      {formErrors.status}
+                  <div className="rounded-2xl border border-white/80 bg-white/80 px-4 py-3 text-sm text-gray-600 shadow-sm dark:border-gray-700 dark:bg-gray-800/80 dark:text-gray-300">
+                    {selectedParent ? (
+                      <span>
+                        Đang đặt dưới:{" "}
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          {selectedParent.title}
+                        </span>
+                      </span>
+                    ) : (
+                      <span>
+                        <span className="font-semibold text-gray-900 dark:text-white">
+                          Đang đặt ở tầng gốc
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 2 - IDENTITY */}
+              <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 shadow-sm dark:bg-blue-900/20 dark:text-blue-300">
+                    <FileText className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Thông tin định danh
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      Cập nhật tên hiển thị và trạng thái vận hành của node
+                      taxonomy này.
                     </p>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Tiêu đề danh mục <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      value={formData.title}
+                      onChange={(e) =>
+                        handleFormChange("title", e.target.value)
+                      }
+                      className={`w-full rounded-2xl border px-4 py-3 text-sm text-gray-900 outline-none transition focus:ring-2 focus:ring-blue-500 dark:text-white ${
+                        formErrors.title
+                          ? "border-red-400 bg-red-50 dark:border-red-500 dark:bg-red-950/20"
+                          : "border-gray-300 bg-white dark:border-gray-700 dark:bg-gray-900"
+                      }`}
+                      placeholder="VD: Tin tức, Phân tích, Góc nhìn, Gợi ý đọc..."
+                    />
+                    {formErrors.title ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        {formErrors.title}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        Tên hiển thị chính thức của danh mục bài viết trong hệ
+                        thống quản trị và các khu vực hiển thị liên quan.
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Trạng thái hiển thị
+                    </label>
+
+                    <div className="inline-flex rounded-2xl border border-gray-200 bg-gray-100 p-1 dark:border-gray-700 dark:bg-gray-800">
+                      <button
+                        type="button"
+                        onClick={() => handleFormChange("status", "active")}
+                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                          formData.status === "active"
+                            ? "bg-white text-emerald-700 shadow-sm dark:bg-gray-900 dark:text-emerald-300"
+                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        }`}
+                      >
+                        <Check
+                          className={`h-4 w-4 ${
+                            formData.status === "active"
+                              ? "opacity-100"
+                              : "opacity-40"
+                          }`}
+                        />
+                        Hoạt động
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleFormChange("status", "inactive")}
+                        className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
+                          formData.status === "inactive"
+                            ? "bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white"
+                            : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                        }`}
+                      >
+                        <span
+                          className={`h-2.5 w-2.5 rounded-full ${
+                            formData.status === "inactive"
+                              ? "bg-gray-500 dark:bg-gray-300"
+                              : "bg-gray-300 dark:bg-gray-600"
+                          }`}
+                        />
+                        Đang ẩn
+                      </button>
+                    </div>
+
+                    {formErrors.status ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                        <ShieldAlert className="h-3.5 w-3.5" />
+                        {formErrors.status}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        Danh mục đang{" "}
+                        {formData.status === "active" ? "hiển thị" : "ẩn"} trong
+                        hệ thống.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 3 - CONTENT & MEDIA */}
+              <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-50 text-violet-600 shadow-sm dark:bg-violet-900/20 dark:text-violet-300">
+                    <ImageIcon className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Nội dung &amp; media
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      Cập nhật mô tả biên tập và hình ảnh đại diện cho taxonomy
+                      này.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+                  {/* Media block */}
+                  <div className="space-y-4">
+                    <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-gray-50 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                      <div className="aspect-[1/1] w-full">
+                        {formData.thumbnail.trim() ? (
+                          <img
+                            src={formData.thumbnail}
+                            alt="Thumbnail preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center px-6 text-center">
+                            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-gray-400 shadow-sm dark:bg-gray-800 dark:text-gray-500">
+                              <ImageIcon className="h-6 w-6" />
+                            </div>
+                            <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                              Chưa có ảnh đại diện
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                              Preview sẽ cập nhật tức thì khi bạn chỉnh URL ảnh.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        Thumbnail URL
+                      </label>
+
+                      <div className="relative">
+                        <LinkIcon className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                        <input
+                          value={formData.thumbnail}
+                          onChange={(e) =>
+                            handleFormChange("thumbnail", e.target.value)
+                          }
+                          className="w-full rounded-2xl border border-gray-300 bg-white py-3 pl-11 pr-4 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                          placeholder="https://..."
+                        />
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between gap-3">
+                        <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                          Dùng ảnh đại diện để tăng nhận diện cho taxonomy hoặc
+                          các block hiển thị danh mục bài viết.
+                        </p>
+
+                        {formData.thumbnail.trim() ? (
+                          <button
+                            type="button"
+                            onClick={() => handleFormChange("thumbnail", "")}
+                            className="shrink-0 text-xs font-semibold text-red-600 transition hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            Xóa ảnh
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Description block */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Mô tả danh mục
+                    </label>
+
+                    <div className="overflow-hidden rounded-[24px] border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+                      <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                          Editorial note
+                        </p>
+                      </div>
+
+                      <textarea
+                        rows={7}
+                        value={formData.description}
+                        onChange={(e) =>
+                          handleFormChange("description", e.target.value)
+                        }
+                        className="min-h-[220px] w-full resize-none border-0 bg-transparent px-4 py-4 text-sm leading-6 text-gray-900 outline-none placeholder:text-gray-400 dark:text-white dark:placeholder:text-gray-500"
+                        placeholder="Mô tả ngắn giúp định nghĩa mục đích, phạm vi và loại nội dung mà danh mục bài viết này sẽ quản lý..."
+                      />
+                    </div>
+
+                    <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      Mô tả ngắn giúp quản trị viên và biên tập viên hiểu rõ mục
+                      đích, phạm vi và loại nội dung của danh mục này.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 4 - ADDITIONAL DISPLAY CONFIG */}
+              <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 shadow-sm dark:bg-amber-900/20 dark:text-amber-300">
+                    <Settings2 className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Cấu hình hiển thị bổ sung
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      Điều chỉnh thứ tự hiển thị và URL canonical khi cần.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Position
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.position}
+                      onChange={(e) =>
+                        handleFormChange("position", e.target.value)
+                      }
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      placeholder="0"
+                    />
+                    <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      Dùng để sắp xếp tương đối giữa các danh mục cùng cấp.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      Canonical URL
+                    </label>
+                    <input
+                      value={formData.canonical_url}
+                      onChange={(e) =>
+                        handleFormChange("canonical_url", e.target.value)
+                      }
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      placeholder="https://..."
+                    />
+                    <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      Tuỳ chọn. Dùng khi cần chuẩn hoá canonical cho taxonomy
+                      page.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 5 - SEO */}
+              <section className="rounded-[28px] border border-gray-200 bg-white p-5 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900/40">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600 shadow-sm dark:bg-emerald-900/20 dark:text-emerald-300">
+                    <Search className="h-5 w-5" />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        SEO metadata
+                      </h3>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/30 dark:bg-emerald-950/20 dark:text-emerald-300">
+                        Optional
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:border-blue-900/30 dark:bg-blue-950/20 dark:text-blue-300">
+                        <Share2 className="h-3.5 w-3.5" />
+                        Search &amp; sharing
+                      </span>
+                    </div>
+
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      Tối ưu metadata cho taxonomy page khi danh mục bài viết
+                      được public.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        SEO title
+                      </label>
+                      <input
+                        value={formData.seo_title}
+                        onChange={(e) =>
+                          handleFormChange("seo_title", e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        placeholder="Tiêu đề tối ưu cho tìm kiếm..."
+                      />
+                      <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        Tiêu đề tối ưu cho tìm kiếm.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                        SEO keywords
+                      </label>
+                      <input
+                        value={formData.seo_keywords}
+                        onChange={(e) =>
+                          handleFormChange("seo_keywords", e.target.value)
+                        }
+                        className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                        placeholder="keyword1, keyword2, keyword3..."
+                      />
+                      <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                        Từ khóa dạng comma-separated.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      SEO description
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={formData.seo_description}
+                      onChange={(e) =>
+                        handleFormChange("seo_description", e.target.value)
+                      }
+                      className="w-full resize-none rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm leading-6 text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      placeholder="Mô tả hiển thị trên kết quả tìm kiếm/chia sẻ..."
+                    />
+                    <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      Mô tả hiển thị trên kết quả tìm kiếm/chia sẻ.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-gray-800 dark:text-gray-200">
+                      OG image URL
+                    </label>
+                    <input
+                      value={formData.og_image}
+                      onChange={(e) =>
+                        handleFormChange("og_image", e.target.value)
+                      }
+                      className="w-full rounded-2xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                      placeholder="https://..."
+                    />
+                    <p className="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      Ảnh chia sẻ mạng xã hội.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              {/* SECTION 6 - SYSTEM METADATA */}
+              <section className="rounded-[28px] border border-gray-200 bg-gray-50 p-5 shadow-sm sm:p-6 dark:border-gray-800 dark:bg-gray-900/50">
+                <div className="mb-5 flex items-start gap-3">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-gray-600 shadow-sm dark:bg-gray-800 dark:text-gray-300">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                      Metadata hệ thống
+                    </h3>
+                    <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                      Thông tin theo dõi thời điểm tạo và cập nhật của node hiện
+                      tại.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                      Created
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatDateTime(
+                        editingCategory.created_at || editingCategory.createdAt,
+                      )}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/80 bg-white/80 p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800/80">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-gray-500 dark:text-gray-400">
+                      Updated
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-gray-900 dark:text-white">
+                      {formatDateTime(
+                        editingCategory.updated_at || editingCategory.updatedAt,
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            </form>
+          ) : (
+            renderFallbackState()
+          )}
+        </div>
+
+        {/* STICKY FOOTER */}
+        {!editLoading && !fetchError && editingCategory ? (
+          <div className="sticky bottom-0 z-10 border-t border-gray-200 bg-white/92 px-5 py-4 backdrop-blur-xl dark:border-gray-700 dark:bg-gray-800/92 sm:px-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                  Các thay đổi sẽ được áp dụng cho node taxonomy này sau khi
+                  lưu.
+                </p>
+                <p className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                  Đang chỉnh sửa: {editingCategory.title}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  disabled={submitting}
+                  className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-700"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const form = (e.currentTarget
+                      .closest("div")
+                      ?.previousElementSibling?.querySelector("form") ??
+                      null) as HTMLFormElement | null;
+                    form?.requestSubmit();
+                  }}
+                  disabled={submitting}
+                  className="inline-flex min-w-[180px] items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Đang lưu...
+                    </>
+                  ) : (
+                    "Lưu thay đổi"
                   )}
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Mô tả
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) =>
-                      handleFormChange("description", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white resize-none"
-                    placeholder="Mô tả ngắn cho danh mục..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Thumbnail URL
-                  </label>
-                  <input
-                    value={formData.thumbnail}
-                    onChange={(e) =>
-                      handleFormChange("thumbnail", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Position
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.position}
-                    onChange={(e) =>
-                      handleFormChange("position", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="0"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Slug
-                  </label>
-                  <input
-                    value={formData.slug}
-                    onChange={(e) => handleFormChange("slug", e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="slug-danh-muc"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    Canonical URL
-                  </label>
-                  <input
-                    value={formData.canonical_url}
-                    onChange={(e) =>
-                      handleFormChange("canonical_url", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="https://..."
-                  />
-                </div>
-
-                <div className="md:col-span-2 pt-2">
-                  <div className="flex items-center gap-2 mb-3">
-                    <ShieldAlert className="w-4 h-4 text-violet-600" />
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                      SEO metadata
-                    </h4>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    SEO title
-                  </label>
-                  <input
-                    value={formData.seo_title}
-                    onChange={(e) =>
-                      handleFormChange("seo_title", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="SEO title..."
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    SEO keywords
-                  </label>
-                  <input
-                    value={formData.seo_keywords}
-                    onChange={(e) =>
-                      handleFormChange("seo_keywords", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="keyword1, keyword2..."
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    SEO description
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={formData.seo_description}
-                    onChange={(e) =>
-                      handleFormChange("seo_description", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white resize-none"
-                    placeholder="SEO description..."
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
-                    OG image
-                  </label>
-                  <input
-                    value={formData.og_image}
-                    onChange={(e) =>
-                      handleFormChange("og_image", e.target.value)
-                    }
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-white"
-                    placeholder="https://..."
-                  />
-                </div>
-              </div>
-
-              <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 p-4">
-                <div className="flex items-center gap-2 mb-3">
-                  <Clock3 className="w-4 h-4 text-gray-500" />
-                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                    Metadata
-                  </h4>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-gray-600 dark:text-gray-300">
-                  <div>
-                    <span className="font-medium">Created:</span>{" "}
-                    {formatDateTime(
-                      editingCategory.created_at || editingCategory.createdAt,
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium">Updated:</span>{" "}
-                    {formatDateTime(
-                      editingCategory.updated_at || editingCategory.updatedAt,
-                    )}
-                  </div>
-                </div>
+                </button>
               </div>
             </div>
-
-            <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3 bg-white/95 dark:bg-gray-800/95 backdrop-blur shrink-0">
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={submitting}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? (
-                  <span className="inline-flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Đang lưu...
-                  </span>
-                ) : (
-                  "Lưu thay đổi"
-                )}
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="py-20 px-5 flex flex-col items-center justify-center text-center">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
-            <p className="mt-3 text-sm text-red-600">
-              Không thể tải dữ liệu chỉnh sửa danh mục.
-            </p>
           </div>
-        )}
+        ) : null}
       </div>
     </div>,
     document.body,

@@ -1,3 +1,5 @@
+// backend/src/infrastructure/repositories/SequelizePostRepository.ts
+
 import { Op, literal } from "sequelize";
 import { Post } from "../../domain/posts/Post";
 import type {
@@ -405,18 +407,27 @@ export class SequelizePostRepository implements PostRepository {
     const baseDataset = `
       SELECT
         p.id,
+        p.post_category_id,
         p.title,
         p.slug,
         p.excerpt,
+        p.content,
         p.thumbnail,
         p.status,
         p.featured,
         p.position,
         p.published_at,
-        p.post_category_id,
         p.seo_title,
         p.seo_description,
+        p.seo_keywords,
+        p.og_image,
+        p.canonical_url,
         p.view_count,
+        p.created_by_id,
+        p.updated_by_id,
+        p.deleted_by_id,
+        p.deleted,
+        p.deleted_at,
         p.created_at,
         p.updated_at
       FROM posts p
@@ -543,7 +554,6 @@ export class SequelizePostRepository implements PostRepository {
         {
           post_category_id: input.postCategoryId ?? null,
           title: input.title,
-          slug: input.slug ?? null,
           excerpt: input.excerpt ?? null,
           content: input.content ?? null,
           thumbnail: input.thumbnail ?? null,
@@ -604,7 +614,6 @@ export class SequelizePostRepository implements PostRepository {
       }
 
       if (patch.title !== undefined) values.title = patch.title;
-      if (patch.slug !== undefined) values.slug = patch.slug;
       if (patch.excerpt !== undefined) values.excerpt = patch.excerpt;
       if (patch.content !== undefined) values.content = patch.content;
       if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;
@@ -654,7 +663,20 @@ export class SequelizePostRepository implements PostRepository {
         );
       }
 
-      await transaction.commit();
+      const row = await this.models.Post.findOne({
+        where: { id, deleted: 0 },
+        transaction,
+      });
+
+      if (!row) {
+        throw new Error("Post not found");
+      }
+
+      Object.entries(values).forEach(([key, value]) => {
+        row.set(key, value);
+      });
+
+      await row.save({ transaction });
 
       const fresh = await this.findById(id);
       if (!fresh) throw new Error("Post not found after update");
@@ -695,6 +717,7 @@ export class SequelizePostRepository implements PostRepository {
     const count = Array.isArray(affected)
       ? Number(affected[0] ?? 0)
       : Number(affected ?? 0);
+
     if (count <= 0) {
       throw new Error("Post not found");
     }
@@ -706,7 +729,6 @@ export class SequelizePostRepository implements PostRepository {
     if (patch.postCategoryId !== undefined)
       values.post_category_id = patch.postCategoryId;
     if (patch.title !== undefined) values.title = patch.title;
-    if (patch.slug !== undefined) values.slug = patch.slug;
     if (patch.excerpt !== undefined) values.excerpt = patch.excerpt;
     if (patch.content !== undefined) values.content = patch.content;
     if (patch.thumbnail !== undefined) values.thumbnail = patch.thumbnail;

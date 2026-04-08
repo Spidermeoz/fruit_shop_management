@@ -20,7 +20,6 @@ export const postTagsRoutes = (
   r.get("/edit/:id", auth, can("post_tag", "edit"), controller.getEdit);
   r.patch("/edit/:id", auth, can("post_tag", "edit"), controller.edit);
   r.patch("/bulk-edit", auth, can("post_tag", "edit"), controller.bulkEdit);
-  r.patch("/reorder", auth, can("post_tag", "edit"), controller.reorder);
   r.patch(
     "/:id/status",
     auth,

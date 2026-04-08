@@ -1,3 +1,5 @@
+// backend/src/interfaces/http/express/controllers/PostsController.ts
+
 import { Request, Response, NextFunction } from "express";
 import { ListPosts } from "../../../../application/posts/usecase/ListPosts";
 import { GetPostDetail } from "../../../../application/posts/usecase/GetPostDetail";
@@ -11,9 +13,9 @@ import { GetPostSummary } from "../../../../application/posts/usecase/GetPostSum
 import type { PostStatus } from "../../../../domain/posts/types";
 import type { UpdatePostPatch } from "../../../../domain/posts/PostRepository";
 
-const toNum = (v: any) => (v === undefined ? undefined : Number(v));
+const toNum = (v: unknown) => (v === undefined ? undefined : Number(v));
 
-const toBool = (v: any) =>
+const toBool = (v: unknown) =>
   v === undefined
     ? undefined
     : v === "true" || v === true || v === 1 || v === "1";
@@ -33,54 +35,71 @@ const getActorId = (req: Request): number | null => {
   return Number.isInteger(num) && num > 0 ? num : null;
 };
 
-const toPostDto = (dto: any) => ({
-  id: dto.id,
-  post_category_id: dto.postCategoryId ?? null,
-  category: dto.category ?? null,
-
-  title: dto.title,
-  slug: dto.slug ?? "",
-  excerpt: dto.excerpt ?? "",
-  content: dto.content ?? "",
-  thumbnail: dto.thumbnail ?? "",
-
-  status: dto.status,
-  featured: !!dto.featured,
-  position: dto.position ?? "",
-  published_at: dto.publishedAt ?? null,
-
-  seo_title: dto.seoTitle ?? "",
-  seo_description: dto.seoDescription ?? "",
-  seo_keywords: dto.seoKeywords ?? "",
-  og_image: dto.ogImage ?? "",
-  canonical_url: dto.canonicalUrl ?? "",
-
-  view_count: dto.viewCount ?? 0,
-
-  tags: dto.tags ?? [],
-  tagIds: Array.isArray(dto.tags)
-    ? dto.tags
-        .map((tag: any) => Number(tag.id))
-        .filter((tagId: number) => Number.isInteger(tagId) && tagId > 0)
-    : [],
-
-  relatedProducts: dto.relatedProducts ?? [],
-  relatedProductIds: Array.isArray(dto.relatedProducts)
+const toPostDto = (dto: any) => {
+  const tags = Array.isArray(dto?.tags) ? dto.tags : [];
+  const relatedProducts = Array.isArray(dto?.relatedProducts)
     ? dto.relatedProducts
-        .map((product: any) => Number(product.id))
-        .filter(
-          (productId: number) => Number.isInteger(productId) && productId > 0,
-        )
-    : [],
+    : [];
 
-  created_by_id: dto.createdById ?? null,
-  updated_by_id: dto.updatedById ?? null,
-  deleted_by_id: dto.deletedById ?? null,
-  deleted: dto.deleted ? 1 : 0,
-  deleted_at: dto.deletedAt ?? null,
-  created_at: dto.createdAt ?? null,
-  updated_at: dto.updatedAt ?? null,
-});
+  return {
+    id: Number(dto?.id ?? 0),
+    post_category_id:
+      dto?.postCategoryId !== undefined && dto?.postCategoryId !== null
+        ? Number(dto.postCategoryId)
+        : null,
+    category: dto?.category ?? null,
+
+    title: String(dto?.title ?? ""),
+    slug: String(dto?.slug ?? ""),
+    excerpt: String(dto?.excerpt ?? ""),
+    content: String(dto?.content ?? ""),
+    thumbnail: String(dto?.thumbnail ?? ""),
+
+    status: dto?.status ?? "draft",
+    featured: !!dto?.featured,
+    position:
+      dto?.position !== undefined && dto?.position !== null ? dto.position : "",
+    published_at: dto?.publishedAt ?? null,
+
+    seo_title: String(dto?.seoTitle ?? ""),
+    seo_description: String(dto?.seoDescription ?? ""),
+    seo_keywords: String(dto?.seoKeywords ?? ""),
+    og_image: String(dto?.ogImage ?? ""),
+    canonical_url: String(dto?.canonicalUrl ?? ""),
+
+    view_count: Number(dto?.viewCount ?? 0),
+
+    tags,
+    tagIds: tags
+      .map((tag: any) => Number(tag?.id))
+      .filter((tagId: number) => Number.isInteger(tagId) && tagId > 0),
+
+    relatedProducts,
+    relatedProductIds: relatedProducts
+      .map((product: any) => Number(product?.id))
+      .filter(
+        (productId: number) => Number.isInteger(productId) && productId > 0,
+      ),
+
+    created_by_id:
+      dto?.createdById !== undefined && dto?.createdById !== null
+        ? Number(dto.createdById)
+        : null,
+    updated_by_id:
+      dto?.updatedById !== undefined && dto?.updatedById !== null
+        ? Number(dto.updatedById)
+        : null,
+    deleted_by_id:
+      dto?.deletedById !== undefined && dto?.deletedById !== null
+        ? Number(dto.deletedById)
+        : null,
+
+    deleted: dto?.deleted ? 1 : 0,
+    deleted_at: dto?.deletedAt ?? null,
+    created_at: dto?.createdAt ?? null,
+    updated_at: dto?.updatedAt ?? null,
+  };
+};
 
 export const makePostsController = (uc: {
   list: ListPosts;
@@ -136,7 +155,7 @@ export const makePostsController = (uc: {
 
         return res.json({
           success: true,
-          data: data.rows,
+          data: data.rows.map((row: any) => toPostDto(row?.props ?? row)),
           meta: {
             total: data.count,
             page: normalizedPage,
@@ -221,13 +240,11 @@ export const makePostsController = (uc: {
           featured?: boolean;
           position?: number | null;
           publishedAt?: Date | string | null;
-
           seoTitle?: string | null;
           seoDescription?: string | null;
           seoKeywords?: string | null;
           ogImage?: string | null;
           canonicalUrl?: string | null;
-
           tagIds?: number[];
           relatedProductIds?: number[];
         };
@@ -266,7 +283,7 @@ export const makePostsController = (uc: {
 
         return res.status(201).json({
           success: true,
-          data: result,
+          data: toPostDto(result?.props ?? result),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -343,6 +360,9 @@ export const makePostsController = (uc: {
           updatedById: actorId,
 
           ...(body.deleted !== undefined ? { deleted: !!body.deleted } : {}),
+          ...(body.deletedById !== undefined
+            ? { deletedById: body.deletedById }
+            : {}),
 
           ...(body.tagIds !== undefined
             ? { tagIds: normalizeIdArray(body.tagIds) }
@@ -359,7 +379,7 @@ export const makePostsController = (uc: {
 
         return res.json({
           success: true,
-          data: updated.props,
+          data: toPostDto(updated?.props ?? updated),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -413,6 +433,7 @@ export const makePostsController = (uc: {
         };
 
         const patch = body.patch ?? {};
+        const isSoftDelete = patch.deleted === true;
 
         const payload: UpdatePostPatch = {
           ...(patch.postCategoryId !== undefined
@@ -461,9 +482,10 @@ export const makePostsController = (uc: {
           updatedById: actorId,
 
           ...(patch.deleted !== undefined ? { deleted: !!patch.deleted } : {}),
-          ...(patch.deletedById !== undefined
-            ? { deletedById: patch.deletedById }
-            : {}),
+          ...((patch.deletedById !== undefined || isSoftDelete) && {
+            deletedById:
+              patch.deletedById !== undefined ? patch.deletedById : actorId,
+          }),
 
           ...(patch.tagIds !== undefined
             ? { tagIds: normalizeIdArray(patch.tagIds) }

@@ -117,7 +117,6 @@ async function validateRelations(
 
 function validateBusinessRules(input: {
   title: string;
-  slug: string | null;
   content: string | null;
   status: PostStatus;
   canonicalUrl: string | null;
@@ -138,20 +137,6 @@ function validateBusinessRules(input: {
 
   if (input.ogImage && !isValidHttpUrl(input.ogImage)) {
     throw new Error("OG image URL is invalid");
-  }
-
-  if (input.status === "published") {
-    if (!input.slug) {
-      throw new Error("Published post must have a valid slug");
-    }
-
-    if (!hasMeaningfulContent(input.content)) {
-      throw new Error("Published post must have content");
-    }
-
-    if (!input.publishedAt) {
-      throw new Error("Published post must have publishedAt");
-    }
   }
 }
 
@@ -177,10 +162,6 @@ export class EditPost {
 
       ...(patch.title !== undefined
         ? { title: String(patch.title).trim() }
-        : {}),
-
-      ...(patch.slug !== undefined
-        ? { slug: normalizeNullableText(patch.slug) }
         : {}),
 
       ...(patch.excerpt !== undefined
@@ -281,7 +262,6 @@ export class EditPost {
 
     validateBusinessRules({
       title: updatedPost.props.title,
-      slug: updatedPost.props.slug ?? null,
       content: updatedPost.props.content ?? null,
       status: updatedPost.props.status,
       canonicalUrl: updatedPost.props.canonicalUrl ?? null,
@@ -292,7 +272,6 @@ export class EditPost {
     const updatePayload: UpdatePostPatch = {
       postCategoryId: updatedPost.props.postCategoryId ?? null,
       title: updatedPost.props.title,
-      slug: updatedPost.props.slug ?? null,
       excerpt: updatedPost.props.excerpt ?? null,
       content: updatedPost.props.content ?? null,
       thumbnail: updatedPost.props.thumbnail ?? null,

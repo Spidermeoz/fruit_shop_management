@@ -4,10 +4,13 @@ import type { PostListFilter } from "../../../domain/posts/types";
 export class ListPosts {
   constructor(private repo: PostRepository) {}
 
-  async execute(filter: PostListFilter) {
+  async execute(filter: PostListFilter = {}) {
+    const safePage = Math.max(1, Number(filter.page ?? 1) || 1);
+    const safeLimit = Math.max(1, Number(filter.limit ?? 10) || 10);
+
     const { rows, count, summary } = await this.repo.list({
-      page: filter.page ?? 1,
-      limit: filter.limit ?? 10,
+      page: safePage,
+      limit: safeLimit,
       q: filter.q,
       categoryId: filter.categoryId ?? null,
       status: filter.status ?? "all",

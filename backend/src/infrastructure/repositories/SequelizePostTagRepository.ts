@@ -4,7 +4,6 @@ import type {
   BulkEditPostTagsInput,
   CreatePostTagInput,
   PostTagRepository,
-  ReorderPostTagPositionsInput,
   UpdatePostTagPatch,
 } from "../../domain/post-tags/PostTagRepository";
 import type {
@@ -35,12 +34,8 @@ export class SequelizePostTagRepository implements PostTagRepository {
       slug: r.slug ?? null,
       description: r.description ?? null,
       status: (r.status ?? "active") as PostTagStatus,
-      position:
-        r.position !== undefined && r.position !== null
-          ? Number(r.position)
-          : 0,
       deleted: !!r.deleted,
-      deletedAt: r.deleted_at ?? null,
+      deletedAt: r.deleted_at ?? r.deletedAt ?? null,
       createdAt: r.created_at ?? r.createdAt ?? null,
       updatedAt: r.updated_at ?? r.updatedAt ?? null,
     });
@@ -60,7 +55,6 @@ export class SequelizePostTagRepository implements PostTagRepository {
     const sortMap: Record<string, string> = {
       id: "base.id",
       name: "base.name",
-      position: "COALESCE(base.position, 999999)",
       createdAt: "base.created_at",
       updatedAt: "base.updated_at",
     };
@@ -139,7 +133,8 @@ export class SequelizePostTagRepository implements PostTagRepository {
         t.slug,
         t.description,
         t.status,
-        t.position,
+        t.deleted,
+        t.deleted_at,
         t.created_at,
         t.updated_at
       FROM post_tags t
@@ -175,7 +170,6 @@ export class SequelizePostTagRepository implements PostTagRepository {
     );
 
     const ids = (idRows as any[]).map((r) => Number(r.id));
-
     const summary = await this.getSummary();
 
     if (!ids.length) {
@@ -251,7 +245,6 @@ export class SequelizePostTagRepository implements PostTagRepository {
       inactiveCount: Number(summaryRow.inactiveCount ?? 0),
       missingDescriptionCount: Number(summaryRow.missingDescriptionCount ?? 0),
       missingSlugCount: Number(summaryRow.missingSlugCount ?? 0),
-      zeroPositionCount: Number(summaryRow.zeroPositionCount ?? 0),
       duplicateNameCount: Number(duplicateRow.duplicateNameCount ?? 0),
       usedCount: Number(summaryRow.usedCount ?? 0),
       unusedCount: Number(summaryRow.unusedCount ?? 0),
@@ -274,27 +267,11 @@ export class SequelizePostTagRepository implements PostTagRepository {
     return row ? this.mapRow(row) : null;
   }
 
-  private async resolvePosition(input: { position?: number | null }) {
-    const position = input.position ?? null;
-    if (position != null) return Number(position);
-
-    let maxPos = await this.models.PostTag.max("position", {
-      where: { deleted: 0 },
-    });
-    maxPos = Number(maxPos) || 0;
-
-    return maxPos + 1;
-  }
-
   async create(input: CreatePostTagInput) {
-    const position = await this.resolvePosition(input);
-
     const row = await this.models.PostTag.create({
       name: input.name,
-      slug: input.slug ?? null,
       description: input.description ?? null,
       status: input.status ?? "active",
-      position,
       deleted: 0,
       deleted_at: null,
     });
@@ -313,19 +290,27 @@ export class SequelizePostTagRepository implements PostTagRepository {
     const values: any = {};
 
     if (patch.name !== undefined) values.name = patch.name;
-    if (patch.slug !== undefined) values.slug = patch.slug;
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.status !== undefined) values.status = patch.status;
-    if (patch.position !== undefined) values.position = patch.position;
 
     if (patch.deleted !== undefined) {
       values.deleted = patch.deleted ? 1 : 0;
       values.deleted_at = patch.deleted ? new Date() : null;
     }
 
-    await this.models.PostTag.update(values, {
+    const row = await this.models.PostTag.findOne({
       where: { id, deleted: 0 },
     });
+
+    if (!row) {
+      throw new Error("Post tag not found");
+    }
+
+    Object.entries(values).forEach(([key, value]) => {
+      row.set(key, value);
+    });
+
+    await row.save();
 
     const fresh = await this.findById(id);
 
@@ -421,11 +406,6 @@ export class SequelizePostTagRepository implements PostTagRepository {
 
     if (patch.description !== undefined) values.description = patch.description;
     if (patch.status !== undefined) values.status = patch.status;
-    if (patch.position !== undefined) {
-      throw new Error(
-        "Bulk edit does not support setting a single shared position",
-      );
-    }
 
     if (patch.deleted !== undefined) {
       if (patch.deleted) {
@@ -475,47 +455,5 @@ export class SequelizePostTagRepository implements PostTagRepository {
     });
 
     return Number(affected ?? 0);
-  }
-
-  async reorderPositions(pairs: ReorderPostTagPositionsInput[]) {
-    const safePairs = (pairs || [])
-      .map((p) => ({
-        id: Number(p.id),
-        position: Number(p.position),
-      }))
-      .filter(
-        (p) =>
-          Number.isFinite(p.id) &&
-          Number.isFinite(p.position) &&
-          p.position >= 0,
-      );
-
-    if (!safePairs.length) {
-      throw new Error("No valid reorder pairs provided");
-    }
-
-    const ids = safePairs.map((p) => p.id);
-
-    const whenClauses = safePairs
-      .map((p) => `WHEN ${p.id} THEN ${p.position}`)
-      .join(" ");
-
-    const sql = `
-      UPDATE post_tags
-      SET position = CASE id ${whenClauses} END
-      WHERE id IN (:ids) AND deleted = 0
-    `;
-
-    const result = await this.sequelize.query(sql, {
-      replacements: { ids },
-      type: QueryTypes.UPDATE,
-    });
-
-    if (Array.isArray(result)) {
-      const affected = Number(result[1] ?? ids.length);
-      return affected;
-    }
-
-    return ids.length;
   }
 }

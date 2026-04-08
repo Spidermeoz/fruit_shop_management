@@ -24,18 +24,10 @@ export class EditPostTag {
 
     const normalizedPatch: UpdatePostTagPatch = {
       ...(patch.name !== undefined ? { name: String(patch.name).trim() } : {}),
-      ...(patch.slug !== undefined
-        ? { slug: normalizeNullableText(patch.slug) }
-        : {}),
       ...(patch.description !== undefined
         ? { description: normalizeNullableText(patch.description) }
         : {}),
       ...(patch.status !== undefined ? { status: patch.status } : {}),
-      ...(patch.position !== undefined
-        ? {
-            position: patch.position !== null ? Number(patch.position) : null,
-          }
-        : {}),
       ...(patch.deleted !== undefined ? { deleted: !!patch.deleted } : {}),
     };
 
@@ -50,10 +42,8 @@ export class EditPostTag {
 
     const updatePayload: UpdatePostTagPatch = {
       name: updatedTag.props.name,
-      slug: updatedTag.props.slug ?? null,
       description: updatedTag.props.description ?? null,
       status: updatedTag.props.status,
-      position: updatedTag.props.position ?? 0,
       ...(normalizedPatch.deleted !== undefined
         ? { deleted: normalizedPatch.deleted }
         : {}),

@@ -422,13 +422,19 @@ export class SequelizePostCategoryRepository implements PostCategoryRepository {
       values.deleted_at = patch.deleted ? new Date() : null;
     }
 
-    const [affected] = await this.models.PostCategory.update(values, {
+    const row = await this.models.PostCategory.findOne({
       where: { id, deleted: 0 },
     });
 
-    if (!Number(affected)) {
+    if (!row) {
       throw new Error("Post category not found");
     }
+
+    Object.entries(values).forEach(([key, value]) => {
+      row.set(key, value);
+    });
+
+    await row.save();
 
     const fresh = await this.findById(id);
     if (!fresh) throw new Error("Post category not found after update");

@@ -6,15 +6,14 @@ import { EditPostTag } from "../../../../application/post-tags/usecases/EditPost
 import { ChangePostTagStatus } from "../../../../application/post-tags/usecases/ChangePostTagStatus";
 import { SoftDeletePostTag } from "../../../../application/post-tags/usecases/SoftDeletePostTag";
 import { BulkEditPostTags } from "../../../../application/post-tags/usecases/BulkEditPostTags";
-import { ReorderPostTagPositions } from "../../../../application/post-tags/usecases/ReorderPostTagPositions";
 import { GetPostTagSummary } from "../../../../application/post-tags/usecases/GetPostTagSummary";
 import { CanDeletePostTag } from "../../../../application/post-tags/usecases/CanDeletePostTag";
 import { GetPostTagUsage } from "../../../../application/post-tags/usecases/GetPostTagUsage";
 import type { PostTagStatus } from "../../../../domain/post-tags/types";
 import type {
-  ReorderPostTagPositionsInput,
   UpdatePostTagPatch,
 } from "../../../../domain/post-tags/PostTagRepository";
+import type { PostTag } from "../../../../domain/post-tags/PostTag";
 
 const toNum = (v: any) => (v === undefined ? undefined : Number(v));
 
@@ -23,15 +22,30 @@ const isValidStatus = (value: unknown): value is PostTagStatus =>
 
 const isValidSortBy = (
   value: unknown,
-): value is "id" | "name" | "position" | "createdAt" | "updatedAt" =>
+): value is "id" | "name" | "createdAt" | "updatedAt" =>
   value === "id" ||
   value === "name" ||
-  value === "position" ||
   value === "createdAt" ||
   value === "updatedAt";
 
 const isValidOrder = (value: unknown): value is "ASC" | "DESC" =>
   value === "ASC" || value === "DESC";
+
+const toTagDto = (tag: PostTag | { props: any } | any) => {
+  const dto = tag?.props ?? tag ?? {};
+
+  return {
+    id: dto.id,
+    name: dto.name,
+    slug: dto.slug ?? null,
+    description: dto.description ?? null,
+    status: dto.status,
+    deleted: !!dto.deleted,
+    deleted_at: dto.deletedAt ?? dto.deleted_at ?? null,
+    created_at: dto.createdAt ?? dto.created_at ?? null,
+    updated_at: dto.updatedAt ?? dto.updated_at ?? null,
+  };
+};
 
 export const makePostTagsController = (uc: {
   list: ListPostTags;
@@ -41,7 +55,6 @@ export const makePostTagsController = (uc: {
   changeStatus: ChangePostTagStatus;
   softDelete: SoftDeletePostTag;
   bulkEdit: BulkEditPostTags;
-  reorder: ReorderPostTagPositions;
   summary: GetPostTagSummary;
   canDelete: CanDeletePostTag;
   usage: GetPostTagUsage;
@@ -92,7 +105,7 @@ export const makePostTagsController = (uc: {
 
         return res.json({
           success: true,
-          data: data.rows,
+          data: data.rows.map(toTagDto),
           meta: {
             total: data.count,
             page: normalizedPage,
@@ -129,18 +142,7 @@ export const makePostTagsController = (uc: {
 
         return res.json({
           success: true,
-          data: {
-            id: dto.id,
-            name: dto.name,
-            slug: dto.slug ?? "",
-            description: dto.description ?? "",
-            status: dto.status,
-            position: dto.position ?? 0,
-            deleted: dto.deleted ? 1 : 0,
-            deleted_at: dto.deletedAt ?? null,
-            created_at: dto.createdAt ?? null,
-            updated_at: dto.updatedAt ?? null,
-          },
+          data: toTagDto(dto),
         });
       } catch (e) {
         next(e);
@@ -190,27 +192,24 @@ export const makePostTagsController = (uc: {
           slug?: string | null;
           description?: string | null;
           status?: PostTagStatus;
-          position?: number | null;
         };
 
         if (payload.status !== undefined && !isValidStatus(payload.status)) {
           throw new Error("Invalid post tag status");
         }
 
-        const result = await uc.create.execute({
+        const created = await uc.create.execute({
           name: String(payload.name ?? ""),
           slug: payload.slug ?? null,
           description: payload.description ?? null,
           status: payload.status ?? "active",
-          position:
-            payload.position !== undefined && payload.position !== null
-              ? Number(payload.position)
-              : 0,
         });
+
+        const fresh = await uc.detail.execute(created.id);
 
         return res.status(201).json({
           success: true,
-          data: result,
+          data: toTagDto(fresh),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -229,18 +228,7 @@ export const makePostTagsController = (uc: {
 
         return res.json({
           success: true,
-          data: {
-            id: dto.id,
-            name: dto.name,
-            slug: dto.slug ?? "",
-            description: dto.description ?? "",
-            status: dto.status,
-            position: dto.position ?? 0,
-            deleted: dto.deleted ? 1 : 0,
-            deleted_at: dto.deletedAt ?? null,
-            created_at: dto.createdAt ?? null,
-            updated_at: dto.updatedAt ?? null,
-          },
+          data: toTagDto(dto),
         });
       } catch (e) {
         next(e);
@@ -267,11 +255,6 @@ export const makePostTagsController = (uc: {
             ? { description: body.description }
             : {}),
           ...(body.status !== undefined ? { status: body.status } : {}),
-          ...(body.position !== undefined
-            ? {
-                position: body.position !== null ? Number(body.position) : null,
-              }
-            : {}),
           ...(body.deleted !== undefined ? { deleted: !!body.deleted } : {}),
         };
 
@@ -279,7 +262,7 @@ export const makePostTagsController = (uc: {
 
         return res.json({
           success: true,
-          data: updated.props,
+          data: toTagDto(updated),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -369,39 +352,6 @@ export const makePostTagsController = (uc: {
           ids,
           patch,
         });
-
-        return res.json({
-          success: true,
-          data: result,
-        });
-      } catch (e) {
-        next(e);
-      }
-    },
-
-    reorder: async (req: Request, res: Response, next: NextFunction) => {
-      try {
-        const body = req.body as {
-          items?: ReorderPostTagPositionsInput[];
-        };
-
-        const items = (body.items || [])
-          .map((item) => ({
-            id: Number(item.id),
-            position: Number(item.position),
-          }))
-          .filter(
-            (item) =>
-              Number.isFinite(item.id) &&
-              Number.isFinite(item.position) &&
-              item.position >= 0,
-          );
-
-        if (!items.length) {
-          throw new Error("No valid reorder items provided");
-        }
-
-        const result = await uc.reorder.execute(items);
 
         return res.json({
           success: true,

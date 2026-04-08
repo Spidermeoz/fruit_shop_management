@@ -139,20 +139,6 @@ function validateBusinessRules(input: {
   if (input.ogImage && !isValidHttpUrl(input.ogImage)) {
     throw new Error("OG image URL is invalid");
   }
-
-  if (input.status === "published") {
-    if (!input.slug) {
-      throw new Error("Published post must have a valid slug");
-    }
-
-    if (!hasMeaningfulContent(input.content)) {
-      throw new Error("Published post must have content");
-    }
-
-    if (!input.publishedAt) {
-      throw new Error("Published post must have publishedAt");
-    }
-  }
 }
 
 export class CreatePost {
@@ -166,7 +152,6 @@ export class CreatePost {
 
     const normalizedStatus = normalizeStatus(input.status);
     const normalizedTitle = normalizeRequiredText(input.title);
-    const normalizedSlug = normalizeNullableText(input.slug);
     const normalizedExcerpt = normalizeNullableText(input.excerpt);
     const normalizedContent =
       input.content !== undefined && input.content !== null
@@ -182,7 +167,6 @@ export class CreatePost {
           : null,
 
       title: normalizedTitle,
-      slug: normalizedSlug,
       excerpt: normalizedExcerpt,
       content: normalizedContent,
       thumbnail: normalizedThumbnail,
@@ -232,8 +216,6 @@ export class CreatePost {
       relatedProductIds: normalizedPayload.relatedProductIds ?? [],
     });
 
-    const created = await this.repo.create(normalizedPayload);
-
-    return { id: created.props.id! };
+    return this.repo.create(normalizedPayload);
   }
 }

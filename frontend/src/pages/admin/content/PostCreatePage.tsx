@@ -64,7 +64,6 @@ type PostStatus = "draft" | "published" | "inactive" | "archived";
 interface PostFormData {
   post_category_id: number | string;
   title: string;
-  slug: string;
   excerpt: string;
   content: string;
   thumbnail: string;
@@ -152,17 +151,6 @@ const countWords = (html: string) => {
   if (!text) return 0;
   return text.split(/\s+/).filter(Boolean).length;
 };
-
-const slugify = (value: string) =>
-  String(value ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/Đ/g, "D")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
 
 const nowAsDatetimeLocal = () => {
   const now = new Date();
@@ -282,7 +270,6 @@ const PostCreatePage: React.FC = () => {
   );
 
   const [productSearch, setProductSearch] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [ogUseThumbnail, setOgUseThumbnail] = useState(true);
 
   const fieldRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -290,7 +277,6 @@ const PostCreatePage: React.FC = () => {
   const [formData, setFormData] = useState<PostFormData>({
     post_category_id: "",
     title: "",
-    slug: "",
     excerpt: "",
     content: "",
     thumbnail: "",
@@ -323,7 +309,6 @@ const PostCreatePage: React.FC = () => {
   const getTabForField = (fieldKey: string): TabKey => {
     if (
       fieldKey.startsWith("title") ||
-      fieldKey.startsWith("slug") ||
       fieldKey.startsWith("excerpt") ||
       fieldKey.startsWith("post_category_id") ||
       fieldKey.startsWith("tag_ids") ||
@@ -382,15 +367,6 @@ const PostCreatePage: React.FC = () => {
     () => countWords(formData.content),
     [formData.content],
   );
-
-  useEffect(() => {
-    if (!slugTouched) {
-      setFormData((prev) => ({
-        ...prev,
-        slug: slugify(prev.title),
-      }));
-    }
-  }, [formData.title, slugTouched]);
 
   useEffect(() => {
     if (!ogUseThumbnail) return;
@@ -495,12 +471,6 @@ const PostCreatePage: React.FC = () => {
     const { value } = e.target;
     setFormData((prev) => ({ ...prev, title: value }));
     clearError("title");
-  };
-
-  const handleSlugChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSlugTouched(true);
-    setFormData((prev) => ({ ...prev, slug: slugify(e.target.value) }));
-    clearError("slug");
   };
 
   const handleContentChange = (value: string) => {
@@ -756,10 +726,6 @@ const PostCreatePage: React.FC = () => {
       issues.push("Thiếu tiêu đề bài viết.");
     }
 
-    if (!normalizeText(formData.slug) && normalizeText(formData.title)) {
-      issues.push("Slug hiện chưa hợp lệ.");
-    }
-
     if (isEditorEmpty(formData.content)) {
       issues.push("Thiếu nội dung bài viết.");
     }
@@ -778,7 +744,6 @@ const PostCreatePage: React.FC = () => {
     return issues;
   }, [
     formData.title,
-    formData.slug,
     formData.content,
     formData.status,
     formData.published_at,
@@ -789,13 +754,6 @@ const PostCreatePage: React.FC = () => {
 
     if (!normalizeText(formData.title)) {
       nextErrors.title = "Vui lòng nhập tiêu đề bài viết.";
-    }
-
-    if (
-      normalizeText(formData.title).length > 0 &&
-      !normalizeText(formData.slug)
-    ) {
-      nextErrors.slug = "Slug không hợp lệ. Vui lòng kiểm tra lại.";
     }
 
     if (mode === "submit" && isEditorEmpty(formData.content)) {
@@ -901,7 +859,6 @@ const PostCreatePage: React.FC = () => {
     return {
       postCategoryId: normalizeSingleId(formData.post_category_id),
       title: normalizeText(formData.title),
-      slug: normalizeText(formData.slug) || null,
       excerpt: normalizeText(formData.excerpt) || null,
       content: uploadedContent,
       thumbnail: uploadedThumbnail || null,
@@ -1144,35 +1101,6 @@ const PostCreatePage: React.FC = () => {
               <p className="text-xs text-gray-500 mt-1.5">
                 Tiêu đề rõ ràng giúp cả người đọc lẫn công cụ tìm kiếm hiểu đúng
                 trọng tâm bài viết.
-              </p>
-            )}
-          </div>
-
-          <div ref={setFieldRef("slug")}>
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-              Slug
-            </label>
-            <input
-              type="text"
-              name="slug"
-              value={formData.slug}
-              onChange={handleSlugChange}
-              placeholder="slug-duong-dan-bai-viet"
-              className={`w-full rounded-xl border px-4 py-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 ${
-                errors.slug
-                  ? "border-red-500"
-                  : "border-gray-300 dark:border-gray-600"
-              }`}
-            />
-            {errors.slug ? (
-              <p className="text-sm text-red-600 mt-1.5 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" />
-                {errors.slug}
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mt-1.5">
-                Slug dùng trong URL bài viết. Nếu bạn chưa sửa thủ công, hệ
-                thống sẽ tự gợi ý từ tiêu đề.
               </p>
             )}
           </div>
@@ -1831,7 +1759,7 @@ const PostCreatePage: React.FC = () => {
           <div className="mt-1 text-sm text-[#006621] flex items-center gap-2 break-all">
             <ExternalLink className="w-3.5 h-3.5 shrink-0" />
             {normalizeText(formData.canonical_url) ||
-              `yourdomain.com/${normalizeText(formData.slug) || "duong-dan-bai-viet"}`}
+              "yourdomain.com/slug-tu-dong-se-duoc-tao-khi-luu"}
           </div>
 
           <p className="mt-2 text-[15px] leading-6 text-[#4d5156]">
