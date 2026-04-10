@@ -15,6 +15,7 @@ import { makeAuthMiddleware } from "./interfaces/http/express/middlewares/auth";
 import { makeCan } from "./interfaces/http/express/middlewares/permissions";
 
 // ===== Admin routes =====
+import { dashboardRoutes } from "./interfaces/http/express/routes/dashboard.routes";
 import { authRoutes } from "./interfaces/http/express/routes/auth.routes";
 import { productsRoutes } from "./interfaces/http/express/routes/products.routes";
 import { productCategoriesRoutes } from "./interfaces/http/express/routes/productCategories.routes";
@@ -107,6 +108,10 @@ app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
 // ------------------------------------
 // Admin Routes
 // ------------------------------------
+app.use(
+  "/api/v1/admin/dashboard",
+  dashboardRoutes(controllers.dashboard, auth),
+);
 app.use(
   "/api/v1/admin/products",
   productsRoutes(controllers.products, auth, can),

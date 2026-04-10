@@ -34,7 +34,7 @@ import BranchCreatePage from "./pages/admin/branches/BranchCreatePage";
 import BranchEditPage from "./pages/admin/branches/BranchEditPage";
 import InventoryPage from "./pages/admin/inventory/InventoryPage";
 import InventoryTransactionHistoryPage from "./pages/admin/inventory/InventoryTransactionHistoryPage";
-import ShippingDashboardPage from "./pages/admin/shipping/ShippingDashboardPage";
+import ShippingDashboardPage from "./pages/admin/shipping/ShippingOverviewPage";
 import ShippingZonesPage from "./pages/admin/shipping/ShippingZonesPage";
 import ShippingZoneCreatePage from "./pages/admin/shipping/ShippingZoneCreatePage";
 import ShippingZoneEditPage from "./pages/admin/shipping/ShippingZoneEditPage";

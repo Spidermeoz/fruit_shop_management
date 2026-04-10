@@ -88,7 +88,7 @@ const inventoryChildren: SidebarItem[] = [
 
 const shippingChildren: SidebarItem[] = [
   {
-    name: "Dashboard",
+    name: "Overview",
     href: "/admin/shipping",
     icon: LayoutDashboard,
     exact: true, // Thêm exact: true thay vì hardcode trong renderChildItem

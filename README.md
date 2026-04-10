@@ -222,6 +222,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ReorderCategoryPositions.ts
 │   │   │   │   │   └── 📄 SoftDeleteCategory.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 dashboard
+│   │   │   │   └── 📁 usecases
+│   │   │   │       └── 📄 GetAdminDashboard.ts
 │   │   │   ├── 📁 inventory
 │   │   │   │   └── 📁 usecases
 │   │   │   │       ├── 📄 ListInventoryStocks.ts
@@ -277,7 +280,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 GetPostTagSummary.ts
 │   │   │   │       ├── 📄 GetPostTagUsage.ts
 │   │   │   │       ├── 📄 ListPostTags.ts
-│   │   │   │       ├── 📄 ReorderPostTagPositions.ts
 │   │   │   │       └── 📄 SoftDeletePostTag.ts
 │   │   │   ├── 📁 posts
 │   │   │   │   └── 📁 usecase
@@ -425,6 +427,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 ProductCategory.ts
 │   │   │   │   ├── 📄 ProductCategoryRepository.ts
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 dashboard
+│   │   │   │   ├── 📄 DashboardRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 inventory
 │   │   │   │   └── 📄 InventoryRepository.ts
 │   │   │   ├── 📁 orders
@@ -538,6 +543,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
+│   │   │   │   ├── 📄 SequelizeDashboardRepository.ts
 │   │   │   │   ├── 📄 SequelizeDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
@@ -578,6 +584,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 BranchDeliveryTimeSlotsController.ts
 │   │   │           │   ├── 📄 BranchServiceAreasController.ts
 │   │   │           │   ├── 📄 BranchesController.ts
+│   │   │           │   ├── 📄 DashboardController.ts
 │   │   │           │   ├── 📄 DeliveryTimeSlotsController.ts
 │   │   │           │   ├── 📄 InventoryController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
@@ -617,6 +624,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 branchDeliveryTimeSlots.routes.ts
 │   │   │               ├── 📄 branchServiceAreas.routes.ts
 │   │   │               ├── 📄 branches.routes.ts
+│   │   │               ├── 📄 dashboard.routes.ts
 │   │   │               ├── 📄 deliveryTimeSlots.routes.ts
 │   │   │               ├── 📄 inventory.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
@@ -657,10 +665,47 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 Pagination.tsx
 │   │   │   │   │   └── 📄 RichTextEditor.tsx
 │   │   │   │   ├── 📁 dashboard
-│   │   │   │   │   ├── 📄 OrdersSummaryCards.tsx
-│   │   │   │   │   ├── 📄 ProductsOverview.tsx
-│   │   │   │   │   ├── 📄 RecentOrders.tsx
-│   │   │   │   │   └── 📄 UsersOverview.tsx
+│   │   │   │   │   ├── 📁 hooks
+│   │   │   │   │   │   ├── 📄 useDashboardData.ts
+│   │   │   │   │   │   └── 📄 useDashboardVisibility.ts
+│   │   │   │   │   ├── 📁 sections
+│   │   │   │   │   │   ├── 📄 BranchAdminDashboardSection.tsx
+│   │   │   │   │   │   ├── 📄 DashboardAlertsSection.tsx
+│   │   │   │   │   │   ├── 📄 DashboardHeroSection.tsx
+│   │   │   │   │   │   ├── 📄 DashboardQuickLinksSection.tsx
+│   │   │   │   │   │   ├── 📄 FunctionalDashboardSection.tsx
+│   │   │   │   │   │   └── 📄 SuperAdminDashboardSection.tsx
+│   │   │   │   │   ├── 📁 shared
+│   │   │   │   │   │   ├── 📄 DashboardBadge.tsx
+│   │   │   │   │   │   ├── 📄 DashboardEmptyState.tsx
+│   │   │   │   │   │   ├── 📄 DashboardHealthPill.tsx
+│   │   │   │   │   │   ├── 📄 DashboardNumber.tsx
+│   │   │   │   │   │   ├── 📄 DashboardScopeHeader.tsx
+│   │   │   │   │   │   └── 📄 DashboardSkeleton.tsx
+│   │   │   │   │   ├── 📁 types
+│   │   │   │   │   │   └── 📄 dashboard.ts
+│   │   │   │   │   ├── 📁 utils
+│   │   │   │   │   │   ├── 📄 dashboardFormatters.ts
+│   │   │   │   │   │   ├── 📄 dashboardGuards.ts
+│   │   │   │   │   │   └── 📄 dashboardMappers.ts
+│   │   │   │   │   └── 📁 widgets
+│   │   │   │   │       ├── 📄 BranchPerformanceTable.tsx
+│   │   │   │   │       ├── 📄 DashboardAlertList.tsx
+│   │   │   │   │       ├── 📄 DashboardFilterBar.tsx
+│   │   │   │   │       ├── 📄 DashboardKpiCard.tsx
+│   │   │   │   │       ├── 📄 DashboardKpiGrid.tsx
+│   │   │   │   │       ├── 📄 DashboardQuickLinksGrid.tsx
+│   │   │   │   │       ├── 📄 DashboardSectionCard.tsx
+│   │   │   │   │       ├── 📄 InventoryHealthCard.tsx
+│   │   │   │   │       ├── 📄 MetricBarListCard.tsx
+│   │   │   │   │       ├── 📄 MetricDonutCard.tsx
+│   │   │   │   │       ├── 📄 MiniStatList.tsx
+│   │   │   │   │       ├── 📄 PromotionsHealthCard.tsx
+│   │   │   │   │       ├── 📄 ReviewsHealthCard.tsx
+│   │   │   │   │       ├── 📄 ShippingHealthCard.tsx
+│   │   │   │   │       ├── 📄 StatusDistributionCard.tsx
+│   │   │   │   │       ├── 📄 UsersHealthCard.tsx
+│   │   │   │   │       └── 📄 WorkQueueCard.tsx
 │   │   │   │   └── 📁 layouts
 │   │   │   │       ├── 📄 Card.tsx
 │   │   │   │       ├── 📄 DashboardHeader.tsx
@@ -700,6 +745,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 PostCategoryEditModal.tsx
 │   │   │   │   │   ├── 📄 PostCreatePage.tsx
 │   │   │   │   │   ├── 📄 PostEditPage.tsx
+│   │   │   │   │   ├── 📄 PostTagFormModal.tsx
 │   │   │   │   │   ├── 📄 PostTagsPage.tsx
 │   │   │   │   │   └── 📄 PostsPage.tsx
 │   │   │   │   ├── 📁 dashboard
@@ -740,7 +786,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotCreatePage.tsx
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotEditPage.tsx
 │   │   │   │   │   ├── 📄 DeliveryTimeSlotsPage.tsx
-│   │   │   │   │   ├── 📄 ShippingDashboardPage.tsx
+│   │   │   │   │   ├── 📄 ShippingOverviewPage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneCreatePage.tsx
 │   │   │   │   │   ├── 📄 ShippingZoneEditPage.tsx
 │   │   │   │   │   └── 📄 ShippingZonesPage.tsx
@@ -787,9 +833,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           └── 📄 ProfilePage.tsx
 │   │   ├── 📁 services
 │   │   │   ├── 📁 api
-│   │   │   │   ├── 📄 categoriesClient.ts
-│   │   │   │   ├── 📄 dashboardOrdersService.ts
-│   │   │   │   ├── 📄 dashboardProductService.ts
+│   │   │   │   ├── 📄 dashboardApi.ts
 │   │   │   │   └── 📄 ordersClient.ts
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types

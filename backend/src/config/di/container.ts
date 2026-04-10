@@ -68,6 +68,7 @@ import { SequelizePromotionRepository } from "../../infrastructure/repositories/
 import { SequelizePostRepository } from "../../infrastructure/repositories/SequelizePostRepository";
 import { SequelizePostCategoryRepository } from "../../infrastructure/repositories/SequelizePostCategoryRepository";
 import { SequelizePostTagRepository } from "../../infrastructure/repositories/SequelizePostTagRepository";
+import { SequelizeDashboardRepository } from "../../infrastructure/repositories/SequelizeDashboardRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -78,6 +79,9 @@ import { CloudinaryStorage } from "../../infrastructure/storage/CloudinaryStorag
 import { BcryptPasswordService } from "../../infrastructure/auth/BcryptPasswordService";
 import { CryptoRefreshTokenService } from "../../infrastructure/auth/CryptoRefreshTokenService";
 import { JwtTokenService } from "../../infrastructure/auth/JwtTokenService";
+
+// ===== Dashboard usecases =====
+import { GetAdminDashboard } from "../../application/dashboard/usecases/GetAdminDashboard";
 
 // ===== Product usecases =====
 import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
@@ -191,7 +195,6 @@ import { SoftDeleteOrigin } from "../../application/origins/usecases/SoftDeleteO
 import { BulkDeleteOrigins } from "../../application/origins/usecases/BulkDeleteOrigins";
 
 // ===== Product tags usecases =====
-import { ChangeProductTagStatus } from "../../application/product-tags/usecases/ChangeProductTagStatus";
 import { CreateProductTag } from "../../application/product-tags/usecases/CreateProductTag";
 import { EditProductTag } from "../../application/product-tags/usecases/EditProductTag";
 import { GetProductTagDetail } from "../../application/product-tags/usecases/GetProductTagDetail";
@@ -274,7 +277,6 @@ import { ReorderPostPositions } from "../../application/posts/usecase/ReorderPos
 import { GetPostSummary } from "../../application/posts/usecase/GetPostSummary";
 
 // ===== Post category usecases =====
-// ===== Post category usecases =====
 import { ListPostCategories } from "../../application/post-categories/usecases/ListPostCategories";
 import { GetPostCategoryDetail } from "../../application/post-categories/usecases/GetPostCategoryDetail";
 import { CreatePostCategory } from "../../application/post-categories/usecases/CreatePostCategory";
@@ -300,12 +302,10 @@ import { GetPostTagUsage } from "../../application/post-tags/usecases/GetPostTag
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
-import type { ClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
 import { makeClientCategoriesController } from "../../interfaces/http/express/controllers/client/ClientCategoriesController";
 import { ClientForgotPasswordController } from "../../interfaces/http/express/controllers/client/ClientForgotPasswordController";
 import { makeClientOrdersController } from "../../interfaces/http/express/controllers/client/ClientOrdersController";
 import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
-import type { ClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
 import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
 import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
 import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
@@ -370,6 +370,10 @@ import {
   makePostTagsController,
   type PostTagsController,
 } from "../../interfaces/http/express/controllers/PostTagsController";
+import {
+  makeDashboardController,
+  type DashboardController,
+} from "../../interfaces/http/express/controllers/DashboardController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -1104,8 +1108,33 @@ const evaluatePromotionService = new EvaluatePromotionService(
   validatePromotionCodeService,
 );
 
+const dashboardModels = {
+  Order: OrderModel,
+  InventoryStock: InventoryStockModel,
+  Product: ProductModel,
+  ProductVariant: ProductVariantModel,
+  User: UserModel,
+  UserBranch: UserBranchModel,
+  Branch: BranchModel,
+  ShippingZone: ShippingZoneModel,
+  BranchServiceArea: BranchServiceAreaModel,
+  BranchDeliveryTimeSlot: BranchDeliveryTimeSlotModel,
+  BranchDeliverySlotCapacity: BranchDeliverySlotCapacityModel,
+  Promotion: PromotionModel,
+  PromotionUsage: PromotionUsageModel,
+  ProductReview: ProductReviewModel,
+  Post: PostModel,
+  PostCategory: PostCategoryModel,
+  PostTag: PostTagModel,
+};
+
+const dashboardRepo = new SequelizeDashboardRepository(dashboardModels);
+
 // ===== Usecases =====
 export const usecases = {
+  dashboard: {
+    getAdminDashboard: new GetAdminDashboard(dashboardRepo),
+  },
   products: {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo, inventoryRepo),
@@ -1406,6 +1435,7 @@ export const usecases = {
 
 // ===== Controllers =====
 type Controllers = {
+  dashboard: DashboardController;
   products: ProductsController;
   posts: PostsController;
   postsCategories: PostCategoriesController;
@@ -1432,6 +1462,9 @@ type Controllers = {
 };
 
 export const controllers: Controllers = {
+  dashboard: makeDashboardController({
+    getAdminDashboard: usecases.dashboard.getAdminDashboard,
+  }),
   products: makeProductsController({
     list: usecases.products.list,
     detail: usecases.products.detail,
