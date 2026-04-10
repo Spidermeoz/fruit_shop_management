@@ -2,6 +2,8 @@ import { ParamsDictionary } from "express-serve-static-core";
 import { ParsedQs } from "qs";
 import { File } from "multer";
 
+type RequestPermissionMap = Record<string, string[]>;
+
 declare global {
   namespace Express {
     interface Request<
@@ -15,6 +17,10 @@ declare global {
         id: number;
         email?: string;
         roleId?: number | null;
+        roleCode?: string | null;
+        roleName?: string | null;
+        isSuperAdmin?: boolean;
+        permissions?: RequestPermissionMap;
         branchIds?: number[];
         primaryBranchId?: number | null;
         currentBranchId?: number | null;

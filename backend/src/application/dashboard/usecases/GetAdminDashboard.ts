@@ -8,15 +8,26 @@ import type {
   DashboardWidgetVisibility,
 } from "../../../domain/dashboard/types";
 
+type PermissionMap = Record<string, string[]>;
+
 type ActorLike = {
   id?: number | null;
   roleId?: number | null;
   role_id?: number | null;
+  roleCode?: string | null;
+  role_code?: string | null;
+  roleName?: string | null;
+  role_name?: string | null;
+  isSuperAdmin?: boolean | null;
+  is_super_admin?: boolean | null;
   currentBranchId?: number | null;
   current_branch_id?: number | null;
   branchIds?: number[];
   branch_ids?: number[];
-  permissions?: Array<string | { module?: string; action?: string }>;
+  permissions?:
+    | Array<string | { module?: string; action?: string }>
+    | PermissionMap
+    | null;
 };
 
 type ExecuteInput = {
@@ -35,36 +46,50 @@ const uniqNums = (value: unknown): number[] => {
 };
 
 const normalizePermissions = (
-  permissions?: Array<string | { module?: string; action?: string }>,
+  permissions?:
+    | Array<string | { module?: string; action?: string }>
+    | PermissionMap
+    | null,
 ): DashboardPermission[] => {
-  if (!Array.isArray(permissions)) return [];
-
   const out = new Map<string, DashboardPermission>();
 
-  for (const item of permissions) {
-    if (typeof item === "string") {
-      const raw = item.trim().toLowerCase();
-      if (!raw) continue;
-
-      const [module, action] = raw.split(".");
-      if (!module || !action) continue;
-
-      const key = `${module}.${action}`;
-      out.set(key, { module, action, key });
-      continue;
-    }
-
-    const module = String(item?.module ?? "")
+  const add = (moduleValue: unknown, actionValue: unknown) => {
+    const module = String(moduleValue ?? "")
       .trim()
       .toLowerCase();
-    const action = String(item?.action ?? "")
+    const action = String(actionValue ?? "")
       .trim()
       .toLowerCase();
 
-    if (!module || !action) continue;
+    if (!module || !action) return;
 
     const key = `${module}.${action}`;
     out.set(key, { module, action, key });
+  };
+
+  if (Array.isArray(permissions)) {
+    for (const item of permissions) {
+      if (typeof item === "string") {
+        const raw = item.trim().toLowerCase();
+        if (!raw) continue;
+
+        const [module, action] = raw.split(".");
+        if (!module || !action) continue;
+
+        add(module, action);
+        continue;
+      }
+
+      add(item?.module, item?.action);
+    }
+  } else if (permissions && typeof permissions === "object") {
+    for (const [module, actions] of Object.entries(permissions)) {
+      if (!Array.isArray(actions)) continue;
+
+      for (const action of actions) {
+        add(module, action);
+      }
+    }
   }
 
   return Array.from(out.values());
@@ -85,12 +110,64 @@ const hasPermission = (
   });
 };
 
+const resolveExplicitSuperAdminFlag = (actor: ActorLike): boolean => {
+  if (actor.isSuperAdmin === true || actor.is_super_admin === true) {
+    return true;
+  }
+
+  const roleCode = String(actor.roleCode ?? actor.role_code ?? "")
+    .trim()
+    .toLowerCase();
+  const roleName = String(actor.roleName ?? actor.role_name ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "_");
+
+  return (
+    roleCode === "super_admin" ||
+    roleCode === "superadmin" ||
+    roleName === "super_admin" ||
+    roleName === "superadmin"
+  );
+};
+
+const inferSuperAdminByCoverage = (
+  permissions: DashboardPermission[],
+): boolean => {
+  if (permissions.length === 0) return false;
+
+  return (
+    hasPermission(permissions, "order", "view") &&
+    hasPermission(permissions, "inventory", "view") &&
+    hasPermission(permissions, "user", "view") &&
+    hasPermission(permissions, "branch", "view") &&
+    (hasPermission(permissions, "shipping_zone", "view") ||
+      hasPermission(permissions, "branch_service_area", "view") ||
+      hasPermission(permissions, "delivery_time_slot", "view") ||
+      hasPermission(permissions, "branch_delivery_time_slot", "view") ||
+      hasPermission(permissions, "branch_delivery_slot_capacity", "view")) &&
+    hasPermission(permissions, "promotion", "view") &&
+    hasPermission(permissions, "review", "view") &&
+    (hasPermission(permissions, "post", "view") ||
+      hasPermission(permissions, "post_category", "view") ||
+      hasPermission(permissions, "post_tag", "view"))
+  );
+};
+
+const isSuperAdminActor = (
+  actor: ActorLike,
+  permissions: DashboardPermission[],
+): boolean => {
+  return (
+    resolveExplicitSuperAdminFlag(actor) ||
+    inferSuperAdminByCoverage(permissions)
+  );
+};
+
 const computeWidgets = (
-  roleId: number | null,
+  isSuperAdmin: boolean,
   permissions: DashboardPermission[],
 ): DashboardWidgetVisibility => {
-  const isSuperAdmin = Number(roleId) === 1;
-
   if (isSuperAdmin) {
     return {
       showOrders: true,
@@ -158,11 +235,11 @@ const computeWidgets = (
 };
 
 const inferTier = (
-  roleId: number | null,
+  isSuperAdmin: boolean,
   branchIds: number[],
   widgets: DashboardWidgetVisibility,
 ): DashboardTier => {
-  if (Number(roleId) === 1) return "super_admin";
+  if (isSuperAdmin) return "super_admin";
 
   const adminLikeScore = [
     widgets.showOrders,
@@ -192,7 +269,6 @@ const computeScopeMode = (
 const buildRangeWindow = (range: DashboardRange): { from: Date; to: Date } => {
   const now = new Date();
   const to = new Date(now);
-
   const from = new Date(now);
 
   if (range === "today") {
@@ -240,7 +316,8 @@ export class GetAdminDashboard {
 
     const allowedBranchIds = uniqNums(actor.branchIds ?? actor.branch_ids);
     const permissions = normalizePermissions(actor.permissions);
-    const widgets = computeWidgets(actorRoleId, permissions);
+    const isSuperAdmin = isSuperAdminActor(actor, permissions);
+    const widgets = computeWidgets(isSuperAdmin, permissions);
 
     const requestedBranchId =
       input.branchId !== null &&
@@ -251,7 +328,7 @@ export class GetAdminDashboard {
 
     let resolvedBranchId: number | null = null;
 
-    if (Number(actorRoleId) === 1) {
+    if (isSuperAdmin) {
       resolvedBranchId = requestedBranchId;
     } else {
       if (requestedBranchId) {
@@ -271,7 +348,7 @@ export class GetAdminDashboard {
       }
     }
 
-    const tier = inferTier(actorRoleId, allowedBranchIds, widgets);
+    const tier = inferTier(isSuperAdmin, allowedBranchIds, widgets);
     const scopeMode = computeScopeMode(tier, resolvedBranchId);
     const range = input.range ?? "7d";
     const { from, to } = buildRangeWindow(range);

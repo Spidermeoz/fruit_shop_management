@@ -29,7 +29,7 @@ const normalizeRange = (value?: DashboardRange): DashboardRange => {
 export const useDashboardData = (
   options?: UseDashboardDataOptions,
 ): UseDashboardDataResult => {
-  const { user, branches, currentBranchId, setCurrentBranchId } = useAuth();
+  const { branches, currentBranchId, setCurrentBranchId } = useAuth();
 
   const initialRange = useMemo(
     () => normalizeRange(options?.initialRange),
@@ -48,16 +48,12 @@ export const useDashboardData = (
 
   const requestIdRef = useRef(0);
 
-  const isSuperAdmin = Number(user?.role_id ?? 0) === 1;
+  const isSuperAdmin = data?.viewer.tier === "super_admin";
   const hasSingleBranch = branches.length <= 1;
   const isBranchLocked = !isSuperAdmin && hasSingleBranch;
 
   useEffect(() => {
-    if (isSuperAdmin) {
-      setSelectedBranchIdState((prev) => prev ?? null);
-      return;
-    }
-
+    if (isSuperAdmin) return;
     setSelectedBranchIdState(currentBranchId ?? null);
   }, [currentBranchId, isSuperAdmin]);
 
@@ -79,6 +75,22 @@ export const useDashboardData = (
         if (requestId !== requestIdRef.current) return;
 
         setData(nextData);
+
+        if (
+          nextData.viewer.tier === "super_admin" &&
+          selectedBranchId === null &&
+          nextData.viewer.resolvedBranchId == null
+        ) {
+          return;
+        }
+
+        if (
+          nextData.viewer.tier !== "super_admin" &&
+          nextData.viewer.resolvedBranchId &&
+          nextData.viewer.resolvedBranchId !== selectedBranchId
+        ) {
+          setSelectedBranchIdState(nextData.viewer.resolvedBranchId);
+        }
       } catch (err: any) {
         if (requestId !== requestIdRef.current) return;
         setData(null);
@@ -93,7 +105,7 @@ export const useDashboardData = (
   );
 
   useEffect(() => {
-    fetchDashboard();
+    void fetchDashboard();
   }, [fetchDashboard]);
 
   const setRange = useCallback((nextRange: DashboardRange) => {
@@ -109,11 +121,12 @@ export const useDashboardData = (
 
       setSelectedBranchIdState(normalized);
 
-      // Đồng bộ current branch toàn admin shell nếu user chọn branch cụ thể.
-      // Với super admin, null nghĩa là All branches nên không push vào context.
       if (normalized) {
         setCurrentBranchId(normalized);
-      } else if (!isSuperAdmin) {
+        return;
+      }
+
+      if (!isSuperAdmin) {
         setCurrentBranchId(currentBranchId ?? null);
       }
     },

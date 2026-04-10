@@ -1,6 +1,6 @@
-import { AlertCircle, AlertTriangle, ArrowRight, Info } from "lucide-react";
+import { useState, useMemo } from "react";
+import { AlertCircle, AlertTriangle, ChevronRight, Info } from "lucide-react";
 import type { DashboardAlert } from "../types/dashboard";
-import { getSeverityClasses } from "../utils/dashboardFormatters";
 import DashboardBadge from "../shared/DashboardBadge";
 import DashboardEmptyState from "../shared/DashboardEmptyState";
 
@@ -11,97 +11,229 @@ type DashboardAlertListProps = {
   maxItems?: number;
 };
 
-const severityIconMap = {
-  critical: <AlertCircle className="h-4 w-4" />,
-  warning: <AlertTriangle className="h-4 w-4" />,
-  info: <Info className="h-4 w-4" />,
+type FilterType = "all" | "critical" | "warning" | "info";
+
+// --- Helpers & Configs ---
+
+const severityConfig = {
+  critical: {
+    icon: <AlertCircle className="h-4 w-4" />,
+    rail: "border-l-red-500 dark:border-l-red-500",
+    bg: "bg-red-50 dark:bg-red-950/30",
+    iconColor: "text-red-600 dark:text-red-400",
+    label: "Critical",
+  },
+  warning: {
+    icon: <AlertTriangle className="h-4 w-4" />,
+    rail: "border-l-amber-500 dark:border-l-amber-500",
+    bg: "bg-amber-50 dark:bg-amber-950/30",
+    iconColor: "text-amber-600 dark:text-amber-400",
+    label: "Warning",
+  },
+  info: {
+    icon: <Info className="h-4 w-4" />,
+    rail: "border-l-blue-500 dark:border-l-blue-500",
+    bg: "bg-blue-50 dark:bg-blue-950/30",
+    iconColor: "text-blue-600 dark:text-blue-400",
+    label: "Info",
+  },
 };
+
+const severityWeight = { critical: 3, warning: 2, info: 1 };
 
 const categoryLabelMap: Record<DashboardAlert["category"], string> = {
   orders: "Đơn hàng",
   inventory: "Tồn kho",
-  users: "Người dùng",
+  users: "User",
   branches: "Chi nhánh",
   shipping: "Giao hàng",
-  promotions: "Khuyến mãi",
-  reviews: "Đánh giá",
-  content: "Nội dung",
-  system: "Hệ thống",
+  promotions: "Promo",
+  reviews: "Review",
+  content: "Content",
+  system: "System",
 };
+
+// --- Subcomponents ---
+
+const FilterChip = ({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count?: number;
+  onClick: () => void;
+}) => (
+  <button
+    onClick={onClick}
+    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider transition-colors ${
+      active
+        ? "bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900"
+        : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+    }`}
+  >
+    {label} {count !== undefined && count > 0 && `(${count})`}
+  </button>
+);
+
+// --- Main Component ---
 
 export default function DashboardAlertList({
   alerts,
   className = "",
+  compact = false,
   maxItems,
 }: DashboardAlertListProps) {
-  const items =
-    typeof maxItems === "number" ? alerts.slice(0, maxItems) : alerts;
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
 
-  if (!items.length) {
+  // 1. Sort & Cắt items (base data)
+  const baseAlerts = useMemo(() => {
+    const sorted = [...alerts].sort(
+      (a, b) => severityWeight[b.severity] - severityWeight[a.severity],
+    );
+    return maxItems !== undefined ? sorted.slice(0, maxItems) : sorted;
+  }, [alerts, maxItems]);
+
+  // 2. Tính toán Derived Metrics trên base data
+  const metrics = useMemo(() => {
+    let critical = 0;
+    let warning = 0;
+    let info = 0;
+
+    baseAlerts.forEach((a) => {
+      if (a.severity === "critical") critical++;
+      else if (a.severity === "warning") warning++;
+      else if (a.severity === "info") info++;
+    });
+
+    return { total: baseAlerts.length, critical, warning, info };
+  }, [baseAlerts]);
+
+  // 3. Lọc dữ liệu hiển thị theo filter chip
+  const displayedAlerts = useMemo(() => {
+    if (activeFilter === "all") return baseAlerts;
+    return baseAlerts.filter((a) => a.severity === activeFilter);
+  }, [baseAlerts, activeFilter]);
+
+  if (!baseAlerts.length) {
     return (
       <DashboardEmptyState
-        compact
-        title="Chưa có cảnh báo"
-        description="Hiện tại chưa có tín hiệu bất thường nào trong phạm vi bạn đang theo dõi."
+        compact={compact}
+        title="No alerts"
+        description="Không có tín hiệu bất thường trong phạm vi này."
         className={className}
       />
     );
   }
 
   return (
-    <div className={`space-y-3 ${className}`.trim()}>
-      {items.map((alert) => {
-        const classes = getSeverityClasses(alert.severity);
-        const content = (
-          <div
-            className={`rounded-2xl border px-4 py-4 transition-colors ${classes.container}`}
-          >
-            <div className="flex items-start gap-3">
-              <div
-                className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/80 dark:bg-slate-950/40 ${classes.text}`}
-              >
-                {severityIconMap[alert.severity]}
-              </div>
+    <div className={`flex flex-col gap-4 ${className}`.trim()}>
+      {/* Summary & Filters Strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3 dark:border-slate-800">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded bg-slate-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            {metrics.total} Alerts
+          </span>
+          {metrics.critical > 0 && (
+            <span className="rounded bg-red-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-red-600 dark:bg-red-900/30 dark:text-red-400">
+              {metrics.critical} Critical
+            </span>
+          )}
+          {metrics.warning > 0 && (
+            <span className="rounded bg-amber-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+              {metrics.warning} Warning
+            </span>
+          )}
+        </div>
 
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <DashboardBadge variant="slate">
-                    {categoryLabelMap[alert.category]}
-                  </DashboardBadge>
-                  <span
-                    className={`inline-flex h-2 w-2 rounded-full ${classes.dot}`}
-                  />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <FilterChip
+            active={activeFilter === "all"}
+            label="All"
+            onClick={() => setActiveFilter("all")}
+          />
+          <FilterChip
+            active={activeFilter === "critical"}
+            label="Critical"
+            count={metrics.critical}
+            onClick={() => setActiveFilter("critical")}
+          />
+          <FilterChip
+            active={activeFilter === "warning"}
+            label="Warning"
+            count={metrics.warning}
+            onClick={() => setActiveFilter("warning")}
+          />
+        </div>
+      </div>
+
+      {/* Alert List */}
+      <div className="flex flex-col gap-2.5">
+        {displayedAlerts.length === 0 ? (
+          <div className="py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+            Không có cảnh báo loại <strong>{activeFilter}</strong>.
+          </div>
+        ) : (
+          displayedAlerts.map((alert) => {
+            const config = severityConfig[alert.severity];
+
+            const CardContent = (
+              <div
+                className={`group flex items-start gap-3 rounded-xl border border-slate-100 bg-white p-3 pr-4 transition-all hover:border-slate-200 hover:shadow-sm dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-700 border-l-[3px] ${config.rail}`}
+              >
+                {/* Icon Box */}
+                <div
+                  className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${config.bg} ${config.iconColor}`}
+                >
+                  {config.icon}
                 </div>
 
-                <h4 className="mt-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {alert.title}
-                </h4>
-
-                <p className="mt-1 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                  {alert.message}
-                </p>
-
-                {alert.href ? (
-                  <div className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                    Xem chi tiết
-                    <ArrowRight className="h-3.5 w-3.5" />
+                {/* Content */}
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="line-clamp-1 text-sm font-bold text-slate-900 dark:text-slate-100">
+                      {alert.title}
+                    </h4>
+                    <DashboardBadge
+                      variant="slate"
+                      className="shrink-0 text-[10px] px-1.5 py-0"
+                    >
+                      {categoryLabelMap[alert.category]}
+                    </DashboardBadge>
                   </div>
-                ) : null}
+
+                  <p className="line-clamp-2 text-xs leading-snug text-slate-500 dark:text-slate-400">
+                    {alert.message}
+                  </p>
+                </div>
+
+                {/* CTA Action */}
+                {alert.href && (
+                  <div className="mt-2 shrink-0 text-slate-400 transition-transform group-hover:translate-x-1 group-hover:text-blue-500 dark:text-slate-600 dark:group-hover:text-blue-400">
+                    <ChevronRight className="h-5 w-5" />
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        );
+            );
 
-        if (alert.href) {
-          return (
-            <a key={alert.id} href={alert.href} className="block">
-              {content}
-            </a>
-          );
-        }
+            if (alert.href) {
+              return (
+                <a
+                  key={alert.id}
+                  href={alert.href}
+                  className="block outline-none"
+                >
+                  {CardContent}
+                </a>
+              );
+            }
 
-        return <div key={alert.id}>{content}</div>;
-      })}
+            return <div key={alert.id}>{CardContent}</div>;
+          })
+        )}
+      </div>
     </div>
   );
 }

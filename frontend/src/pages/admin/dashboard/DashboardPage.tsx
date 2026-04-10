@@ -31,7 +31,7 @@ export default function DashboardPage() {
     initialRange: "7d",
   });
 
-  const visibility = useDashboardVisibility(data?.widgets);
+  const visibility = useDashboardVisibility(data?.widgets, data?.viewer);
 
   const branchOptions = branches.map((branch) => ({
     id: branch.id,

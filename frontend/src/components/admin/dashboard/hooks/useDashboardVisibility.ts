@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useAuth } from "../../../../context/AuthContextAdmin";
 import type {
   DashboardTierFlags,
+  DashboardViewer,
   DashboardVisibility,
   DashboardWidgetVisibility,
 } from "../types/dashboard";
@@ -25,20 +26,16 @@ const emptyWidgets: DashboardWidgetVisibility = {
 
 export const useDashboardVisibility = (
   widgets?: Partial<DashboardWidgetVisibility> | null,
+  viewer?: Pick<DashboardViewer, "tier" | "scopeMode"> | null,
 ): UseDashboardVisibilityResult => {
-  const { user, branches, hasPermission } = useAuth();
+  const { branches, hasPermission } = useAuth();
 
   return useMemo(() => {
-    const roleId = Number(user?.role_id ?? 0);
-    const isSuperAdmin = roleId === 1;
-
     const merged: DashboardWidgetVisibility = {
       ...emptyWidgets,
       ...widgets,
     };
 
-    // Khi dashboard data chưa về, vẫn có thể fallback theo permission hiện tại
-    // để page có skeleton/empty-state hợp lý.
     if (!widgets) {
       merged.showOrders = hasPermission("order", "view");
       merged.showInventory = hasPermission("inventory", "view");
@@ -59,7 +56,12 @@ export const useDashboardVisibility = (
         hasPermission("post_tag", "view");
     }
 
-    const managementScore = [
+    const tierFromViewer = viewer?.tier ?? null;
+    const scopeModeFromViewer = viewer?.scopeMode ?? null;
+
+    const hasAnyVisibleWidget = Object.values(merged).some(Boolean);
+
+    const fallbackManagementScore = [
       merged.showOrders,
       merged.showInventory,
       merged.showUsers,
@@ -68,24 +70,19 @@ export const useDashboardVisibility = (
       merged.showPromotions,
     ].filter(Boolean).length;
 
-    const isBranchAdmin =
-      !isSuperAdmin && branches.length > 0 && managementScore >= 3;
-
-    const isBranchStaff = !isSuperAdmin && !isBranchAdmin;
-
-    const scopeMode = isSuperAdmin
-      ? "system"
-      : isBranchAdmin
-        ? "branch"
-        : "functional";
-
-    const tier = isSuperAdmin
-      ? "super_admin"
-      : isBranchAdmin
+    const fallbackTier =
+      branches.length > 0 && fallbackManagementScore >= 3
         ? "branch_admin"
         : "branch_staff";
 
-    const hasAnyVisibleWidget = Object.values(merged).some(Boolean);
+    const tier = tierFromViewer ?? fallbackTier;
+    const isSuperAdmin = tier === "super_admin";
+    const isBranchAdmin = tier === "branch_admin";
+    const isBranchStaff = tier === "branch_staff";
+
+    const scopeMode =
+      scopeModeFromViewer ??
+      (isSuperAdmin ? "system" : isBranchAdmin ? "branch" : "functional");
 
     return {
       tier,
@@ -104,5 +101,11 @@ export const useDashboardVisibility = (
       canAccessBranchSwitcher: isSuperAdmin || branches.length > 1,
       canSeeAllBranches: isSuperAdmin,
     };
-  }, [branches.length, hasPermission, user?.role_id, widgets]);
+  }, [
+    branches.length,
+    hasPermission,
+    viewer?.scopeMode,
+    viewer?.tier,
+    widgets,
+  ]);
 };

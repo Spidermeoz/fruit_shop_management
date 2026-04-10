@@ -124,5 +124,9 @@ export const resolveDashboardSubtitle = (
   return "Theo dõi nhanh các chỉ số và tín hiệu quan trọng.";
 };
 
-export const shouldShowAllBranchesOption = (roleId?: number | null): boolean =>
-  Number(roleId) === 1;
+export const shouldShowAllBranchesOption = (
+  input?: DashboardTier | number | null,
+): boolean => {
+  if (input === "super_admin") return true;
+  return Number(input) === 1;
+};
