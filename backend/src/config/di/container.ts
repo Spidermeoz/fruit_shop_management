@@ -266,15 +266,19 @@ import { ValidatePromotionCode } from "../../application/promotions/usecases/Val
 import { ListPromotionUsages } from "../../application/promotions/usecases/ListPromotionUsages";
 
 // ===== Post usecases =====
-import { ListPosts } from "../../application/posts/usecase/ListPosts";
-import { GetPostDetail } from "../../application/posts/usecase/GetPostDetail";
-import { CreatePost } from "../../application/posts/usecase/CreatePost";
-import { EditPost } from "../../application/posts/usecase/EditPost";
-import { ChangePostStatus } from "../../application/posts/usecase/ChangePostStatus";
-import { SoftDeletePost } from "../../application/posts/usecase/SoftDeletePost";
-import { BulkEditPosts } from "../../application/posts/usecase/BulkEditPosts";
-import { ReorderPostPositions } from "../../application/posts/usecase/ReorderPostPositions";
-import { GetPostSummary } from "../../application/posts/usecase/GetPostSummary";
+import { ListPosts } from "../../application/posts/usecases/ListPosts";
+import { GetPostDetail } from "../../application/posts/usecases/GetPostDetail";
+import { CreatePost } from "../../application/posts/usecases/CreatePost";
+import { EditPost } from "../../application/posts/usecases/EditPost";
+import { ChangePostStatus } from "../../application/posts/usecases/ChangePostStatus";
+import { SoftDeletePost } from "../../application/posts/usecases/SoftDeletePost";
+import { BulkEditPosts } from "../../application/posts/usecases/BulkEditPosts";
+import { ReorderPostPositions } from "../../application/posts/usecases/ReorderPostPositions";
+import { GetPostSummary } from "../../application/posts/usecases/GetPostSummary";
+import { GetPostDetailBySlug } from "../../application/posts/usecases/GetPostDetailBySlug";
+import { IncreasePostViewCount } from "../../application/posts/usecases/IncreasePostViewCount";
+import { ListClientPostCategories } from "../../application/posts/usecases/ListClientPostCategories";
+import { ListClientPostTags } from "../../application/posts/usecases/ListClientPostTags";
 
 // ===== Post category usecases =====
 import { ListPostCategories } from "../../application/post-categories/usecases/ListPostCategories";
@@ -308,6 +312,18 @@ import { makeClientOrdersController } from "../../interfaces/http/express/contro
 import { makeClientProductsController } from "../../interfaces/http/express/controllers/client/ClientProductsController";
 import { ClientResetPasswordController } from "../../interfaces/http/express/controllers/client/ClientResetPasswordController";
 import { makeClientReviewsController } from "../../interfaces/http/express/controllers/client/ClientReviewsController";
+import {
+  makeClientPostsController,
+  type ClientPostsController,
+} from "../../interfaces/http/express/controllers/client/ClientPostsController";
+import {
+  makeClientPostCategoriesController,
+  type ClientPostCategoriesController,
+} from "../../interfaces/http/express/controllers/client/ClientPostCategoriesController";
+import {
+  makeClientPostTagsController,
+  type ClientPostTagsController,
+} from "../../interfaces/http/express/controllers/client/ClientPostTagsController";
 import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
 
 import {
@@ -1169,6 +1185,20 @@ export const usecases = {
     summary: new GetPostSummary(postRepo),
   },
 
+  clientPosts: {
+    list: new ListPosts(postRepo),
+    detailBySlug: new GetPostDetailBySlug(postRepo),
+    increaseViewCount: new IncreasePostViewCount(postRepo),
+  },
+
+  clientPostCategories: {
+    list: new ListClientPostCategories(postCategoryRepo),
+  },
+
+  clientPostTags: {
+    list: new ListClientPostTags(postTagRepo),
+  },
+
   postsCategories: {
     list: new ListPostCategories(postCategoryRepo),
     detail: new GetPostCategoryDetail(postCategoryRepo),
@@ -1668,7 +1698,23 @@ export const controllers: Controllers = {
   }),
 };
 
-export const clientControllers = {
+type ClientControllers = {
+  products: ReturnType<typeof makeClientProductsController>;
+  categories: ReturnType<typeof makeClientCategoriesController>;
+  posts: ClientPostsController;
+  postCategories: ClientPostCategoriesController;
+  postTags: ClientPostTagsController;
+  auth: ReturnType<typeof makeClientAuthController>;
+  forgotPassword: ClientForgotPasswordController;
+  verifyOtp: ClientVerifyOtpController;
+  resetPassword: ClientResetPasswordController;
+  cart: ReturnType<typeof makeClientCartController>;
+  orders: ReturnType<typeof makeClientOrdersController>;
+  reviews: ReturnType<typeof makeClientReviewsController>;
+  clientSettings: SettingsGeneralController;
+};
+
+export const clientControllers: ClientControllers = {
   products: makeClientProductsController({
     list: usecases.products.list,
     detail: usecases.products.detail,
@@ -1677,6 +1723,23 @@ export const clientControllers = {
 
   categories: makeClientCategoriesController({
     list: usecases.categories.list,
+  }),
+
+  posts: makeClientPostsController({
+    list: usecases.clientPosts.list,
+    detailBySlug: usecases.clientPosts.detailBySlug,
+    increaseViewCount: usecases.clientPosts.increaseViewCount,
+    postCategoryRepo,
+    postTagRepo,
+    postRepo,
+  }),
+
+  postCategories: makeClientPostCategoriesController({
+    list: usecases.clientPostCategories.list,
+  }),
+
+  postTags: makeClientPostTagsController({
+    list: usecases.clientPostTags.list,
   }),
 
   auth: makeClientAuthController({

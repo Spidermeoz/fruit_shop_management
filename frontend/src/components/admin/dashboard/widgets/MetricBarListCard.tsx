@@ -1,9 +1,9 @@
+import { useMemo } from "react";
+import type { LucideIcon } from "lucide-react";
 import DashboardSectionCard from "./DashboardSectionCard";
-import DashboardBadge from "../shared/DashboardBadge";
 import DashboardNumber from "../shared/DashboardNumber";
 import DashboardEmptyState from "../shared/DashboardEmptyState";
 import { clampPercent } from "../utils/dashboardFormatters";
-import type { LucideIcon } from "lucide-react";
 
 export type MetricBarListItem = {
   key: string;
@@ -21,45 +21,22 @@ type MetricBarListCardProps = {
   className?: string;
 };
 
+// --- Configs & Mappings ---
+
+// Đã loại bỏ badge vì card ranking cần gọn nhẹ, dùng text + bar color là đủ
 const toneMap: Record<
   NonNullable<MetricBarListItem["tone"]>,
-  {
-    bar: string;
-    badge: "default" | "blue" | "emerald" | "amber" | "red" | "violet";
-    icon: string;
-  }
+  { bar: string; icon: string }
 > = {
-  default: {
-    bar: "bg-slate-500",
-    badge: "default",
-    icon: "text-slate-500 dark:text-slate-400",
-  },
-  blue: {
-    bar: "bg-sky-500",
-    badge: "blue",
-    icon: "text-sky-600 dark:text-sky-300",
-  },
-  emerald: {
-    bar: "bg-emerald-500",
-    badge: "emerald",
-    icon: "text-emerald-600 dark:text-emerald-300",
-  },
-  amber: {
-    bar: "bg-amber-500",
-    badge: "amber",
-    icon: "text-amber-600 dark:text-amber-300",
-  },
-  red: {
-    bar: "bg-red-500",
-    badge: "red",
-    icon: "text-red-600 dark:text-red-300",
-  },
-  violet: {
-    bar: "bg-violet-500",
-    badge: "violet",
-    icon: "text-violet-600 dark:text-violet-300",
-  },
+  default: { bar: "bg-slate-400 dark:bg-slate-500", icon: "text-slate-400" },
+  blue: { bar: "bg-blue-500", icon: "text-blue-500" },
+  emerald: { bar: "bg-emerald-500", icon: "text-emerald-500" },
+  amber: { bar: "bg-amber-500", icon: "text-amber-500" },
+  red: { bar: "bg-red-500", icon: "text-red-500" },
+  violet: { bar: "bg-violet-500", icon: "text-violet-500" },
 };
+
+// --- Main Component ---
 
 export default function MetricBarListCard({
   title,
@@ -67,10 +44,14 @@ export default function MetricBarListCard({
   items,
   className = "",
 }: MetricBarListCardProps) {
-  const normalizedItems = items.filter((item) => item.value > 0);
-  const maxValue = normalizedItems.length
-    ? Math.max(...normalizedItems.map((item) => item.value))
-    : 0;
+  // Lọc và sắp xếp để đảm bảo đúng tính chất của bảng Ranking
+  const normalizedItems = useMemo(() => {
+    return items
+      .filter((item) => item.value > 0)
+      .sort((a, b) => b.value - a.value); // Sort descending
+  }, [items]);
+
+  const maxValue = normalizedItems.length ? normalizedItems[0].value : 0;
 
   return (
     <DashboardSectionCard
@@ -81,45 +62,59 @@ export default function MetricBarListCard({
       {!normalizedItems.length ? (
         <DashboardEmptyState
           compact
-          title="Chưa có dữ liệu so sánh"
-          description="Danh sách này sẽ xuất hiện khi có số liệu phù hợp."
+          title="Chưa có dữ liệu"
+          description="Số liệu so sánh sẽ xuất hiện tại đây."
         />
       ) : (
-        <div className="space-y-3">
-          {normalizedItems.map((item) => {
+        <div className="flex flex-col gap-4 pt-1">
+          {normalizedItems.map((item, index) => {
+            const isTop1 = index === 0;
             const tone = toneMap[item.tone ?? "default"];
             const width =
               maxValue > 0 ? clampPercent((item.value / maxValue) * 100) : 0;
-
             const Icon = item.icon;
 
             return (
-              <div
-                key={item.key}
-                className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-4 dark:border-slate-800 dark:bg-slate-900/40"
-              >
+              <div key={item.key} className="group flex flex-col gap-1.5">
+                {/* 1. Header Row (Label + Value) */}
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    {/* Icon or Colored Dot Fallback */}
                     {Icon ? (
-                      <span className={tone.icon}>
-                        <Icon className="h-4 w-4" />
-                      </span>
-                    ) : null}
-                    <DashboardBadge variant={tone.badge}>
+                      <Icon className={`h-4 w-4 shrink-0 ${tone.icon}`} />
+                    ) : (
+                      <span
+                        className={`h-2 w-2 shrink-0 rounded-full ${tone.bar}`}
+                      />
+                    )}
+
+                    <span
+                      className={`truncate ${
+                        isTop1
+                          ? "text-sm font-bold text-slate-900 dark:text-slate-100"
+                          : "text-xs font-semibold text-slate-600 dark:text-slate-300"
+                      }`}
+                      title={item.label}
+                    >
                       {item.label}
-                    </DashboardBadge>
+                    </span>
                   </div>
 
                   <DashboardNumber
                     value={item.value}
                     format={item.format ?? "number"}
-                    className="text-sm font-semibold"
+                    className={`shrink-0 ${
+                      isTop1
+                        ? "text-base font-bold text-slate-900 dark:text-white"
+                        : "text-sm font-semibold text-slate-700 dark:text-slate-200"
+                    }`}
                   />
                 </div>
 
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                {/* 2. Progress Bar Row */}
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                   <div
-                    className={`h-full rounded-full ${tone.bar}`}
+                    className={`h-full rounded-full transition-all duration-700 ease-out ${tone.bar}`}
                     style={{ width: `${width}%` }}
                   />
                 </div>

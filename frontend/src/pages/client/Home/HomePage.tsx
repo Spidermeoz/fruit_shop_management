@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
+import { getClientPosts } from "../../../services/api/postsClient";
+import type { PostListItem } from "../../../types/posts";
 import {
   ChevronLeft,
   ChevronRight,
@@ -80,6 +82,10 @@ const HomePage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
+
+  const [latestPosts, setLatestPosts] = useState<PostListItem[]>([]);
+  const [postsLoading, setPostsLoading] = useState<boolean>(false);
+
   const [showScrollTop, setShowScrollTop] = useState(false);
 
   const fetchProducts = async () => {
@@ -101,8 +107,50 @@ const HomePage: React.FC = () => {
     }
   };
 
+  const fetchLatestPosts = async () => {
+    try {
+      setPostsLoading(true);
+
+      const featuredRes = await getClientPosts({
+        page: 1,
+        limit: 3,
+        featured: true,
+        sortBy: "publishedAt",
+        order: "DESC",
+      });
+
+      if (
+        featuredRes?.success &&
+        Array.isArray(featuredRes.data) &&
+        featuredRes.data.length > 0
+      ) {
+        setLatestPosts(featuredRes.data);
+        return;
+      }
+
+      const fallbackRes = await getClientPosts({
+        page: 1,
+        limit: 3,
+        sortBy: "publishedAt",
+        order: "DESC",
+      });
+
+      if (fallbackRes?.success && Array.isArray(fallbackRes.data)) {
+        setLatestPosts(fallbackRes.data);
+      } else {
+        setLatestPosts([]);
+      }
+    } catch (err) {
+      console.error("Lỗi tải bài viết mới:", err);
+      setLatestPosts([]);
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchProducts();
+    fetchLatestPosts();
   }, []);
 
   useEffect(() => {
@@ -222,6 +270,30 @@ const HomePage: React.FC = () => {
     }
 
     return `${formatPrice(min)} - ${formatPrice(max)}`;
+  };
+
+  const formatPostDate = (value?: string | null) => {
+    if (!value) return "Đang cập nhật";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Đang cập nhật";
+    return date.toLocaleDateString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  const stripHtml = (value?: string | null) =>
+    String(value ?? "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const getPostExcerpt = (post: PostListItem) => {
+    const excerpt = String(post.excerpt ?? "").trim();
+    if (excerpt) return excerpt;
+    return stripHtml(post.content).slice(0, 140);
   };
 
   const firstRowProducts = products.slice(0, 5);
@@ -689,6 +761,115 @@ const HomePage: React.FC = () => {
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ================== 5. LATEST POSTS ================== */}
+        <section className="py-24 bg-white">
+          <div className="container mx-auto px-4 lg:px-8">
+            <div className="max-w-7xl mx-auto">
+              <div className="mb-12 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                <div className="max-w-2xl">
+                  <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-green-600">
+                    Nội dung mới nhất
+                  </span>
+                  <h2 className="text-3xl md:text-5xl font-black text-slate-900">
+                    Góc bài viết nổi bật
+                  </h2>
+                  <p className="mt-3 text-slate-500 font-medium">
+                    Kiến thức về trái cây, dinh dưỡng và những gợi ý lựa chọn
+                    phù hợp cho gia đình bạn.
+                  </p>
+                </div>
+
+                <Link
+                  to="/posts"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 text-sm font-bold text-white transition-colors hover:bg-green-600"
+                >
+                  Xem tất cả bài viết
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+
+              {postsLoading ? (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, idx) => (
+                    <div
+                      key={idx}
+                      className="animate-pulse rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm"
+                    >
+                      <div className="mb-4 aspect-[16/10] rounded-[1.5rem] bg-slate-100" />
+                      <div className="mb-3 h-4 w-24 rounded bg-slate-100" />
+                      <div className="mb-3 h-7 w-4/5 rounded bg-slate-100" />
+                      <div className="mb-2 h-4 rounded bg-slate-100" />
+                      <div className="h-4 w-2/3 rounded bg-slate-100" />
+                    </div>
+                  ))}
+                </div>
+              ) : latestPosts.length === 0 ? (
+                <div className="rounded-[2rem] border border-slate-100 bg-slate-50 px-6 py-12 text-center">
+                  <p className="font-medium text-slate-500">
+                    Chưa có bài viết mới để hiển thị.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                  {latestPosts.map((post) => (
+                    <article
+                      key={post.id}
+                      className="group flex flex-col overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(15,23,42,0.06)]"
+                    >
+                      <Link
+                        to={`/posts/${post.slug}`}
+                        className="block aspect-[16/10] overflow-hidden bg-slate-100"
+                      >
+                        {post.thumbnail ? (
+                          <img
+                            src={post.thumbnail}
+                            alt={post.title}
+                            className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-slate-400">
+                            Bài viết
+                          </div>
+                        )}
+                      </Link>
+
+                      <div className="flex flex-1 flex-col p-5">
+                        <div className="mb-2 text-xs font-bold text-green-600 uppercase tracking-wider">
+                          {post.category?.title || "Bài viết"}
+                        </div>
+
+                        <Link
+                          to={`/posts/${post.slug}`}
+                          className="line-clamp-2 text-xl font-black leading-tight text-slate-900 transition-colors group-hover:text-green-700"
+                        >
+                          {post.title}
+                        </Link>
+
+                        <div className="mt-3 text-sm font-bold text-slate-400">
+                          {formatPostDate(post.published_at)}
+                        </div>
+
+                        <p className="mt-3 line-clamp-3 text-sm font-medium leading-6 text-slate-500">
+                          {getPostExcerpt(post) ||
+                            "Nội dung đang được cập nhật."}
+                        </p>
+
+                        <Link
+                          to={`/posts/${post.slug}`}
+                          className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-green-700 transition hover:text-green-800"
+                        >
+                          Đọc bài viết
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               )}
             </div>

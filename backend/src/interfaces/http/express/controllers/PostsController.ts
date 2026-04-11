@@ -1,15 +1,15 @@
 // backend/src/interfaces/http/express/controllers/PostsController.ts
 
 import { Request, Response, NextFunction } from "express";
-import { ListPosts } from "../../../../application/posts/usecase/ListPosts";
-import { GetPostDetail } from "../../../../application/posts/usecase/GetPostDetail";
-import { CreatePost } from "../../../../application/posts/usecase/CreatePost";
-import { EditPost } from "../../../../application/posts/usecase/EditPost";
-import { ChangePostStatus } from "../../../../application/posts/usecase/ChangePostStatus";
-import { SoftDeletePost } from "../../../../application/posts/usecase/SoftDeletePost";
-import { BulkEditPosts } from "../../../../application/posts/usecase/BulkEditPosts";
-import { ReorderPostPositions } from "../../../../application/posts/usecase/ReorderPostPositions";
-import { GetPostSummary } from "../../../../application/posts/usecase/GetPostSummary";
+import { ListPosts } from "../../../../application/posts/usecases/ListPosts";
+import { GetPostDetail } from "../../../../application/posts/usecases/GetPostDetail";
+import { CreatePost } from "../../../../application/posts/usecases/CreatePost";
+import { EditPost } from "../../../../application/posts/usecases/EditPost";
+import { ChangePostStatus } from "../../../../application/posts/usecases/ChangePostStatus";
+import { SoftDeletePost } from "../../../../application/posts/usecases/SoftDeletePost";
+import { BulkEditPosts } from "../../../../application/posts/usecases/BulkEditPosts";
+import { ReorderPostPositions } from "../../../../application/posts/usecases/ReorderPostPositions";
+import { GetPostSummary } from "../../../../application/posts/usecases/GetPostSummary";
 import type { PostStatus } from "../../../../domain/posts/types";
 import type { UpdatePostPatch } from "../../../../domain/posts/PostRepository";
 

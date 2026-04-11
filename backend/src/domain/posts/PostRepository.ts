@@ -48,6 +48,17 @@ export interface PostRepository {
   findById(id: number): Promise<Post | null>;
   findBySlug(slug: string): Promise<Post | null>;
 
+  increaseViewCount(id: number, by?: number): Promise<void>;
+
+  findRelatedPostsByProductId(
+    productId: number,
+    options?: {
+      limit?: number;
+      excludePostId?: number | null;
+    },
+  ): Promise<Post[]>;
+  findBySlug(slug: string): Promise<Post | null>;
+
   create(input: CreatePostInput): Promise<Post>;
   update(id: number, patch: UpdatePostPatch): Promise<Post>;
 
@@ -59,8 +70,6 @@ export interface PostRepository {
     pairs: { id: number; position: number }[],
     updatedById?: number,
   ): Promise<number>;
-
-  increaseViewCount?(id: number, by?: number): Promise<void>;
 
   existsCategory(id: number): Promise<boolean>;
   isCategoryUsable(id: number): Promise<boolean>;

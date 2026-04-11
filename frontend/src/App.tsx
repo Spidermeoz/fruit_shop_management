@@ -62,6 +62,8 @@ import PostTagsPage from "./pages/admin/content/PostTagsPage";
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
 import ProductClientDetailPage from "./pages/client/Product/ProductDetailPage";
+import PostsPageClient from "./pages/client/Post/PostsPage";
+import PostDetailPage from "./pages/client/Post/PostDetailPage";
 import Header from "./components/client/layouts/Header";
 import CartPage from "./pages/client/Cart/CartPage";
 import CheckoutPage from "./pages/client/Checkout/CheckoutPage";
@@ -277,6 +279,8 @@ const ClientShell: React.FC = () => {
                   path="/products/:slug"
                   element={<ProductClientDetailPage />}
                 />
+                <Route path="/posts" element={<PostsPageClient />} />
+                <Route path="/posts/:slug" element={<PostDetailPage />} />
                 <Route path="/cart" element={<CartPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/login" element={<LoginPage />} />

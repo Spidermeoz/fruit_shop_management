@@ -1,8 +1,7 @@
 import DashboardSectionCard from "./DashboardSectionCard";
-import DashboardBadge from "../shared/DashboardBadge";
 import DashboardNumber from "../shared/DashboardNumber";
 import DashboardEmptyState from "../shared/DashboardEmptyState";
-import { calcPercent, clampPercent } from "../utils/dashboardFormatters";
+import { calcPercent } from "../utils/dashboardFormatters";
 
 export type MetricDonutItem = {
   key: string;
@@ -20,26 +19,19 @@ type MetricDonutCardProps = {
   className?: string;
 };
 
+// --- Configs & Mappings ---
+
+// Chỉ giữ lại hex colors để fill SVG stroke và render dot ở legend
 const toneColorMap: Record<NonNullable<MetricDonutItem["tone"]>, string> = {
-  default: "#64748b",
-  blue: "#0ea5e9",
-  emerald: "#10b981",
-  amber: "#f59e0b",
-  red: "#ef4444",
-  violet: "#8b5cf6",
+  default: "#64748b", // slate-500
+  blue: "#0ea5e9", // sky-500
+  emerald: "#10b981", // emerald-500
+  amber: "#f59e0b", // amber-500
+  red: "#ef4444", // red-500
+  violet: "#8b5cf6", // violet-500
 };
 
-const toneBadgeMap: Record<
-  NonNullable<MetricDonutItem["tone"]>,
-  "default" | "blue" | "emerald" | "amber" | "red" | "violet"
-> = {
-  default: "default",
-  blue: "blue",
-  emerald: "emerald",
-  amber: "amber",
-  red: "red",
-  violet: "violet",
-};
+// --- Main Component ---
 
 export default function MetricDonutCard({
   title,
@@ -55,9 +47,11 @@ export default function MetricDonutCard({
       ? total
       : normalizedItems.reduce((sum, item) => sum + item.value, 0);
 
-  const radius = 54;
-  const stroke = 14;
-  const normalizedRadius = radius - stroke / 2;
+  // SVG Geometry
+  const size = 160;
+  const stroke = 16;
+  const center = size / 2;
+  const normalizedRadius = center - stroke / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
 
   let progressOffset = 0;
@@ -75,104 +69,98 @@ export default function MetricDonutCard({
           description="Biểu đồ này sẽ xuất hiện khi có đủ số liệu trong phạm vi đang chọn."
         />
       ) : (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-          <div className="mx-auto flex w-full max-w-[220px] items-center justify-center">
-            <div className="relative">
-              <svg width="140" height="140" viewBox="0 0 140 140">
-                <circle
-                  stroke="currentColor"
-                  fill="transparent"
-                  strokeWidth={stroke}
-                  r={normalizedRadius}
-                  cx="70"
-                  cy="70"
-                  className="text-slate-100 dark:text-slate-800"
-                />
+        <div className="flex flex-col items-center gap-6 pt-2 sm:flex-row sm:items-start lg:gap-8">
+          {/* 1. Hero Visual: Donut Chart */}
+          <div className="relative flex shrink-0 items-center justify-center">
+            <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+              {/* Background Circle */}
+              <circle
+                stroke="currentColor"
+                fill="transparent"
+                strokeWidth={stroke}
+                r={normalizedRadius}
+                cx={center}
+                cy={center}
+                className="text-slate-100 dark:text-slate-800"
+              />
 
-                {normalizedItems.map((item) => {
-                  const percent =
-                    computedTotal > 0 ? item.value / computedTotal : 0;
-                  const dash = circumference * percent;
-                  const dashOffset = circumference - dash - progressOffset;
-                  progressOffset += dash;
+              {/* Data Segments */}
+              {normalizedItems.map((item) => {
+                const percent =
+                  computedTotal > 0 ? item.value / computedTotal : 0;
+                // Trừ đi một lượng nhỏ (e.g., 2) để tạo gap hờ nếu muốn, nhưng default giữ chuẩn
+                const dash = circumference * percent;
+                const dashOffset = circumference - dash - progressOffset;
+                progressOffset += dash;
 
-                  return (
-                    <circle
-                      key={item.key}
-                      stroke={toneColorMap[item.tone ?? "default"]}
-                      fill="transparent"
-                      strokeLinecap="round"
-                      strokeWidth={stroke}
-                      r={normalizedRadius}
-                      cx="70"
-                      cy="70"
-                      strokeDasharray={`${dash} ${circumference - dash}`}
-                      strokeDashoffset={dashOffset}
-                      transform="rotate(-90 70 70)"
-                    />
-                  );
-                })}
-              </svg>
+                return (
+                  <circle
+                    key={item.key}
+                    stroke={toneColorMap[item.tone ?? "default"]}
+                    fill="transparent"
+                    strokeWidth={stroke}
+                    strokeLinecap="round"
+                    r={normalizedRadius}
+                    cx={center}
+                    cy={center}
+                    strokeDasharray={`${dash} ${circumference - dash}`}
+                    strokeDashoffset={dashOffset}
+                    transform={`rotate(-90 ${center} ${center})`}
+                    className="transition-all duration-700 ease-out"
+                  />
+                );
+              })}
+            </svg>
 
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-                <span className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                  {centerLabel}
-                </span>
-                <DashboardNumber
-                  value={computedTotal}
-                  className="mt-1 text-2xl font-bold tracking-tight"
-                />
-              </div>
+            {/* Center Summary Content */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pt-1 text-center pointer-events-none">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                {centerLabel}
+              </span>
+              <DashboardNumber
+                value={computedTotal}
+                className="mt-0.5 text-2xl font-bold tracking-tight text-slate-900 dark:text-white"
+              />
             </div>
           </div>
 
-          <div className="space-y-3">
-            {normalizedItems.map((item) => (
-              <div
-                key={item.key}
-                className="rounded-2xl border border-slate-100 bg-slate-50/70 px-4 py-3 dark:border-slate-800 dark:bg-slate-900/40"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
+          {/* 2. Flat Legend List */}
+          <div className="flex w-full min-w-0 flex-1 flex-col justify-center gap-1">
+            {normalizedItems.map((item) => {
+              const toneColor = toneColorMap[item.tone ?? "default"];
+
+              return (
+                <div
+                  key={item.key}
+                  className="flex items-center justify-between gap-3 border-b border-slate-50 py-2.5 last:border-0 dark:border-slate-800/50"
+                >
+                  {/* Legend Label */}
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     <span
-                      className="h-2.5 w-2.5 rounded-full"
-                      style={{
-                        backgroundColor: toneColorMap[item.tone ?? "default"],
-                      }}
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: toneColor }}
                     />
-                    <DashboardBadge
-                      variant={toneBadgeMap[item.tone ?? "default"]}
+                    <span
+                      className="truncate text-sm font-medium text-slate-700 dark:text-slate-300"
+                      title={item.label}
                     >
                       {item.label}
-                    </DashboardBadge>
+                    </span>
                   </div>
 
-                  <div className="text-right">
+                  {/* Legend Values */}
+                  <div className="flex shrink-0 items-center justify-end gap-3">
                     <DashboardNumber
                       value={item.value}
-                      className="text-sm font-semibold"
+                      className="text-sm font-semibold text-slate-900 dark:text-slate-100"
                     />
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    <span className="w-10 text-right text-xs font-medium text-slate-500 dark:text-slate-400">
                       {calcPercent(item.value, computedTotal)}
-                    </p>
+                    </span>
                   </div>
                 </div>
-
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${clampPercent(
-                        computedTotal > 0
-                          ? (item.value / computedTotal) * 100
-                          : 0,
-                      )}%`,
-                      backgroundColor: toneColorMap[item.tone ?? "default"],
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

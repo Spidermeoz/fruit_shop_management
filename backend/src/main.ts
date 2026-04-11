@@ -50,6 +50,9 @@ import { clientOrdersRoutes } from "./interfaces/http/express/routes/client/clie
 import { clientReviewsRoutes } from "./interfaces/http/express/routes/client/clientReviews.routes";
 import { clientUploadRoutes } from "./interfaces/http/express/routes/client/clientUpload.routes";
 import { clientSettingsRoutes } from "./interfaces/http/express/routes/client/clientSettings.routes";
+import { clientPostsRoutes } from "./interfaces/http/express/routes/client/clientPosts.routes";
+import clientPostCategoriesRoutes from "./interfaces/http/express/routes/client/clientPostCategories.routes";
+import clientPostTagsRoutes from "./interfaces/http/express/routes/client/clientPostTags.routes";
 
 const app = express();
 
@@ -197,6 +200,15 @@ app.use(
   clientProductsRoutes(clientControllers.products),
 );
 app.use("/api/v1/client/categories", clientCategoriesRoutes);
+app.use(
+  "/api/v1/client/post-categories",
+  clientPostCategoriesRoutes(clientControllers.postCategories),
+);
+app.use(
+  "/api/v1/client/post-tags",
+  clientPostTagsRoutes(clientControllers.postTags),
+);
+app.use("/api/v1/client/posts", clientPostsRoutes(clientControllers.posts));
 app.use("/api/v1/client/auth", clientAuthRoutes(clientControllers.auth, auth));
 
 app.use(

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { http } from "../../../services/http";
 import { buildClientCategoryTree } from "../../../utils/categoryTreeForClient";
+import { getClientPostCategories } from "../../../services/api/postsClient";
 import { useAuth } from "../../../context/AuthContext";
 import { useCart } from "../../../context/CartContext";
 
@@ -11,6 +12,17 @@ interface Category {
   parentId?: number | null;
   slug?: string;
   children?: Category[];
+}
+
+interface PostCategory {
+  id: number;
+  title: string;
+  parent_id?: number | null;
+  parentId?: number | null;
+  slug?: string;
+  status?: string;
+  position?: number | null;
+  children?: PostCategory[];
 }
 
 interface SettingGeneral {
@@ -26,10 +38,16 @@ const Header: React.FC = () => {
   const [isProductMenuOpen, setIsProductMenuOpen] = useState(false);
   const [expandedIds, setExpandedIds] = useState<number[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+
+  const [isPostMenuOpen, setIsPostMenuOpen] = useState(false);
+  const [expandedPostIds, setExpandedPostIds] = useState<number[]>([]);
+  const [postCategories, setPostCategories] = useState<PostCategory[]>([]);
+
   const [settings, setSettings] = useState<SettingGeneral | null>(null);
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const productMenuRef = useRef<HTMLDivElement>(null);
+  const postMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   // Auth + Cart
@@ -76,14 +94,38 @@ const Header: React.FC = () => {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    const fetchPostCategories = async () => {
+      try {
+        const res = await getClientPostCategories();
+        if (res?.success && Array.isArray(res.data)) {
+          const tree = buildClientCategoryTree(res.data as any[]);
+          setPostCategories(tree as PostCategory[]);
+        }
+      } catch (err) {
+        console.error("Lỗi tải danh mục bài viết:", err);
+      }
+    };
+
+    fetchPostCategories();
+  }, []);
+
   // Đóng menu khi click ra ngoài
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+
+      if (productMenuRef.current && !productMenuRef.current.contains(target)) {
         setIsProductMenuOpen(false);
         setExpandedIds([]);
       }
+
+      if (postMenuRef.current && !postMenuRef.current.contains(target)) {
+        setIsPostMenuOpen(false);
+        setExpandedPostIds([]);
+      }
     };
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
@@ -106,8 +148,14 @@ const Header: React.FC = () => {
     );
   };
 
+  const togglePostExpand = (id: number) => {
+    setExpandedPostIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
   // ==========================
-  // 🔁 ĐỆ QUY MENU DANH MỤC
+  // ĐỆ QUY MENU DANH MỤC
   // ==========================
   const renderSubMenu = (children: Category[], depth = 1) => (
     <ul className="pl-4 border-l-2 border-slate-100 ml-3 mt-1 space-y-1">
@@ -163,7 +211,7 @@ const Header: React.FC = () => {
 
   const renderCategoryMenu = (cats: Category[]) => (
     <div
-      ref={menuRef}
+      ref={productMenuRef}
       className="absolute top-full left-0 mt-2 bg-white rounded-[1.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.08)] py-3 border border-slate-50 z-50 w-72 overflow-y-auto max-h-[70vh] custom-scrollbar"
     >
       <div className="px-2">
@@ -211,6 +259,115 @@ const Header: React.FC = () => {
 
               {hasChildren && isExpanded && (
                 <div className="pb-2">{renderSubMenu(cat.children!)}</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  const renderPostSubMenu = (children: PostCategory[]) => (
+    <ul className="ml-3 mt-1 space-y-1 border-l-2 border-slate-100 pl-4">
+      {children.map((child) => {
+        const isExpanded = expandedPostIds.includes(child.id);
+        const hasChildren = child.children && child.children.length > 0;
+
+        return (
+          <li key={child.id} className="py-1">
+            <div className="group/item flex items-center justify-between rounded-xl px-2 py-1.5 transition-colors hover:bg-slate-50">
+              <Link
+                to={`/posts?category=${child.slug || child.id}`}
+                className="block flex-1 text-sm font-semibold text-slate-500 transition-colors hover:text-green-600"
+              >
+                {child.title}
+              </Link>
+
+              {hasChildren && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    togglePostExpand(child.id);
+                  }}
+                  className="rounded-md border border-slate-100 bg-white p-1 text-slate-400 opacity-50 shadow-sm transition-colors hover:text-green-600 hover:opacity-100"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className={`h-3.5 w-3.5 transform transition-transform duration-300 ${
+                      isExpanded ? "rotate-90" : ""
+                    }`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2.5}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {hasChildren && isExpanded && renderPostSubMenu(child.children!)}
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const renderPostCategoryMenu = (cats: PostCategory[]) => (
+    <div
+      ref={postMenuRef}
+      className="custom-scrollbar absolute left-0 top-full z-50 mt-2 max-h-[70vh] w-72 overflow-y-auto rounded-[1.5rem] border border-slate-50 bg-white py-3 shadow-[0_20px_60px_rgba(0,0,0,0.08)]"
+    >
+      <div className="px-2">
+        {cats.map((cat) => {
+          const isExpanded = expandedPostIds.includes(cat.id);
+          const hasChildren = cat.children && cat.children.length > 0;
+
+          return (
+            <div key={cat.id} className="mb-1">
+              <div className="group/parent flex items-center justify-between rounded-2xl px-4 py-2.5 transition-colors hover:bg-green-50/50">
+                <Link
+                  to={`/posts?category=${cat.slug || cat.id}`}
+                  className="flex-1 font-bold text-slate-700 transition-colors hover:text-green-600"
+                >
+                  {cat.title}
+                </Link>
+
+                {hasChildren && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      togglePostExpand(cat.id);
+                    }}
+                    className="rounded-lg p-1.5 text-slate-400 transition-all hover:bg-white hover:text-green-600"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-4 w-4 transform transition-transform duration-300 ${
+                        isExpanded ? "rotate-90 text-green-600" : ""
+                      }`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+
+              {hasChildren && isExpanded && (
+                <div className="pb-2">{renderPostSubMenu(cat.children!)}</div>
               )}
             </div>
           );
@@ -286,6 +443,43 @@ const Header: React.FC = () => {
                 renderCategoryMenu(categories)}
             </div>
 
+            <div
+              className="relative"
+              onMouseEnter={() => setIsPostMenuOpen(true)}
+              onMouseLeave={() => setIsPostMenuOpen(false)}
+            >
+              <Link
+                to="/posts"
+                className="flex items-center gap-1 rounded-full px-4 py-2 font-bold text-slate-600 transition-all hover:bg-green-50 hover:text-green-600"
+              >
+                Cẩm nang
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-4 w-4 transform transition-transform duration-300 ${
+                    isPostMenuOpen
+                      ? "rotate-180 text-green-600"
+                      : "text-slate-400"
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </Link>
+
+              <div className="absolute top-full left-0 h-4 w-full bg-transparent"></div>
+
+              {isPostMenuOpen &&
+                postCategories.length > 0 &&
+                renderPostCategoryMenu(postCategories)}
+            </div>
+
             <Link
               to="/about"
               className="px-4 py-2 rounded-full text-slate-600 hover:text-green-600 hover:bg-green-50 font-bold transition-all"
@@ -347,12 +541,12 @@ const Header: React.FC = () => {
                     {user.avatar ? (
                       <img
                         src={user.avatar}
-                        alt={user.fullName || "Avatar"}
+                        alt={user.full_name || "Avatar"}
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <span className="text-white text-sm font-bold">
-                        {user.fullName?.charAt(0)?.toUpperCase() || "U"}
+                        {user.full_name?.charAt(0)?.toUpperCase() || "U"}
                       </span>
                     )}
                   </div>
@@ -382,7 +576,7 @@ const Header: React.FC = () => {
                     <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.1)] border border-slate-50 py-2 z-50">
                       <div className="px-4 py-3 border-b border-slate-50 mb-2">
                         <p className="text-sm font-bold text-slate-900 truncate">
-                          {user.fullName}
+                          {user.full_name}
                         </p>
                         <p className="text-xs font-medium text-slate-500 truncate">
                           {user.email}

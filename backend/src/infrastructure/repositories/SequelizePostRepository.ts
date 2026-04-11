@@ -323,6 +323,8 @@ export class SequelizePostRepository implements PostRepository {
       limit = 10,
       q,
       categoryId = null,
+      tagId = null,
+      relatedProductId = null,
       status = "all",
       featured,
       missingThumbnail,
@@ -351,6 +353,42 @@ export class SequelizePostRepository implements PostRepository {
         whereParts.push(`p.post_category_id = :categoryId`);
         replacements.categoryId = Number(categoryId);
       }
+    }
+
+    if (tagId !== null) {
+      if (Array.isArray(tagId)) {
+        whereParts.push(`
+          EXISTS (
+            SELECT 1
+            FROM post_tag_maps ptm
+            WHERE ptm.post_id = p.id
+              AND ptm.post_tag_id IN (:tagIds)
+          )
+        `);
+        replacements.tagIds = tagId.map(Number);
+      } else {
+        whereParts.push(`
+          EXISTS (
+            SELECT 1
+            FROM post_tag_maps ptm
+            WHERE ptm.post_id = p.id
+              AND ptm.post_tag_id = :tagId
+          )
+        `);
+        replacements.tagId = Number(tagId);
+      }
+    }
+
+    if (relatedProductId !== null) {
+      whereParts.push(`
+        EXISTS (
+          SELECT 1
+          FROM post_related_products prp
+          WHERE prp.post_id = p.id
+            AND prp.product_id = :relatedProductId
+        )
+      `);
+      replacements.relatedProductId = Number(relatedProductId);
     }
 
     if (status !== "all") {
@@ -542,6 +580,85 @@ export class SequelizePostRepository implements PostRepository {
     });
 
     return row ? this.mapRow(row) : null;
+  }
+
+  async findRelatedPostsByProductId(
+    productId: number,
+    options?: {
+      limit?: number;
+      excludePostId?: number | null;
+    },
+  ) {
+    const safeProductId = Number(productId);
+    if (!Number.isInteger(safeProductId) || safeProductId <= 0) {
+      return [];
+    }
+
+    const safeLimit = Math.max(1, Number(options?.limit ?? 3) || 3);
+    const excludePostId =
+      options?.excludePostId !== undefined && options?.excludePostId !== null
+        ? Number(options.excludePostId)
+        : null;
+
+    const whereParts: string[] = [
+      "p.deleted = 0",
+      "p.status = 'published'",
+      `
+      EXISTS (
+        SELECT 1
+        FROM post_related_products prp
+        WHERE prp.post_id = p.id
+          AND prp.product_id = :productId
+      )
+      `,
+    ];
+
+    const replacements: Record<string, any> = {
+      productId: safeProductId,
+      limit: safeLimit,
+    };
+
+    if (excludePostId && Number.isInteger(excludePostId) && excludePostId > 0) {
+      whereParts.push("p.id <> :excludePostId");
+      replacements.excludePostId = excludePostId;
+    }
+
+    const sequelize = this.models.Post.sequelize as any;
+
+    const [idRows] = await sequelize.query(
+      `
+      SELECT p.id
+      FROM posts p
+      WHERE ${whereParts.join(" AND ")}
+      ORDER BY
+        p.featured DESC,
+        COALESCE(p.published_at, '1970-01-01 00:00:00') DESC,
+        p.id DESC
+      LIMIT :limit
+      `,
+      { replacements },
+    );
+
+    const ids = (idRows as any[]).map((row) => Number(row.id));
+
+    if (!ids.length) {
+      return [];
+    }
+
+    const preserveOrderLiteral = literal(`FIELD(Post.id, ${ids.join(",")})`);
+
+    const rows = await this.models.Post.findAll({
+      where: {
+        id: { [Op.in]: ids },
+        deleted: 0,
+      },
+      include: this.buildIncludes(),
+      distinct: true,
+      subQuery: false,
+      order: [[preserveOrderLiteral, "ASC"]],
+    });
+
+    return rows.map(this.mapRow);
   }
 
   async create(input: CreatePostInput) {

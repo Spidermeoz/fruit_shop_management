@@ -44,6 +44,8 @@ export type PostListFilter = Pagination &
   Sort & {
     q?: string;
     categoryId?: number | number[] | null;
+    tagId?: number | number[] | null;
+    relatedProductId?: number | null;
     status?: PostStatus | "all";
     featured?: boolean;
     missingThumbnail?: boolean;

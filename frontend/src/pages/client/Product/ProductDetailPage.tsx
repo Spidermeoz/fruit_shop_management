@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import { http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
+import { getRelatedPostsByProduct } from "../../../services/api/postsClient";
+import type { PostListItem } from "../../../types/posts";
 import { useCart } from "../../../context/CartContext";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
@@ -199,6 +201,30 @@ const getProductDisplayStock = (product: Product) => {
   return Math.max(0, Number(product.stock ?? 0));
 };
 
+const stripPostHtml = (value?: string | null) =>
+  String(value ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const formatPostDate = (value?: string | null) => {
+  if (!value) return "Đang cập nhật";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Đang cập nhật";
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+const getPostExcerpt = (post: PostListItem) => {
+  const excerpt = String(post.excerpt ?? "").trim();
+  if (excerpt) return excerpt;
+  return stripPostHtml(post.content).slice(0, 130);
+};
+
 // ==========================
 // PAGE START
 // ==========================
@@ -207,6 +233,8 @@ const ProductDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [relatedPosts, setRelatedPosts] = useState<PostListItem[]>([]);
+  const [relatedPostsLoading, setRelatedPostsLoading] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
 
   // 3.A Tách riêng state cho quantity và quantity input để UI gõ mượt mà hơn
@@ -286,6 +314,30 @@ const ProductDetailPage: React.FC = () => {
                 (p: { id: number }) => p.id !== res.data.id,
               );
               setRelatedProducts(filtered);
+            }
+          }
+
+          if (res.data.id) {
+            try {
+              setRelatedPostsLoading(true);
+              const relatedPostsRes = await getRelatedPostsByProduct(
+                Number(res.data.id),
+                3,
+              );
+
+              if (
+                relatedPostsRes?.success &&
+                Array.isArray(relatedPostsRes.data)
+              ) {
+                setRelatedPosts(relatedPostsRes.data);
+              } else {
+                setRelatedPosts([]);
+              }
+            } catch (postErr) {
+              console.error("Lỗi tải bài viết liên quan:", postErr);
+              setRelatedPosts([]);
+            } finally {
+              setRelatedPostsLoading(false);
             }
           }
 
@@ -1322,6 +1374,100 @@ const ProductDetailPage: React.FC = () => {
           </div>
         </div>
 
+        {(relatedPostsLoading || relatedPosts.length > 0) && (
+          <section className="mt-10 py-20 bg-white">
+            <div className="container mx-auto px-4 lg:px-8">
+              <div className="max-w-7xl mx-auto">
+                <div className="mb-12 text-center">
+                  <span className="mb-2 block text-sm font-bold uppercase tracking-wider text-green-600">
+                    Nội dung gợi ý
+                  </span>
+                  <h2 className="text-3xl md:text-4xl font-black text-slate-900">
+                    Bài viết liên quan đến sản phẩm này
+                  </h2>
+                  <p className="mt-3 font-medium text-slate-500">
+                    Tìm hiểu thêm về cách chọn, bảo quản và sử dụng sản phẩm
+                    hiệu quả hơn.
+                  </p>
+                </div>
+
+                {relatedPostsLoading ? (
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                      <div
+                        key={idx}
+                        className="animate-pulse rounded-[2rem] border border-slate-100 bg-white p-4 shadow-sm"
+                      >
+                        <div className="mb-4 aspect-[16/10] rounded-[1.5rem] bg-slate-100" />
+                        <div className="mb-3 h-4 w-24 rounded bg-slate-100" />
+                        <div className="mb-3 h-6 w-4/5 rounded bg-slate-100" />
+                        <div className="mb-2 h-4 rounded bg-slate-100" />
+                        <div className="h-4 w-2/3 rounded bg-slate-100" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+                    {relatedPosts.map((post) => (
+                      <article
+                        key={post.id}
+                        className="group overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(15,23,42,0.06)]"
+                      >
+                        <Link
+                          to={`/posts/${post.slug}`}
+                          className="block aspect-[16/10] overflow-hidden bg-slate-100"
+                        >
+                          {post.thumbnail ? (
+                            <img
+                              src={post.thumbnail}
+                              alt={post.title}
+                              className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-slate-400">
+                              Bài viết
+                            </div>
+                          )}
+                        </Link>
+
+                        <div className="p-5">
+                          <div className="mb-2 text-xs font-bold uppercase tracking-wider text-green-600">
+                            {post.category?.title || "Bài viết"}
+                          </div>
+
+                          <Link
+                            to={`/posts/${post.slug}`}
+                            className="line-clamp-2 text-lg font-black leading-tight text-slate-900 transition-colors group-hover:text-green-700"
+                          >
+                            {post.title}
+                          </Link>
+
+                          <div className="mt-3 text-xs font-bold text-slate-400">
+                            {formatPostDate(post.published_at)}
+                          </div>
+
+                          <p className="mt-3 line-clamp-3 text-sm font-medium leading-6 text-slate-500">
+                            {getPostExcerpt(post) ||
+                              "Nội dung đang được cập nhật."}
+                          </p>
+
+                          <Link
+                            to={`/posts/${post.slug}`}
+                            className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-green-700 transition hover:text-green-800"
+                          >
+                            Đọc tiếp
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* ================== RELATED PRODUCTS ================== */}
         {relatedProducts.length > 0 && (
           <section className="py-20 bg-slate-50 mt-10">
@@ -1338,7 +1484,6 @@ const ProductDetailPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
                   {relatedProducts.map((p) => {
-
                     // 2.E Dùng helper Price Range mới cho thẻ sản phẩm thay vì getFinalPrice
                     const priceRange = getProductCardPrice(p);
                     const isRange = priceRange.min !== priceRange.max;
