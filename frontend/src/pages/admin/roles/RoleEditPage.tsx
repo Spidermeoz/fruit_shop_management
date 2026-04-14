@@ -25,9 +25,7 @@ import {
   Settings2,
 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
-import RichTextEditor from "../../../components/admin/common/RichTextEditor";
 import { http } from "../../../services/http";
-import { uploadImagesInContent } from "../../../utils/uploadImagesInContent";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
 // ==========================================
@@ -257,18 +255,13 @@ const RoleEditPage: React.FC = () => {
   const isProtected = useMemo(() => isSystemLikeRole(role), [role]);
 
   // --- Form Handlers ---
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     setRole((prev) => (prev ? { ...prev, [name]: value } : prev));
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
-    }
-  };
-
-  const handleDescriptionChange = (content: string) => {
-    setRole((prev) => (prev ? { ...prev, description: content } : prev));
-    if (formErrors.description) {
-      setFormErrors((prev) => ({ ...prev, description: undefined }));
     }
   };
 
@@ -292,21 +285,15 @@ const RoleEditPage: React.FC = () => {
       setSaving(true);
       setFormErrors({});
 
-      const processedDescription = await uploadImagesInContent(
-        role.description || "",
-      );
-
       const res = await http<ApiOk>("PATCH", `/api/v1/admin/roles/edit/${id}`, {
         title: role.title,
-        description: processedDescription,
+        description: role.description,
       });
 
       if (res?.success) {
         showSuccessToast({ message: "Lưu thông tin vai trò thành công!" });
-        // Cập nhật initial snapshot để reset dirty state mà không cần tải lại toàn bộ form
         setInitialRole({
           ...role,
-          description: processedDescription,
         });
       } else {
         if (res.errors) {
@@ -377,7 +364,7 @@ const RoleEditPage: React.FC = () => {
   return (
     <div className="w-full pb-10 space-y-6">
       {/* A. Header Workspace */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm sticky top-4 z-10">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
           <div>
             <div className="flex items-center gap-3 mb-1">
@@ -421,14 +408,14 @@ const RoleEditPage: React.FC = () => {
 
             <button
               onClick={() => navigate("/admin/roles/permissions")}
-              className="px-4 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition flex items-center gap-2"
+              className="px-3 py-1.5 text-sm bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition flex items-center gap-2"
             >
               <LayoutTemplate className="w-4 h-4" /> Ma trận quyền
             </button>
             <button
               onClick={handleSave}
               disabled={saving || !isDirty}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              className="flex items-center gap-2 px-4 py-1.5 text-sm bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {saving ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -543,14 +530,18 @@ const RoleEditPage: React.FC = () => {
                 <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
                   Mô tả vai trò
                 </label>
-                <div
-                  className={`rounded-lg border overflow-hidden ${formErrors.description ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                >
-                  <RichTextEditor
-                    value={role.description || ""}
-                    onChange={handleDescriptionChange}
-                  />
-                </div>
+                <textarea
+                  name="description"
+                  value={role.description || ""}
+                  onChange={handleChange}
+                  rows={4}
+                  placeholder="Nhập mô tả vai trò..."
+                  className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors resize-y ${
+                    formErrors.description
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
                   Nên ghi rõ mục đích, quyền hạn chính hoặc đối tượng nhân sự
                   nào sẽ được gán role này.

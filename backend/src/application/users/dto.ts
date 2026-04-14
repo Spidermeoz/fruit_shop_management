@@ -14,8 +14,19 @@ export type UserDTO = {
   createdAt: Date;
   updatedAt: Date;
 
-  // embed (read-only)
   role: { id: number; title: string } | null;
+
+  primaryBranchId: number | null;
+  branchAssignments: Array<{
+    branchId: number;
+    isPrimary: boolean;
+    branch: {
+      id: number;
+      name: string | null;
+      code: string | null;
+      status: string | null;
+    } | null;
+  }>;
 };
 
 export const toUserDTO = (u: User): UserDTO => ({
@@ -31,4 +42,24 @@ export const toUserDTO = (u: User): UserDTO => ({
   createdAt: u.props.createdAt!,
   updatedAt: u.props.updatedAt!,
   role: u.props.role ?? null,
+
+  primaryBranchId:
+    u.props.primaryBranchId ??
+    u.props.branchAssignments?.find((x) => x.isPrimary)?.branchId ??
+    null,
+
+  branchAssignments: Array.isArray(u.props.branchAssignments)
+    ? u.props.branchAssignments.map((x) => ({
+        branchId: Number(x.branchId),
+        isPrimary: !!x.isPrimary,
+        branch: x.branch
+          ? {
+              id: Number(x.branch.id),
+              name: x.branch.name ?? null,
+              code: x.branch.code ?? null,
+              status: x.branch.status ?? null,
+            }
+          : null,
+      }))
+    : [],
 });

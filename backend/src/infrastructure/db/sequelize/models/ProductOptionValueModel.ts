@@ -16,7 +16,7 @@ ProductOptionValueModel.init(
       allowNull: false,
     },
     value: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(600),
       allowNull: false,
     },
     position: {

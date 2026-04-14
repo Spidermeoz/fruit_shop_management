@@ -1126,6 +1126,7 @@ const ProductDetailPage: React.FC = () => {
               {activeTab === "description" && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="space-y-8">
+                    {/* Mô tả chính */}
                     <div
                       className="prose prose-lg prose-green max-w-none text-slate-600 leading-relaxed font-medium"
                       dangerouslySetInnerHTML={{
@@ -1135,36 +1136,48 @@ const ProductDetailPage: React.FC = () => {
                       }}
                     />
 
+                    {/* Hướng dẫn bảo quản */}
                     {product.storageGuide && (
                       <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-3">
                           Hướng dẫn bảo quản
                         </h3>
-                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
-                          {product.storageGuide}
-                        </p>
+                        <div
+                          className="prose prose-slate max-w-none text-slate-600 font-medium leading-relaxed"
+                          dangerouslySetInnerHTML={{
+                            __html: product.storageGuide,
+                          }}
+                        />
                       </div>
                     )}
 
+                    {/* Gợi ý sử dụng */}
                     {product.usageSuggestions && (
                       <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-3">
                           Gợi ý sử dụng
                         </h3>
-                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
-                          {product.usageSuggestions}
-                        </p>
+                        <div
+                          className="prose prose-slate max-w-none text-slate-600 font-medium leading-relaxed"
+                          dangerouslySetInnerHTML={{
+                            __html: product.usageSuggestions,
+                          }}
+                        />
                       </div>
                     )}
 
+                    {/* Ghi chú dinh dưỡng */}
                     {product.nutritionNotes && (
                       <div>
                         <h3 className="text-xl font-bold text-slate-900 mb-3">
                           Ghi chú dinh dưỡng
                         </h3>
-                        <p className="text-slate-600 font-medium leading-relaxed whitespace-pre-line">
-                          {product.nutritionNotes}
-                        </p>
+                        <div
+                          className="prose prose-slate max-w-none text-slate-600 font-medium leading-relaxed"
+                          dangerouslySetInnerHTML={{
+                            __html: product.nutritionNotes,
+                          }}
+                        />
                       </div>
                     )}
                   </div>

@@ -8,7 +8,6 @@ import {
   Users,
   KeyRound,
   AlertTriangle,
-  RotateCcw,
   ChevronDown,
   ChevronRight,
   ShieldAlert,
@@ -432,7 +431,7 @@ const PermissionsPage: React.FC = () => {
   return (
     <div className="w-full pb-20 space-y-4">
       {/* A. Header Workspace */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-4 z-30">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <button
@@ -450,28 +449,6 @@ const PermissionsPage: React.FC = () => {
             Workspace rà soát, so sánh và điều chỉnh tập trung quyền truy cập hệ
             thống.
           </p>
-        </div>
-
-        <div className="flex items-center gap-3 ml-10 md:ml-0">
-          <button
-            onClick={handleReset}
-            disabled={dirtySummary.totalChanged === 0 || saving}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            <RotateCcw className="w-4 h-4" /> Reset
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || dirtySummary.totalChanged === 0}
-            className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            {saving ? "Đang lưu..." : "Lưu thay đổi"}
-          </button>
         </div>
       </div>
 

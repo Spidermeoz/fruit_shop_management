@@ -16,12 +16,12 @@ ProductVariantModel.init(
       allowNull: false,
     },
     sku: {
-      type: DataTypes.STRING(100),
+      type: DataTypes.STRING(600),
       allowNull: true,
       unique: true,
     },
     title: {
-      type: DataTypes.STRING(255),
+      type: DataTypes.STRING(600),
       allowNull: true,
     },
     price: {

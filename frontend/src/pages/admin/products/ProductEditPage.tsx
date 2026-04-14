@@ -270,7 +270,10 @@ const ProductEditPage: React.FC = () => {
   const [tags, setTags] = useState<ProductTag[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [savingSource, setSavingSource] = useState<
+    "review" | "sidebar" | "sticky" | "form" | null
+  >(null);
+  const saving = savingSource !== null;
   const [fetchError, setFetchError] = useState("");
   const [formErrors, setFormErrors] = useState<
     Partial<Record<keyof Product | string, string>>
@@ -1019,13 +1022,16 @@ const ProductEditPage: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSave = async (e?: FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSave = async (
+    e?: FormEvent | any,
+    source: "review" | "sidebar" | "sticky" | "form" = "form",
+  ) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!product || !isDirty) return;
     if (!validateForm()) return;
 
     try {
-      setSaving(true);
+      setSavingSource(source);
       setFormErrors({});
       let thumbnailUrl = product.thumbnail;
 
@@ -1154,7 +1160,7 @@ const ProductEditPage: React.FC = () => {
     } catch (err: any) {
       showErrorToast(err?.message || "Lỗi hệ thống khi cập nhật.");
     } finally {
-      setSaving(false);
+      setSavingSource(null);
     }
   };
 
@@ -1968,11 +1974,11 @@ const ProductEditPage: React.FC = () => {
             </button>
             <button
               type="button"
-              onClick={() => handleSave()}
+              onClick={(e) => handleSave(e, "review")}
               disabled={saving || !isDirty}
               className="flex-1 inline-flex items-center justify-center gap-2 py-3.5 px-4 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:bg-gray-400"
             >
-              {saving ? (
+              {savingSource === "review" ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" /> Đang xử lý
                 </>
@@ -2042,11 +2048,11 @@ const ProductEditPage: React.FC = () => {
               Discard
             </button>
             <button
-              onClick={() => handleSave()}
+              onClick={(e) => handleSave(e, "sticky")}
               disabled={saving}
               className="px-6 py-2.5 rounded-lg text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors flex items-center gap-2"
             >
-              {saving ? (
+              {savingSource === "sticky" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Save className="w-4 h-4" />
@@ -2171,7 +2177,7 @@ const ProductEditPage: React.FC = () => {
           </div>
 
           {/* TAB CONTENT */}
-          <form id="product-edit-form" onSubmit={handleSave}>
+          <form id="product-edit-form" onSubmit={(e) => handleSave(e, "form")}>
             {activeTab === "basic" && renderBasicInfo()}
             {activeTab === "content" && renderContent()}
             {activeTab === "media" && renderMedia()}
@@ -2215,11 +2221,11 @@ const ProductEditPage: React.FC = () => {
                     ))}
                   </ul>
                   <button
-                    onClick={() => handleSave()}
+                    onClick={(e) => handleSave(e, "sidebar")}
                     disabled={saving}
                     className="w-full py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    {saving ? (
+                    {savingSource === "sidebar" ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Save className="w-4 h-4" />

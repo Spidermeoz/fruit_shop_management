@@ -615,15 +615,6 @@ const RolesPage: React.FC = () => {
                       </button>
 
                       <div className="flex gap-1">
-                        <button
-                          onClick={() =>
-                            navigate(`/admin/roles/create?copyFrom=${role.id}`)
-                          }
-                          className="p-2 text-gray-500 hover:text-indigo-600 bg-white hover:bg-indigo-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded shadow-sm transition"
-                          title="Nhân bản"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
                         {!role.is_system && (
                           <button
                             onClick={() => handleDeleteRole(role)}
