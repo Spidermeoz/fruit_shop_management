@@ -1,10 +1,13 @@
 // src/application/roles/usecases/ListRoles.ts
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
+import type { RoleScope } from "../../../domain/roles/types";
 import { toRoleDTO, type RoleDTO } from "../../roles/dto";
 
 export type ListRolesInput = {
-  includeDeleted?: boolean; // mặc định false
-  q?: string;               // tìm theo title (tuỳ repo)
+  includeDeleted?: boolean;
+  q?: string;
+  scope?: RoleScope;
+  assignableOnly?: boolean;
 };
 
 export type ListRolesOutput = {

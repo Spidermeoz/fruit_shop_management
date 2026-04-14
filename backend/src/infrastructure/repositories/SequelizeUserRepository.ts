@@ -21,7 +21,12 @@ const normalizeBranchIds = (branchIds?: number[]) =>
     ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
     : [];
 
-const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+const normalizeRoleCode = (value: unknown): string | null => {
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return raw || null;
+};
 
 const mapSort = (sort?: UserSort): OrderItem[] => {
   if (!sort) return [["id", "DESC"]];
@@ -45,7 +50,19 @@ export class SequelizeUserRepository implements UserRepository {
   private roleInclude() {
     if (!this.models.Role) return [];
     return [
-      { model: this.models.Role, as: "role", attributes: ["id", "title"] },
+      {
+        model: this.models.Role,
+        as: "role",
+        attributes: [
+          "id",
+          "code",
+          "scope",
+          "level",
+          "is_assignable",
+          "is_protected",
+          "title",
+        ],
+      },
     ];
   }
 
@@ -85,7 +102,30 @@ export class SequelizeUserRepository implements UserRepository {
       createdAt: r.created_at ?? r.createdAt,
       updatedAt: r.updated_at ?? r.updatedAt,
       role: r.role
-        ? { id: Number(r.role.id), title: String(r.role.title) }
+        ? {
+            id: Number(r.role.id),
+            code: normalizeRoleCode(r.role.code),
+            scope:
+              r.role.scope === "system" ||
+              r.role.scope === "branch" ||
+              r.role.scope === "client"
+                ? r.role.scope
+                : null,
+            level:
+              r.role.level === null || r.role.level === undefined
+                ? null
+                : Number(r.role.level),
+            isAssignable:
+              r.role.is_assignable === null ||
+              r.role.is_assignable === undefined
+                ? null
+                : toBool(r.role.is_assignable),
+            isProtected:
+              r.role.is_protected === null || r.role.is_protected === undefined
+                ? null
+                : toBool(r.role.is_protected),
+            title: String(r.role.title),
+          }
         : null,
       branchAssignments: Array.isArray(r.userBranches)
         ? r.userBranches.map((ub: any) => ({
@@ -135,7 +175,7 @@ export class SequelizeUserRepository implements UserRepository {
 
     const allowedBranchIds = normalizeBranchIds(filter?.allowedBranchIds);
     const hasBranchScope =
-      !isSuperAdminLike(filter?.viewerRoleId) &&
+      !filter?.canViewAllInternalUsers &&
       (filter?.userType === "internal" || filter?.userType === "all");
 
     const requestedBranchId =
@@ -166,7 +206,15 @@ export class SequelizeUserRepository implements UserRepository {
       include.push({
         model: this.models.Role,
         as: "role",
-        attributes: ["id", "title"],
+        attributes: [
+          "id",
+          "code",
+          "scope",
+          "level",
+          "is_assignable",
+          "is_protected",
+          "title",
+        ],
       });
     }
 

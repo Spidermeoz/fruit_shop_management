@@ -19,6 +19,10 @@ declare global {
         roleId?: number | null;
         roleCode?: string | null;
         roleName?: string | null;
+        roleScope?: "system" | "branch" | "client" | null;
+        roleLevel?: number | null;
+        isRoleAssignable?: boolean;
+        isRoleProtected?: boolean;
         isSuperAdmin?: boolean;
         permissions?: RequestPermissionMap;
         branchIds?: number[];

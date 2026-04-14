@@ -18,6 +18,11 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // TYPES & CONSTANTS
 // ==========================================
 interface RoleFormData {
+  code: string;
+  scope: "system" | "branch" | "client";
+  level: number;
+  isAssignable: boolean;
+  isProtected: boolean;
   title: string;
   description: string;
 }
@@ -41,6 +46,13 @@ const getNextStepButtonLabel = (step: NextStep) => {
   }
 };
 
+const slugifyRoleCode = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "_")
+    .replace(/^_+|_+$/g, "");
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -50,6 +62,11 @@ const RoleCreatePage: React.FC = () => {
 
   // --- States: Form & UI ---
   const [formData, setFormData] = useState<RoleFormData>({
+    code: "",
+    scope: "branch",
+    level: 10,
+    isAssignable: true,
+    isProtected: false,
     title: "",
     description: "",
   });
@@ -63,10 +80,32 @@ const RoleCreatePage: React.FC = () => {
 
   // --- Handlers ---
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    setFormData((prev) => {
+      const next = {
+        ...prev,
+        [name]: name === "level" ? Number(value) : value,
+      };
+
+      if (name === "title" && !prev.code.trim()) {
+        next.code = slugifyRoleCode(value);
+      }
+
+      return next;
+    });
+
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: checked }));
+
     if (errors[name as keyof typeof errors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -75,9 +114,22 @@ const RoleCreatePage: React.FC = () => {
   const validateForm = () => {
     const newErrors: Partial<Record<keyof RoleFormData | "general", string>> =
       {};
+
     if (!formData.title.trim()) {
       newErrors.title = "Vui lòng nhập tên vai trò.";
     }
+
+    if (!formData.code.trim()) {
+      newErrors.code = "Vui lòng nhập mã role.";
+    }
+
+    if (
+      !Number.isFinite(Number(formData.level)) ||
+      Number(formData.level) < 0
+    ) {
+      newErrors.level = "Level phải là số không âm.";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -91,8 +143,13 @@ const RoleCreatePage: React.FC = () => {
       setErrors({});
 
       const payload = {
-        title: formData.title,
-        description: formData.description,
+        code: slugifyRoleCode(formData.code),
+        scope: formData.scope,
+        level: Number(formData.level),
+        isAssignable: formData.isAssignable,
+        isProtected: formData.isProtected,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
       };
 
       const res = await http<ApiOk<any> | ApiErr>(
@@ -216,6 +273,33 @@ const RoleCreatePage: React.FC = () => {
               <div className="p-5 space-y-6">
                 <div>
                   <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                    Mã role <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="code"
+                    value={formData.code}
+                    onChange={handleChange}
+                    placeholder="Vd: branch_manager"
+                    className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                      errors.code
+                        ? "border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                    Mã kỹ thuật ổn định để backend nhận diện role, nên dùng dạng
+                    snake_case.
+                  </p>
+                  {errors.code && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1.5">
+                      {errors.code}
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
                     Tên vai trò <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -241,6 +325,55 @@ const RoleCreatePage: React.FC = () => {
                   )}
                 </div>
 
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                      Phạm vi role
+                    </label>
+                    <select
+                      name="scope"
+                      value={formData.scope}
+                      onChange={handleChange}
+                      className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                    >
+                      <option value="branch">Branch</option>
+                      <option value="system">System</option>
+                      <option value="client">Client</option>
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                      Xác định role này thuộc phạm vi hệ thống, chi nhánh hay
+                      client.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                      Level
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      name="level"
+                      value={formData.level}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                        errors.level
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                      Level càng cao thì role càng mạnh. Dùng để kiểm soát cấp
+                      bậc gán quyền.
+                    </p>
+                    {errors.level && (
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-1.5">
+                        {errors.level}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
                     Mô tả vai trò
@@ -261,6 +394,46 @@ const RoleCreatePage: React.FC = () => {
                     Mô tả ngắn mục đích sử dụng, phạm vi áp dụng hoặc nhóm người
                     dùng phù hợp.
                   </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <label className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="isAssignable"
+                      checked={formData.isAssignable}
+                      onChange={handleCheckboxChange}
+                      className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Có thể gán cho user
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Nếu tắt, role này sẽ không xuất hiện trong dropdown gán
+                        user.
+                      </span>
+                    </div>
+                  </label>
+
+                  <label className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="isProtected"
+                      checked={formData.isProtected}
+                      onChange={handleCheckboxChange}
+                      className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-gray-900 dark:text-white">
+                        Role được bảo vệ
+                      </span>
+                      <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        Dùng cho role nhạy cảm, hạn chế bị sửa/xóa hoặc gán tùy
+                        tiện.
+                      </span>
+                    </div>
+                  </label>
                 </div>
               </div>
             </Card>
@@ -284,6 +457,57 @@ const RoleCreatePage: React.FC = () => {
                     {formData.title || (
                       <span className="text-gray-400 italic">Chưa nhập</span>
                     )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                    Code
+                  </span>
+                  <span className="text-gray-900 dark:text-white text-right break-all">
+                    {formData.code || (
+                      <span className="text-gray-400 italic">Chưa nhập</span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                    Scope
+                  </span>
+                  <span className="text-gray-900 dark:text-white text-right uppercase">
+                    {formData.scope}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-gray-500 dark:text-gray-400 shrink-0">
+                    Level
+                  </span>
+                  <span className="text-gray-900 dark:text-white text-right">
+                    {formData.level}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <span
+                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                      formData.isAssignable
+                        ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                        : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                    }`}
+                  >
+                    {formData.isAssignable ? "Assignable" : "Non-assignable"}
+                  </span>
+
+                  <span
+                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                      formData.isProtected
+                        ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+                    }`}
+                  >
+                    {formData.isProtected ? "Protected" : "Not protected"}
                   </span>
                 </div>
               </div>
@@ -366,9 +590,20 @@ const RoleCreatePage: React.FC = () => {
                   phản ánh cá nhân cụ thể.
                 </li>
                 <li>
+                  <strong>Code</strong> nên ổn định theo thời gian, tránh phụ
+                  thuộc tên hiển thị.
+                </li>
+                <li>
+                  <strong>Level</strong> dùng để kiểm soát thứ bậc khi gán role
+                  cho người dùng.
+                </li>
+                <li>
+                  Chỉ bật <strong>Protected</strong> cho các role nhạy cảm hoặc
+                  role hệ thống.
+                </li>
+                <li>
                   Sau khi tạo, hãy rà soát lại các{" "}
-                  <strong>quyền nhạy cảm</strong> (xóa, cấp quyền) trong ma trận
-                  phân quyền.
+                  <strong>quyền nhạy cảm</strong> trong ma trận phân quyền.
                 </li>
               </ul>
             </Card>

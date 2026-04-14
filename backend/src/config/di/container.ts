@@ -144,6 +144,7 @@ import { CreateRole } from "../../application/roles/usecases/CreateRole";
 import { GetRoleDetail } from "../../application/roles/usecases/GetRoleDetail";
 import { GetRolePermissions } from "../../application/roles/usecases/GetRolePermissions";
 import { ListRoles } from "../../application/roles/usecases/ListRoles";
+import { ListAssignableRoles } from "../../application/roles/usecases/ListAssignableRoles";
 import { ListRolesForPermissions } from "../../application/roles/usecases/ListRolesForPermissions";
 import { SoftDeleteRole } from "../../application/roles/usecases/SoftDeleteRole";
 import { UpdateRole } from "../../application/roles/usecases/UpdateRole";
@@ -1241,6 +1242,7 @@ export const usecases = {
 
   roles: {
     list: new ListRoles(rolesRepo),
+    listAssignable: new ListAssignableRoles(rolesRepo),
     detail: new GetRoleDetail(rolesRepo),
     create: new CreateRole(rolesRepo),
     update: new UpdateRole(rolesRepo),
@@ -1254,8 +1256,8 @@ export const usecases = {
   users: {
     list: new ListUsers(userRepo),
     detail: new GetUserDetail(userRepo),
-    create: new CreateUser(userRepo),
-    edit: new EditUser(userRepo),
+    create: new CreateUser(userRepo, rolesRepo),
+    edit: new EditUser(userRepo, rolesRepo),
     updateStatus: new UpdateUserStatus(userRepo),
     softDelete: new SoftDeleteUser(userRepo),
     bulkEdit: new BulkEditUsers(userRepo),
@@ -1560,6 +1562,7 @@ export const controllers: Controllers = {
 
   roles: makeRolesController({
     list: usecases.roles.list,
+    listAssignable: usecases.roles.listAssignable,
     detail: usecases.roles.detail,
     create: usecases.roles.create,
     update: usecases.roles.update,

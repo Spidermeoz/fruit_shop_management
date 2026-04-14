@@ -28,14 +28,34 @@ const mapSort = (sortBy?: string, order?: string): UserSort | undefined => {
 };
 
 const normalizeActorScope = (req: Request) => ({
+  id:
+    req.user?.id !== undefined && req.user?.id !== null
+      ? Number(req.user.id)
+      : null,
+
   roleId:
     req.user?.roleId !== undefined && req.user?.roleId !== null
       ? Number(req.user.roleId)
       : null,
+
+  roleCode:
+    req.user?.roleCode !== undefined && req.user?.roleCode !== null
+      ? String(req.user.roleCode).trim().toLowerCase()
+      : null,
+
+  roleLevel:
+    req.user?.roleLevel !== undefined && req.user?.roleLevel !== null
+      ? Number(req.user.roleLevel)
+      : null,
+
+  isSuperAdmin:
+    req.user?.isSuperAdmin === true ||
+    String(req.user?.roleCode ?? "")
+      .trim()
+      .toLowerCase() === "super_admin",
+
   branchIds: Array.isArray(req.user?.branchIds)
-    ? req
-        .user!.branchIds!.map(Number)
-        .filter((x) => Number.isFinite(x) && x > 0)
+    ? req.user.branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
     : [],
 });
 

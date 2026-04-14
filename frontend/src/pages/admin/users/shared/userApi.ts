@@ -151,9 +151,19 @@ export const bulkEditUsers = async (body: {
   return http<ApiOk>("PATCH", "/api/v1/admin/users/bulk-edit", body);
 };
 
+const mapRoleOption = (role: any): RoleOption => ({
+  id: Number(role?.id),
+  title: String(role?.title ?? ""),
+});
+
 export const fetchRoles = async (): Promise<RoleOption[]> => {
-  const res = await http<ApiList<RoleOption>>("GET", "/api/v1/admin/roles");
-  return Array.isArray(res.data) ? res.data : [];
+  const res = await http<ApiList<any>>("GET", "/api/v1/admin/roles");
+  return Array.isArray(res.data) ? res.data.map(mapRoleOption) : [];
+};
+
+export const fetchAssignableRoles = async (): Promise<RoleOption[]> => {
+  const res = await http<ApiList<any>>("GET", "/api/v1/admin/roles/assignable");
+  return Array.isArray(res.data) ? res.data.map(mapRoleOption) : [];
 };
 
 export const fetchBranches = async (): Promise<BranchOption[]> => {

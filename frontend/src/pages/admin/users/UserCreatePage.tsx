@@ -19,7 +19,7 @@ import Card from "../../../components/admin/layouts/Card";
 import { useAdminToast } from "../../../context/AdminToastContext";
 import {
   createUser,
-  fetchRoles,
+  fetchAssignableRoles,
   fetchBranches,
   uploadUserAvatar,
 } from "./shared/userApi";
@@ -80,6 +80,7 @@ const UserCreatePage: React.FC = () => {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
   const [primaryBranchId, setPrimaryBranchId] = useState<number | "">("");
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   // --- UX States ---
   const [loadingLookups, setLoadingLookups] = useState(false);
@@ -104,22 +105,46 @@ const UserCreatePage: React.FC = () => {
     const loadLookups = async () => {
       try {
         setLoadingLookups(true);
+        setRolesLoading(true);
+
         const [rolesData, branchesData] = await Promise.all([
-          fetchRoles(),
+          fetchAssignableRoles(),
           fetchBranches(),
         ]);
+
         if (isMounted) {
           setRoles(rolesData);
           setBranches(branchesData);
+
+          setFormData((prev) => {
+            const currentRoleStillValid =
+              prev.roleId !== "" &&
+              rolesData.some((role) => role.id === Number(prev.roleId));
+
+            return currentRoleStillValid
+              ? prev
+              : {
+                  ...prev,
+                  roleId: "",
+                };
+          });
         }
       } catch (err: any) {
-        if (isMounted)
-          showErrorToast("Không thể tải danh sách Vai trò / Chi nhánh.");
+        if (isMounted) {
+          showErrorToast(
+            "Không thể tải danh sách Vai trò được phép gán / Chi nhánh.",
+          );
+        }
       } finally {
-        if (isMounted) setLoadingLookups(false);
+        if (isMounted) {
+          setLoadingLookups(false);
+          setRolesLoading(false);
+        }
       }
     };
+
     loadLookups();
+
     return () => {
       isMounted = false;
     };
@@ -255,9 +280,21 @@ const UserCreatePage: React.FC = () => {
       return;
     }
 
+    if (userType === "internal" && formData.roleId) {
+      const selectedRole = roles.find(
+        (role) => role.id === Number(formData.roleId),
+      );
+      if (!selectedRole) {
+        showErrorToast(
+          "Vai trò đã chọn không còn hợp lệ trong phạm vi quyền hiện tại.",
+        );
+        return;
+      }
+    }
+
     try {
       setSaving(true);
-      let finalAvatarUrl = null;
+      let finalAvatarUrl: string | null = null;
 
       // Handle Avatar Upload
       if (imageMethod === "upload" && selectedFile) {
@@ -690,9 +727,16 @@ const UserCreatePage: React.FC = () => {
                         name="roleId"
                         value={formData.roleId}
                         onChange={handleInputChange}
-                        className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 ${errors.roleId ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                        disabled={rolesLoading || roles.length === 0}
+                        className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 disabled:opacity-60 disabled:cursor-not-allowed ${errors.roleId ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
                       >
-                        <option value="">-- Chọn vai trò (Role) --</option>
+                        <option value="">
+                          {rolesLoading
+                            ? "-- Đang tải vai trò --"
+                            : roles.length === 0
+                              ? "-- Không có vai trò nào được phép gán --"
+                              : "-- Chọn vai trò (Role) --"}
+                        </option>
                         {roles.map((r) => (
                           <option key={r.id} value={r.id}>
                             {r.title}
@@ -704,6 +748,14 @@ const UserCreatePage: React.FC = () => {
                           {errors.roleId}
                         </span>
                       )}
+                      {!errors.roleId &&
+                        roles.length === 0 &&
+                        !rolesLoading && (
+                          <span className="text-xs text-amber-600">
+                            Tài khoản hiện tại không có role nội bộ nào được
+                            phép gán.
+                          </span>
+                        )}
                     </div>
 
                     <div className="border-t border-purple-100 dark:border-purple-800/50 pt-6">

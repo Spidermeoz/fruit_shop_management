@@ -26,7 +26,15 @@ export interface UserProps {
   deletedAt?: Date | null;
   createdAt?: Date;
   updatedAt?: Date;
-  role?: { id: number; title: string } | null;
+  role?: {
+    id: number;
+    code?: string | null;
+    scope?: "system" | "branch" | "client" | null;
+    level?: number | null;
+    isAssignable?: boolean | null;
+    isProtected?: boolean | null;
+    title: string;
+  } | null;
   branchAssignments?: UserBranchAssignment[];
   primaryBranchId?: number | null;
 }

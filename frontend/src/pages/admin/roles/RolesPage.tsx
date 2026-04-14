@@ -27,12 +27,24 @@ import { http } from "../../../services/http";
 // ==========================================
 interface Role {
   id: number;
+  code?: string | null;
+  scope?: "system" | "branch" | "client" | null;
+  level?: number | null;
+  isAssignable?: boolean | null;
+  isProtected?: boolean | null;
+  is_assignable?: boolean | null;
+  is_protected?: boolean | null;
+
   title: string;
   description?: string | null;
   permissions?: Record<string, string[]> | string | null;
+
   created_at?: string;
   updated_at?: string;
-  is_system?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+
+  deleted?: boolean;
   users_count?: number;
   branches_count?: number;
 }
@@ -49,6 +61,11 @@ interface PermissionStats {
 interface NormalizedRole extends Role {
   parsedPermissions: Record<string, string[]>;
   stats: PermissionStats;
+  normalizedCode: string;
+  normalizedScope: "system" | "branch" | "client";
+  normalizedLevel: number;
+  normalizedIsAssignable: boolean;
+  normalizedIsProtected: boolean;
 }
 
 type ApiList<T> = { success: true; data: T[]; meta?: any };
@@ -155,6 +172,48 @@ const getRiskBadge = (risk: RiskLevel) => {
 const getRiskWeight = (risk: RiskLevel) =>
   ({ high: 3, medium: 2, low: 1 })[risk];
 
+const normalizeRoleScope = (value: unknown): "system" | "branch" | "client" => {
+  if (value === "system" || value === "branch" || value === "client") {
+    return value;
+  }
+  return "branch";
+};
+
+const normalizeRoleCode = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const normalizeRoleLevel = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeBool = (value: unknown) =>
+  value === true || value === 1 || value === "1";
+
+const getScopeLabel = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "System";
+    case "branch":
+      return "Branch";
+    case "client":
+      return "Client";
+  }
+};
+
+const getScopeBadgeClass = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+    case "branch":
+      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800";
+    case "client":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800";
+  }
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -169,7 +228,13 @@ const RolesPage: React.FC = () => {
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<"all" | RiskLevel>("all");
   const [stateFilter, setStateFilter] = useState<
-    "all" | "no-description" | "no-permissions" | "sensitive" | "system"
+    | "all"
+    | "no-description"
+    | "no-permissions"
+    | "sensitive"
+    | "protected"
+    | "assignable"
+    | "non-assignable"
   >("all");
   const [sortBy, setSortBy] = useState<
     "title-asc" | "title-desc" | "permission-desc" | "module-desc" | "risk-desc"
@@ -203,10 +268,21 @@ const RolesPage: React.FC = () => {
   const normalizedRoles: NormalizedRole[] = useMemo(() => {
     return rawRoles.map((role) => {
       const parsed = parsePermissions(role.permissions);
+
       return {
         ...role,
         parsedPermissions: parsed,
         stats: calculateStats(parsed),
+
+        normalizedCode: normalizeRoleCode(role.code),
+        normalizedScope: normalizeRoleScope(role.scope),
+        normalizedLevel: normalizeRoleLevel(role.level),
+        normalizedIsAssignable: normalizeBool(
+          role.isAssignable ?? role.is_assignable,
+        ),
+        normalizedIsProtected: normalizeBool(
+          role.isProtected ?? role.is_protected,
+        ),
       };
     });
   }, [rawRoles]);
@@ -253,13 +329,29 @@ const RolesPage: React.FC = () => {
 
     // State Filter
     if (stateFilter !== "all") {
-      if (stateFilter === "no-description")
+      if (stateFilter === "no-description") {
         result = result.filter((r) => !r.description?.trim());
-      if (stateFilter === "no-permissions")
+      }
+
+      if (stateFilter === "no-permissions") {
         result = result.filter((r) => r.stats.moduleCount === 0);
-      if (stateFilter === "sensitive")
+      }
+
+      if (stateFilter === "sensitive") {
         result = result.filter((r) => r.stats.sensitiveCount > 0);
-      if (stateFilter === "system") result = result.filter((r) => r.is_system);
+      }
+
+      if (stateFilter === "protected") {
+        result = result.filter((r) => r.normalizedIsProtected);
+      }
+
+      if (stateFilter === "assignable") {
+        result = result.filter((r) => r.normalizedIsAssignable);
+      }
+
+      if (stateFilter === "non-assignable") {
+        result = result.filter((r) => !r.normalizedIsAssignable);
+      }
     }
 
     // Sort
@@ -287,8 +379,8 @@ const RolesPage: React.FC = () => {
 
   // --- Actions ---
   const handleDeleteRole = async (role: NormalizedRole) => {
-    if (role.is_system) {
-      alert("Không thể xóa vai trò hệ thống.");
+    if (role.normalizedIsProtected) {
+      alert("Không thể xóa role được bảo vệ.");
       return;
     }
     if (
@@ -430,7 +522,9 @@ const RolesPage: React.FC = () => {
               <option value="sensitive">Có quyền nhạy cảm</option>
               <option value="no-permissions">Chưa cấu hình quyền</option>
               <option value="no-description">Chưa có mô tả</option>
-              <option value="system">Vai trò hệ thống</option>
+              <option value="protected">Role được bảo vệ</option>
+              <option value="assignable">Có thể gán</option>
+              <option value="non-assignable">Không thể gán</option>
             </select>
 
             <select
@@ -558,9 +652,22 @@ const RolesPage: React.FC = () => {
                         >
                           {riskBadge.label}
                         </span>
-                        {role.is_system && (
+
+                        <span
+                          className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider border ${getScopeBadgeClass(role.normalizedScope)}`}
+                        >
+                          {getScopeLabel(role.normalizedScope)}
+                        </span>
+
+                        {role.normalizedIsProtected && (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                            Protected
+                          </span>
+                        )}
+
+                        {!role.normalizedIsAssignable && (
                           <span className="px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-300">
-                            System Role
+                            Non-assignable
                           </span>
                         )}
                       </div>
@@ -572,6 +679,18 @@ const RolesPage: React.FC = () => {
                           <Users className="w-4 h-4 text-gray-400 shrink-0" />
                           <span>{role.users_count ?? "—"}</span>
                           <span className="text-gray-500">Người dùng</span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          <Settings2 className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="font-medium">
+                            {role.normalizedCode || "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2.5">
+                          <ShieldCheck className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span>Level {role.normalizedLevel}</span>
                         </div>
                       </div>
 
@@ -611,11 +730,11 @@ const RolesPage: React.FC = () => {
                         onClick={() => navigate(`/admin/roles/edit/${role.id}`)}
                         className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded shadow-sm hover:bg-gray-50 transition-colors"
                       >
-                        <Settings2 className="w-4 h-4" /> Quản lý role
+                        <Settings2 className="w-4 h-4" /> Mở workspace
                       </button>
 
                       <div className="flex gap-1">
-                        {!role.is_system && (
+                        {!role.normalizedIsProtected && (
                           <button
                             onClick={() => handleDeleteRole(role)}
                             className="p-2 text-gray-500 hover:text-red-600 bg-white hover:bg-red-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded shadow-sm transition"
@@ -665,9 +784,15 @@ const RolesPage: React.FC = () => {
                           <td className="px-5 py-4">
                             <div className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2">
                               {role.title}
-                              {role.is_system && (
-                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">
-                                  System
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${getScopeBadgeClass(role.normalizedScope)}`}
+                              >
+                                {getScopeLabel(role.normalizedScope)}
+                              </span>
+
+                              {role.normalizedIsProtected && (
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                                  Protected
                                 </span>
                               )}
                             </div>
@@ -730,7 +855,7 @@ const RolesPage: React.FC = () => {
                               >
                                 <Copy className="w-4 h-4" />
                               </button>
-                              {!role.is_system && (
+                              {!role.normalizedIsProtected && (
                                 <button
                                   onClick={() => handleDeleteRole(role)}
                                   className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-800 rounded transition-colors"

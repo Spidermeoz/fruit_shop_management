@@ -1,10 +1,18 @@
 // src/domain/roles/types.ts
 
-// Quy ước permissions: { [moduleKey]: string[] } .
-// Ví dụ: { product: ["view","create"], role: ["permissions"] }
 export type Permissions = Record<string, string[]>;
 
+export type RoleScope = "system" | "branch" | "client";
+
 export type RoleListFilter = {
-  includeDeleted?: boolean; // default false
+  includeDeleted?: boolean;
   q?: string;
+  scope?: RoleScope;
+  assignableOnly?: boolean;
+};
+
+export type AssignableRoleFilter = {
+  actorRoleCode?: string | null;
+  actorLevel?: number | null;
+  actorIsSuperAdmin?: boolean;
 };

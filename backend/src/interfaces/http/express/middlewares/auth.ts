@@ -11,6 +11,17 @@ type Opts = {
 
 type PermissionMap = Record<string, string[]>;
 
+type RequestRoleContext = {
+  roleId?: number | null;
+  roleCode?: string | null;
+  roleName?: string | null;
+  roleScope?: "system" | "branch" | "client" | null;
+  roleLevel?: number | null;
+  isRoleAssignable?: boolean;
+  isRoleProtected?: boolean;
+  isSuperAdmin?: boolean;
+};
+
 const normalizePermissionMap = (input: unknown): PermissionMap => {
   const output = new Map<string, Set<string>>();
 
@@ -81,51 +92,18 @@ const normalizeRoleName = (value: unknown): string | null => {
   return raw || null;
 };
 
-const inferIsSuperAdmin = (input: {
-  roleCode?: string | null;
-  roleName?: string | null;
-  permissions?: PermissionMap;
-}): boolean => {
-  const roleCode = normalizeRoleCode(input.roleCode);
-  const normalizedRoleName = String(input.roleName ?? "")
+const parseRoleScope = (
+  value: unknown,
+): "system" | "branch" | "client" | null => {
+  const raw = String(value ?? "")
     .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "_");
+    .toLowerCase();
 
-  if (
-    roleCode === "super_admin" ||
-    roleCode === "superadmin" ||
-    normalizedRoleName === "super_admin" ||
-    normalizedRoleName === "superadmin"
-  ) {
-    return true;
+  if (raw === "system" || raw === "branch" || raw === "client") {
+    return raw;
   }
 
-  const permissions = input.permissions ?? {};
-  const modules = Object.keys(permissions);
-
-  if (modules.length === 0) return false;
-
-  const has = (module: string, action: string) =>
-    Array.isArray(permissions[module]) && permissions[module].includes(action);
-
-  const dashboardCoverage =
-    has("order", "view") &&
-    has("inventory", "view") &&
-    has("user", "view") &&
-    has("branch", "view") &&
-    (has("shipping_zone", "view") ||
-      has("branch_service_area", "view") ||
-      has("delivery_time_slot", "view") ||
-      has("branch_delivery_time_slot", "view") ||
-      has("branch_delivery_slot_capacity", "view")) &&
-    has("promotion", "view") &&
-    has("review", "view") &&
-    (has("post", "view") ||
-      has("post_category", "view") ||
-      has("post_tag", "view"));
-
-  return dashboardCoverage;
+  return null;
 };
 
 export const makeAuthMiddleware = (
@@ -210,16 +188,47 @@ export const makeAuthMiddleware = (
       }
 
       const resolvedRole = resolvedUser?.props.role ?? null;
+
       const roleCode = normalizeRoleCode(
         resolvedRole?.code ??
           resolvedUser?.props.roleCode ??
           (payload as any)?.roleCode,
       );
+
       const roleName = normalizeRoleName(
-        resolvedRole?.name ??
-          resolvedRole?.title ??
+        resolvedRole?.title ??
           resolvedUser?.props.roleName ??
           (payload as any)?.roleName,
+      );
+
+      const roleScope = parseRoleScope(
+        resolvedRole?.scope ??
+          resolvedUser?.props.roleScope ??
+          (payload as any)?.roleScope,
+      );
+
+      const rawRoleLevel =
+        resolvedRole?.level ??
+        resolvedUser?.props.roleLevel ??
+        (payload as any)?.roleLevel;
+
+      const roleLevel =
+        rawRoleLevel === null ||
+        rawRoleLevel === undefined ||
+        rawRoleLevel === ""
+          ? null
+          : Number(rawRoleLevel);
+
+      const isRoleAssignable = !!(
+        resolvedRole?.isAssignable ??
+        resolvedUser?.props.isRoleAssignable ??
+        (payload as any)?.isRoleAssignable
+      );
+
+      const isRoleProtected = !!(
+        resolvedRole?.isProtected ??
+        resolvedUser?.props.isRoleProtected ??
+        (payload as any)?.isRoleProtected
       );
 
       const permissions = normalizePermissionMap(
@@ -228,11 +237,14 @@ export const makeAuthMiddleware = (
           (payload as any)?.permissions,
       );
 
-      const isSuperAdmin = inferIsSuperAdmin({
-        roleCode,
-        roleName,
-        permissions,
-      });
+      const isSuperAdmin = roleCode === "super_admin";
+
+      const finalCurrentBranchId =
+        currentBranchId !== null &&
+        currentBranchId !== undefined &&
+        Number.isFinite(Number(currentBranchId))
+          ? Number(currentBranchId)
+          : null;
 
       req.user = {
         id: Number(payload.sub),
@@ -240,11 +252,18 @@ export const makeAuthMiddleware = (
         roleId: resolvedUser?.props.roleId ?? (payload as any)?.roleId ?? null,
         roleCode,
         roleName,
+        roleScope,
+        roleLevel:
+          roleLevel !== null && Number.isFinite(roleLevel)
+            ? Number(roleLevel)
+            : null,
+        isRoleAssignable,
+        isRoleProtected,
         isSuperAdmin,
         permissions,
         branchIds,
         primaryBranchId: primaryBranchId ? Number(primaryBranchId) : null,
-        currentBranchId: currentBranchId ? Number(currentBranchId) : null,
+        currentBranchId: finalCurrentBranchId,
         branches: branchAssignments.map((x: any) => ({
           id: Number(x.branch?.id ?? x.branchId),
           name: x.branch?.name ?? null,

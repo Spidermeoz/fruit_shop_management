@@ -21,6 +21,10 @@ export interface AdminUser {
   full_name?: string | null;
   avatar?: string | null;
   role_id?: number | null;
+  role_code?: string | null;
+  role_scope?: "system" | "branch" | "client" | null;
+  role_level?: number | null;
+  is_super_admin?: boolean;
   branch_ids?: number[];
   primary_branch_id?: number | null;
   branches?: AdminBranch[];
@@ -81,6 +85,20 @@ const normalizeUser = (raw: any): AdminUser | null => {
       raw.role_id !== undefined && raw.role_id !== null
         ? Number(raw.role_id)
         : null,
+    role_code: raw.role_code ?? raw.roleCode ?? null,
+    role_scope: raw.role_scope ?? raw.roleScope ?? null,
+    role_level:
+      raw.role_level !== undefined && raw.role_level !== null
+        ? Number(raw.role_level)
+        : raw.roleLevel !== undefined && raw.roleLevel !== null
+          ? Number(raw.roleLevel)
+          : null,
+    is_super_admin:
+      raw.is_super_admin !== undefined
+        ? Boolean(raw.is_super_admin)
+        : raw.isSuperAdmin !== undefined
+          ? Boolean(raw.isSuperAdmin)
+          : false,
     branch_ids: Array.isArray(raw.branch_ids)
       ? raw.branch_ids
           .map((x: any) => Number(x))
@@ -280,17 +298,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const currentBranch = useMemo(() => {
     if (!branches.length) return null;
+
     if (currentBranchId) {
       return branches.find((b) => b.id === currentBranchId) ?? null;
     }
-    return (
-      branches.find((b) => b.is_primary) ??
-      (user?.primary_branch_id
+
+    const primaryMarkedBranch = branches.find((b) => b.is_primary) ?? null;
+
+    const userPrimaryBranch =
+      user?.primary_branch_id != null
         ? (branches.find((b) => b.id === user.primary_branch_id) ?? null)
-        : null) ??
-      branches[0] ??
-      null
-    );
+        : null;
+
+    const firstBranch = branches[0] ?? null;
+
+    return primaryMarkedBranch ?? userPrimaryBranch ?? firstBranch;
   }, [branches, currentBranchId, user?.primary_branch_id]);
 
   useEffect(() => {

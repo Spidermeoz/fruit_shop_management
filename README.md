@@ -282,13 +282,17 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 ListPostTags.ts
 │   │   │   │       └── 📄 SoftDeletePostTag.ts
 │   │   │   ├── 📁 posts
-│   │   │   │   └── 📁 usecase
+│   │   │   │   └── 📁 usecases
 │   │   │   │       ├── 📄 BulkEditPosts.ts
 │   │   │   │       ├── 📄 ChangePostStatus.ts
 │   │   │   │       ├── 📄 CreatePost.ts
 │   │   │   │       ├── 📄 EditPost.ts
 │   │   │   │       ├── 📄 GetPostDetail.ts
+│   │   │   │       ├── 📄 GetPostDetailBySlug.ts
 │   │   │   │       ├── 📄 GetPostSummary.ts
+│   │   │   │       ├── 📄 IncreasePostViewCount.ts
+│   │   │   │       ├── 📄 ListClientPostCategories.ts
+│   │   │   │       ├── 📄 ListClientPostTags.ts
 │   │   │   │       ├── 📄 ListPosts.ts
 │   │   │   │       ├── 📄 ReorderPostPositions.ts
 │   │   │   │       └── 📄 SoftDeletePost.ts
@@ -349,6 +353,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 EditRole.ts
 │   │   │   │   │   ├── 📄 GetRoleDetail.ts
 │   │   │   │   │   ├── 📄 GetRolePermissions.ts
+│   │   │   │   │   ├── 📄 ListAssignableRoles.ts
 │   │   │   │   │   ├── 📄 ListRoles.ts
 │   │   │   │   │   ├── 📄 ListRolesForPermissions.ts
 │   │   │   │   │   ├── 📄 SoftDeleteRole.ts
@@ -574,6 +579,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   ├── 📄 ClientCategoriesController.ts
 │   │   │           │   │   ├── 📄 ClientForgotPasswordController.ts
 │   │   │           │   │   ├── 📄 ClientOrdersController.ts
+│   │   │           │   │   ├── 📄 ClientPostCategoriesController.ts
+│   │   │           │   │   ├── 📄 ClientPostTagsController.ts
+│   │   │           │   │   ├── 📄 ClientPostsController.ts
 │   │   │           │   │   ├── 📄 ClientProductsController.ts
 │   │   │           │   │   ├── 📄 ClientResetPasswordController.ts
 │   │   │           │   │   ├── 📄 ClientReviewsController.ts
@@ -613,6 +621,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               │   ├── 📄 clientCategories.routes.ts
 │   │   │               │   ├── 📄 clientForgotPassword.routes.ts
 │   │   │               │   ├── 📄 clientOrders.routes.ts
+│   │   │               │   ├── 📄 clientPostCategories.routes.ts
+│   │   │               │   ├── 📄 clientPostTags.routes.ts
+│   │   │               │   ├── 📄 clientPosts.routes.ts
 │   │   │               │   ├── 📄 clientProducts.routes.ts
 │   │   │               │   ├── 📄 clientReviews.routes.ts
 │   │   │               │   ├── 📄 clientSettings.routes.ts
@@ -826,6 +837,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       │   ├── 📄 ReturnPolicyPage.tsx
 │   │   │       │   ├── 📄 ShippingPolicyPage.tsx
 │   │   │       │   └── 📄 TermsOfUsePage.tsx
+│   │   │       ├── 📁 Post
+│   │   │       │   ├── 📄 PostDetailPage.tsx
+│   │   │       │   └── 📄 PostsPage.tsx
 │   │   │       ├── 📁 Product
 │   │   │       │   ├── 📄 ProductDetailPage.tsx
 │   │   │       │   └── 📄 Products.tsx
@@ -834,11 +848,13 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   ├── 📁 services
 │   │   │   ├── 📁 api
 │   │   │   │   ├── 📄 dashboardApi.ts
-│   │   │   │   └── 📄 ordersClient.ts
+│   │   │   │   ├── 📄 ordersClient.ts
+│   │   │   │   └── 📄 postsClient.ts
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types
 │   │   │   ├── 📄 inventory.ts
 │   │   │   ├── 📄 orders.ts
+│   │   │   ├── 📄 posts.ts
 │   │   │   └── 📄 products.ts
 │   │   ├── 📁 utils
 │   │   │   ├── 📄 categoryTree.tsx

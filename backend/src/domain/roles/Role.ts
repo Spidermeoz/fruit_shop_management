@@ -1,14 +1,20 @@
 // src/domain/roles/Role.ts
-import type { Permissions } from "./types";
+import type { Permissions, RoleScope } from "./types";
 
 export interface RoleProps {
   id?: number;
+
+  code: string;
+  scope: RoleScope;
+  level: number;
+  isAssignable: boolean;
+  isProtected: boolean;
+
   title: string;
   description?: string | null;
   permissions?: Permissions | null;
 
-  // Soft-delete
-  deleted?: boolean;          // domain dùng boolean
+  deleted?: boolean;
   deletedAt?: Date | null;
 
   createdAt?: Date;
@@ -31,18 +37,40 @@ export class Role {
   }
 
   static validate(p: RoleProps): RoleProps {
-    if (!p.title || !p.title.toString().trim()) {
+    const title = p.title?.toString().trim();
+    if (!title) {
       throw new Error("Role.title is required");
     }
+
+    const code = p.code?.toString().trim().toLowerCase();
+    if (!code) {
+      throw new Error("Role.code is required");
+    }
+
+    const scope: RoleScope =
+      p.scope === "system" || p.scope === "branch" || p.scope === "client"
+        ? p.scope
+        : "branch";
+
+    const level = Number(p.level);
+    if (!Number.isFinite(level) || level < 0) {
+      throw new Error("Role.level must be a non-negative number");
+    }
+
     return {
-      title: p.title.toString().trim(),
+      id: p.id,
+      code,
+      scope,
+      level,
+      isAssignable: !!p.isAssignable,
+      isProtected: !!p.isProtected,
+      title,
       description: p.description ?? null,
       permissions: p.permissions ?? null,
       deleted: p.deleted ?? false,
       deletedAt: p.deletedAt ?? null,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
-      id: p.id,
     };
   }
 
@@ -54,7 +82,35 @@ export class Role {
     this._props = Role.validate({ ...this._props, permissions: perms });
   }
 
+  updateMetadata(
+    input: Partial<{
+      code: string;
+      scope: RoleScope;
+      level: number;
+      isAssignable: boolean;
+      isProtected: boolean;
+      description: string | null;
+    }>,
+  ) {
+    this._props = Role.validate({
+      ...this._props,
+      code: input.code ?? this._props.code,
+      scope: input.scope ?? this._props.scope,
+      level: input.level ?? this._props.level,
+      isAssignable: input.isAssignable ?? this._props.isAssignable,
+      isProtected: input.isProtected ?? this._props.isProtected,
+      description:
+        input.description !== undefined
+          ? input.description
+          : this._props.description,
+    });
+  }
+
   softDelete() {
-    this._props = Role.validate({ ...this._props, deleted: true, deletedAt: new Date() });
+    this._props = Role.validate({
+      ...this._props,
+      deleted: true,
+      deletedAt: new Date(),
+    });
   }
 }

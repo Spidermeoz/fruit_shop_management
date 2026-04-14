@@ -8,6 +8,7 @@ import type { SoftDeleteRole } from "../../../../application/roles/usecases/Soft
 import type { GetRolePermissions } from "../../../../application/roles/usecases/GetRolePermissions";
 import type { UpdateRolePermissions } from "../../../../application/roles/usecases/UpdateRolePermissions";
 import type { ListRolesForPermissions } from "../../../../application/roles/usecases/ListRolesForPermissions";
+import type { ListAssignableRoles } from "../../../../application/roles/usecases/ListAssignableRoles";
 
 const toBool = (v: any) =>
   v === undefined
@@ -16,6 +17,13 @@ const toBool = (v: any) =>
 
 const toNum = (v: any) =>
   v === null || v === undefined || v === "" ? undefined : Number(v);
+
+const toScope = (v: any): "system" | "branch" | "client" | undefined => {
+  if (v === "system" || v === "branch" || v === "client") {
+    return v;
+  }
+  return undefined;
+};
 
 const normalizePermissions = (
   input: unknown,
@@ -41,8 +49,33 @@ const normalizePermissions = (
   return entries;
 };
 
+const mapRoleView = (role: any) => ({
+  id: role?.id ?? null,
+  code: role?.code ?? null,
+  scope: role?.scope ?? null,
+  level: role?.level ?? null,
+
+  isAssignable: role?.isAssignable ?? role?.is_assignable ?? null,
+  isProtected: role?.isProtected ?? role?.is_protected ?? null,
+  is_assignable: role?.is_assignable ?? role?.isAssignable ?? null,
+  is_protected: role?.is_protected ?? role?.isProtected ?? null,
+
+  title: role?.title ?? null,
+  description: role?.description ?? null,
+  permissions: role?.permissions ?? {},
+
+  deleted: role?.deleted ?? false,
+  deletedAt: role?.deletedAt ?? role?.deleted_at ?? null,
+  deleted_at: role?.deleted_at ?? role?.deletedAt ?? null,
+  createdAt: role?.createdAt ?? role?.created_at ?? null,
+  created_at: role?.created_at ?? role?.createdAt ?? null,
+  updatedAt: role?.updatedAt ?? role?.updated_at ?? null,
+  updated_at: role?.updated_at ?? role?.updatedAt ?? null,
+});
+
 export const makeRolesController = (uc: {
   list: ListRoles;
+  listAssignable: ListAssignableRoles;
   detail: GetRoleDetail;
   create: CreateRole;
   update: UpdateRole;
@@ -55,10 +88,8 @@ export const makeRolesController = (uc: {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
       try {
-        const { page, limit, q, includeDeleted } = req.query as Record<
-          string,
-          string
-        >;
+        const { page, limit, q, includeDeleted, scope, assignableOnly } =
+          req.query as Record<string, string>;
 
         const pg = toNum(page) ?? 1;
         const lm = toNum(limit) ?? 10;
@@ -66,12 +97,38 @@ export const makeRolesController = (uc: {
         const result = await uc.list.execute({
           q: q?.trim() || undefined,
           includeDeleted: toBool(includeDeleted),
+          scope: toScope(scope),
+          assignableOnly: toBool(assignableOnly) ?? false,
         });
 
         res.json({
           success: true,
-          data: result.rows,
+          data: result.rows.map((role: any) => mapRoleView(role)),
           meta: { total: result.count, page: pg, limit: lm },
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    assignable: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const actor = req.user ?? null;
+
+        const roles = await uc.listAssignable.execute({
+          actorRoleCode: actor?.roleCode ?? null,
+          actorLevel: actor?.roleLevel ?? null,
+          actorIsSuperAdmin: actor?.isSuperAdmin === true,
+        });
+
+        res.json({
+          success: true,
+          data: roles.map((role: any) => mapRoleView(role)),
+          meta: {
+            total: Array.isArray(roles) ? roles.length : 0,
+            page: 1,
+            limit: Array.isArray(roles) ? roles.length : 0,
+          },
         });
       } catch (e) {
         next(e);
@@ -89,13 +146,7 @@ export const makeRolesController = (uc: {
             .json({ success: false, message: "Role not found" });
         }
 
-        const out = {
-          ...(role as any),
-          created_at:
-            (role as any).created_at ?? (role as any).createdAt ?? null,
-          updated_at:
-            (role as any).updated_at ?? (role as any).updatedAt ?? null,
-        };
+        const out = mapRoleView(role as any);
 
         res.json({
           success: true,
@@ -110,22 +161,59 @@ export const makeRolesController = (uc: {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const payload = req.body as {
+          code?: string;
+          scope?: "system" | "branch" | "client";
+          level?: number;
+          isAssignable?: boolean;
+          isProtected?: boolean;
           title: string;
           description?: string | null;
           permissions?: unknown;
         };
 
+        const title = String(payload.title ?? "").trim();
+        if (!title) {
+          return res.status(400).json({
+            success: false,
+            message: "Role title is required",
+          });
+        }
+
         const normalizedPermissions = normalizePermissions(payload.permissions);
 
+        const fallbackCode = title
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, "_")
+          .replace(/^_+|_+$/g, "");
+
+        const finalCode = String(payload.code ?? fallbackCode)
+          .trim()
+          .toLowerCase();
+
+        if (!finalCode) {
+          return res.status(400).json({
+            success: false,
+            message: "Role code is required",
+          });
+        }
+
         const created = await uc.create.execute({
-          title: payload.title,
+          code: finalCode,
+          scope: payload.scope ?? "branch",
+          level:
+            payload.level === undefined || payload.level === null
+              ? 10
+              : Number(payload.level),
+          isAssignable: payload.isAssignable ?? true,
+          isProtected: payload.isProtected ?? false,
+          title,
           description: payload.description ?? null,
           permissions: normalizedPermissions ?? {},
         });
 
         res.status(201).json({
           success: true,
-          data: created,
+          data: mapRoleView(created as any),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -144,13 +232,7 @@ export const makeRolesController = (uc: {
             .json({ success: false, message: "Role not found" });
         }
 
-        const out = {
-          ...(role as any),
-          created_at:
-            (role as any).created_at ?? (role as any).createdAt ?? null,
-          updated_at:
-            (role as any).updated_at ?? (role as any).updatedAt ?? null,
-        };
+        const out = mapRoleView(role as any);
 
         res.json({
           success: true,
@@ -166,19 +248,51 @@ export const makeRolesController = (uc: {
       try {
         const id = Number(req.params.id);
         const body = req.body as Partial<{
+          code: string;
+          scope: "system" | "branch" | "client";
+          level: number;
+          isAssignable: boolean;
+          isProtected: boolean;
           title: string;
           description: string | null;
           permissions: unknown;
         }>;
 
+        if (body.title !== undefined && !String(body.title).trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Role title cannot be empty",
+          });
+        }
+
+        if (body.code !== undefined && !String(body.code).trim()) {
+          return res.status(400).json({
+            success: false,
+            message: "Role code cannot be empty",
+          });
+        }
+
         const normalizedPermissions = normalizePermissions(body.permissions);
 
         const patch: Partial<{
+          code: string;
+          scope: "system" | "branch" | "client";
+          level: number;
+          isAssignable: boolean;
+          isProtected: boolean;
           title: string;
           description: string | null;
           permissions: Record<string, string[]>;
         }> = {};
 
+        if (body.code !== undefined)
+          patch.code = String(body.code).trim().toLowerCase();
+        if (body.scope !== undefined) patch.scope = body.scope;
+        if (body.level !== undefined) patch.level = Number(body.level);
+        if (body.isAssignable !== undefined)
+          patch.isAssignable = !!body.isAssignable;
+        if (body.isProtected !== undefined)
+          patch.isProtected = !!body.isProtected;
         if (body.title !== undefined) patch.title = String(body.title);
         if (body.description !== undefined) {
           patch.description = body.description ?? null;
@@ -197,7 +311,7 @@ export const makeRolesController = (uc: {
 
         res.json({
           success: true,
-          data: updated,
+          data: mapRoleView(updated as any),
           meta: { total: 0, page: 1, limit: 10 },
         });
       } catch (e) {
@@ -499,6 +613,11 @@ export const makeRolesController = (uc: {
           success: true,
           roles: roles.map((r) => ({
             id: r.id,
+            code: r.code,
+            scope: r.scope,
+            level: r.level,
+            is_assignable: r.isAssignable,
+            is_protected: r.isProtected,
             title: r.title,
             permissions: r.permissions || {},
           })),

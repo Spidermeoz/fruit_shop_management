@@ -3,6 +3,8 @@ import type {
   UserRepository,
   UpdateUserPatch,
 } from "../../../domain/users/UserRepository";
+import type { RoleRepository } from "../../../domain/roles/RoleRepository";
+import type { Role } from "../../../domain/roles/Role";
 
 export type EditUserInput = Partial<{
   roleId: number | null;
@@ -18,6 +20,17 @@ export type EditUserInput = Partial<{
   }>;
 }>;
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  roleCode?: string | null;
+  roleScope?: "system" | "branch" | "client" | null;
+  roleLevel?: number | null;
+  isRoleProtected?: boolean;
+  isSuperAdmin?: boolean;
+  branchIds?: number[];
+};
+
 const mapUserView = (u: any) => ({
   id: u.props.id!,
   roleId: u.props.roleId ?? null,
@@ -31,7 +44,15 @@ const mapUserView = (u: any) => ({
   createdAt: u.props.createdAt!,
   updatedAt: u.props.updatedAt!,
   role: u.props.role
-    ? { id: u.props.role.id, title: u.props.role.title }
+    ? {
+        id: u.props.role.id,
+        code: u.props.role.code ?? null,
+        scope: u.props.role.scope ?? null,
+        level: u.props.role.level ?? null,
+        isAssignable: u.props.role.isAssignable ?? null,
+        isProtected: u.props.role.isProtected ?? null,
+        title: u.props.role.title,
+      }
     : null,
   primaryBranchId:
     u.props.primaryBranchId ??
@@ -98,7 +119,44 @@ const normalizeBranchIds = (branchIds?: number[]) =>
     ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
     : [];
 
-const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+const isSuperAdminActor = (actor?: ActorContext) =>
+  actor?.isSuperAdmin === true || actor?.roleCode === "super_admin";
+
+const normalizeActorLevel = (actor?: ActorContext) => {
+  const value = actor?.roleLevel;
+  if (value === null || value === undefined) return null;
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeRoleCode = (value: unknown): string | null => {
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+  return raw || null;
+};
+
+const normalizeNullableRoleId = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
+
+const normalizeUserStatus = (
+  value: unknown,
+): "active" | "inactive" | "banned" | null => {
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (raw === "active" || raw === "inactive" || raw === "banned") {
+    return raw;
+  }
+
+  return null;
+};
 
 const hasBranchOverlap = (existing: any, allowedBranchIds: number[]) => {
   const targetBranchIds = Array.isArray(existing?.props?.branchAssignments)
@@ -114,9 +172,9 @@ const hasBranchOverlap = (existing: any, allowedBranchIds: number[]) => {
 
 const ensureAssignmentsWithinScope = (
   assignments: Array<{ branchId: number; isPrimary: boolean }>,
-  actor?: { roleId?: number | null; branchIds?: number[] },
+  actor?: ActorContext,
 ) => {
-  if (isSuperAdminLike(actor?.roleId)) return;
+  if (isSuperAdminActor(actor)) return;
 
   const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
   if (!allowedBranchIds.length) {
@@ -133,26 +191,146 @@ const ensureAssignmentsWithinScope = (
   }
 };
 
-export class EditUser {
-  constructor(private repo: UserRepository) {}
+const ensureTargetRoleCanBeAssigned = (
+  targetRole: Role | null,
+  actor?: ActorContext,
+) => {
+  if (!targetRole) {
+    throw new Error("Role không tồn tại.");
+  }
 
-  async execute(
-    id: number,
-    patch: EditUserInput,
-    actor?: {
-      roleId?: number | null;
-      branchIds?: number[];
-    },
+  if (targetRole.props.deleted) {
+    throw new Error("Role đã bị xóa hoặc ngừng sử dụng.");
+  }
+
+  if (!targetRole.props.isAssignable) {
+    throw new Error(
+      "Role này không được phép gán từ màn hình quản lý người dùng.",
+    );
+  }
+
+  if (targetRole.props.isProtected) {
+    throw new Error("Role này được bảo vệ và không thể gán từ luồng hiện tại.");
+  }
+
+  if (isSuperAdminActor(actor)) {
+    return;
+  }
+
+  const actorLevel = normalizeActorLevel(actor);
+  if (actorLevel === null) {
+    throw new Error("Không xác định được cấp quyền của tài khoản hiện tại.");
+  }
+
+  if (targetRole.props.scope === "system") {
+    throw new Error("Bạn không được phép gán role cấp hệ thống.");
+  }
+
+  if (targetRole.props.isProtected) {
+    throw new Error("Bạn không được phép gán role được bảo vệ.");
+  }
+
+  if (targetRole.props.level >= actorLevel) {
+    throw new Error("Bạn chỉ có thể gán role thấp hơn role hiện tại của mình.");
+  }
+};
+
+const ensureTargetUserCanBeManaged = (existing: any, actor?: ActorContext) => {
+  const targetRole = existing?.props?.role ?? null;
+  const targetRoleCode = normalizeRoleCode(targetRole?.code);
+
+  if (isSuperAdminActor(actor)) {
+    return;
+  }
+
+  // Khóa cứng các role đặc biệt, không cho actor thường chạm vào
+  if (targetRoleCode === "super_admin") {
+    throw new Error("Bạn không có quyền chỉnh sửa tài khoản Super Admin.");
+  }
+
+  if (targetRole?.isProtected) {
+    throw new Error(
+      "Bạn không có quyền chỉnh sửa tài khoản thuộc role được bảo vệ.",
+    );
+  }
+
+  const actorLevel = normalizeActorLevel(actor);
+  const targetLevel =
+    targetRole?.level === null || targetRole?.level === undefined
+      ? null
+      : Number(targetRole.level);
+
+  if (actorLevel === null) {
+    throw new Error("Không xác định được cấp quyền của tài khoản hiện tại.");
+  }
+
+  if (
+    targetLevel !== null &&
+    Number.isFinite(targetLevel) &&
+    targetLevel >= actorLevel
   ) {
+    throw new Error(
+      "Bạn không thể chỉnh sửa tài khoản có role ngang hoặc cao hơn mình.",
+    );
+  }
+};
+
+export class EditUser {
+  constructor(
+    private repo: UserRepository,
+    private rolesRepo: RoleRepository,
+  ) {}
+
+  async execute(id: number, patch: EditUserInput, actor?: ActorContext) {
     const existing = await this.repo.findById(id, true);
     if (!existing) {
       throw new Error("User not found");
     }
 
+    const actorUserId =
+      actor?.id !== undefined && actor?.id !== null ? Number(actor.id) : null;
+
+    if (actorUserId !== null && Number(actorUserId) === Number(id)) {
+      const currentRoleId = normalizeNullableRoleId(
+        existing.props.roleId ?? null,
+      );
+      const nextRequestedRoleId =
+        patch.roleId !== undefined
+          ? normalizeNullableRoleId(patch.roleId)
+          : currentRoleId;
+
+      const currentStatus = normalizeUserStatus(existing.props.status ?? null);
+      const nextRequestedStatus =
+        patch.status !== undefined
+          ? normalizeUserStatus(patch.status)
+          : currentStatus;
+
+      const isTryingToChangeOwnRole =
+        patch.roleId !== undefined && nextRequestedRoleId !== currentRoleId;
+
+      const isTryingToDisableOwnAccount =
+        patch.status !== undefined &&
+        nextRequestedStatus !== currentStatus &&
+        (nextRequestedStatus === "inactive" ||
+          nextRequestedStatus === "banned");
+
+      if (isTryingToChangeOwnRole || isTryingToDisableOwnAccount) {
+        throw new Error(
+          "Bạn không thể tự thay đổi role hoặc tự vô hiệu hóa tài khoản của chính mình.",
+        );
+      }
+    }
+
     const existingIsInternal =
       existing.props.roleId !== null && existing.props.roleId !== undefined;
 
-    if (existingIsInternal && !isSuperAdminLike(actor?.roleId)) {
+    // Cửa 1: target user có phải đối tượng được phép chạm vào không?
+    if (existingIsInternal) {
+      ensureTargetUserCanBeManaged(existing, actor);
+    }
+
+    // Cửa 2: nếu không phải super admin thì vẫn phải nằm trong branch scope hợp lệ
+    if (existingIsInternal && !isSuperAdminActor(actor)) {
       const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
       if (
         !allowedBranchIds.length ||
@@ -164,12 +342,32 @@ export class EditUser {
 
     const outPatch: UpdateUserPatch = {};
 
+    const currentRoleId = normalizeNullableRoleId(
+      existing.props.roleId ?? null,
+    );
+
     const nextRoleId =
       patch.roleId !== undefined
-        ? patch.roleId
-        : (existing.props.roleId ?? null);
+        ? normalizeNullableRoleId(patch.roleId)
+        : currentRoleId;
 
-    if (patch.roleId !== undefined) outPatch.roleId = nextRoleId;
+    const isActuallyChangingRole =
+      patch.roleId !== undefined && nextRoleId !== currentRoleId;
+
+    // Chỉ validate target role khi người dùng thực sự đang đổi sang role khác
+    if (isActuallyChangingRole && nextRoleId !== null) {
+      const targetRole = await this.rolesRepo.findById(
+        Number(nextRoleId),
+        false,
+      );
+
+      // Cửa 3: nếu được phép chạm vào target user, actor vẫn chỉ được đổi sang role hợp lệ
+      ensureTargetRoleCanBeAssigned(targetRole, actor);
+    }
+
+    if (patch.roleId !== undefined) {
+      outPatch.roleId = nextRoleId;
+    }
     if (patch.fullName !== undefined) outPatch.fullName = patch.fullName;
     if (patch.email !== undefined) {
       outPatch.email = patch.email.trim().toLowerCase();

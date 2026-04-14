@@ -1,5 +1,7 @@
 import bcrypt from "bcryptjs";
 import type { UserRepository } from "../../../domain/users/UserRepository";
+import type { RoleRepository } from "../../../domain/roles/RoleRepository";
+import type { Role } from "../../../domain/roles/Role";
 
 export type CreateUserInput = {
   roleId?: number | null;
@@ -15,6 +17,16 @@ export type CreateUserInput = {
   }>;
 };
 
+type ActorContext = {
+  roleId?: number | null;
+  roleCode?: string | null;
+  roleScope?: "system" | "branch" | "client" | null;
+  roleLevel?: number | null;
+  isRoleProtected?: boolean;
+  isSuperAdmin?: boolean;
+  branchIds?: number[];
+};
+
 const mapUserView = (u: any) => ({
   id: u.props.id!,
   roleId: u.props.roleId ?? null,
@@ -28,7 +40,15 @@ const mapUserView = (u: any) => ({
   createdAt: u.props.createdAt!,
   updatedAt: u.props.updatedAt!,
   role: u.props.role
-    ? { id: u.props.role.id, title: u.props.role.title }
+    ? {
+        id: u.props.role.id,
+        code: u.props.role.code ?? null,
+        scope: u.props.role.scope ?? null,
+        level: u.props.role.level ?? null,
+        isAssignable: u.props.role.isAssignable ?? null,
+        isProtected: u.props.role.isProtected ?? null,
+        title: u.props.role.title,
+      }
     : null,
   primaryBranchId:
     u.props.primaryBranchId ??
@@ -95,13 +115,22 @@ const normalizeBranchIds = (branchIds?: number[]) =>
     ? branchIds.map(Number).filter((x) => Number.isFinite(x) && x > 0)
     : [];
 
-const isSuperAdminLike = (roleId?: number | null) => Number(roleId) === 1;
+const isSuperAdminActor = (actor?: ActorContext) =>
+  actor?.isSuperAdmin === true || actor?.roleCode === "super_admin";
+
+const normalizeActorLevel = (actor?: ActorContext) => {
+  const value = actor?.roleLevel;
+  if (value === null || value === undefined) return null;
+
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+};
 
 const ensureAssignmentsWithinScope = (
   assignments: Array<{ branchId: number; isPrimary: boolean }>,
-  actor?: { roleId?: number | null; branchIds?: number[] },
+  actor?: ActorContext,
 ) => {
-  if (isSuperAdminLike(actor?.roleId)) return;
+  if (isSuperAdminActor(actor)) return;
 
   const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
   if (!allowedBranchIds.length) {
@@ -118,17 +147,61 @@ const ensureAssignmentsWithinScope = (
   }
 };
 
-export class CreateUser {
-  constructor(private repo: UserRepository) {}
+const ensureTargetRoleCanBeAssigned = (
+  targetRole: Role | null,
+  actor?: ActorContext,
+) => {
+  if (!targetRole) {
+    throw new Error("Role không tồn tại.");
+  }
 
-  async execute(
-    input: CreateUserInput,
-    actor?: {
-      roleId?: number | null;
-      branchIds?: number[];
-    },
-  ) {
+  if (targetRole.props.deleted) {
+    throw new Error("Role đã bị xóa hoặc ngừng sử dụng.");
+  }
+
+  if (!targetRole.props.isAssignable) {
+    throw new Error(
+      "Role này không được phép gán từ màn hình quản lý người dùng.",
+    );
+  }
+
+  if (targetRole.props.isProtected) {
+    throw new Error("Role này được bảo vệ và không thể gán từ luồng hiện tại.");
+  }
+
+  if (isSuperAdminActor(actor)) {
+    return;
+  }
+
+  const actorLevel = normalizeActorLevel(actor);
+  if (actorLevel === null) {
+    throw new Error("Không xác định được cấp quyền của tài khoản hiện tại.");
+  }
+
+  if (targetRole.props.scope === "system") {
+    throw new Error("Bạn không được phép gán role cấp hệ thống.");
+  }
+
+  if (targetRole.props.level >= actorLevel) {
+    throw new Error("Bạn chỉ có thể gán role thấp hơn role hiện tại của mình.");
+  }
+};
+
+export class CreateUser {
+  constructor(
+    private repo: UserRepository,
+    private rolesRepo: RoleRepository,
+  ) {}
+
+  async execute(input: CreateUserInput, actor?: ActorContext) {
     const roleId = input.roleId ?? null;
+
+    let targetRole: Role | null = null;
+    if (roleId !== null) {
+      targetRole = await this.rolesRepo.findById(Number(roleId), false);
+      ensureTargetRoleCanBeAssigned(targetRole, actor);
+    }
+
     const normalizedAssignments = normalizeBranchAssignments(
       input.branchAssignments,
     );

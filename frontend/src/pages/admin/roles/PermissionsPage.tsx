@@ -26,9 +26,16 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // ==========================================
 interface Role {
   id: number;
+  code?: string | null;
+  scope?: "system" | "branch" | "client" | null;
+  level?: number | null;
+  isAssignable?: boolean | null;
+  isProtected?: boolean | null;
+  is_assignable?: boolean | null;
+  is_protected?: boolean | null;
+
   title: string;
   permissions: Record<string, string[]>;
-  is_system?: boolean;
 }
 
 interface Action {
@@ -88,6 +95,48 @@ const hasPermission = (role: Role, moduleKey: string, actionKey: string) => {
   );
 };
 
+const normalizeRoleScope = (value: unknown): "system" | "branch" | "client" => {
+  if (value === "system" || value === "branch" || value === "client") {
+    return value;
+  }
+  return "branch";
+};
+
+const normalizeRoleCode = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const normalizeRoleLevel = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeBool = (value: unknown) =>
+  value === true || value === 1 || value === "1";
+
+const getScopeLabel = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "SYS";
+    case "branch":
+      return "BR";
+    case "client":
+      return "CL";
+  }
+};
+
+const getScopeBadgeClass = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+    case "branch":
+      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800";
+    case "client":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800";
+  }
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -142,11 +191,18 @@ const PermissionsPage: React.FC = () => {
           for (const k of Object.keys(raw)) {
             normalized[normalizeKey(k)] = raw[k];
           }
+
           return {
-            id: r.id,
+            id: Number(r.id),
+            code: normalizeRoleCode(r.code),
+            scope: normalizeRoleScope(r.scope),
+            level: normalizeRoleLevel(r.level),
+            isAssignable: normalizeBool(r.isAssignable ?? r.is_assignable),
+            isProtected: normalizeBool(r.isProtected ?? r.is_protected),
+            is_assignable: normalizeBool(r.isAssignable ?? r.is_assignable),
+            is_protected: normalizeBool(r.isProtected ?? r.is_protected),
             title: r.title,
             permissions: normalized,
-            is_system: r.is_system,
           };
         });
 
@@ -221,6 +277,14 @@ const PermissionsPage: React.FC = () => {
     return filtered;
   }, [roles, compareMode, selectedRoleIds]);
 
+  const getRoleMeta = (role: Role) => ({
+    code: normalizeRoleCode(role.code),
+    scope: normalizeRoleScope(role.scope),
+    level: normalizeRoleLevel(role.level),
+    isAssignable: normalizeBool(role.isAssignable ?? role.is_assignable),
+    isProtected: normalizeBool(role.isProtected ?? role.is_protected),
+  });
+
   const visibleGroups = useMemo(() => {
     const q = searchQuery.toLowerCase();
 
@@ -287,10 +351,21 @@ const PermissionsPage: React.FC = () => {
         if (isSensitive(a.action_key, a.action_label, g.key)) sensitiveCount++;
       });
     });
+
+    const protectedRoles = initialRoles.filter((r) =>
+      normalizeBool(r.isProtected ?? r.is_protected),
+    ).length;
+
+    const nonAssignableRoles = initialRoles.filter(
+      (r) => !normalizeBool(r.isAssignable ?? r.is_assignable),
+    ).length;
+
     return {
       totalRoles: initialRoles.length,
       totalGroups: permissionGroups.length,
       totalSensitive: sensitiveCount,
+      protectedRoles,
+      nonAssignableRoles,
     };
   }, [initialRoles, permissionGroups]);
 
@@ -491,6 +566,10 @@ const PermissionsPage: React.FC = () => {
             <p className="text-xl font-black text-gray-900 dark:text-white">
               {kpiStats.totalSensitive}
             </p>
+            <p className="text-[10px] text-gray-500 mt-0.5">
+              {kpiStats.protectedRoles} protected /{" "}
+              {kpiStats.nonAssignableRoles} locked
+            </p>
           </div>
         </Card>
         <Card
@@ -592,16 +671,33 @@ const PermissionsPage: React.FC = () => {
               Chọn Role để so sánh (Tối đa 3)
             </p>
             <div className="flex flex-wrap gap-2">
-              {roles.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => toggleCompareRole(r.id)}
-                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition border ${selectedRoleIds.includes(r.id) ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}
-                >
-                  {r.title}
-                </button>
-              ))}
+              {roles.map((r) => {
+                const meta = getRoleMeta(r);
+
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => toggleCompareRole(r.id)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition border ${selectedRoleIds.includes(r.id) ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700"}`}
+                  >
+                    <span className="inline-flex items-center gap-1.5">
+                      {r.title}
+                      {meta.isProtected && (
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+        )}
+
+        {roles.some((r) => getRoleMeta(r).isProtected) && (
+          <div className="pt-3 border-t border-gray-100 dark:border-gray-700 text-xs text-amber-700 dark:text-amber-400 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 shrink-0" />
+            Protected roles đang được khóa chỉnh sửa trực tiếp trong ma trận để
+            tránh thay đổi ngoài ý muốn.
           </div>
         )}
       </Card>
@@ -635,31 +731,60 @@ const PermissionsPage: React.FC = () => {
                       Tính năng / Nhóm quyền
                     </span>
                   </th>
-                  {visibleRoles.map((role) => (
-                    <th
-                      key={role.id}
-                      className="border-b border-gray-200 dark:border-gray-700 px-4 py-3 min-w-[180px] bg-gray-50 dark:bg-gray-800/50"
-                    >
-                      <div className="flex flex-col items-center text-center">
-                        <span className="font-bold text-gray-900 dark:text-white mb-1 flex items-center justify-center gap-1.5">
-                          {role.title}
-                          {role.is_system && (
+                  {visibleRoles.map((role) => {
+                    const meta = getRoleMeta(role);
+
+                    return (
+                      <th
+                        key={role.id}
+                        className="border-b border-gray-200 dark:border-gray-700 px-4 py-3 min-w-[200px] bg-gray-50 dark:bg-gray-800/50"
+                      >
+                        <div className="flex flex-col items-center text-center gap-1">
+                          <span className="font-bold text-gray-900 dark:text-white flex items-center justify-center gap-1.5">
+                            {role.title}
+                            {meta.isProtected && (
+                              <span
+                                title="Role được bảo vệ"
+                                className="inline-flex items-center"
+                              >
+                                <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                              </span>
+                            )}
+                          </span>
+
+                          <div className="flex flex-wrap items-center justify-center gap-1">
                             <span
-                              title="Role hệ thống"
-                              className="inline-flex items-center"
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ${getScopeBadgeClass(meta.scope)}`}
                             >
-                              <ShieldAlert className="w-3.5 h-3.5 text-amber-500" />
+                              {getScopeLabel(meta.scope)}
+                            </span>
+
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                              L{meta.level}
+                            </span>
+
+                            {!meta.isAssignable && (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
+                                Locked
+                              </span>
+                            )}
+                          </div>
+
+                          {meta.code && (
+                            <div className="text-[10px] text-gray-400 font-mono line-clamp-1">
+                              {meta.code}
+                            </div>
+                          )}
+
+                          {dirtySummary.changedRoles.has(role.id) && (
+                            <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded dark:bg-amber-900/30 dark:text-amber-400">
+                              Đã thay đổi
                             </span>
                           )}
-                        </span>
-                        {dirtySummary.changedRoles.has(role.id) && (
-                          <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded dark:bg-amber-900/30 dark:text-amber-400">
-                            Đã thay đổi
-                          </span>
-                        )}
-                      </div>
-                    </th>
-                  ))}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
 
@@ -704,7 +829,8 @@ const PermissionsPage: React.FC = () => {
                                   onClick={() =>
                                     handleBulkGroupToggle(role.id, group, true)
                                   }
-                                  className="p-1 text-green-600 hover:bg-green-100 rounded dark:text-green-500 dark:hover:bg-green-900/30"
+                                  disabled={getRoleMeta(role).isProtected}
+                                  className="p-1 text-green-600 hover:bg-green-100 rounded dark:text-green-500 dark:hover:bg-green-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                                   title="Bật tất cả"
                                 >
                                   <CheckSquare className="w-4 h-4" />
@@ -713,7 +839,8 @@ const PermissionsPage: React.FC = () => {
                                   onClick={() =>
                                     handleBulkGroupToggle(role.id, group, false)
                                   }
-                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded dark:hover:bg-red-900/30"
+                                  disabled={getRoleMeta(role).isProtected}
+                                  className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-100 rounded dark:hover:bg-red-900/30 disabled:opacity-40 disabled:cursor-not-allowed"
                                   title="Tắt tất cả"
                                 >
                                   <Square className="w-4 h-4" />
@@ -782,6 +909,7 @@ const PermissionsPage: React.FC = () => {
                                       <input
                                         type="checkbox"
                                         checked={checked}
+                                        disabled={getRoleMeta(role).isProtected}
                                         onChange={() =>
                                           handleToggle(
                                             role.id,
@@ -789,7 +917,7 @@ const PermissionsPage: React.FC = () => {
                                             action.action_key,
                                           )
                                         }
-                                        className={`w-4 h-4 rounded border-gray-300 cursor-pointer focus:ring-2 focus:ring-offset-1 ${sensitive ? "text-purple-600 focus:ring-purple-500" : "text-blue-600 focus:ring-blue-500"} dark:bg-gray-700 dark:border-gray-600 dark:ring-offset-gray-900`}
+                                        className={`w-4 h-4 rounded border-gray-300 cursor-pointer focus:ring-2 focus:ring-offset-1 disabled:opacity-40 disabled:cursor-not-allowed ${sensitive ? "text-purple-600 focus:ring-purple-500" : "text-blue-600 focus:ring-blue-500"} dark:bg-gray-700 dark:border-gray-600 dark:ring-offset-gray-900`}
                                       />
                                     </label>
                                   </td>

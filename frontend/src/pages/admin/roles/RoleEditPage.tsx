@@ -33,12 +33,24 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 // ==========================================
 interface Role {
   id: number;
+  code?: string | null;
+  scope?: "system" | "branch" | "client" | null;
+  level?: number | null;
+  isAssignable?: boolean | null;
+  isProtected?: boolean | null;
+  is_assignable?: boolean | null;
+  is_protected?: boolean | null;
+
   title: string;
   description?: string | null;
   permissions?: Record<string, string[]> | string | null;
+
   created_at?: string;
   updated_at?: string;
-  is_system?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+
+  deleted?: boolean;
   users_count?: number;
   branches_count?: number;
 }
@@ -162,15 +174,6 @@ const getRiskConfig = (risk: RiskLevel) => {
   return map[risk];
 };
 
-const isSystemLikeRole = (role: Role | null) => {
-  if (!role) return false;
-  if (role.is_system) return true;
-  const t = role.title.toLowerCase();
-  return (
-    t.includes("admin") || t.includes("hệ thống") || t.includes("quản trị")
-  );
-};
-
 const formatDate = (dateString?: string) => {
   if (!dateString) return "—";
   try {
@@ -183,6 +186,48 @@ const formatDate = (dateString?: string) => {
     });
   } catch {
     return "—";
+  }
+};
+
+const normalizeRoleScope = (value: unknown): "system" | "branch" | "client" => {
+  if (value === "system" || value === "branch" || value === "client") {
+    return value;
+  }
+  return "branch";
+};
+
+const normalizeRoleCode = (value: unknown) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+const normalizeRoleLevel = (value: unknown) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const normalizeBool = (value: unknown) =>
+  value === true || value === 1 || value === "1";
+
+const getScopeLabel = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "System";
+    case "branch":
+      return "Branch";
+    case "client":
+      return "Client";
+  }
+};
+
+const getScopeBadgeClass = (scope: "system" | "branch" | "client") => {
+  switch (scope) {
+    case "system":
+      return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
+    case "branch":
+      return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800";
+    case "client":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800";
   }
 };
 
@@ -201,7 +246,7 @@ const RoleEditPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [formErrors, setFormErrors] = useState<
-    Partial<Record<keyof Role, string>>
+    Partial<Record<keyof Role | "general", string>>
   >({});
 
   // --- Data Fetching ---
@@ -235,9 +280,19 @@ const RoleEditPage: React.FC = () => {
   // --- Derived State (useMemo) ---
   const isDirty = useMemo(() => {
     if (!role || !initialRole) return false;
+
     return (
       role.title !== initialRole.title ||
-      (role.description || "") !== (initialRole.description || "")
+      (role.description || "") !== (initialRole.description || "") ||
+      normalizeRoleCode(role.code) !== normalizeRoleCode(initialRole.code) ||
+      normalizeRoleScope(role.scope) !==
+        normalizeRoleScope(initialRole.scope) ||
+      normalizeRoleLevel(role.level) !==
+        normalizeRoleLevel(initialRole.level) ||
+      normalizeBool(role.isAssignable ?? role.is_assignable) !==
+        normalizeBool(initialRole.isAssignable ?? initialRole.is_assignable) ||
+      normalizeBool(role.isProtected ?? role.is_protected) !==
+        normalizeBool(initialRole.isProtected ?? initialRole.is_protected)
     );
   }, [role, initialRole]);
 
@@ -252,14 +307,64 @@ const RoleEditPage: React.FC = () => {
   );
 
   const riskConfig = useMemo(() => getRiskConfig(stats.riskLevel), [stats]);
-  const isProtected = useMemo(() => isSystemLikeRole(role), [role]);
+
+  const normalizedScope = useMemo(
+    () => normalizeRoleScope(role?.scope),
+    [role?.scope],
+  );
+
+  const normalizedCode = useMemo(
+    () => normalizeRoleCode(role?.code),
+    [role?.code],
+  );
+
+  const normalizedLevel = useMemo(
+    () => normalizeRoleLevel(role?.level),
+    [role?.level],
+  );
+
+  const isAssignable = useMemo(
+    () => normalizeBool(role?.isAssignable ?? role?.is_assignable),
+    [role?.isAssignable, role?.is_assignable],
+  );
+
+  const isProtected = useMemo(
+    () => normalizeBool(role?.isProtected ?? role?.is_protected),
+    [role?.isProtected, role?.is_protected],
+  );
 
   // --- Form Handlers ---
   const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
-    setRole((prev) => (prev ? { ...prev, [name]: value } : prev));
+
+    setRole((prev) =>
+      prev
+        ? {
+            ...prev,
+            [name]: name === "level" ? Number(value) : value,
+          }
+        : prev,
+    );
+
+    if (formErrors[name as keyof typeof formErrors]) {
+      setFormErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleCheckboxChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target;
+
+    setRole((prev) =>
+      prev
+        ? {
+            ...prev,
+            [name]: checked,
+          }
+        : prev,
+    );
+
     if (formErrors[name as keyof typeof formErrors]) {
       setFormErrors((prev) => ({ ...prev, [name]: undefined }));
     }
@@ -267,10 +372,21 @@ const RoleEditPage: React.FC = () => {
 
   const validateForm = () => {
     if (!role) return false;
-    const newErrors: Partial<Record<keyof Role, string>> = {};
-    if (!role.title.trim()) {
+
+    const newErrors: Partial<Record<keyof Role | "general", string>> = {};
+
+    if (!String(role.title ?? "").trim()) {
       newErrors.title = "Vui lòng nhập tên hiển thị cho vai trò.";
     }
+
+    if (!normalizeRoleCode(role.code)) {
+      newErrors.code = "Vui lòng nhập mã role.";
+    }
+
+    if (!Number.isFinite(Number(role.level)) || Number(role.level) < 0) {
+      newErrors.level = "Level phải là số không âm.";
+    }
+
     setFormErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -286,8 +402,13 @@ const RoleEditPage: React.FC = () => {
       setFormErrors({});
 
       const res = await http<ApiOk>("PATCH", `/api/v1/admin/roles/edit/${id}`, {
-        title: role.title,
-        description: role.description,
+        code: normalizeRoleCode(role.code),
+        scope: normalizeRoleScope(role.scope),
+        level: Number(role.level ?? 0),
+        isAssignable: normalizeBool(role.isAssignable ?? role.is_assignable),
+        isProtected: normalizeBool(role.isProtected ?? role.is_protected),
+        title: String(role.title ?? "").trim(),
+        description: role.description ?? "",
       });
 
       if (res?.success) {
@@ -377,9 +498,15 @@ const RoleEditPage: React.FC = () => {
               </button>
               <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight flex items-center gap-3">
                 {initialRole?.title || "Vai trò"}
+                <span
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider border ${getScopeBadgeClass(normalizedScope)}`}
+                >
+                  {getScopeLabel(normalizedScope)}
+                </span>
+
                 {isProtected && (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600">
-                    Role Hệ Thống
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800">
+                    Protected
                   </span>
                 )}
               </h1>
@@ -501,6 +628,33 @@ const RoleEditPage: React.FC = () => {
             <div className="p-5 space-y-6">
               <div>
                 <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                  Mã role <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="code"
+                  value={role.code || ""}
+                  onChange={handleChange}
+                  placeholder="Vd: branch_manager"
+                  className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                    formErrors.code
+                      ? "border-red-500 dark:border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                  Mã kỹ thuật dùng để backend nhận diện role. Nên giữ ổn định
+                  theo thời gian.
+                </p>
+                {formErrors.code && (
+                  <p className="text-sm text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" /> {formErrors.code}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
                   Tên hiển thị <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -524,6 +678,55 @@ const RoleEditPage: React.FC = () => {
                     <XCircle className="w-4 h-4" /> {formErrors.title}
                   </p>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                    Scope
+                  </label>
+                  <select
+                    name="scope"
+                    value={normalizedScope}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+                  >
+                    <option value="branch">Branch</option>
+                    <option value="system">System</option>
+                    <option value="client">Client</option>
+                  </select>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                    Xác định role này thuộc phạm vi hệ thống, chi nhánh hay
+                    client.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-900 dark:text-white mb-1.5">
+                    Level
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    name="level"
+                    value={role.level ?? 0}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2.5 rounded-lg border bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+                      formErrors.level
+                        ? "border-red-500 dark:border-red-500"
+                        : "border-gray-300 dark:border-gray-600"
+                    }`}
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 font-medium">
+                    Level càng cao thì role càng mạnh, dùng để kiểm soát thứ bậc
+                    gán quyền.
+                  </p>
+                  {formErrors.level && (
+                    <p className="text-sm text-red-600 dark:text-red-400 mt-1.5 flex items-center gap-1">
+                      <XCircle className="w-4 h-4" /> {formErrors.level}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -551,6 +754,46 @@ const RoleEditPage: React.FC = () => {
                     <XCircle className="w-4 h-4" /> {formErrors.description}
                   </p>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="isAssignable"
+                    checked={isAssignable}
+                    onChange={handleCheckboxChange}
+                    className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <div>
+                    <span className="block text-sm font-bold text-gray-900 dark:text-white">
+                      Có thể gán cho user
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Nếu tắt, role này sẽ không xuất hiện trong dropdown gán
+                      người dùng.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/40 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="isProtected"
+                    checked={isProtected}
+                    onChange={handleCheckboxChange}
+                    className="mt-0.5 w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                  />
+                  <div>
+                    <span className="block text-sm font-bold text-gray-900 dark:text-white">
+                      Role được bảo vệ
+                    </span>
+                    <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      Dùng cho role nhạy cảm, hạn chế bị sửa/xóa hoặc gán tùy
+                      tiện.
+                    </span>
+                  </div>
+                </label>
               </div>
             </div>
           </Card>
@@ -666,8 +909,8 @@ const RoleEditPage: React.FC = () => {
                   Role được bảo vệ
                 </h4>
                 <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
-                  Đây là role hệ thống hoặc có quyền admin rễ. Hạn chế sửa đổi
-                  mô tả hoặc thu hồi quyền để tránh lỗi vận hành.
+                  Đây là protected role. Hãy cực kỳ thận trọng khi sửa metadata
+                  hoặc thay đổi quyền của role này.
                 </p>
               </div>
             </div>
@@ -721,6 +964,41 @@ const RoleEditPage: React.FC = () => {
                   <span className="text-amber-500">Chưa có</span>
                 )}
               </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">Code</span>
+                <span className="text-gray-900 dark:text-white font-mono">
+                  {normalizedCode || "—"}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">Scope</span>
+                <span className="text-gray-900 dark:text-white">
+                  {getScopeLabel(normalizedScope)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">Level</span>
+                <span className="text-gray-900 dark:text-white">
+                  {normalizedLevel}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400">
+                  Assignable
+                </span>
+                {isAssignable ? (
+                  <span className="text-blue-600 dark:text-blue-400">Có</span>
+                ) : (
+                  <span className="text-gray-500 dark:text-gray-400">
+                    Không
+                  </span>
+                )}
+              </div>
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 dark:text-gray-400">
                   Quyền nhạy cảm
@@ -770,12 +1048,22 @@ const RoleEditPage: React.FC = () => {
                   {role.branches_count ?? "—"}
                 </span>
               </div>
+
               <div className="flex justify-between items-center">
                 <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                  <Info className="w-4 h-4" /> Loại Role
+                  <Info className="w-4 h-4" /> Scope
                 </span>
                 <span className="text-gray-900 dark:text-white">
-                  {role.is_system ? "Cốt lõi" : "Tùy chỉnh"}
+                  {getScopeLabel(normalizedScope)}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4" /> Protected
+                </span>
+                <span className="text-gray-900 dark:text-white">
+                  {isProtected ? "Có" : "Không"}
                 </span>
               </div>
             </div>

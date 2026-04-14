@@ -21,7 +21,7 @@ import { useAdminToast } from "../../../context/AdminToastContext";
 import {
   fetchUserEditDetail,
   updateUser,
-  fetchRoles,
+  fetchAssignableRoles,
   fetchBranches,
   uploadUserAvatar,
 } from "./shared/userApi";
@@ -85,6 +85,7 @@ const UserEditPage: React.FC = () => {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<number[]>([]);
   const [primaryBranchId, setPrimaryBranchId] = useState<number | "">("");
+  const [rolesLoading, setRolesLoading] = useState(false);
 
   // --- UX States ---
   const [loading, setLoading] = useState(true);
@@ -93,6 +94,29 @@ const UserEditPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const isSelf = currentUser?.id === Number(id);
+
+  const currentRoleFromInitialUser =
+    initialUser?.role && Number(initialUser.role.id || 0) > 0
+      ? {
+          id: Number(initialUser.role.id),
+          title: initialUser.role.title,
+        }
+      : null;
+
+  const currentRoleIsOutsideAssignableSet =
+    !!currentRoleFromInitialUser &&
+    !roles.some((role) => role.id === currentRoleFromInitialUser.id);
+
+  const roleOptionsForSelect = useMemo(() => {
+    if (
+      currentRoleFromInitialUser &&
+      !roles.some((role) => role.id === currentRoleFromInitialUser.id)
+    ) {
+      return [currentRoleFromInitialUser, ...roles];
+    }
+
+    return roles;
+  }, [roles, currentRoleFromInitialUser]);
 
   // --- Fetch Workspace Data ---
   const fetchWorkspaceData = async () => {
@@ -157,22 +181,33 @@ const UserEditPage: React.FC = () => {
     const loadLookups = async () => {
       try {
         setLoadingLookups(true);
+        setRolesLoading(true);
+
         const [rolesData, branchesData] = await Promise.all([
-          fetchRoles(),
+          fetchAssignableRoles(),
           fetchBranches(),
         ]);
+
         if (isMounted) {
           setRoles(rolesData);
           setBranches(branchesData);
         }
       } catch (err: any) {
-        if (isMounted)
-          showErrorToast("Không thể tải danh sách Vai trò / Chi nhánh.");
+        if (isMounted) {
+          showErrorToast(
+            "Không thể tải danh sách Vai trò được phép gán / Chi nhánh.",
+          );
+        }
       } finally {
-        if (isMounted) setLoadingLookups(false);
+        if (isMounted) {
+          setLoadingLookups(false);
+          setRolesLoading(false);
+        }
       }
     };
+
     loadLookups();
+
     return () => {
       isMounted = false;
     };
@@ -283,9 +318,24 @@ const UserEditPage: React.FC = () => {
     }
 
     if (userType === "internal") {
-      if (!formData.roleId) nextErrors.roleId = "Yêu cầu chọn vai trò.";
-      if (selectedBranchIds.length === 0)
+      const hasRoleValue =
+        formData.roleId !== "" &&
+        formData.roleId !== null &&
+        formData.roleId !== undefined;
+
+      const isKeepingCurrentOutsideRole =
+        hasRoleValue &&
+        currentRoleFromInitialUser &&
+        Number(formData.roleId) === Number(currentRoleFromInitialUser.id);
+
+      if (!hasRoleValue && !isKeepingCurrentOutsideRole) {
+        nextErrors.roleId = "Yêu cầu chọn vai trò.";
+      }
+
+      if (selectedBranchIds.length === 0) {
         nextErrors.branches = "Yêu cầu chọn ít nhất 1 chi nhánh.";
+      }
+
       if (selectedBranchIds.length > 0 && primaryBranchId === "") {
         nextErrors.primaryBranchId = "Yêu cầu chọn chi nhánh chính.";
       }
@@ -300,6 +350,22 @@ const UserEditPage: React.FC = () => {
     if (!validateForm()) {
       showErrorToast("Vui lòng kiểm tra lại thông tin nhập.");
       return;
+    }
+
+    if (userType === "internal" && formData.roleId) {
+      const selectedRole = roles.find(
+        (role) => role.id === Number(formData.roleId),
+      );
+      const isKeepingCurrentRole =
+        initialUser?.role &&
+        Number(initialUser.role.id) === Number(formData.roleId);
+
+      if (!selectedRole && !isKeepingCurrentRole) {
+        showErrorToast(
+          "Vai trò đã chọn không còn hợp lệ trong phạm vi quyền hiện tại.",
+        );
+        return;
+      }
     }
 
     try {
@@ -776,19 +842,46 @@ const UserEditPage: React.FC = () => {
                         name="roleId"
                         value={formData.roleId}
                         onChange={handleInputChange}
-                        className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 ${errors.roleId ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
+                        disabled={
+                          rolesLoading || roleOptionsForSelect.length === 0
+                        }
+                        className={`w-full border rounded-xl p-3 bg-gray-50 dark:bg-gray-900 focus:ring-2 focus:ring-purple-500 disabled:opacity-60 disabled:cursor-not-allowed ${errors.roleId ? "border-red-500" : "border-gray-200 dark:border-gray-700"}`}
                       >
-                        <option value="">-- Chọn vai trò (Role) --</option>
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.title}
-                          </option>
-                        ))}
+                        <option value="">
+                          {rolesLoading
+                            ? "-- Đang tải vai trò --"
+                            : roleOptionsForSelect.length === 0
+                              ? "-- Không có vai trò nào được phép gán --"
+                              : "-- Chọn vai trò (Role) --"}
+                        </option>
+
+                        {roleOptionsForSelect.map((r) => {
+                          const isCurrentOutsideSet =
+                            currentRoleFromInitialUser &&
+                            Number(r.id) ===
+                              Number(currentRoleFromInitialUser.id) &&
+                            currentRoleIsOutsideAssignableSet;
+
+                          return (
+                            <option key={r.id} value={r.id}>
+                              {r.title}
+                              {isCurrentOutsideSet ? " (hiện tại)" : ""}
+                            </option>
+                          );
+                        })}
                       </select>
                       {errors.roleId && (
                         <span className="text-xs text-red-500">
                           {errors.roleId}
                         </span>
+                      )}
+                      {!errors.roleId && currentRoleIsOutsideAssignableSet && (
+                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                          Role hiện tại của tài khoản này nằm ngoài danh sách
+                          role bạn được phép gán. Bạn vẫn có thể xem thông tin
+                          hiện tại, nhưng chỉ nên đổi sang các role đang hiển
+                          thị trong dropdown.
+                        </div>
                       )}
                     </div>
 
@@ -886,11 +979,15 @@ const UserEditPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-gray-500">Vai trò:</span>
                   <span className="font-bold text-gray-900 dark:text-white">
-                    {initialUser.role?.title ||
-                      (formData.roleId
-                        ? roles.find((r) => r.id === Number(formData.roleId))
-                            ?.title
-                        : "—")}
+                    {formData.roleId
+                      ? roles.find((r) => r.id === Number(formData.roleId))
+                          ?.title ||
+                        (Number(formData.roleId) ===
+                        Number(initialUser.role?.id)
+                          ? initialUser.role?.title
+                          : null) ||
+                        "—"
+                      : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
