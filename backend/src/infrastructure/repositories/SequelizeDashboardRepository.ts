@@ -209,15 +209,19 @@ export class SequelizeDashboardRepository implements DashboardRepository {
     const Branch = this.models.Branch;
     if (!Branch) return [];
 
-    if (input.scopeMode !== "system" && input.resolvedBranchId) {
-      return [input.resolvedBranchId];
+    if (input.scopeMode !== "system") {
+      if (input.resolvedBranchId) {
+        return [input.resolvedBranchId];
+      }
+
+      if (input.allowedBranchIds.length > 0) {
+        return uniqueNumbers(input.allowedBranchIds);
+      }
+
+      return [];
     }
 
-    if (input.scopeMode !== "system" && input.allowedBranchIds.length > 0) {
-      return uniqueNumbers(input.allowedBranchIds);
-    }
-
-    if (input.scopeMode === "system" && input.actorRoleId !== 1) {
+    if (input.allowedBranchIds.length > 0) {
       return uniqueNumbers(input.allowedBranchIds);
     }
 

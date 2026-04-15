@@ -31,6 +31,7 @@ export interface UserProps {
     code?: string | null;
     scope?: "system" | "branch" | "client" | null;
     level?: number | null;
+    permissions?: Record<string, string[]> | null;
     isAssignable?: boolean | null;
     isProtected?: boolean | null;
     title: string;

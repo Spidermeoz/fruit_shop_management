@@ -28,6 +28,40 @@ const normalizeRoleCode = (value: unknown): string | null => {
   return raw || null;
 };
 
+const normalizePermissions = (
+  value: unknown,
+): Record<string, string[]> | null => {
+  if (value == null) return null;
+
+  let rawObject: Record<string, unknown> | null = null;
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        rawObject = parsed as Record<string, unknown>;
+      } else {
+        return null;
+      }
+    } catch {
+      return null;
+    }
+  } else if (typeof value === "object" && !Array.isArray(value)) {
+    rawObject = value as Record<string, unknown>;
+  } else {
+    return null;
+  }
+
+  const entries = Object.entries(rawObject).map(([module, actions]) => [
+    String(module).trim().toLowerCase(),
+    Array.isArray(actions)
+      ? actions.map((action) => String(action).trim().toLowerCase())
+      : [],
+  ]);
+
+  return Object.fromEntries(entries);
+};
+
 const mapSort = (sort?: UserSort): OrderItem[] => {
   if (!sort) return [["id", "DESC"]];
   const colMap: Record<string, string> = {
@@ -61,6 +95,7 @@ export class SequelizeUserRepository implements UserRepository {
           "is_assignable",
           "is_protected",
           "title",
+          "permissions",
         ],
       },
     ];
@@ -125,6 +160,7 @@ export class SequelizeUserRepository implements UserRepository {
                 ? null
                 : toBool(r.role.is_protected),
             title: String(r.role.title),
+            permissions: normalizePermissions(r.role.permissions),
           }
         : null,
       branchAssignments: Array.isArray(r.userBranches)
@@ -214,6 +250,7 @@ export class SequelizeUserRepository implements UserRepository {
           "is_assignable",
           "is_protected",
           "title",
+          "permissions",
         ],
       });
     }

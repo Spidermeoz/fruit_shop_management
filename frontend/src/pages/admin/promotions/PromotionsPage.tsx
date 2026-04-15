@@ -168,19 +168,23 @@ const getHealthBadge = (health: PromotionHealth) => {
   const map = {
     active: {
       label: "Đang chạy",
-      color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+      color:
+        "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
     },
     scheduled: {
       label: "Sắp diễn ra",
-      color: "bg-blue-100 text-blue-800 border-blue-200",
+      color:
+        "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
     },
     expired: {
       label: "Đã kết thúc",
-      color: "bg-gray-100 text-gray-800 border-gray-200",
+      color:
+        "bg-gray-100 text-gray-800 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700",
     },
     inactive: {
       label: "Tạm dừng",
-      color: "bg-amber-100 text-amber-800 border-amber-200",
+      color:
+        "bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
     },
   };
   return map[health] || map.inactive;
@@ -191,14 +195,14 @@ const getScopeConfig = (scope: PromotionScope) => {
     return {
       label: "Shipping",
       icon: Truck,
-      chip: "bg-cyan-50 text-cyan-700 border-cyan-200",
+      chip: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400 dark:border-cyan-800",
       color: "cyan",
     };
   }
   return {
     label: "Order",
     icon: TicketPercent,
-    chip: "bg-violet-50 text-violet-700 border-violet-200",
+    chip: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/30 dark:text-violet-400 dark:border-violet-800",
     color: "violet",
   };
 };
@@ -641,12 +645,12 @@ const PromotionsPage: React.FC = () => {
     if (!p.isUsageLimited) {
       return (
         <div className="flex flex-col gap-1 w-full">
-          <div className="flex justify-between text-[11px] font-medium text-gray-500">
+          <div className="flex justify-between text-[11px] font-medium text-gray-500 dark:text-gray-400">
             <span>Đã dùng: —</span>
             <span>Không giới hạn</span>
           </div>
-          <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-            <div className="h-full bg-gray-300 dark:bg-gray-500 w-full opacity-50"></div>
+          <div className="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+            <div className="h-full bg-gray-300 dark:bg-gray-600 w-full opacity-50"></div>
           </div>
         </div>
       );
@@ -655,12 +659,12 @@ const PromotionsPage: React.FC = () => {
     if (!p.hasUsageData) {
       return (
         <div className="flex flex-col gap-1 w-full">
-          <div className="flex justify-between text-[11px] font-medium text-gray-500">
+          <div className="flex justify-between text-[11px] font-medium text-gray-500 dark:text-gray-400">
             <span>Giới hạn: {p.usageLimit}</span>
             <span>Chưa có dữ liệu usage</span>
           </div>
-          <div className="w-full bg-gray-100 dark:bg-gray-700 h-1.5 rounded-full overflow-hidden">
-            <div className="h-full bg-slate-300 dark:bg-slate-500 w-1/3 opacity-60"></div>
+          <div className="w-full bg-gray-100 dark:bg-gray-800 h-1.5 rounded-full overflow-hidden">
+            <div className="h-full bg-slate-300 dark:bg-slate-600 w-1/3 opacity-60"></div>
           </div>
         </div>
       );
@@ -677,7 +681,11 @@ const PromotionsPage: React.FC = () => {
             {p.usageUsed} / {p.usageLimit} lượt
           </span>
           <span
-            className={p.isUsageExhausted ? "text-red-600" : "text-gray-500"}
+            className={
+              p.isUsageExhausted
+                ? "text-red-600 dark:text-red-400"
+                : "text-gray-500 dark:text-gray-400"
+            }
           >
             {p.isUsageExhausted ? "Hết lượt" : `Còn ${p.usageRemaining}`}
           </span>
@@ -701,11 +709,11 @@ const PromotionsPage: React.FC = () => {
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
               Promotions Control Center
             </h1>
-            <span className="hidden md:inline-flex px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200">
+            <span className="hidden md:inline-flex px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
               Phase 6
             </span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Giám sát và vận hành toàn bộ campaign order/shipping, auto-apply và
             coupon codes.
           </p>
@@ -801,9 +809,9 @@ const PromotionsPage: React.FC = () => {
           <div
             key={idx}
             onClick={kpi.onClick}
-            className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center cursor-pointer hover:border-blue-300 hover:shadow-sm transition group"
+            className="p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-sm transition group"
           >
-            <div className="flex items-center gap-1.5 mb-1 text-gray-500">
+            <div className="flex items-center gap-1.5 mb-1 text-gray-500 dark:text-gray-400">
               <kpi.icon
                 className={`w-3.5 h-3.5 ${kpi.color} group-hover:scale-110 transition-transform`}
               />
@@ -819,7 +827,7 @@ const PromotionsPage: React.FC = () => {
       </div>
 
       {/* LỚP B: Operational Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 flex flex-col gap-4">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row justify-between gap-4">
           <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
             <div className="relative w-full sm:w-80">
@@ -829,13 +837,13 @@ const PromotionsPage: React.FC = () => {
                 placeholder="Tìm campaign, mã coupon, mô tả..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500 focus:outline-none"
               />
             </div>
             <select
               value={healthFilter}
               onChange={(e) => setHealthFilter(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white min-w-[140px] font-medium text-gray-700"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
             >
               <option value="all">Trạng thái: Tất cả</option>
               <option value="active">Đang chạy</option>
@@ -846,7 +854,7 @@ const PromotionsPage: React.FC = () => {
             <select
               value={mechanismFilter}
               onChange={(e) => setMechanismFilter(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white min-w-[140px] font-medium text-gray-700"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
             >
               <option value="all">Cơ chế: Tất cả</option>
               <option value="auto">Auto Apply</option>
@@ -855,7 +863,7 @@ const PromotionsPage: React.FC = () => {
             <select
               value={urgencyFilter}
               onChange={(e) => setUrgencyFilter(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white min-w-[140px] font-medium text-gray-700"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
             >
               <option value="all">Cảnh báo: Không lọc</option>
               <option value="starting-soon">Sắp bắt đầu</option>
@@ -869,7 +877,7 @@ const PromotionsPage: React.FC = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white font-medium text-gray-700"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-800 font-medium text-gray-700 dark:text-gray-300 focus:outline-none"
             >
               <option value="priority-desc">Sắp xếp: Mức ưu tiên</option>
               <option value="alert-desc">Sắp xếp: Độ khẩn cấp</option>
@@ -877,17 +885,25 @@ const PromotionsPage: React.FC = () => {
               <option value="latest">Sắp xếp: Mới nhất</option>
               <option value="ending-soon">Sắp xếp: Sắp kết thúc</option>
             </select>
-            <div className="flex bg-gray-100 p-1 rounded-lg">
+            <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg">
               <button
                 onClick={() => setViewMode("cards")}
-                className={`p-1.5 rounded-md ${viewMode === "cards" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "cards"
+                    ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
                 title="Card View"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-md ${viewMode === "table" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}
+                className={`p-1.5 rounded-md ${
+                  viewMode === "table"
+                    ? "bg-white dark:bg-gray-700 shadow text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                }`}
                 title="Table View"
               >
                 <List className="w-4 h-4" />
@@ -897,8 +913,8 @@ const PromotionsPage: React.FC = () => {
         </div>
 
         {/* Quick Chips */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-          <span className="text-xs font-bold text-gray-400 uppercase mr-1">
+        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+          <span className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase mr-1">
             Quick Filters:
           </span>
           {[
@@ -915,7 +931,11 @@ const PromotionsPage: React.FC = () => {
               <button
                 key={chip}
                 onClick={() => toggleQuickFilter(chip)}
-                className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-colors ${isActive ? "bg-blue-100 text-blue-700 border-blue-300" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
+                className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border transition-colors ${
+                  isActive
+                    ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-800"
+                    : "bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700"
+                }`}
               >
                 {chip}
               </button>
@@ -924,7 +944,7 @@ const PromotionsPage: React.FC = () => {
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="ml-auto flex items-center gap-1 px-2 py-1 text-xs font-bold text-red-500 hover:text-red-700 transition"
+              className="ml-auto flex items-center gap-1 px-2 py-1 text-xs font-bold text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition"
             >
               <FilterX className="w-3.5 h-3.5" /> Xóa bộ lọc
             </button>
@@ -935,7 +955,7 @@ const PromotionsPage: React.FC = () => {
       {/* LỚP D: Focused Segments (Tabs) & Needs Attention */}
       <div className="flex flex-col gap-4">
         {attentionPromotions.length > 0 && !loading && (
-          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex flex-col gap-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl p-4 flex flex-col gap-3">
             <div className="flex items-center gap-2 text-amber-800 dark:text-amber-400 font-bold text-sm">
               <AlertTriangle className="w-4 h-4" /> Cần chú ý ngay (
               {attentionPromotions.length})
@@ -945,14 +965,18 @@ const PromotionsPage: React.FC = () => {
                 <div
                   key={p.id}
                   onClick={() => navigate(`/admin/promotions/edit/${p.id}`)}
-                  className="bg-white dark:bg-gray-800 border border-amber-200 rounded-lg p-2.5 flex items-center gap-3 cursor-pointer hover:shadow-md transition text-sm max-w-sm w-full shadow-sm"
+                  className="bg-white dark:bg-gray-800 border border-amber-200 dark:border-amber-800/50 rounded-lg p-2.5 flex items-center gap-3 cursor-pointer hover:shadow-md transition text-sm max-w-sm w-full shadow-sm"
                 >
                   <div
-                    className={`w-2 h-2 rounded-full ${p.alertLevel === "danger" ? "bg-red-500" : "bg-amber-500"}`}
+                    className={`w-2 h-2 rounded-full ${
+                      p.alertLevel === "danger" ? "bg-red-500" : "bg-amber-500"
+                    }`}
                   ></div>
                   <div className="flex-1 truncate">
-                    <span className="font-bold text-gray-900">{p.name}</span>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <span className="font-bold text-gray-900 dark:text-white">
+                      {p.name}
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {p.isUsageExhausted
                         ? "Đã hết lượt sử dụng"
                         : p.isEndingSoon
@@ -983,11 +1007,19 @@ const PromotionsPage: React.FC = () => {
             <button
               key={tab.id}
               onClick={() => setScopeTab(tab.id as any)}
-              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${scopeTab === tab.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"}`}
+              className={`px-5 py-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                scopeTab === tab.id
+                  ? "border-blue-600 text-blue-600 dark:border-blue-500 dark:text-blue-400"
+                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+              }`}
             >
               {tab.label}{" "}
               <span
-                className={`px-2 py-0.5 rounded-full text-[10px] ${scopeTab === tab.id ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}
+                className={`px-2 py-0.5 rounded-full text-[10px] ${
+                  scopeTab === tab.id
+                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                }`}
               >
                 {tab.count}
               </span>
@@ -998,30 +1030,30 @@ const PromotionsPage: React.FC = () => {
 
       {/* LỚP C: Main Workspace */}
       {loading ? (
-        <div className="flex flex-col justify-center items-center py-24 bg-white rounded-xl border border-gray-200">
+        <div className="flex flex-col justify-center items-center py-24 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="mt-3 text-gray-500 font-medium">
+          <p className="mt-3 text-gray-500 dark:text-gray-400 font-medium">
             Đang tải workspace khuyến mãi...
           </p>
         </div>
       ) : error ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
           <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
           <p className="text-red-600 font-medium mb-4">{error}</p>
           <button
             onClick={fetchPromotions}
-            className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-sm font-semibold dark:text-gray-300"
           >
             Tải lại
           </button>
         </div>
       ) : filteredAndSortedPromotions.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300 flex flex-col items-center">
-          <Percent className="w-12 h-12 text-gray-300 mb-4" />
-          <h3 className="text-lg font-bold text-gray-900">
+        <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center">
+          <Percent className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
             Không tìm thấy campaign phù hợp
           </h3>
-          <p className="text-sm text-gray-500 mt-1 mb-5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-5">
             Thử đổi bộ lọc hoặc tạo campaign mới để bắt đầu.
           </p>
         </div>
@@ -1037,19 +1069,29 @@ const PromotionsPage: React.FC = () => {
                 return (
                   <div
                     key={p.id}
-                    className={`border rounded-2xl p-0 transition shadow-sm flex flex-col bg-white overflow-hidden relative ${p.alertLevel === "danger" ? "border-red-300" : p.alertLevel === "warning" ? "border-amber-300" : "border-gray-200 hover:border-blue-300"}`}
+                    className={`border rounded-2xl p-0 transition shadow-sm flex flex-col bg-white dark:bg-gray-800 overflow-hidden relative ${
+                      p.alertLevel === "danger"
+                        ? "border-red-300 dark:border-red-800/80"
+                        : p.alertLevel === "warning"
+                          ? "border-amber-300 dark:border-amber-800/80"
+                          : "border-gray-200 hover:border-blue-300 dark:border-gray-700 dark:hover:border-blue-600"
+                    }`}
                   >
                     {/* Header */}
-                    <div className="p-4 border-b border-gray-100 flex justify-between items-start gap-3 bg-gray-50/50">
+                    <div className="p-4 border-b border-gray-100 dark:border-gray-700/50 flex justify-between items-start gap-3 bg-gray-50/50 dark:bg-gray-800/50">
                       <div className="flex gap-3 items-start">
                         <div
-                          className={`p-2.5 rounded-xl shadow-sm bg-white ${scopeConfig.color === "violet" ? "text-violet-600" : "text-cyan-600"}`}
+                          className={`p-2.5 rounded-xl shadow-sm bg-white dark:bg-gray-900 ${
+                            scopeConfig.color === "violet"
+                              ? "text-violet-600 dark:text-violet-500"
+                              : "text-cyan-600 dark:text-cyan-500"
+                          }`}
                         >
                           <ScopeIcon className="w-5 h-5" />
                         </div>
                         <div>
                           <h3
-                            className="font-bold text-sm leading-tight line-clamp-1 text-gray-900 cursor-pointer hover:text-blue-600"
+                            className="font-bold text-sm leading-tight line-clamp-1 text-gray-900 dark:text-white cursor-pointer hover:text-blue-600 dark:hover:text-blue-400"
                             onClick={() =>
                               navigate(`/admin/promotions/edit/${p.id}`)
                             }
@@ -1064,7 +1106,11 @@ const PromotionsPage: React.FC = () => {
                               {healthBadge.label}
                             </span>
                             <span
-                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${p.applicationMode === "auto" ? "bg-purple-100 text-purple-700 border-purple-200" : "bg-indigo-100 text-indigo-700 border-indigo-200"}`}
+                              className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
+                                p.applicationMode === "auto"
+                                  ? "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                                  : "bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800"
+                              }`}
                             >
                               {p.couponTypeLabel}
                             </span>
@@ -1074,7 +1120,11 @@ const PromotionsPage: React.FC = () => {
                       {p.alertLevel !== "none" && (
                         <div
                           title="Cần chú ý"
-                          className={`p-1.5 rounded-md ${p.alertLevel === "danger" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"}`}
+                          className={`p-1.5 rounded-md ${
+                            p.alertLevel === "danger"
+                              ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                              : "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+                          }`}
                         >
                           {p.alertLevel === "danger" ? (
                             <Ban className="w-4 h-4" />
@@ -1086,20 +1136,20 @@ const PromotionsPage: React.FC = () => {
                     </div>
 
                     {/* Core Value Strip */}
-                    <div className="p-4 flex items-center justify-between border-b border-gray-100">
+                    <div className="p-4 flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50">
                       <div>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">
                           Giá trị
                         </p>
-                        <div className="text-xl font-black text-gray-900">
+                        <div className="text-xl font-black text-gray-900 dark:text-white">
                           {p.headlineValue}
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-0.5">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-0.5">
                           Priority
                         </p>
-                        <div className="text-lg font-black text-blue-600">
+                        <div className="text-lg font-black text-blue-600 dark:text-blue-400">
                           P{p.priority}
                         </div>
                       </div>
@@ -1110,32 +1160,32 @@ const PromotionsPage: React.FC = () => {
                       {/* Usage Progress */}
                       {renderUsageBar(p)}
 
-                      <div className="space-y-2 text-xs font-medium text-gray-600 bg-gray-50 p-3 rounded-lg border border-gray-100">
+                      <div className="space-y-2 text-xs font-medium text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700">
                         <div className="flex items-center gap-2">
-                          <Clock3 className="w-4 h-4 text-gray-400 shrink-0" />
+                          <Clock3 className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                           <span className="flex-1 truncate">
                             {formatDateRange(p.startAt, p.endAt)}
                           </span>
                           {p.isEndingSoon && (
-                            <span className="text-amber-600 font-bold bg-amber-100 px-1.5 rounded text-[10px] whitespace-nowrap">
+                            <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-1.5 rounded text-[10px] whitespace-nowrap">
                               Còn {p.endsInDays} ngày
                             </span>
                           )}
                           {p.isStartingSoon && (
-                            <span className="text-blue-600 font-bold bg-blue-100 px-1.5 rounded text-[10px] whitespace-nowrap">
+                            <span className="text-blue-600 dark:text-blue-400 font-bold bg-blue-100 dark:bg-blue-900/30 px-1.5 rounded text-[10px] whitespace-nowrap">
                               Bắt đầu sau {p.startsInDays} ngày
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          <Target className="w-4 h-4 text-gray-400 shrink-0" />
+                          <Target className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                           <span className="truncate">
                             {p.restrictionSummary}
                           </span>
                         </div>
                         {p.applicationMode === "code" && (
                           <div className="flex items-center gap-2">
-                            <TicketPercent className="w-4 h-4 text-gray-400 shrink-0" />
+                            <TicketPercent className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
                             <span>
                               {p.activeCodes} / {p.totalCodes} mã đang hoạt động
                             </span>
@@ -1145,19 +1195,19 @@ const PromotionsPage: React.FC = () => {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-2">
+                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between gap-2">
                       <button
                         onClick={() =>
                           navigate(`/admin/promotions/edit/${p.id}`)
                         }
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-50 hover:text-blue-600 transition"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-600 hover:text-blue-600 dark:hover:text-blue-400 transition"
                       >
                         <Zap className="w-4 h-4" /> Quản lý
                       </button>
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => handleToggleStatus(p)}
-                          className="p-2 text-gray-500 hover:text-indigo-600 bg-white border border-gray-200 rounded-lg shadow-sm transition"
+                          className="p-2 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm transition"
                           title={
                             p.status === "active" ? "Tạm dừng" : "Kích hoạt"
                           }
@@ -1170,7 +1220,7 @@ const PromotionsPage: React.FC = () => {
                         </button>
                         <button
                           onClick={() => handleDeletePromotion(p)}
-                          className="p-2 text-gray-500 hover:text-red-600 bg-white border border-gray-200 rounded-lg shadow-sm transition"
+                          className="p-2 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg shadow-sm transition"
                           title="Xóa"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -1182,42 +1232,42 @@ const PromotionsPage: React.FC = () => {
               })}
             </div>
           ) : (
-            <Card className="!p-0 overflow-hidden border border-gray-200">
+            <Card className="!p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Campaign
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Health / Mechanism
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Giá trị
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Usage Progress
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Validity / Targets
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">
+                      <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase">
                         Actions
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-100">
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
                     {filteredAndSortedPromotions.map((p) => {
                       const healthBadge = getHealthBadge(p.health);
                       const scopeConfig = getScopeConfig(p.promotionScope);
                       return (
                         <tr
                           key={p.id}
-                          className="hover:bg-gray-50 transition-colors group"
+                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                         >
                           <td className="px-4 py-3">
-                            <div className="font-semibold text-gray-900 text-sm flex items-center gap-1.5">
+                            <div className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-1.5">
                               {p.name}
                               {p.alertLevel === "danger" && (
                                 <span
@@ -1236,16 +1286,16 @@ const PromotionsPage: React.FC = () => {
                                 </span>
                               )}
                             </div>
-                            <div className="text-xs text-gray-500 mt-0.5 line-clamp-1 max-w-[200px]">
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 line-clamp-1 max-w-[200px]">
                               {p.description || "—"}
                             </div>
                             <div className="flex items-center gap-1.5 mt-1.5">
                               <span
-                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${scopeConfig.chip}`}
+                                className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${scopeConfig.chip}`}
                               >
                                 {scopeConfig.label}
                               </span>
-                              <span className="text-[10px] text-gray-400 font-bold">
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-bold">
                                 P{p.priority}
                               </span>
                             </div>
@@ -1258,23 +1308,27 @@ const PromotionsPage: React.FC = () => {
                                 {healthBadge.label}
                               </span>
                               <span
-                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${p.applicationMode === "auto" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"}`}
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                  p.applicationMode === "auto"
+                                    ? "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                                    : "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800"
+                                }`}
                               >
                                 {p.couponTypeLabel}
                               </span>
                             </div>
                           </td>
                           <td className="px-4 py-3 align-top pt-4">
-                            <div className="text-sm font-bold text-gray-900">
+                            <div className="text-sm font-bold text-gray-900 dark:text-white">
                               {p.headlineValue}
                             </div>
                             {p.minOrderValue && (
-                              <div className="text-[10px] text-gray-500 mt-1 uppercase font-bold">
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase font-bold">
                                 Min: {formatMoney(p.minOrderValue)}
                               </div>
                             )}
                             {p.maxDiscountAmount && (
-                              <div className="text-[10px] text-gray-500 mt-0.5 uppercase font-bold">
+                              <div className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 uppercase font-bold">
                                 Cap: {formatMoney(p.maxDiscountAmount)}
                               </div>
                             )}
@@ -1283,12 +1337,12 @@ const PromotionsPage: React.FC = () => {
                             {renderUsageBar(p)}
                           </td>
                           <td className="px-4 py-3 align-top pt-4">
-                            <div className="text-xs text-gray-700 font-medium flex items-center gap-1.5 mb-1">
-                              <Clock3 className="w-3.5 h-3.5 text-gray-400" />
+                            <div className="text-xs text-gray-700 dark:text-gray-300 font-medium flex items-center gap-1.5 mb-1">
+                              <Clock3 className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
                               <span
                                 className={
                                   p.isEndingSoon || p.isExpired
-                                    ? "text-red-600 font-bold"
+                                    ? "text-red-600 dark:text-red-400 font-bold"
                                     : ""
                                 }
                               >
@@ -1296,10 +1350,10 @@ const PromotionsPage: React.FC = () => {
                               </span>
                             </div>
                             <div
-                              className="text-xs text-gray-500 flex items-center gap-1.5 truncate max-w-[200px]"
+                              className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 truncate max-w-[200px]"
                               title={p.restrictionSummary}
                             >
-                              <Target className="w-3.5 h-3.5 text-gray-400" />{" "}
+                              <Target className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />{" "}
                               {p.restrictionSummary}
                             </div>
                           </td>
@@ -1309,14 +1363,14 @@ const PromotionsPage: React.FC = () => {
                                 onClick={() =>
                                   navigate(`/admin/promotions/edit/${p.id}`)
                                 }
-                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded"
                                 title="Chỉnh sửa"
                               >
                                 <Tags className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleToggleStatus(p)}
-                                className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
+                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded"
                                 title={
                                   p.status === "active"
                                     ? "Tạm dừng"
@@ -1331,7 +1385,7 @@ const PromotionsPage: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => handleDeletePromotion(p)}
-                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                                className="p-1.5 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
                                 title="Xóa"
                               >
                                 <Trash2 className="w-4 h-4" />
