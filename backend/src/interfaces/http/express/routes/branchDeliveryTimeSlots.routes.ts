@@ -7,55 +7,65 @@ export function branchDeliveryTimeSlotsRoutes(
   can: any,
 ) {
   const router = Router();
-
   router.get(
     "/",
     auth,
     can("branch_delivery_time_slot", "view"),
     controller.list,
   );
-
   router.post(
     "/create",
     auth,
     can("branch_delivery_time_slot", "create"),
     controller.create,
   );
-
+  router.post(
+    "/bulk-upsert",
+    auth,
+    can("branch_delivery_time_slot", "create"),
+    controller.bulkUpsert,
+  );
+  router.post(
+    "/copy-from-branch",
+    auth,
+    can("branch_delivery_time_slot", "create"),
+    controller.copyFromBranch,
+  );
+  router.patch(
+    "/bulk/status",
+    auth,
+    can("branch_delivery_time_slot", "edit"),
+    controller.bulkChangeStatus,
+  );
   router.get(
     "/detail/:id",
     auth,
     can("branch_delivery_time_slot", "view"),
     controller.detail,
   );
-
   router.get(
     "/edit/:id",
     auth,
     can("branch_delivery_time_slot", "view"),
     controller.detail,
   );
-
   router.patch(
     "/edit/:id",
     auth,
     can("branch_delivery_time_slot", "edit"),
     controller.edit,
   );
-
   router.patch(
     "/:id/status",
     auth,
     can("branch_delivery_time_slot", "edit"),
     controller.changeStatus,
   );
-
   router.delete(
     "/delete/:id",
     auth,
     can("branch_delivery_time_slot", "delete"),
     controller.softDelete,
   );
-
   return router;
 }

@@ -11,5 +11,10 @@ export class SoftDeleteBranchDeliverySlotCapacity {
     }
 
     await this.repo.softDelete(id);
+
+    return {
+      success: true,
+      message: "Soft delete branch delivery slot capacity thành công.",
+    };
   }
 }

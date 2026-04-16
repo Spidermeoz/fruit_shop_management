@@ -8,30 +8,27 @@ import React, {
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  AlertCircle,
   ArrowLeft,
+  ArrowRight,
+  Copy,
   Loader2,
+  MapPinned,
+  Power,
   Save,
   Store,
-  MapPinned,
-  ArrowRight,
-  AlertCircle,
-  CheckCircle2,
-  Banknote,
-  Tags,
-  Zap,
-  Settings2,
-  Info,
-  AlertTriangle,
+  Truck,
   History,
-  Power,
+  ShieldAlert,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// =============================
-// TYPES
-// =============================
+type Status = "active" | "inactive";
+
 interface BranchOption {
   id: number;
   name: string;
@@ -42,140 +39,146 @@ interface ShippingZoneOption {
   id: number;
   name: string;
   code: string;
-  baseFee: number;
+  baseFee?: number | null;
+  province?: string | null;
+  district?: string | null;
+  ward?: string | null;
 }
 
-interface BranchServiceAreaFormData {
-  id?: number;
+interface BranchServiceAreaDetail {
+  id: number;
+  branchId: number;
+  shippingZoneId: number;
+  deliveryFeeOverride?: number | null;
+  minOrderValue?: number | null;
+  maxOrderValue?: number | null;
+  supportsSameDay: boolean;
+  status: Status;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface FormDataState {
   branchId: string;
   shippingZoneId: string;
   deliveryFeeOverride: string;
   minOrderValue: string;
   maxOrderValue: string;
   supportsSameDay: boolean;
-  status: "active" | "inactive";
-  createdAt?: string;
-  updatedAt?: string;
+  status: Status;
 }
 
-type ApiDetail<T> = { success: true; data: T; meta?: any };
-type ApiList<T> = { success: true; data: T[]; meta?: any };
+type ApiDetail<T> = { success: boolean; data: T; message?: string };
+type ApiList<T> = {
+  success: boolean;
+  data: T[] | { items: T[] };
+  meta?: { total?: number };
+};
 
-// =============================
-// HELPERS
-// =============================
-const toFormData = (data: any): BranchServiceAreaFormData => ({
-  id: data.id,
-  branchId: data.branchId != null ? String(data.branchId) : "",
-  shippingZoneId:
-    data.shippingZoneId != null ? String(data.shippingZoneId) : "",
+const toFormData = (row: BranchServiceAreaDetail): FormDataState => ({
+  branchId: String(row.branchId ?? ""),
+  shippingZoneId: String(row.shippingZoneId ?? ""),
   deliveryFeeOverride:
-    data.deliveryFeeOverride !== null && data.deliveryFeeOverride !== undefined
-      ? String(data.deliveryFeeOverride)
-      : "",
+    row.deliveryFeeOverride === null || row.deliveryFeeOverride === undefined
+      ? ""
+      : String(row.deliveryFeeOverride),
   minOrderValue:
-    data.minOrderValue !== null && data.minOrderValue !== undefined
-      ? String(data.minOrderValue)
-      : "",
+    row.minOrderValue === null || row.minOrderValue === undefined
+      ? ""
+      : String(row.minOrderValue),
   maxOrderValue:
-    data.maxOrderValue !== null && data.maxOrderValue !== undefined
-      ? String(data.maxOrderValue)
-      : "",
-  supportsSameDay: !!data.supportsSameDay,
-  status: data.status ?? "active",
-  createdAt: data.createdAt,
-  updatedAt: data.updatedAt,
+    row.maxOrderValue === null || row.maxOrderValue === undefined
+      ? ""
+      : String(row.maxOrderValue),
+  supportsSameDay: Boolean(row.supportsSameDay),
+  status: row.status ?? "active",
 });
 
-const formatCurrencyPreview = (value: string | number) => {
+const formatCurrency = (value?: string | number | null) => {
   if (value === "" || value === null || value === undefined) return "—";
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return n.toLocaleString("vi-VN") + " đ";
+  return `${n.toLocaleString("vi-VN")} đ`;
 };
 
-// =============================
-// MAIN COMPONENT
-// =============================
+const zoneAreaLabel = (zone?: ShippingZoneOption | null) => {
+  if (!zone) return "—";
+  const parts = [zone.ward, zone.district, zone.province].filter(Boolean);
+  return parts.length ? parts.join(", ") : "Dự phòng toàn quốc";
+};
+
 const BranchServiceAreaEditPage: React.FC = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
+  const { id } = useParams();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  const [formData, setFormData] = useState<BranchServiceAreaFormData | null>(
-    null,
-  );
-  const [initialData, setInitialData] =
-    useState<BranchServiceAreaFormData | null>(null);
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+  const [detail, setDetail] = useState<BranchServiceAreaDetail | null>(null);
+  const [formData, setFormData] = useState<FormDataState | null>(null);
+  const [initialData, setInitialData] = useState<FormDataState | null>(null);
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [zones, setZones] = useState<ShippingZoneOption[]>([]);
-
-  const [loading, setLoading] = useState(true);
-  const [, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
   const fieldRefs = useRef<
     Record<string, HTMLInputElement | HTMLSelectElement | null>
   >({});
 
-  // --- Fetch Data ---
-  const fetchDetail = async () => {
-    try {
-      setLoading(true);
-      const [detailRes, branchesRes, zonesRes] = await Promise.all([
-        http<ApiDetail<any>>(
-          "GET",
-          `/api/v1/admin/branch-service-areas/edit/${id}`,
-        ),
-        http<ApiList<BranchOption>>(
-          "GET",
-          "/api/v1/admin/branches?limit=1000&status=active",
-        ),
-        http<ApiList<ShippingZoneOption>>(
-          "GET",
-          "/api/v1/admin/shipping-zones?limit=1000&status=active",
-        ),
-      ]);
-
-      if (detailRes?.success && detailRes.data) {
-        const mapped = toFormData(detailRes.data);
+  useEffect(() => {
+    const fetchBootstrap = async () => {
+      try {
+        setLoading(true);
+        const [detailRes, branchesRes, zonesRes] = await Promise.all([
+          http<ApiDetail<BranchServiceAreaDetail>>(
+            "GET",
+            `/api/v1/admin/branch-service-areas/edit/${id}`,
+          ),
+          http<ApiList<BranchOption>>(
+            "GET",
+            "/api/v1/admin/branches?limit=1000&status=active",
+          ),
+          http<ApiList<ShippingZoneOption>>(
+            "GET",
+            "/api/v1/admin/shipping-zones?limit=1000&status=active",
+          ),
+        ]);
+        const detailRow = detailRes?.data;
+        const branchRows = Array.isArray(branchesRes?.data)
+          ? branchesRes.data
+          : branchesRes?.data?.items || [];
+        const zoneRows = Array.isArray(zonesRes?.data)
+          ? zonesRes.data
+          : zonesRes?.data?.items || [];
+        setBranches(branchRows);
+        setZones(zoneRows);
+        setDetail(detailRow);
+        const mapped = toFormData(detailRow);
         setFormData(mapped);
         setInitialData(mapped);
-      } else {
-        showErrorToast("Không thể tải dữ liệu quy tắc coverage.");
+      } catch (error: any) {
+        showErrorToast(
+          error?.message || "Không thể tải dữ liệu khu vực phục vụ.",
+        );
+      } finally {
+        setLoading(false);
       }
+    };
+    fetchBootstrap();
+  }, [id, showErrorToast]);
 
-      setBranches(Array.isArray(branchesRes?.data) ? branchesRes.data : []);
-      setZones(Array.isArray(zonesRes?.data) ? zonesRes.data : []);
-    } catch (err: any) {
-      showErrorToast(err?.message || "Lỗi tải dữ liệu quy tắc coverage.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDetail();
-  }, [id]);
-
-  // --- Derived Selectors & Logic ---
   const selectedBranch = useMemo(
-    () => branches.find((x) => String(x.id) === formData?.branchId) || null,
+    () =>
+      branches.find((item) => String(item.id) === formData?.branchId) || null,
     [branches, formData?.branchId],
-  );
-  const initialBranch = useMemo(
-    () => branches.find((x) => String(x.id) === initialData?.branchId) || null,
-    [branches, initialData?.branchId],
   );
 
   const selectedZone = useMemo(
-    () => zones.find((x) => String(x.id) === formData?.shippingZoneId) || null,
-    [zones, formData?.shippingZoneId],
-  );
-  const initialZone = useMemo(
     () =>
-      zones.find((x) => String(x.id) === initialData?.shippingZoneId) || null,
-    [zones, initialData?.shippingZoneId],
+      zones.find((item) => String(item.id) === formData?.shippingZoneId) ||
+      null,
+    [zones, formData?.shippingZoneId],
   );
 
   const isDirty = useMemo(() => {
@@ -183,86 +186,50 @@ const BranchServiceAreaEditPage: React.FC = () => {
     return JSON.stringify(formData) !== JSON.stringify(initialData);
   }, [formData, initialData]);
 
-  const orderConditionText = useMemo(() => {
-    if (!formData) return "";
-    const hasMin = !!formData.minOrderValue.trim();
-    const hasMax = !!formData.maxOrderValue.trim();
-
-    if (!hasMin && !hasMax) return "Áp dụng cho mọi giá trị đơn hàng.";
-    if (hasMin && hasMax)
-      return `Chỉ áp dụng cho đơn từ ${formatCurrencyPreview(formData.minOrderValue)} đến ${formatCurrencyPreview(formData.maxOrderValue)}.`;
-    if (hasMin)
-      return `Chỉ áp dụng cho đơn từ ${formatCurrencyPreview(formData.minOrderValue)} trở lên.`;
-    if (hasMax)
-      return `Chỉ áp dụng cho đơn tối đa ${formatCurrencyPreview(formData.maxOrderValue)}.`;
-    return "";
-  }, [formData?.minOrderValue, formData?.maxOrderValue]);
-
-  const changeImpacts = useMemo(() => {
-    if (!formData || !initialData) return [];
-    const impacts = [];
-
-    if (formData.branchId !== initialData.branchId) {
-      impacts.push(
-        `Bạn đang chuyển Coverage Rule này sang chi nhánh khác (${initialBranch?.name} -> ${selectedBranch?.name}).`,
+  const impactNotes = useMemo(() => {
+    if (!formData || !initialData) return [] as string[];
+    const notes: string[] = [];
+    if (formData.branchId !== initialData.branchId)
+      notes.push(
+        "Khu vực phục vụ (coverage) sẽ được chuyển sang chi nhánh khác, cần kiểm tra lại danh sách cài đặt của cả hai chi nhánh.",
       );
-    }
-
-    if (formData.shippingZoneId !== initialData.shippingZoneId) {
-      impacts.push(
-        `Bạn đang đổi Vùng giao hàng (${initialZone?.name} -> ${selectedZone?.name}). Phạm vi giao thực tế sẽ thay đổi.`,
+    if (formData.shippingZoneId !== initialData.shippingZoneId)
+      notes.push(
+        "Vùng giao áp dụng sẽ thay đổi, ảnh hưởng trực tiếp tới phạm vi phân giải địa chỉ của chi nhánh.",
       );
-    }
-
-    if (formData.deliveryFeeOverride !== initialData.deliveryFeeOverride) {
-      if (!formData.deliveryFeeOverride)
-        impacts.push(
-          "Coverage sẽ BỎ Override phí và quay về dùng phí gốc của Vùng giao hàng.",
-        );
-      else if (!initialData.deliveryFeeOverride)
-        impacts.push(
-          `Coverage sẽ ÁP DỤNG MỚI phí Override riêng (${formatCurrencyPreview(formData.deliveryFeeOverride)}).`,
-        );
-      else
-        impacts.push(
-          `Mức phí Override đang thay đổi (từ ${formatCurrencyPreview(initialData.deliveryFeeOverride)} thành ${formatCurrencyPreview(formData.deliveryFeeOverride)}).`,
-        );
-    }
-
-    if (formData.supportsSameDay !== initialData.supportsSameDay) {
-      impacts.push(
-        `Chi nhánh này sẽ ${formData.supportsSameDay ? "BẮT ĐẦU" : "NGỪNG"} hỗ trợ giao hỏa tốc (Same-day) cho vùng này.`,
+    if (formData.supportsSameDay !== initialData.supportsSameDay)
+      notes.push(
+        formData.supportsSameDay
+          ? "Bạn đang bật giao hàng trong ngày (same-day) cho khu vực này."
+          : "Bạn đang tắt giao hàng trong ngày (same-day) cho khu vực này.",
       );
-    }
-
     if (
-      formData.minOrderValue !== initialData.minOrderValue ||
-      formData.maxOrderValue !== initialData.maxOrderValue
-    ) {
-      impacts.push(
-        "CẢNH BÁO: Dải điều kiện giá trị đơn hàng đang bị thay đổi.",
+      (formData.deliveryFeeOverride || "") !==
+      (initialData.deliveryFeeOverride || "")
+    )
+      notes.push(
+        "Phí giao hàng ghi đè đã thay đổi; báo giá thực tế của chi nhánh sẽ khác so với phí cơ bản của vùng.",
       );
-    }
-
-    if (formData.status !== initialData.status) {
-      impacts.push(
+    if (formData.status !== initialData.status)
+      notes.push(
         formData.status === "inactive"
-          ? "CẢNH BÁO: Bạn đang Tạm dừng quy tắc này. Chi nhánh sẽ KHÔNG CÒN phục vụ vùng này."
-          : "Quy tắc này sẽ được Mở lại và có hiệu lực trên hệ thống.",
+          ? "CẢNH BÁO: Khu vực phục vụ sẽ không còn được dùng trong luồng vận hành."
+          : "Khu vực phục vụ sẽ được kích hoạt lại trong luồng vận hành.",
       );
-    }
+    return notes;
+  }, [formData, initialData]);
 
-    return impacts;
-  }, [
-    formData,
-    initialData,
-    selectedBranch,
-    initialBranch,
-    selectedZone,
-    initialZone,
-  ]);
+  const summaryOrderRule = useMemo(() => {
+    if (!formData) return "";
+    const hasMin = formData.minOrderValue.trim() !== "";
+    const hasMax = formData.maxOrderValue.trim() !== "";
+    if (!hasMin && !hasMax) return "Mọi đơn hàng";
+    if (hasMin && hasMax)
+      return `Từ ${formatCurrency(formData.minOrderValue)} đến ${formatCurrency(formData.maxOrderValue)}`;
+    if (hasMin) return `Từ ${formatCurrency(formData.minOrderValue)} trở lên`;
+    return `Tối đa ${formatCurrency(formData.maxOrderValue)}`;
+  }, [formData]);
 
-  // --- Actions ---
   const setFieldRef =
     (name: string) => (el: HTMLInputElement | HTMLSelectElement | null) => {
       fieldRefs.current[name] = el;
@@ -278,66 +245,30 @@ const BranchServiceAreaEditPage: React.FC = () => {
     fieldRefs.current[firstKey]?.focus?.();
   };
 
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    if (!formData) return;
-    const { name, value, type } = e.target;
-
-    if (type === "checkbox") {
-      const target = e.target as HTMLInputElement;
-      setFormData((prev) =>
-        prev ? { ...prev, [name]: target.checked } : prev,
-      );
-    } else {
-      setFormData((prev) => (prev ? { ...prev, [name]: value } : prev));
-    }
-
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const validateOptionalMoney = (value: string) => {
-    if (!value.trim()) return null;
-    const n = Number(value);
-    if (!Number.isFinite(n) || n < 0) return "Giá trị phải là số >= 0.";
-    return null;
-  };
-
-  const validateForm = () => {
+  const validate = () => {
     if (!formData) return false;
     const nextErrors: Record<string, string> = {};
-
-    if (!formData.branchId)
-      nextErrors.branchId = "Vui lòng chọn chi nhánh phục vụ.";
+    if (!formData.branchId) nextErrors.branchId = "Vui lòng chọn chi nhánh.";
     if (!formData.shippingZoneId)
-      nextErrors.shippingZoneId = "Vui lòng chọn vùng giao hàng.";
-
-    const deliveryFeeOverrideError = validateOptionalMoney(
-      formData.deliveryFeeOverride,
-    );
-    if (deliveryFeeOverrideError)
-      nextErrors.deliveryFeeOverride = "Phí ship override phải là số >= 0.";
-
-    const minError = validateOptionalMoney(formData.minOrderValue);
-    if (minError) nextErrors.minOrderValue = minError;
-
-    const maxError = validateOptionalMoney(formData.maxOrderValue);
-    if (maxError) nextErrors.maxOrderValue = maxError;
-
+      nextErrors.shippingZoneId = "Vui lòng chọn vùng giao.";
+    if (formData.minOrderValue && Number(formData.minOrderValue) < 0)
+      nextErrors.minOrderValue = "Giá trị tối thiểu không hợp lệ.";
+    if (formData.maxOrderValue && Number(formData.maxOrderValue) < 0)
+      nextErrors.maxOrderValue = "Giá trị tối đa không hợp lệ.";
     if (
-      !minError &&
-      !maxError &&
-      formData.minOrderValue.trim() &&
-      formData.maxOrderValue.trim()
+      formData.minOrderValue &&
+      formData.maxOrderValue &&
+      Number(formData.minOrderValue) > Number(formData.maxOrderValue)
     ) {
-      const min = Number(formData.minOrderValue);
-      const max = Number(formData.maxOrderValue);
-      if (min > max) {
-        nextErrors.maxOrderValue =
-          "Đơn tối đa phải lớn hơn hoặc bằng tối thiểu.";
-      }
+      nextErrors.maxOrderValue =
+        "Giá trị tối đa phải lớn hơn hoặc bằng tối thiểu.";
     }
-
+    if (
+      formData.deliveryFeeOverride &&
+      Number(formData.deliveryFeeOverride) < 0
+    ) {
+      nextErrors.deliveryFeeOverride = "Phí ghi đè không hợp lệ.";
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       scrollToFirstError(nextErrors);
@@ -346,49 +277,71 @@ const BranchServiceAreaEditPage: React.FC = () => {
     return true;
   };
 
-  const handleSave = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     if (!formData) return;
-    if (!validateForm()) return;
+    const { name, value, type } = e.target;
+    const nextValue =
+      type === "checkbox" ? (e.target as HTMLInputElement).checked : value;
+    setFormData({ ...formData, [name]: nextValue } as FormDataState);
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!formData || !validate()) return;
     try {
       setSaving(true);
-      const payload = {
+      await http("PATCH", `/api/v1/admin/branch-service-areas/edit/${id}`, {
         branchId: Number(formData.branchId),
         shippingZoneId: Number(formData.shippingZoneId),
         deliveryFeeOverride:
-          formData.deliveryFeeOverride.trim() === ""
+          formData.deliveryFeeOverride === ""
             ? null
             : Number(formData.deliveryFeeOverride),
         minOrderValue:
-          formData.minOrderValue.trim() === ""
-            ? null
-            : Number(formData.minOrderValue),
+          formData.minOrderValue === "" ? null : Number(formData.minOrderValue),
         maxOrderValue:
-          formData.maxOrderValue.trim() === ""
-            ? null
-            : Number(formData.maxOrderValue),
+          formData.maxOrderValue === "" ? null : Number(formData.maxOrderValue),
         supportsSameDay: formData.supportsSameDay,
         status: formData.status,
-      };
-
-      const res = await http<any>(
-        "PATCH",
-        `/api/v1/admin/branch-service-areas/edit/${formData.id}`,
-        payload,
+      });
+      showSuccessToast({ message: "Đã cập nhật quy tắc khu vực phục vụ." });
+      setInitialData({ ...formData });
+      setErrors({});
+    } catch (error: any) {
+      showErrorToast(
+        error?.message || "Không thể cập nhật quy tắc khu vực phục vụ.",
       );
-
-      if (res?.success) {
-        showSuccessToast({ message: "Cập nhật quy tắc phục vụ thành công!" });
-        setInitialData({ ...formData });
-        setErrors({});
-      } else {
-        showErrorToast(res?.message || "Cập nhật cấu hình thất bại.");
-      }
-    } catch (err: any) {
-      showErrorToast(err?.message || "Lỗi kết nối server.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleToggleStatus = async () => {
+    if (!formData) return;
+    try {
+      setTogglingStatus(true);
+      const nextStatus: Status =
+        formData.status === "active" ? "inactive" : "active";
+      await http("PATCH", `/api/v1/admin/branch-service-areas/${id}/status`, {
+        status: nextStatus,
+      });
+      setFormData({ ...formData, status: nextStatus });
+      setInitialData((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      showSuccessToast({
+        message:
+          nextStatus === "active"
+            ? "Đã bật khu vực phục vụ."
+            : "Đã tạm dừng khu vực phục vụ.",
+      });
+    } catch (error: any) {
+      showErrorToast(
+        error?.message || "Không thể đổi trạng thái khu vực phục vụ.",
+      );
+    } finally {
+      setTogglingStatus(false);
     }
   };
 
@@ -397,7 +350,7 @@ const BranchServiceAreaEditPage: React.FC = () => {
       <div className="flex flex-col justify-center items-center py-32 max-w-7xl mx-auto">
         <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
         <span className="text-gray-800 dark:text-gray-200 font-bold text-lg">
-          Đang tải Quy tắc Coverage...
+          Đang tải dữ liệu quy tắc...
         </span>
       </div>
     );
@@ -407,10 +360,11 @@ const BranchServiceAreaEditPage: React.FC = () => {
 
   return (
     <div className="max-w-7xl mx-auto pb-24">
-      {/* Tầng A: Header & Intro */}
+      {/* Header & Intro */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div>
           <button
+            type="button"
             onClick={() => navigate("/admin/shipping/service-areas")}
             className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors mb-2"
           >
@@ -418,263 +372,188 @@ const BranchServiceAreaEditPage: React.FC = () => {
           </button>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-              Chỉnh sửa Coverage Rule
+              Chỉnh sửa quy tắc khu vực
             </h1>
             <span
-              className={`px-2.5 py-1 text-[11px] font-bold uppercase rounded border ${isStatusChanged ? "bg-amber-100 text-amber-700 border-amber-200" : formData.status === "active" ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+                formData.status === "active"
+                  ? "bg-green-100 text-green-700 border-green-200"
+                  : "bg-gray-100 text-gray-600 border-gray-200"
+              }`}
             >
-              {isStatusChanged
-                ? "Sẽ đổi Status"
-                : formData.status === "active"
-                  ? "Đang Hoạt động"
-                  : "Đang Tạm dừng"}
+              {formData.status === "active" ? "Đang hoạt động" : "Tạm dừng"}
             </span>
-            {isDirty && (
-              <span className="px-2.5 py-1 bg-yellow-100 text-yellow-700 border border-yellow-200 text-[11px] font-bold uppercase rounded flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" /> Có thay đổi
-              </span>
-            )}
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5 flex items-center gap-2 font-medium">
-            <Settings2 className="w-4 h-4" /> {initialBranch?.name}{" "}
-            <ArrowRight className="w-3 h-3 text-gray-400 mx-1" />{" "}
-            {initialZone?.name}
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
+            Chỉnh sửa chi tiết một quy tắc khu vực phục vụ, đồng thời theo dõi
+            ngay tác động tới thiết lập của chi nhánh, giao hàng trong ngày và
+            báo giá.
           </p>
+        </div>
+
+        <div className="hidden lg:flex items-center gap-2 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-2.5 rounded-lg text-sm">
+          <History className="w-4 h-4" />
+          {detail?.updatedAt
+            ? `Cập nhật gần nhất: ${new Date(detail.updatedAt).toLocaleString("vi-VN")}`
+            : "Đang chỉnh sửa quy tắc hiện có"}
         </div>
       </div>
 
       <form
-        onSubmit={handleSave}
+        onSubmit={handleSubmit}
         className="grid grid-cols-1 xl:grid-cols-3 gap-6 lg:gap-8"
       >
         {/* CỘT TRÁI: FORM BUILDER */}
         <div className="xl:col-span-2 space-y-6">
-          {/* Section 1: Đối tượng áp dụng (Rule Target Builder) */}
-          <Card
-            className={
-              formData.branchId !== initialData.branchId ||
-              formData.shippingZoneId !== initialData.shippingZoneId
-                ? "border-amber-200 dark:border-amber-800"
-                : ""
-            }
-          >
-            <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4 flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <MapPinned className="w-5 h-5 text-gray-400" /> 1. Đối tượng
-                  áp dụng
-                </h2>
-              </div>
-              {(formData.branchId !== initialData.branchId ||
-                formData.shippingZoneId !== initialData.shippingZoneId) && (
-                <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
-                  Đã chỉnh sửa
-                </span>
-              )}
+          {/* Section 1: Liên kết branch và zone */}
+          <Card className="border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <Store className="w-5 h-5 text-gray-400" />
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                1. Liên kết chi nhánh và vùng
+              </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Chọn đúng chi nhánh và vùng giao để giữ ma trận khu vực phục vụ
+              chính xác.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Chi nhánh phục vụ <span className="text-red-500">*</span>
+                  Chi nhánh <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <Store className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <select
-                    ref={setFieldRef("branchId")}
-                    name="branchId"
-                    value={formData.branchId}
-                    onChange={handleChange}
-                    className={`w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white ${errors.branchId ? "border-red-500" : formData.branchId !== initialData.branchId ? "border-amber-400 bg-amber-50 dark:bg-amber-900/10" : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600"}`}
-                  >
-                    <option value="">-- Chọn chi nhánh --</option>
-                    {branches.map((branch) => (
-                      <option key={branch.id} value={branch.id}>
-                        {branch.name} ({branch.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  ref={setFieldRef("branchId")}
+                  name="branchId"
+                  value={formData.branchId}
+                  onChange={handleChange}
+                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                    errors.branchId
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                >
+                  <option value="">Chọn chi nhánh</option>
+                  {branches.map((branch) => (
+                    <option key={branch.id} value={branch.id}>
+                      {branch.name} ({branch.code})
+                    </option>
+                  ))}
+                </select>
                 {errors.branchId && (
-                  <p className="text-xs text-red-600 mt-1">{errors.branchId}</p>
+                  <p className="text-xs text-red-600 mt-1.5">
+                    {errors.branchId}
+                  </p>
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Vùng giao hàng <span className="text-red-500">*</span>
+                  Vùng giao <span className="text-red-500">*</span>
                 </label>
-                <div className="relative">
-                  <MapPinned className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-                  <select
-                    ref={setFieldRef("shippingZoneId")}
-                    name="shippingZoneId"
-                    value={formData.shippingZoneId}
-                    onChange={handleChange}
-                    className={`w-full pl-9 pr-4 py-2.5 border rounded-lg text-sm focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none text-gray-900 dark:text-white ${errors.shippingZoneId ? "border-red-500" : formData.shippingZoneId !== initialData.shippingZoneId ? "border-amber-400 bg-amber-50 dark:bg-amber-900/10" : "bg-gray-50 dark:bg-gray-800 border-gray-300 dark:border-gray-600"}`}
-                  >
-                    <option value="">-- Chọn vùng --</option>
-                    {zones.map((zone) => (
-                      <option key={zone.id} value={zone.id}>
-                        {zone.name} ({zone.code})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <select
+                  ref={setFieldRef("shippingZoneId")}
+                  name="shippingZoneId"
+                  value={formData.shippingZoneId}
+                  onChange={handleChange}
+                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                    errors.shippingZoneId
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
+                >
+                  <option value="">Chọn vùng giao</option>
+                  {zones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name} ({zone.code})
+                    </option>
+                  ))}
+                </select>
                 {errors.shippingZoneId && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-1.5">
                     {errors.shippingZoneId}
                   </p>
                 )}
               </div>
             </div>
 
-            {selectedBranch && selectedZone && (
-              <div className="mt-5 p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/50 rounded-xl flex flex-col md:flex-row items-center gap-4 justify-center text-sm">
-                <div className="font-bold text-gray-900 dark:text-white">
-                  {selectedBranch.name}
-                </div>
-                <div className="flex flex-col items-center">
-                  <ArrowRight className="w-5 h-5 text-blue-400 md:rotate-0 rotate-90" />
-                  <span className="text-[10px] text-gray-500 font-medium hidden md:block">
-                    Phục vụ vùng
-                  </span>
-                </div>
-                <div className="font-bold text-gray-900 dark:text-white">
-                  {selectedZone.name}{" "}
-                  <span className="font-normal text-xs text-gray-500">
-                    ({selectedZone.code})
-                  </span>
-                </div>
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300">
+              <div className="flex flex-wrap items-center gap-2 font-medium">
+                <MapPinned className="h-4 w-4" />
+                {selectedBranch?.name || "Chưa chọn chi nhánh"}
+                <ArrowRight className="h-4 w-4" />
+                {selectedZone?.name || "Chưa chọn vùng giao"}
               </div>
-            )}
+              <p className="mt-2 text-blue-800/80 dark:text-blue-300/80 font-medium">
+                Phạm vi áp dụng: {zoneAreaLabel(selectedZone)}
+              </p>
+            </div>
           </Card>
 
-          {/* Section 2: Logic phí áp dụng (Fee Override) */}
-          <Card
-            className={
-              formData.deliveryFeeOverride !== initialData.deliveryFeeOverride
-                ? "border-amber-200 dark:border-amber-800"
-                : ""
-            }
-          >
-            <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4 flex justify-between items-start">
-              <div>
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <Banknote className="w-5 h-5 text-gray-400" /> 2. Phí giao
-                  hàng riêng
-                </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Chi nhánh dùng phí gốc của Vùng hay được cấu hình phí Override
-                  riêng.
-                </p>
-              </div>
+          {/* Section 2: Quy tắc giao hàng */}
+          <Card className="border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <Truck className="w-5 h-5 text-gray-400" />
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                2. Quy tắc giao hàng
+              </h2>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Default Column */}
-              <div
-                className={`p-4 rounded-xl border-2 transition-all ${!formData.deliveryFeeOverride ? "border-blue-500 bg-blue-50/30 dark:bg-blue-900/10" : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60"}`}
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <div
-                    className={`font-bold text-sm ${!formData.deliveryFeeOverride ? "text-blue-700 dark:text-blue-400" : "text-gray-600 dark:text-gray-400"}`}
-                  >
-                    Mặc định theo Vùng
-                  </div>
-                  {!formData.deliveryFeeOverride && (
-                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 mb-2">Mức phí gốc:</div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
-                  {selectedZone
-                    ? formatCurrencyPreview(selectedZone.baseFee)
-                    : "Chưa xác định"}
-                </div>
-              </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Thiết lập phạm vi đơn hàng, giao hàng trong ngày và ghi đè phí ở
+              mức độ khu vực.
+            </p>
 
-              {/* Override Column */}
-              <div
-                className={`p-4 rounded-xl border-2 transition-all ${formData.deliveryFeeOverride ? (formData.deliveryFeeOverride !== initialData.deliveryFeeOverride ? "border-amber-500 bg-amber-50/30" : "border-amber-500 bg-amber-50/30 dark:bg-amber-900/10") : "border-gray-200 dark:border-gray-700"}`}
-              >
-                <div className="flex justify-between items-center mb-3">
-                  <div
-                    className={`font-bold text-sm ${formData.deliveryFeeOverride ? "text-amber-700 dark:text-amber-400" : "text-gray-600 dark:text-gray-400"}`}
-                  >
-                    Áp dụng riêng (Override)
-                  </div>
-                  {formData.deliveryFeeOverride && (
-                    <Zap className="w-4 h-4 text-amber-600" />
-                  )}
-                </div>
-                <label className="block text-xs text-gray-500 mb-2">
-                  Phí vận chuyển override (VNĐ)
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Phí ghi đè
                 </label>
                 <input
                   ref={setFieldRef("deliveryFeeOverride")}
                   type="number"
                   min="0"
-                  step="1000"
+                  step="1"
                   name="deliveryFeeOverride"
                   value={formData.deliveryFeeOverride}
                   onChange={handleChange}
-                  placeholder="Trống = Dùng gốc"
-                  className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${errors.deliveryFeeOverride ? "border-red-500 focus:ring-red-500" : formData.deliveryFeeOverride !== initialData.deliveryFeeOverride ? "border-amber-400 focus:ring-amber-500 bg-amber-50 dark:bg-amber-900/20" : "border-gray-300 dark:border-gray-600 focus:ring-amber-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"}`}
+                  placeholder="Bỏ trống để dùng phí cơ bản"
+                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                    errors.deliveryFeeOverride
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
                 />
+                <div className="text-xs font-medium text-blue-600 mt-1.5 bg-blue-50 p-1.5 rounded w-fit">
+                  Preview: {formatCurrency(formData.deliveryFeeOverride)}
+                </div>
                 {errors.deliveryFeeOverride && (
-                  <p className="text-xs text-red-600 mt-1">
+                  <p className="text-xs text-red-600 mt-1.5">
                     {errors.deliveryFeeOverride}
                   </p>
                 )}
-                {formData.deliveryFeeOverride !==
-                  initialData.deliveryFeeOverride && (
-                  <p className="text-xs font-medium text-amber-600 mt-1.5">
-                    Phí Override gốc:{" "}
-                    {initialData.deliveryFeeOverride
-                      ? formatCurrencyPreview(initialData.deliveryFeeOverride)
-                      : "Không có"}
-                  </p>
-                )}
               </div>
-            </div>
-          </Card>
 
-          {/* Section 3: Điều kiện đơn hàng */}
-          <Card
-            className={
-              formData.minOrderValue !== initialData.minOrderValue ||
-              formData.maxOrderValue !== initialData.maxOrderValue
-                ? "border-amber-200 dark:border-amber-800"
-                : ""
-            }
-          >
-            <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
-              <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                <Tags className="w-5 h-5 text-gray-400" /> 3. Điều kiện giá trị
-                đơn
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                Giới hạn coverage này chỉ áp dụng cho một khoảng giá trị đơn
-                nhất định.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-2">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Đơn tối thiểu (VNĐ)
+                  Đơn tối thiểu
                 </label>
                 <input
                   ref={setFieldRef("minOrderValue")}
                   type="number"
                   min="0"
-                  step="1000"
+                  step="1"
                   name="minOrderValue"
                   value={formData.minOrderValue}
                   onChange={handleChange}
-                  placeholder="VD: 0"
-                  className={`w-full border rounded-lg p-2.5 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none ${errors.minOrderValue ? "border-red-500" : formData.minOrderValue !== initialData.minOrderValue ? "border-amber-400 bg-amber-50 dark:bg-amber-900/10" : "border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-600"}`}
+                  placeholder="Không giới hạn"
+                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                    errors.minOrderValue
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
                 />
                 {errors.minOrderValue && (
                   <p className="text-xs text-red-600 mt-1.5">
@@ -685,18 +564,22 @@ const BranchServiceAreaEditPage: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Đơn tối đa (VNĐ)
+                  Đơn tối đa
                 </label>
                 <input
                   ref={setFieldRef("maxOrderValue")}
                   type="number"
                   min="0"
-                  step="1000"
+                  step="1"
                   name="maxOrderValue"
                   value={formData.maxOrderValue}
                   onChange={handleChange}
-                  placeholder="Để trống nếu không giới hạn"
-                  className={`w-full border rounded-lg p-2.5 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none ${errors.maxOrderValue ? "border-red-500" : formData.maxOrderValue !== initialData.maxOrderValue ? "border-amber-400 bg-amber-50 dark:bg-amber-900/10" : "border-gray-300 bg-gray-50 dark:bg-gray-800 dark:border-gray-600"}`}
+                  placeholder="Không giới hạn"
+                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+                    errors.maxOrderValue
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
+                  }`}
                 />
                 {errors.maxOrderValue && (
                   <p className="text-xs text-red-600 mt-1.5">
@@ -706,248 +589,244 @@ const BranchServiceAreaEditPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="mt-4 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-lg flex items-center justify-between">
-              <p className="text-sm font-medium text-indigo-800 dark:text-indigo-300 flex items-center gap-2">
-                <Info className="w-4 h-4 shrink-0" /> {orderConditionText}
-              </p>
-            </div>
-          </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <label className="flex items-start gap-3 rounded-lg border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                <input
+                  type="checkbox"
+                  name="supportsSameDay"
+                  checked={formData.supportsSameDay}
+                  onChange={handleChange}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Hỗ trợ giao hàng trong ngày
+                  </div>
+                  <p className="text-[13px] text-gray-600 dark:text-gray-400 mt-0.5">
+                    Bật khi vùng này có thể nhận các suất giao nhanh trong ngày.
+                  </p>
+                </div>
+              </label>
 
-          {/* Section 4: Dịch vụ & Trạng thái */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card
-              className={
-                formData.supportsSameDay !== initialData.supportsSameDay
-                  ? "border-amber-200 dark:border-amber-800"
-                  : ""
-              }
-            >
-              <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-gray-400" /> Dịch vụ nâng cao
-                </h2>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  Hỗ trợ Same-day (Giao trong ngày)
-                </label>
-                <label className="relative inline-flex items-center cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    name="supportsSameDay"
-                    checked={formData.supportsSameDay}
-                    onChange={handleChange}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                  <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300 group-hover:text-purple-600 transition-colors">
-                    {formData.supportsSameDay ? "Có hỗ trợ" : "Không hỗ trợ"}
-                  </span>
-                </label>
-              </div>
-            </Card>
-
-            <Card
-              className={
-                formData.status !== initialData.status
-                  ? "border-amber-200 dark:border-amber-800"
-                  : ""
-              }
-            >
-              <div className="border-b border-gray-100 dark:border-gray-700 pb-4 mb-4">
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white flex items-center gap-2">
-                  <Power className="w-5 h-5 text-gray-400" /> Trạng thái
-                </h2>
-              </div>
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Trạng thái Coverage
+                  Trạng thái hoạt động
                 </label>
                 <select
-                  ref={setFieldRef("status")}
                   name="status"
                   value={formData.status}
                   onChange={handleChange}
-                  className={`w-full border rounded-lg p-2.5 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none ${formData.status !== initialData.status ? "bg-amber-50 border-amber-400 text-amber-900" : "bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"}`}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                  <option value="active">Hoạt động (Áp dụng ngay)</option>
-                  <option value="inactive">
-                    Tạm dừng (Lưu cấu hình nhưng chưa áp dụng)
-                  </option>
+                  <option value="active">Đang bật</option>
+                  <option value="inactive">Tạm dừng</option>
                 </select>
               </div>
-            </Card>
-          </div>
+            </div>
+          </Card>
+
+          {/* Section 3: Ảnh hưởng thay đổi */}
+          <Card
+            className={
+              impactNotes.length
+                ? "border-amber-200"
+                : "border-gray-200 dark:border-gray-700"
+            }
+          >
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <ShieldAlert
+                className={`w-5 h-5 ${
+                  impactNotes.length ? "text-amber-500" : "text-gray-400"
+                }`}
+              />
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                3. Ảnh hưởng thay đổi
+              </h2>
+            </div>
+
+            {impactNotes.length === 0 ? (
+              <div className="text-sm text-gray-500">
+                Chưa có thay đổi nào so với dữ liệu ban đầu.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {impactNotes.map((note, index) => (
+                  <div
+                    key={index}
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span>{note}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* CỘT PHẢI: LIVE PREVIEW PANEL */}
         <div className="xl:col-span-1">
           <div className="sticky top-24 space-y-6">
-            {/* Change Impact Advisory */}
-            {isDirty ? (
-              <Card
-                className={`bg-gradient-to-br shadow-sm overflow-hidden transition-all duration-300 ${changeImpacts.some((i) => i.includes("CẢNH BÁO")) ? "border-red-200 dark:border-red-900/50 from-red-50 to-white dark:from-gray-800 dark:to-gray-800/80" : "border-amber-200 dark:border-amber-900/50 from-amber-50 to-white dark:from-gray-800 dark:to-gray-800/80"}`}
-              >
-                <div
-                  className={`text-white px-4 py-3 -mx-6 -mt-6 mb-5 flex items-center gap-2 font-bold shadow-sm ${changeImpacts.some((i) => i.includes("CẢNH BÁO")) ? "bg-red-500" : "bg-amber-500"}`}
-                >
-                  <AlertTriangle className="w-5 h-5" /> Đánh giá tác động thay
-                  đổi
-                </div>
-                {changeImpacts.length > 0 ? (
-                  <ul className="space-y-3 text-sm">
-                    {changeImpacts.map((impact, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-start gap-2.5 text-gray-700 dark:text-gray-300"
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${impact.includes("CẢNH BÁO") ? "bg-red-500" : "bg-amber-500"}`}
-                        ></span>
-                        <span
-                          className={
-                            impact.includes("CẢNH BÁO")
-                              ? "font-bold text-red-600 dark:text-red-400"
-                              : ""
-                          }
-                        >
-                          {impact}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-gray-600">
-                    Thay đổi hiện tại không ảnh hưởng lớn tới luồng vận hành.
-                  </p>
-                )}
-              </Card>
-            ) : (
-              <Card className="border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col items-center justify-center py-10 text-center transition-all duration-300">
-                <History className="w-10 h-10 text-gray-300 mb-3" />
-                <span className="text-gray-500 font-medium">
-                  Bản nháp hiện trùng với dữ liệu lưu trữ. Chỉnh sửa form để xem
-                  đánh giá tác động.
-                </span>
-              </Card>
-            )}
-
-            {/* Live Activation Summary */}
             <Card className="border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800/80 shadow-sm overflow-hidden">
-              <div className="bg-blue-600 text-white px-4 py-3 -mx-6 -mt-6 mb-5 flex items-center justify-between font-bold shadow-sm">
-                <span className="flex items-center gap-2">
-                  <Info className="w-5 h-5" /> Coverage sau khi Lưu
-                </span>
+              <div className="bg-blue-600 text-white px-4 py-3 -mx-6 -mt-6 mb-5 flex items-center gap-2 font-bold shadow-sm">
+                <Info className="w-5 h-5" /> Tóm tắt Live Preview
               </div>
 
               <div className="space-y-4 text-sm">
-                <div className="flex justify-between items-start">
-                  {formData.supportsSameDay ? (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase border bg-purple-100 text-purple-700 border-purple-200 flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Hỗ trợ Same-day
-                    </span>
-                  ) : (
-                    <span></span>
-                  )}
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${formData.status === "active" ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600 border-gray-200"}`}
-                  >
-                    {formData.status === "active"
-                      ? "Sẽ được bật"
-                      : "Đang tạm tắt"}
-                  </span>
-                </div>
-
-                <div
-                  className={
-                    formData.branchId !== initialData.branchId
-                      ? "bg-amber-100 -mx-2 px-2 py-1 rounded"
-                      : ""
-                  }
-                >
+                <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                    Cấu hình cho nhánh
+                    Chi nhánh áp dụng
                   </div>
-                  <div className="font-bold text-gray-900 dark:text-white text-base">
-                    {selectedBranch?.name}{" "}
-                    <span className="text-xs font-mono font-normal text-gray-500">
-                      ({selectedBranch?.code})
-                    </span>
+                  <div className="font-bold text-gray-900 dark:text-white">
+                    {selectedBranch?.name || "—"}
+                  </div>
+                  <div className="text-xs font-mono text-gray-500 mt-1">
+                    {selectedBranch?.code || "—"}
                   </div>
                 </div>
 
-                <div
-                  className={`bg-white dark:bg-gray-800 rounded-lg p-3 border flex flex-col gap-2 text-[13px] ${formData.shippingZoneId !== initialData.shippingZoneId ? "border-amber-400" : "border-gray-100 dark:border-gray-700"}`}
-                >
-                  <div className="flex justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2">
-                    <span className="text-gray-500 font-medium">
-                      Sẽ phục vụ vùng:
-                    </span>
-                    <span className="font-bold text-gray-900 dark:text-white">
-                      {selectedZone?.name}
-                    </span>
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    Vùng giao hàng
                   </div>
-                  <div
-                    className={`flex justify-between items-center ${formData.deliveryFeeOverride !== initialData.deliveryFeeOverride ? "text-amber-600 font-bold" : ""}`}
-                  >
-                    <span className="text-gray-500 font-medium">
-                      Mức phí áp dụng:
-                    </span>
-                    {formData.deliveryFeeOverride ? (
-                      <span
-                        className={
-                          formData.deliveryFeeOverride !==
-                          initialData.deliveryFeeOverride
-                            ? ""
-                            : "font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded border border-amber-200"
-                        }
-                      >
-                        {formatCurrencyPreview(formData.deliveryFeeOverride)}
-                      </span>
-                    ) : (
-                      <span className="font-bold text-blue-600 dark:text-blue-400">
-                        {selectedZone
-                          ? formatCurrencyPreview(selectedZone.baseFee)
-                          : "—"}
-                      </span>
-                    )}
+                  <div className="font-bold text-gray-900 dark:text-white">
+                    {selectedZone?.name || "—"}
                   </div>
-                  <div
-                    className={`flex flex-col mt-1 ${formData.minOrderValue !== initialData.minOrderValue || formData.maxOrderValue !== initialData.maxOrderValue ? "text-amber-600 font-bold" : ""}`}
-                  >
-                    <span className="text-gray-500 font-medium">
-                      Dải đơn hàng:
-                    </span>
-                    <span className="font-bold text-gray-800 dark:text-gray-200 mt-0.5 leading-snug">
-                      {orderConditionText}
-                    </span>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {zoneAreaLabel(selectedZone)}
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Điều kiện áp dụng
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {summaryOrderRule}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Giao trong ngày
+                    </div>
+                    <div
+                      className={`font-bold ${formData.supportsSameDay ? "text-green-600 dark:text-green-400" : "text-gray-900 dark:text-white"}`}
+                    >
+                      {formData.supportsSameDay ? "Có hỗ trợ" : "Không hỗ trợ"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Phí cơ bản vùng
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(selectedZone?.baseFee)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Phí ghi đè
+                    </div>
+                    <div
+                      className={`font-bold ${formData.deliveryFeeOverride ? "text-blue-600 dark:text-blue-400" : "text-gray-900 dark:text-white"}`}
+                    >
+                      {formData.deliveryFeeOverride
+                        ? formatCurrency(formData.deliveryFeeOverride)
+                        : "Không ghi đè"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-gray-200 dark:border-gray-700 grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Trạng thái
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {formData.status === "active" ? "Hoạt động" : "Tạm dừng"}
+                    </div>
+                  </div>
+                  {detail?.createdAt && (
+                    <div>
+                      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                        Ngày tạo
+                      </div>
+                      <div className="text-xs text-gray-500 font-medium">
+                        {new Date(detail.createdAt).toLocaleDateString("vi-VN")}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>
 
-            {selectedBranch && selectedZone && (
-              <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-gray-500" /> Bước tiếp
-                  theo
-                </h3>
-                <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-3">
-                  Cấu hình thay đổi, bạn nên kiểm tra lại{" "}
-                  <strong>Khung giờ chi nhánh</strong> của cửa hàng này để đảm
-                  bảo lịch phục vụ vẫn tương thích.
-                </p>
+            <Card className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+                <ArrowRight className="w-4 h-4" /> Hành động tiếp theo
+              </h3>
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+                Sau khi lưu, bạn có thể mở nhanh các luồng vận hành liên quan
+                hoặc tạo quy tắc tương tự.
+              </p>
+
+              <div className="space-y-2">
                 <button
                   type="button"
                   onClick={() =>
                     navigate(
-                      `/admin/shipping/branch-delivery-slots?branchId=${selectedBranch.id}`,
+                      `/admin/shipping/branch-service-areas/create?branchId=${formData.branchId}&shippingZoneId=${formData.shippingZoneId}`,
                     )
                   }
-                  className="w-full py-2 bg-white border border-gray-300 rounded text-xs font-bold text-gray-700 hover:bg-gray-50 shadow-sm transition"
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-left text-[13px] font-medium text-gray-700 dark:text-gray-200 hover:border-blue-300 hover:text-blue-600 transition"
                 >
-                  Mở Khung giờ chi nhánh
+                  <span className="flex items-center gap-2">
+                    <Copy className="w-4 h-4" /> Tạo quy tắc tương tự
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/admin/shipping/branch-delivery-time-slots?branchId=${formData.branchId}`,
+                    )
+                  }
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-left text-[13px] font-medium text-gray-700 dark:text-gray-200 hover:border-blue-300 hover:text-blue-600 transition"
+                >
+                  Mở không gian làm việc suất giao
+                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate(
+                      `/admin/shipping/branch-delivery-slot-capacities/create?branchId=${formData.branchId}`,
+                    )
+                  }
+                  className="flex w-full items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2.5 text-left text-[13px] font-medium text-gray-700 dark:text-gray-200 hover:border-blue-300 hover:text-blue-600 transition"
+                >
+                  Tạo sức chứa (capacity) mới
+                  <ArrowRight className="h-3.5 w-3.5 opacity-50" />
+                </button>
+              </div>
+            </Card>
+
+            {isStatusChanged && (
+              <Card className="bg-amber-50 border border-amber-200">
+                <h3 className="text-sm font-bold text-amber-800 mb-3 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" /> Trạng thái đã đổi
+                </h3>
+                <p className="text-xs text-amber-700 leading-relaxed">
+                  Bạn đang thay đổi trạng thái của quy tắc này. Hãy lưu để cập
+                  nhật hệ thống, hoặc dùng nút bật / tắt nhanh ở thanh hành động
+                  dưới cùng.
+                </p>
               </Card>
             )}
           </div>
@@ -957,39 +836,55 @@ const BranchServiceAreaEditPage: React.FC = () => {
       {/* Action Bar */}
       <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="text-sm font-medium hidden sm:flex items-center gap-4">
-            {Object.keys(errors).length > 0 && (
+          <div className="text-sm font-medium text-gray-500 hidden sm:block">
+            {Object.keys(errors).length > 0 ? (
               <span className="text-red-500 flex items-center gap-1">
-                <AlertCircle className="w-4 h-4" /> Có lỗi cần kiểm tra lại
+                <AlertCircle className="w-4 h-4" /> Có lỗi cần chỉnh sửa
               </span>
-            )}
-            {isDirty && Object.keys(errors).length === 0 && (
+            ) : isDirty ? (
               <span className="text-amber-600 flex items-center gap-1">
-                <Info className="w-4 h-4" /> Bấm lưu để áp dụng thay đổi
+                <History className="w-4 h-4" /> Có thay đổi chưa lưu
               </span>
+            ) : (
+              <span className="text-gray-500">Chưa có thay đổi mới</span>
             )}
           </div>
+
           <div className="flex gap-3 w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => navigate("/admin/shipping/service-areas")}
+              onClick={handleToggleStatus}
+              disabled={togglingStatus}
+              className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {togglingStatus ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Power className="w-4 h-4" />
+              )}
+              {formData.status === "active" ? "Tạm dừng" : "Bật lại"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
               className="flex-1 sm:flex-none px-6 py-2.5 rounded-lg font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 transition-colors"
             >
-              Hủy bỏ
+              Hủy
             </button>
+
             <button
-              onClick={handleSave}
-              disabled={loading || !isDirty}
-              className={`flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-medium text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm ${isDirty ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"}`}
+              onClick={handleSubmit}
+              disabled={saving || !isDirty}
+              className="flex-1 sm:flex-none px-8 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
             >
-              {loading ? (
+              {saving ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Đang cập nhật...
+                  <Loader2 className="w-5 h-5 animate-spin" /> Đang lưu...
                 </>
               ) : (
                 <>
-                  <Save className="w-5 h-5" />{" "}
-                  {isDirty ? "Lưu thay đổi" : "Đã đồng bộ"}
+                  <Save className="w-5 h-5" /> Lưu thay đổi
                 </>
               )}
             </button>

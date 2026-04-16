@@ -30,6 +30,10 @@ export class BranchServiceArea {
     return this._props;
   }
 
+  toJSON(): Readonly<BranchServiceAreaProps> {
+    return this._props;
+  }
+
   static validate(p: BranchServiceAreaProps): BranchServiceAreaProps {
     if (!p.branchId || p.branchId <= 0) {
       throw new Error("branchId không hợp lệ");
@@ -43,12 +47,10 @@ export class BranchServiceArea {
       p.deliveryFeeOverride !== undefined && p.deliveryFeeOverride !== null
         ? Number(p.deliveryFeeOverride)
         : null;
-
     const minOrderValue =
       p.minOrderValue !== undefined && p.minOrderValue !== null
         ? Number(p.minOrderValue)
         : null;
-
     const maxOrderValue =
       p.maxOrderValue !== undefined && p.maxOrderValue !== null
         ? Number(p.maxOrderValue)
@@ -87,7 +89,7 @@ export class BranchServiceArea {
       .trim()
       .toLowerCase() as BranchServiceAreaStatus;
 
-    if (!["active", "inactive"].includes(status)) {
+    if (!(["active", "inactive"] as string[]).includes(status)) {
       throw new Error("Trạng thái vùng phục vụ không hợp lệ");
     }
 
@@ -103,10 +105,11 @@ export class BranchServiceArea {
     };
   }
 
-  changeStatus(status: BranchServiceAreaStatus) {
+  withStatus(status: BranchServiceAreaStatus) {
     this._props = BranchServiceArea.validate({
       ...this._props,
       status,
     });
+    return this;
   }
 }

@@ -21,7 +21,10 @@ export class EditBranchDeliveryTimeSlot {
     const id = Number(input.id);
     const branchId = Number(input.branchId);
     const deliveryTimeSlotId = Number(input.deliveryTimeSlotId);
-    const status = String(input.status ?? "active").trim() || "active";
+    const status =
+      String(input.status ?? "active")
+        .trim()
+        .toLowerCase() || "active";
 
     let maxOrdersOverride: number | null = null;
     if (
@@ -41,6 +44,10 @@ export class EditBranchDeliveryTimeSlot {
 
     if (!Number.isInteger(deliveryTimeSlotId) || deliveryTimeSlotId <= 0) {
       throw new Error("Khung giờ giao hàng không hợp lệ.");
+    }
+
+    if (!["active", "inactive"].includes(status)) {
+      throw new Error("Trạng thái cấu hình không hợp lệ.");
     }
 
     if (

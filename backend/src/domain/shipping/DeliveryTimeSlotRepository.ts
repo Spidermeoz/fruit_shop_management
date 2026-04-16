@@ -1,3 +1,5 @@
+export type BulkWriteMode = "skip_existing" | "overwrite" | "fail_on_conflict";
+
 export interface DeliveryTimeSlotEntity {
   id: number;
   code: string;
@@ -68,6 +70,8 @@ export interface DeliveryTimeSlotRepository {
     };
   }>;
 
+  listByIds(ids: number[]): Promise<DeliveryTimeSlotEntity[]>;
+
   findById(id: number): Promise<DeliveryTimeSlotEntity | null>;
 
   findByCode(code: string): Promise<DeliveryTimeSlotEntity | null>;
@@ -89,6 +93,11 @@ export interface DeliveryTimeSlotRepository {
   ): Promise<DeliveryTimeSlotEntity>;
 
   changeStatus(id: number, status: string): Promise<DeliveryTimeSlotEntity>;
+
+  bulkChangeStatus(
+    ids: number[],
+    status: string,
+  ): Promise<{ updatedIds: number[]; notFoundIds: number[] }>;
 
   softDelete(id: number): Promise<void>;
 

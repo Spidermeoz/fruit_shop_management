@@ -46,10 +46,7 @@ export class EditDeliveryTimeSlot {
     const status = String(input.status ?? "active").trim() || "active";
 
     let maxOrders: number | null = null;
-    if (
-      input.maxOrders !== undefined &&
-      input.maxOrders !== null
-    ) {
+    if (input.maxOrders !== undefined && input.maxOrders !== null) {
       maxOrders = Number(input.maxOrders);
     }
 

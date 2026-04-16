@@ -4,12 +4,16 @@ export class GetBranchDeliverySlotCapacityDetail {
   constructor(private readonly repo: BranchDeliverySlotCapacityRepository) {}
 
   async execute(id: number) {
-    const item = await this.repo.findById(id);
+    const capacityId = Number(id);
+    if (!Number.isInteger(capacityId) || capacityId <= 0) {
+      throw new Error("Branch delivery slot capacity id không hợp lệ");
+    }
 
-    if (!item) {
+    const existing = await this.repo.findById(capacityId);
+    if (!existing) {
       throw new Error("Branch delivery slot capacity not found");
     }
 
-    return item;
+    return existing;
   }
 }

@@ -1,3 +1,8 @@
+export type ShippingZoneBulkWriteMode =
+  | "skip_existing"
+  | "overwrite"
+  | "fail_on_conflict";
+
 export interface ShippingZoneMatchInput {
   province?: string | null;
   district?: string | null;
@@ -59,6 +64,26 @@ export type UpdateShippingZonePatch = Partial<{
   status?: string | null;
 }>;
 
+export interface BulkChangeShippingZoneStatusResult {
+  updatedIds: number[];
+  notFoundIds: number[];
+}
+
+export interface BulkDeleteShippingZonesResult {
+  deletedIds: number[];
+  notFoundIds: number[];
+}
+
+export interface BulkUpdateShippingZonePriorityItem {
+  id: number;
+  priority: number;
+}
+
+export interface BulkUpdateShippingZonePriorityResult {
+  updatedIds: number[];
+  notFoundIds: number[];
+}
+
 export interface ShippingZoneRepository {
   findBestMatch(
     input: ShippingZoneMatchInput,
@@ -80,6 +105,8 @@ export interface ShippingZoneRepository {
 
   findByCode(code: string): Promise<ShippingZoneEntity | null>;
 
+  findDeletedByCode(code: string): Promise<ShippingZoneEntity | null>;
+
   create(input: CreateShippingZoneInput): Promise<ShippingZoneEntity>;
 
   update(
@@ -87,7 +114,23 @@ export interface ShippingZoneRepository {
     patch: UpdateShippingZonePatch,
   ): Promise<ShippingZoneEntity>;
 
+  revive(
+    id: number,
+    patch: UpdateShippingZonePatch,
+  ): Promise<ShippingZoneEntity>;
+
   changeStatus(id: number, status: string): Promise<ShippingZoneEntity>;
+
+  bulkChangeStatus(
+    ids: number[],
+    status: string,
+  ): Promise<BulkChangeShippingZoneStatusResult>;
+
+  bulkDelete(ids: number[]): Promise<BulkDeleteShippingZonesResult>;
+
+  bulkUpdatePriority(
+    items: BulkUpdateShippingZonePriorityItem[],
+  ): Promise<BulkUpdateShippingZonePriorityResult>;
 
   softDelete(id: number): Promise<boolean>;
 }

@@ -371,11 +371,23 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 GetAvailableDeliverySlotsService.ts
 │   │   │   │   │   └── 📄 ResolveShippingZoneService.ts
 │   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 BulkChangeBranchDeliverySlotCapacityStatus.ts
+│   │   │   │       ├── 📄 BulkChangeBranchDeliveryTimeSlotStatus.ts
+│   │   │   │       ├── 📄 BulkChangeBranchServiceAreaStatus.ts
+│   │   │   │       ├── 📄 BulkChangeShippingZoneStatus.ts
+│   │   │   │       ├── 📄 BulkDeleteShippingZones.ts
+│   │   │   │       ├── 📄 BulkUpdateShippingZonePriority.ts
+│   │   │   │       ├── 📄 BulkUpsertBranchDeliverySlotCapacities.ts
+│   │   │   │       ├── 📄 BulkUpsertBranchDeliveryTimeSlots.ts
+│   │   │   │       ├── 📄 BulkUpsertBranchServiceAreas.ts
 │   │   │   │       ├── 📄 ChangeBranchDeliverySlotCapacityStatus.ts
 │   │   │   │       ├── 📄 ChangeBranchDeliveryTimeSlotStatus.ts
 │   │   │   │       ├── 📄 ChangeBranchServiceAreaStatus.ts
 │   │   │   │       ├── 📄 ChangeDeliveryTimeSlotStatus.ts
 │   │   │   │       ├── 📄 ChangeShippingZoneStatus.ts
+│   │   │   │       ├── 📄 CopyBranchDeliverySlotCapacitiesFromDate.ts
+│   │   │   │       ├── 📄 CopyBranchDeliveryTimeSlotsFromBranch.ts
+│   │   │   │       ├── 📄 CopyBranchServiceAreasFromBranch.ts
 │   │   │   │       ├── 📄 CreateBranchDeliverySlotCapacity.ts
 │   │   │   │       ├── 📄 CreateBranchDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 CreateBranchServiceArea.ts
@@ -386,9 +398,12 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 EditBranchServiceArea.ts
 │   │   │   │       ├── 📄 EditDeliveryTimeSlot.ts
 │   │   │   │       ├── 📄 EditShippingZone.ts
+│   │   │   │       ├── 📄 GenerateBranchDeliverySlotCapacitiesFromDefaults.ts
+│   │   │   │       ├── 📄 GetBranchCapacityPlanner.ts
 │   │   │   │       ├── 📄 GetBranchDeliverySlotCapacityDetail.ts
 │   │   │   │       ├── 📄 GetBranchDeliveryTimeSlotDetail.ts
 │   │   │   │       ├── 📄 GetBranchServiceAreaDetail.ts
+│   │   │   │       ├── 📄 GetBranchShippingSetupChecklist.ts
 │   │   │   │       ├── 📄 GetDeliveryTimeSlotDetail.ts
 │   │   │   │       ├── 📄 GetShippingZoneDetail.ts
 │   │   │   │       ├── 📄 ListBranchDeliverySlotCapacities.ts

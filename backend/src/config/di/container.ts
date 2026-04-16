@@ -215,6 +215,22 @@ import { GetAvailableDeliverySlotsService } from "../../application/shipping/ser
 import { CalculateShippingQuoteService } from "../../application/shipping/services/CalculateShippingQuoteService";
 
 // ===== Shipping zone usecases =====
+
+import { BulkUpsertBranchDeliverySlotCapacities } from "../../application/shipping/usecases/BulkUpsertBranchDeliverySlotCapacities";
+import { CopyBranchDeliverySlotCapacitiesFromDate } from "../../application/shipping/usecases/CopyBranchDeliverySlotCapacitiesFromDate";
+import { GenerateBranchDeliverySlotCapacitiesFromDefaults } from "../../application/shipping/usecases/GenerateBranchDeliverySlotCapacitiesFromDefaults";
+import { BulkChangeBranchDeliverySlotCapacityStatus } from "../../application/shipping/usecases/BulkChangeBranchDeliverySlotCapacityStatus";
+import { GetBranchCapacityPlanner } from "../../application/shipping/usecases/GetBranchCapacityPlanner";
+import { BulkUpsertBranchDeliveryTimeSlots } from "../../application/shipping/usecases/BulkUpsertBranchDeliveryTimeSlots";
+import { CopyBranchDeliveryTimeSlotsFromBranch } from "../../application/shipping/usecases/CopyBranchDeliveryTimeSlotsFromBranch";
+import { BulkChangeBranchDeliveryTimeSlotStatus } from "../../application/shipping/usecases/BulkChangeBranchDeliveryTimeSlotStatus";
+import { BulkUpsertBranchServiceAreas } from "../../application/shipping/usecases/BulkUpsertBranchServiceAreas";
+import { CopyBranchServiceAreasFromBranch } from "../../application/shipping/usecases/CopyBranchServiceAreasFromBranch";
+import { BulkChangeBranchServiceAreaStatus } from "../../application/shipping/usecases/BulkChangeBranchServiceAreaStatus";
+import { BulkChangeShippingZoneStatus } from "../../application/shipping/usecases/BulkChangeShippingZoneStatus";
+import { BulkDeleteShippingZones } from "../../application/shipping/usecases/BulkDeleteShippingZones";
+import { BulkUpdateShippingZonePriority } from "../../application/shipping/usecases/BulkUpdateShippingZonePriority";
+import { GetBranchShippingSetupChecklist } from "../../application/shipping/usecases/GetBranchShippingSetupChecklist";
 import { ListShippingZones } from "../../application/shipping/usecases/ListShippingZones";
 import { GetShippingZoneDetail } from "../../application/shipping/usecases/GetShippingZoneDetail";
 import { CreateShippingZone } from "../../application/shipping/usecases/CreateShippingZone";
@@ -1279,6 +1295,9 @@ export const usecases = {
     edit: new EditShippingZone(shippingZoneRepo),
     changeStatus: new ChangeShippingZoneStatus(shippingZoneRepo),
     softDelete: new SoftDeleteShippingZone(shippingZoneRepo),
+    bulkChangeStatus: new BulkChangeShippingZoneStatus(shippingZoneRepo),
+    bulkDelete: new BulkDeleteShippingZones(shippingZoneRepo),
+    bulkUpdatePriority: new BulkUpdateShippingZonePriority(shippingZoneRepo),
   },
 
   branchServiceAreas: {
@@ -1296,6 +1315,24 @@ export const usecases = {
     ),
     changeStatus: new ChangeBranchServiceAreaStatus(branchServiceAreaRepo),
     softDelete: new SoftDeleteBranchServiceArea(branchServiceAreaRepo),
+    bulkUpsert: new BulkUpsertBranchServiceAreas(
+      branchServiceAreaRepo,
+      branchRepo,
+      shippingZoneRepo,
+    ),
+    copyFromBranch: new CopyBranchServiceAreasFromBranch(
+      branchServiceAreaRepo,
+      branchRepo,
+    ),
+    bulkChangeStatus: new BulkChangeBranchServiceAreaStatus(
+      branchServiceAreaRepo,
+    ),
+    checklist: new GetBranchShippingSetupChecklist(
+      branchRepo,
+      branchServiceAreaRepo,
+      branchDeliveryTimeSlotRepo,
+      branchDeliverySlotCapacityRepo,
+    ),
   },
 
   deliveryTimeSlots: {
@@ -1326,6 +1363,18 @@ export const usecases = {
     softDelete: new SoftDeleteBranchDeliveryTimeSlot(
       branchDeliveryTimeSlotRepo,
     ),
+    bulkUpsert: new BulkUpsertBranchDeliveryTimeSlots(
+      branchDeliveryTimeSlotRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
+    ),
+    copyFromBranch: new CopyBranchDeliveryTimeSlotsFromBranch(
+      branchDeliveryTimeSlotRepo,
+      branchRepo,
+    ),
+    bulkChangeStatus: new BulkChangeBranchDeliveryTimeSlotStatus(
+      branchDeliveryTimeSlotRepo,
+    ),
   },
 
   branchDeliverySlotCapacities: {
@@ -1335,13 +1384,39 @@ export const usecases = {
     ),
     create: new CreateBranchDeliverySlotCapacity(
       branchDeliverySlotCapacityRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
     ),
-    edit: new EditBranchDeliverySlotCapacity(branchDeliverySlotCapacityRepo),
+    edit: new EditBranchDeliverySlotCapacity(
+      branchDeliverySlotCapacityRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
+    ),
     changeStatus: new ChangeBranchDeliverySlotCapacityStatus(
       branchDeliverySlotCapacityRepo,
     ),
     softDelete: new SoftDeleteBranchDeliverySlotCapacity(
       branchDeliverySlotCapacityRepo,
+    ),
+    bulkUpsert: new BulkUpsertBranchDeliverySlotCapacities(
+      branchDeliverySlotCapacityRepo,
+      branchRepo,
+      deliveryTimeSlotRepo,
+    ),
+    copyFromDate: new CopyBranchDeliverySlotCapacitiesFromDate(
+      branchDeliverySlotCapacityRepo,
+      branchRepo,
+    ),
+    generateFromDefaults: new GenerateBranchDeliverySlotCapacitiesFromDefaults(
+      branchDeliverySlotCapacityRepo,
+      branchRepo,
+    ),
+    bulkChangeStatus: new BulkChangeBranchDeliverySlotCapacityStatus(
+      branchDeliverySlotCapacityRepo,
+    ),
+    planner: new GetBranchCapacityPlanner(
+      branchDeliverySlotCapacityRepo,
+      branchRepo,
     ),
   },
 
@@ -1599,6 +1674,9 @@ export const controllers: Controllers = {
     edit: usecases.shippingZones.edit,
     changeStatus: usecases.shippingZones.changeStatus,
     softDelete: usecases.shippingZones.softDelete,
+    bulkChangeStatus: usecases.shippingZones.bulkChangeStatus,
+    bulkDelete: usecases.shippingZones.bulkDelete,
+    bulkUpdatePriority: usecases.shippingZones.bulkUpdatePriority,
   }),
 
   promotions: makePromotionsController({
@@ -1619,6 +1697,10 @@ export const controllers: Controllers = {
     edit: usecases.branchServiceAreas.edit,
     changeStatus: usecases.branchServiceAreas.changeStatus,
     softDelete: usecases.branchServiceAreas.softDelete,
+    bulkUpsert: usecases.branchServiceAreas.bulkUpsert,
+    copyFromBranch: usecases.branchServiceAreas.copyFromBranch,
+    bulkChangeStatus: usecases.branchServiceAreas.bulkChangeStatus,
+    checklist: usecases.branchServiceAreas.checklist,
   }),
 
   deliveryTimeSlots: makeDeliveryTimeSlotsController({
@@ -1637,6 +1719,9 @@ export const controllers: Controllers = {
     edit: usecases.branchDeliveryTimeSlots.edit,
     changeStatus: usecases.branchDeliveryTimeSlots.changeStatus,
     softDelete: usecases.branchDeliveryTimeSlots.softDelete,
+    bulkUpsert: usecases.branchDeliveryTimeSlots.bulkUpsert,
+    copyFromBranch: usecases.branchDeliveryTimeSlots.copyFromBranch,
+    bulkChangeStatus: usecases.branchDeliveryTimeSlots.bulkChangeStatus,
   }),
 
   branchDeliverySlotCapacities: makeBranchDeliverySlotCapacitiesController({
@@ -1646,6 +1731,12 @@ export const controllers: Controllers = {
     edit: usecases.branchDeliverySlotCapacities.edit,
     changeStatus: usecases.branchDeliverySlotCapacities.changeStatus,
     softDelete: usecases.branchDeliverySlotCapacities.softDelete,
+    bulkUpsert: usecases.branchDeliverySlotCapacities.bulkUpsert,
+    copyFromDate: usecases.branchDeliverySlotCapacities.copyFromDate,
+    generateFromDefaults:
+      usecases.branchDeliverySlotCapacities.generateFromDefaults,
+    bulkChangeStatus: usecases.branchDeliverySlotCapacities.bulkChangeStatus,
+    planner: usecases.branchDeliverySlotCapacities.planner,
   }),
 
   auth: makeAuthController({

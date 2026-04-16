@@ -81,7 +81,23 @@ export class CreateShippingZone {
       throw new Error("Mã vùng giao hàng đã tồn tại");
     }
 
-    const created = await this.shippingZoneRepo.create({
+    const deletedCandidate =
+      await this.shippingZoneRepo.findDeletedByCode(code);
+    if (deletedCandidate) {
+      return this.shippingZoneRepo.revive(deletedCandidate.id, {
+        code,
+        name,
+        province,
+        district,
+        ward,
+        baseFee,
+        freeShipThreshold,
+        priority,
+        status,
+      });
+    }
+
+    return this.shippingZoneRepo.create({
       code,
       name,
       province,
@@ -92,7 +108,5 @@ export class CreateShippingZone {
       priority,
       status,
     });
-
-    return created;
   }
 }

@@ -1,16 +1,7 @@
-import type { ShippingZoneRepository } from "../../../domain/shipping/ShippingZoneRepository";
-
-type UpdateShippingZonePatch = Partial<{
-  code: string;
-  name: string;
-  province: string | null;
-  district: string | null;
-  ward: string | null;
-  baseFee: number | null;
-  freeShipThreshold: number | null;
-  priority: number | null;
-  status: string | null;
-}>;
+import type {
+  ShippingZoneRepository,
+  UpdateShippingZonePatch,
+} from "../../../domain/shipping/ShippingZoneRepository";
 
 const normalizeNullableText = (
   value: string | null | undefined,
@@ -35,8 +26,10 @@ export class EditShippingZone {
       throw new Error("Vùng giao hàng không tồn tại");
     }
 
-    if (patch.code !== undefined) {
-      const normalizedCode = String(patch.code ?? "")
+    const normalizedPatch: UpdateShippingZonePatch = { ...patch };
+
+    if (normalizedPatch.code !== undefined) {
+      const normalizedCode = String(normalizedPatch.code ?? "")
         .trim()
         .toUpperCase();
 
@@ -49,28 +42,33 @@ export class EditShippingZone {
         throw new Error("Mã vùng giao hàng đã tồn tại");
       }
 
-      patch.code = normalizedCode;
+      normalizedPatch.code = normalizedCode;
     }
 
-    if (patch.name !== undefined) {
-      const normalizedName = String(patch.name ?? "").trim();
+    if (normalizedPatch.name !== undefined) {
+      const normalizedName = String(normalizedPatch.name ?? "").trim();
 
       if (!normalizedName) {
         throw new Error("Tên vùng giao hàng không được để trống");
       }
 
-      patch.name = normalizedName;
+      normalizedPatch.name = normalizedName;
     }
 
-    patch.province = normalizeNullableText(patch.province);
-    patch.district = normalizeNullableText(patch.district);
-    patch.ward = normalizeNullableText(patch.ward);
+    normalizedPatch.province = normalizeNullableText(normalizedPatch.province);
+    normalizedPatch.district = normalizeNullableText(normalizedPatch.district);
+    normalizedPatch.ward = normalizeNullableText(normalizedPatch.ward);
 
     const nextProvince =
-      patch.province !== undefined ? patch.province : current.province;
+      normalizedPatch.province !== undefined
+        ? normalizedPatch.province
+        : current.province;
     const nextDistrict =
-      patch.district !== undefined ? patch.district : current.district;
-    const nextWard = patch.ward !== undefined ? patch.ward : current.ward;
+      normalizedPatch.district !== undefined
+        ? normalizedPatch.district
+        : current.district;
+    const nextWard =
+      normalizedPatch.ward !== undefined ? normalizedPatch.ward : current.ward;
 
     if (nextWard && !nextDistrict) {
       throw new Error("Nếu có phường/xã thì phải chọn quận/huyện");
@@ -82,42 +80,43 @@ export class EditShippingZone {
       );
     }
 
-    if (patch.baseFee !== undefined) {
-      const baseFee = patch.baseFee === null ? 0 : Number(patch.baseFee);
+    if (normalizedPatch.baseFee !== undefined) {
+      const baseFee =
+        normalizedPatch.baseFee === null ? 0 : Number(normalizedPatch.baseFee);
 
       if (!Number.isFinite(baseFee) || baseFee < 0) {
         throw new Error("Phí giao hàng cơ bản không hợp lệ");
       }
 
-      patch.baseFee = baseFee;
+      normalizedPatch.baseFee = baseFee;
     }
 
-    if (patch.freeShipThreshold !== undefined) {
-      if (patch.freeShipThreshold === null) {
-        patch.freeShipThreshold = null;
+    if (normalizedPatch.freeShipThreshold !== undefined) {
+      if (normalizedPatch.freeShipThreshold === null) {
+        normalizedPatch.freeShipThreshold = null;
       } else {
-        const freeShipThreshold = Number(patch.freeShipThreshold);
+        const freeShipThreshold = Number(normalizedPatch.freeShipThreshold);
 
         if (!Number.isFinite(freeShipThreshold) || freeShipThreshold < 0) {
           throw new Error("Ngưỡng miễn phí vận chuyển không hợp lệ");
         }
 
-        patch.freeShipThreshold = freeShipThreshold;
+        normalizedPatch.freeShipThreshold = freeShipThreshold;
       }
     }
 
-    if (patch.priority !== undefined) {
-      const priority = Number(patch.priority);
+    if (normalizedPatch.priority !== undefined) {
+      const priority = Number(normalizedPatch.priority);
 
       if (!Number.isInteger(priority) || priority < 0) {
         throw new Error("Độ ưu tiên phải là số nguyên >= 0");
       }
 
-      patch.priority = priority;
+      normalizedPatch.priority = priority;
     }
 
-    if (patch.status !== undefined) {
-      const status = String(patch.status ?? "")
+    if (normalizedPatch.status !== undefined) {
+      const status = String(normalizedPatch.status ?? "")
         .trim()
         .toLowerCase();
 
@@ -125,10 +124,9 @@ export class EditShippingZone {
         throw new Error("Trạng thái vùng giao hàng không hợp lệ");
       }
 
-      patch.status = status;
+      normalizedPatch.status = status;
     }
 
-    const updated = await this.shippingZoneRepo.update(zoneId, patch);
-    return updated;
+    return this.shippingZoneRepo.update(zoneId, normalizedPatch);
   }
 }

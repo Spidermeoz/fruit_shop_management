@@ -12,14 +12,16 @@ export class ChangeDeliveryTimeSlotStatus {
 
   async execute(input: ChangeDeliveryTimeSlotStatusInput) {
     const id = Number(input.id);
-    const status = String(input.status ?? "").trim();
+    const status = String(input.status ?? "")
+      .trim()
+      .toLowerCase();
 
     if (!Number.isInteger(id) || id <= 0) {
       throw new Error("ID khung giờ giao hàng không hợp lệ.");
     }
 
-    if (!status) {
-      throw new Error("Trạng thái là bắt buộc.");
+    if (!["active", "inactive"].includes(status)) {
+      throw new Error("Trạng thái là không hợp lệ.");
     }
 
     const current = await this.deliveryTimeSlotRepo.findById(id);

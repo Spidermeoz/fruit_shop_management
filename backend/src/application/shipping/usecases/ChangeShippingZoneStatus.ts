@@ -23,11 +23,6 @@ export class ChangeShippingZoneStatus {
       throw new Error("Vùng giao hàng không tồn tại");
     }
 
-    const updated = await this.shippingZoneRepo.changeStatus(
-      zoneId,
-      normalizedStatus,
-    );
-
-    return updated;
+    return this.shippingZoneRepo.changeStatus(zoneId, normalizedStatus);
   }
 }

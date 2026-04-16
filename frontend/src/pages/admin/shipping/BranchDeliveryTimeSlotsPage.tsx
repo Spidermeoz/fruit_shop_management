@@ -1,35 +1,40 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Card from "../../../components/admin/layouts/Card";
-import Pagination from "../../../components/admin/common/Pagination";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  Clock3,
-  Store,
-  Power,
-  PowerOff,
-  Settings2,
+  ArrowRightLeft,
   CheckCircle2,
-  AlertCircle,
+  Clock3,
+  Edit,
+  ExternalLink,
+  Grid,
+  Layers,
   LayoutGrid,
   List,
-  CalendarDays,
-  AlertTriangle,
+  Loader2,
+  Plus,
+  Power,
   RefreshCw,
+  Search,
+  Settings2,
   ShieldAlert,
-  Layers,
+  Store,
 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// =============================
-// TYPES
-// =============================
 type BranchDeliveryTimeSlotStatus = "active" | "inactive";
+type ViewMode = "board" | "table" | "matrix";
+type QuickFilterType =
+  | "all"
+  | "active"
+  | "inactive"
+  | "override"
+  | "no_override"
+  | "morning"
+  | "afternoon"
+  | "evening";
+type BulkMode = "skip_existing" | "overwrite" | "fail_on_conflict";
 
 interface BranchDeliveryTimeSlot {
   id: number;
@@ -56,8 +61,8 @@ interface DeliveryTimeSlotOption {
 }
 
 type ApiList<T> = {
-  success: true;
-  data:
+  success?: boolean;
+  data?:
     | T[]
     | {
         items?: T[];
@@ -71,39 +76,14 @@ type ApiList<T> = {
   meta?: { total?: number; limit?: number; offset?: number; page?: number };
 };
 
-type QuickFilterType =
-  | "all"
-  | "active"
-  | "inactive"
-  | "override"
-  | "no_override"
-  | "morning"
-  | "afternoon"
-  | "evening";
-
-// =============================
-// HELPERS & LOGIC
-// =============================
-const statusMap: Record<
-  BranchDeliveryTimeSlotStatus,
-  { label: string; className: string; textClass: string }
-> = {
-  active: {
-    label: "Đang hoạt động",
-    className:
-      "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800",
-    textClass: "text-green-600 dark:text-green-400",
-  },
-  inactive: {
-    label: "Tạm dừng",
-    className:
-      "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700",
-    textClass: "text-gray-500 dark:text-gray-400",
-  },
+const toArray = <T,>(input: ApiList<T>["data"] | undefined): T[] => {
+  if (Array.isArray(input)) return input;
+  if (Array.isArray(input?.items)) return input.items;
+  return [];
 };
 
 const formatMaxOrders = (value?: number | null) => {
-  if (value === null || value === undefined) return "Không giới hạn";
+  if (value === null || value === undefined) return "Dùng mặc định hệ thống";
   return `${Number(value).toLocaleString("vi-VN")} đơn`;
 };
 
@@ -112,30 +92,13 @@ const formatTimeRange = (startTime?: string, endTime?: string) => {
   return `${String(startTime).slice(0, 5)} - ${String(endTime).slice(0, 5)}`;
 };
 
-const getTimeInsight = (startTime?: string) => {
-  if (!startTime) return null;
-  const hour = parseInt(startTime.split(":")[0], 10);
-  if (isNaN(hour)) return null;
-  if (hour < 12)
-    return {
-      label: "Buổi sáng",
-      key: "morning",
-      color:
-        "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800",
-    };
-  if (hour < 18)
-    return {
-      label: "Buổi chiều",
-      key: "afternoon",
-      color:
-        "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
-    };
-  return {
-    label: "Buổi tối",
-    key: "evening",
-    color:
-      "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800",
-  };
+const getTimeBucket = (startTime?: string) => {
+  if (!startTime) return "unknown";
+  const hour = Number(startTime.split(":")[0]);
+  if (Number.isNaN(hour)) return "unknown";
+  if (hour < 12) return "morning";
+  if (hour < 18) return "afternoon";
+  return "evening";
 };
 
 const getLocalDateString = () => {
@@ -144,15 +107,21 @@ const getLocalDateString = () => {
   return d.toISOString().slice(0, 10);
 };
 
-// =============================
-// MAIN PAGE
-// =============================
+const quickFilters: Array<{ key: QuickFilterType; label: string }> = [
+  { key: "all", label: "Tất cả" },
+  { key: "active", label: "Đang chạy" },
+  { key: "inactive", label: "Tạm dừng" },
+  { key: "override", label: "Có override" },
+  { key: "morning", label: "Buổi sáng" },
+  { key: "afternoon", label: "Buổi chiều" },
+  { key: "evening", label: "Buổi tối" },
+];
+
 const BranchDeliveryTimeSlotsPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // --- States ---
   const [rows, setRows] = useState<BranchDeliveryTimeSlot[]>([]);
   const [summaryRows, setSummaryRows] = useState<BranchDeliveryTimeSlot[]>([]);
   const [branches, setBranches] = useState<BranchOption[]>([]);
@@ -160,325 +129,347 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [bootstrapLoading, setBootstrapLoading] = useState(true);
-  const [error, setError] = useState("");
-
   const [searchInput, setSearchInput] = useState(searchParams.get("q") || "");
   const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
-  const [viewMode, setViewMode] = useState<"board" | "table">("board");
+  const [viewMode, setViewMode] = useState<ViewMode>("board");
+  const [currentPage, setCurrentPage] = useState(
+    Number(searchParams.get("page") || 1),
+  );
+  const [totalPages, setTotalPages] = useState(1);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkStatus, setBulkStatus] =
+    useState<BranchDeliveryTimeSlotStatus>("active");
+  const [copySourceBranchId, setCopySourceBranchId] = useState<number | "">("");
+  const [copyTargetBranchIds, setCopyTargetBranchIds] = useState<number[]>([]);
+  const [copyMode, setCopyMode] = useState<BulkMode>("skip_existing");
+  const [copyStatusOverride, setCopyStatusOverride] = useState<
+    "keep" | BranchDeliveryTimeSlotStatus
+  >("keep");
 
-  // URL Filters
   const statusFilter = searchParams.get("status") || "all";
   const branchFilter = searchParams.get("branchId") || "all";
   const slotFilter = searchParams.get("deliveryTimeSlotId") || "all";
-  const currentPage = Number(searchParams.get("page") || 1);
-  const [totalPages, setTotalPages] = useState(1);
 
-  // --- Lookups ---
   const branchMap = useMemo(
-    () => new Map(branches.map((x) => [x.id, x])),
+    () => new Map(branches.map((item) => [item.id, item])),
     [branches],
   );
-  const slotMap = useMemo(() => new Map(slots.map((x) => [x.id, x])), [slots]);
+  const slotMap = useMemo(
+    () => new Map(slots.map((item) => [item.id, item])),
+    [slots],
+  );
 
-  // --- Data Fetching ---
-  const fetchBootstrap = async () => {
+  const fetchBootstrap = useCallback(async () => {
     try {
       setBootstrapLoading(true);
       const [branchesRes, slotsRes] = await Promise.all([
         http<any>("GET", "/api/v1/admin/branches?limit=1000&status=active"),
-        http<any>(
+        http<ApiList<DeliveryTimeSlotOption>>(
           "GET",
           "/api/v1/admin/delivery-time-slots?page=1&limit=1000&status=active",
         ),
       ]);
-
-      const branchesData = Array.isArray(branchesRes?.data)
+      const branchItems = Array.isArray(branchesRes?.data)
         ? branchesRes.data
         : Array.isArray(branchesRes?.data?.items)
           ? branchesRes.data.items
           : [];
-      const slotsData = Array.isArray(slotsRes?.data)
-        ? slotsRes.data
-        : Array.isArray(slotsRes?.data?.items)
-          ? slotsRes.data.items
-          : [];
-
-      setBranches(branchesData);
-      setSlots(slotsData);
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể tải dữ liệu danh mục.");
+      setBranches(branchItems);
+      setSlots(toArray(slotsRes?.data));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải dữ liệu danh mục.";
+      showErrorToast(message);
     } finally {
       setBootstrapLoading(false);
     }
-  };
+  }, [showErrorToast]);
 
-  const fetchSummaryRows = async () => {
+  const fetchSummaryRows = useCallback(async () => {
     try {
       let page = 1;
       const limit = 1000;
-      let allItems: BranchDeliveryTimeSlot[] = [];
+      const allItems: BranchDeliveryTimeSlot[] = [];
       let keepFetching = true;
 
       while (keepFetching) {
-        const url = `/api/v1/admin/branch-delivery-time-slots?page=${page}&limit=${limit}`;
-        const res = await http<ApiList<BranchDeliveryTimeSlot>>("GET", url);
-
-        if (!res?.success) break;
-
-        if (Array.isArray(res.data)) {
-          allItems = [...allItems, ...res.data];
-          const total = Number(res.meta?.total ?? allItems.length);
-          keepFetching = allItems.length < total;
-        } else {
-          const items = Array.isArray(res.data?.items) ? res.data.items : [];
-          const totalPages = Number(res.data?.pagination?.totalPages ?? page);
-          allItems = [...allItems, ...items];
-          keepFetching = page < totalPages;
-        }
-
+        const res = await http<ApiList<BranchDeliveryTimeSlot>>(
+          "GET",
+          `/api/v1/admin/branch-delivery-time-slots?page=${page}&limit=${limit}`,
+        );
+        const items = toArray(res?.data);
+        allItems.push(...items);
+        const maxPages = Array.isArray(res?.data)
+          ? Math.ceil(Number(res?.meta?.total ?? items.length) / limit)
+          : Number(res?.data?.pagination?.totalPages ?? page);
+        keepFetching = page < Math.max(1, maxPages) && items.length > 0;
         page += 1;
       }
 
       setSummaryRows(allItems);
-    } catch (err: any) {
-      console.error(
-        "Không thể tải dữ liệu tổng quan branch delivery slots",
-        err,
-      );
+    } catch (error) {
+      console.error(error);
     }
-  };
+  }, []);
 
-  const fetchRows = async () => {
+  const fetchRows = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
-
-      const limit = 20; // Tăng limit lên 20 cho board mode dễ nhìn
+      const limit = 20;
       let url = `/api/v1/admin/branch-delivery-time-slots?page=${currentPage}&limit=${limit}`;
-
       if (statusFilter !== "all")
         url += `&status=${encodeURIComponent(statusFilter)}`;
       if (branchFilter !== "all")
         url += `&branchId=${encodeURIComponent(branchFilter)}`;
       if (slotFilter !== "all")
         url += `&deliveryTimeSlotId=${encodeURIComponent(slotFilter)}`;
-
-      const q = searchParams.get("q");
-      if (q?.trim()) url += `&keyword=${encodeURIComponent(q.trim())}`;
+      if (searchInput.trim())
+        url += `&q=${encodeURIComponent(searchInput.trim())}`;
 
       const res = await http<ApiList<BranchDeliveryTimeSlot>>("GET", url);
-
-      if (res?.success) {
-        if (Array.isArray(res.data)) {
-          setRows(res.data);
-          const total = Number(res.meta?.total ?? 0);
-          setTotalPages(Math.max(1, Math.ceil(total / limit)));
-        } else {
-          const items = Array.isArray(res.data?.items) ? res.data.items : [];
-          const total =
-            Number(res.data?.pagination?.totalPages ?? 0) > 0
-              ? Number(res.data.pagination?.totalPages)
-              : 1;
-          setRows(items);
-          setTotalPages(total);
-        }
-      } else {
-        setError("Không thể tải danh sách cấu hình khung giờ chi nhánh.");
-      }
-    } catch (err: any) {
-      setError(err?.message || "Lỗi tải danh sách cấu hình khung giờ.");
+      const items = toArray(res?.data);
+      setRows(items);
+      const total = Array.isArray(res?.data)
+        ? Number(res?.meta?.total ?? items.length)
+        : Number(res?.data?.pagination?.totalItems ?? items.length);
+      setTotalPages(Math.max(1, Math.ceil(total / limit)));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách branch slot.";
+      showErrorToast(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    branchFilter,
+    currentPage,
+    searchInput,
+    showErrorToast,
+    slotFilter,
+    statusFilter,
+  ]);
 
   useEffect(() => {
-    fetchBootstrap();
-    fetchSummaryRows();
-  }, []);
+    void fetchBootstrap();
+    void fetchSummaryRows();
+  }, [fetchBootstrap, fetchSummaryRows]);
 
   useEffect(() => {
-    fetchRows();
-  }, [currentPage, statusFilter, branchFilter, slotFilter, searchParams]);
+    void fetchRows();
+  }, [fetchRows]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       const params = new URLSearchParams(searchParams);
       if (searchInput.trim()) params.set("q", searchInput.trim());
       else params.delete("q");
-      params.delete("page");
+      params.set("page", String(currentPage));
       setSearchParams(params);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [searchInput]);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [currentPage, searchInput, searchParams, setSearchParams]);
 
-  // --- Derived Models & Logic ---
   const enrichedRows = useMemo(() => {
-    return rows.map((row) => {
-      const slot = slotMap.get(row.deliveryTimeSlotId);
-      return {
-        ...row,
-        branch: branchMap.get(row.branchId),
-        slot: slot,
-        timeInsight: getTimeInsight(slot?.startTime),
-        isOverride:
-          row.maxOrdersOverride !== null && row.maxOrdersOverride !== undefined,
-      };
-    });
-  }, [rows, branchMap, slotMap]);
+    return rows.map((row) => ({
+      ...row,
+      branch: branchMap.get(row.branchId),
+      slot: slotMap.get(row.deliveryTimeSlotId),
+      hasOverride:
+        row.maxOrdersOverride !== null && row.maxOrdersOverride !== undefined,
+      bucket: getTimeBucket(slotMap.get(row.deliveryTimeSlotId)?.startTime),
+    }));
+  }, [branchMap, rows, slotMap]);
 
   const summaryEnrichedRows = useMemo(() => {
-    return summaryRows.map((row) => {
-      const slot = slotMap.get(row.deliveryTimeSlotId);
-      return {
-        ...row,
-        branch: branchMap.get(row.branchId),
-        slot,
-        timeInsight: getTimeInsight(slot?.startTime),
-        isOverride:
-          row.maxOrdersOverride !== null && row.maxOrdersOverride !== undefined,
-      };
-    });
-  }, [summaryRows, branchMap, slotMap]);
+    return summaryRows.map((row) => ({
+      ...row,
+      branch: branchMap.get(row.branchId),
+      slot: slotMap.get(row.deliveryTimeSlotId),
+      hasOverride:
+        row.maxOrdersOverride !== null && row.maxOrdersOverride !== undefined,
+      bucket: getTimeBucket(slotMap.get(row.deliveryTimeSlotId)?.startTime),
+    }));
+  }, [branchMap, slotMap, summaryRows]);
 
   const displayedRows = useMemo(() => {
-    if (quickFilter === "all") return enrichedRows;
     return enrichedRows.filter((row) => {
+      if (quickFilter === "all") return true;
       if (quickFilter === "active") return row.status === "active";
       if (quickFilter === "inactive") return row.status === "inactive";
-      if (quickFilter === "override") return row.isOverride;
-      if (quickFilter === "no_override") return !row.isOverride;
-      if (quickFilter === "morning") return row.timeInsight?.key === "morning";
-      if (quickFilter === "afternoon")
-        return row.timeInsight?.key === "afternoon";
-      if (quickFilter === "evening") return row.timeInsight?.key === "evening";
-      return true;
+      if (quickFilter === "override") return row.hasOverride;
+      if (quickFilter === "no_override") return !row.hasOverride;
+      return row.bucket === quickFilter;
     });
   }, [enrichedRows, quickFilter]);
 
   const groupedByBranch = useMemo(() => {
     const groups = new Map<number, typeof displayedRows>();
     displayedRows.forEach((row) => {
-      if (!groups.has(row.branchId)) groups.set(row.branchId, []);
-      groups.get(row.branchId)!.push(row);
+      const bucket = groups.get(row.branchId) ?? [];
+      bucket.push(row);
+      groups.set(row.branchId, bucket);
     });
     return groups;
   }, [displayedRows]);
 
-  // --- Metrics ---
   const metrics = useMemo(() => {
-    const total = summaryEnrichedRows.length;
-    let active = 0,
-      inactive = 0,
-      override = 0;
     const configuredBranchIds = new Set<number>();
     const activeBranchIds = new Set<number>();
+    let active = 0;
+    let override = 0;
 
-    summaryEnrichedRows.forEach((r) => {
-      configuredBranchIds.add(r.branchId);
-
-      if (r.status === "active") {
-        active++;
-        activeBranchIds.add(r.branchId);
-      } else {
-        inactive++;
+    summaryEnrichedRows.forEach((row) => {
+      configuredBranchIds.add(row.branchId);
+      if (row.status === "active") {
+        active += 1;
+        activeBranchIds.add(row.branchId);
       }
-
-      if (r.isOverride) override++;
+      if (row.hasOverride) override += 1;
     });
 
-    const branchesMissingSlots = branches.filter(
-      (b) => !activeBranchIds.has(b.id),
-    );
-
     return {
-      total,
+      total: summaryEnrichedRows.length,
       active,
-      inactive,
       override,
-      configuredCount: configuredBranchIds.size,
-      branchesMissingSlots,
+      configuredBranches: configuredBranchIds.size,
+      branchesMissingSlots: branches.filter(
+        (branch) => !activeBranchIds.has(branch.id),
+      ),
     };
-  }, [summaryEnrichedRows, branches]);
+  }, [branches, summaryEnrichedRows]);
 
-  // --- Actions ---
+  const matrixRows = useMemo(() => {
+    const activeBranches =
+      branchFilter === "all"
+        ? branches
+        : branches.filter((row) => String(row.id) === branchFilter);
+    const activeSlots =
+      slotFilter === "all"
+        ? slots
+        : slots.filter((row) => String(row.id) === slotFilter);
+    return {
+      branches: activeBranches.slice(0, 12),
+      slots: activeSlots.slice(0, 10),
+    };
+  }, [branchFilter, branches, slotFilter, slots]);
+
+  const matrixLookup = useMemo(() => {
+    return summaryRows.reduce<Record<string, BranchDeliveryTimeSlot>>(
+      (accumulator, row) => {
+        accumulator[`${row.branchId}-${row.deliveryTimeSlotId}`] = row;
+        return accumulator;
+      },
+      {},
+    );
+  }, [summaryRows]);
+
   const handleFilterChange = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams);
     if (value === "all") params.delete(key);
     else params.set(key, value);
-    params.delete("page");
+    params.set("page", "1");
+    setCurrentPage(1);
     setSearchParams(params);
   };
 
-  const handleDelete = async (
-    e: React.MouseEvent,
-    row: BranchDeliveryTimeSlot,
-  ) => {
-    e.stopPropagation();
-    const branchName =
-      branchMap.get(row.branchId)?.name || `Chi nhánh #${row.branchId}`;
-    const slotName =
-      slotMap.get(row.deliveryTimeSlotId)?.label ||
-      `Slot #${row.deliveryTimeSlotId}`;
-
-    if (
-      !window.confirm(
-        `Bạn có chắc muốn xóa cấu hình khung giờ "${slotName}" khỏi "${branchName}"?`,
-      )
-    )
-      return;
-
+  const handleToggleRowStatus = async (row: BranchDeliveryTimeSlot) => {
     try {
-      await http(
-        "DELETE",
-        `/api/v1/admin/branch-delivery-time-slots/delete/${row.id}`,
-      );
-      showSuccessToast({ message: "Đã xóa cấu hình thành công!" });
-      await Promise.all([fetchRows(), fetchSummaryRows()]);
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể xóa cấu hình.");
-    }
-  };
-
-  const handleEdit = (e: React.MouseEvent, id: number) => {
-    e.stopPropagation();
-    navigate(`/admin/shipping/branch-delivery-slots/edit/${id}`);
-  };
-
-  const handleToggleStatus = async (
-    e: React.MouseEvent,
-    row: BranchDeliveryTimeSlot,
-  ) => {
-    e.stopPropagation();
-    const nextStatus = row.status === "active" ? "inactive" : "active";
-    try {
+      const nextStatus: BranchDeliveryTimeSlotStatus =
+        row.status === "active" ? "inactive" : "active";
       await http(
         "PATCH",
         `/api/v1/admin/branch-delivery-time-slots/${row.id}/status`,
         { status: nextStatus },
       );
-      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
+      showSuccessToast({ message: "Đã cập nhật trạng thái branch slot." });
       await Promise.all([fetchRows(), fetchSummaryRows()]);
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể cập nhật trạng thái.");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật trạng thái.";
+      showErrorToast(message);
     }
   };
 
-  // --- Navigation Prefill Helpers ---
-  const buildCapacityUrl = (opts: {
-    branchId?: number;
-    slotId?: number;
-    date?: string;
-  }) => {
-    let url = "/admin/shipping/branch-delivery-slot-capacities?";
-    if (opts.branchId) url += `branchId=${opts.branchId}&`;
-    if (opts.slotId) url += `deliveryTimeSlotId=${opts.slotId}&`;
-    if (opts.date) url += `deliveryDate=${opts.date}`;
-    return url;
+  const handleBulkStatus = async () => {
+    if (selectedIds.length === 0) {
+      showErrorToast("Hãy chọn ít nhất một branch slot để thao tác hàng loạt.");
+      return;
+    }
+    try {
+      await http(
+        "PATCH",
+        "/api/v1/admin/branch-delivery-time-slots/bulk/status",
+        {
+          ids: selectedIds,
+          status: bulkStatus,
+        },
+      );
+      showSuccessToast({ message: "Đã cập nhật trạng thái hàng loạt." });
+      setSelectedIds([]);
+      await Promise.all([fetchRows(), fetchSummaryRows()]);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật trạng thái hàng loạt.";
+      showErrorToast(message);
+    }
   };
 
-  const buildCreateCapacityUrl = (branchId: number, slotId: number) => {
-    return `/admin/shipping/branch-delivery-slot-capacities/create?branchId=${branchId}&deliveryTimeSlotId=${slotId}&deliveryDate=${getLocalDateString()}`;
+  const handleCopyFromBranch = async () => {
+    if (!copySourceBranchId || copyTargetBranchIds.length === 0) {
+      showErrorToast(
+        "Vui lòng chọn chi nhánh nguồn và ít nhất một chi nhánh đích.",
+      );
+      return;
+    }
+    try {
+      await http(
+        "POST",
+        "/api/v1/admin/branch-delivery-time-slots/copy-from-branch",
+        {
+          sourceBranchId: copySourceBranchId,
+          targetBranchIds: copyTargetBranchIds,
+          mode: copyMode,
+          statusOverride:
+            copyStatusOverride === "keep" ? undefined : copyStatusOverride,
+        },
+      );
+      showSuccessToast({
+        message: "Đã sao chép branch slot sang các chi nhánh đích.",
+      });
+      setCopyTargetBranchIds([]);
+      await Promise.all([fetchRows(), fetchSummaryRows()]);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể sao chép branch slot.";
+      showErrorToast(message);
+    }
+  };
+
+  const toggleSelected = (id: number) => {
+    setSelectedIds((current) =>
+      current.includes(id)
+        ? current.filter((item) => item !== id)
+        : [...current, id],
+    );
+  };
+
+  const selectAllCurrentPage = () => {
+    const ids = displayedRows.map((row) => row.id);
+    const allSelected = ids.every((id) => selectedIds.includes(id));
+    setSelectedIds((current) => {
+      if (allSelected) return current.filter((id) => !ids.includes(id));
+      return Array.from(new Set([...current, ...ids]));
+    });
   };
 
   return (
@@ -488,46 +479,34 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Khung giờ chi nhánh
+              Branch delivery time slots
             </h1>
-            {metrics.override > 0 && (
-              <span className="px-2.5 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300 text-xs font-bold rounded-md">
-                {metrics.override} slot ghi đè
-              </span>
-            )}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Bật hoặc tắt các khung giờ hệ thống cho từng chi nhánh và tùy chỉnh
-            giới hạn nhận đơn mặc định.
+          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-3xl">
+            Tổ chức lại luồng cấu hình khung giờ theo branch, hỗ trợ copy từ
+            branch mẫu, matrix branch × slot và thao tác trạng thái hàng loạt.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
             onClick={() => {
-              fetchRows();
-              fetchSummaryRows();
+              void fetchRows();
+              void fetchSummaryRows();
+              void fetchBootstrap();
             }}
             className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-            title="Làm mới"
+            title="Làm mới dữ liệu"
           >
-            <RefreshCw className="w-5 h-5" />
+            <RefreshCw
+              className={`w-5 h-5 ${loading || bootstrapLoading ? "animate-spin" : ""}`}
+            />
           </button>
           <button
             onClick={() => navigate("/admin/shipping/delivery-slots")}
             className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition"
           >
-            Mở Slot hệ thống
-          </button>
-          <button
-            onClick={() =>
-              navigate(
-                `/admin/shipping/branch-delivery-slot-capacities?deliveryDate=${getLocalDateString()}`,
-              )
-            }
-            className="px-4 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-sm font-medium rounded-lg hover:bg-indigo-100 transition"
-          >
-            Xem Capacity hôm nay
+            <Settings2 className="w-4 h-4 inline-block mr-1.5" /> Slot hệ thống
           </button>
           <button
             onClick={() =>
@@ -535,16 +514,16 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
             }
             className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm ml-auto md:ml-0"
           >
-            <Plus className="w-4 h-4" /> Bật slot cho chi nhánh
+            <Plus className="w-4 h-4" /> Bật branch slot
           </button>
         </div>
       </div>
 
       {/* Tầng B: KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {[
           {
-            label: "Tổng cấu hình",
+            label: "Tổng branch slot",
             value: metrics.total,
             icon: Layers,
             color: "text-blue-600",
@@ -558,48 +537,31 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
             bg: "bg-green-50",
           },
           {
-            label: "Có Override",
+            label: "Có override",
             value: metrics.override,
-            icon: Settings2,
-            color: "text-amber-600",
-            bg: "bg-amber-50",
-          },
-          {
-            label: "Chi nhánh đã có slot",
-            value: metrics.configuredCount,
             icon: Store,
             color: "text-indigo-600",
             bg: "bg-indigo-50",
           },
           {
-            label: "Đang tạm dừng",
-            value: metrics.inactive,
-            icon: PowerOff,
-            color: "text-gray-600",
-            bg: "bg-gray-100",
+            label: "Branch đã cấu hình",
+            value: metrics.configuredBranches,
+            icon: Clock3,
+            color: "text-amber-600",
+            bg: "bg-amber-50",
           },
           {
-            label: "Cần bổ sung slot",
+            label: "Branch thiếu slot",
             value: metrics.branchesMissingSlots.length,
-            icon: AlertCircle,
+            icon: ShieldAlert,
             color: "text-red-600",
             bg: "bg-red-50",
-            isWarning: true,
+            isWarning: metrics.branchesMissingSlots.length > 0,
           },
         ].map((kpi, idx) => (
           <div
             key={idx}
-            onClick={() => {
-              if (kpi.label === "Có Override") setQuickFilter("override");
-              if (kpi.label === "Đang hoạt động") setQuickFilter("active");
-              if (kpi.label === "Đang tạm dừng") setQuickFilter("inactive");
-              if (kpi.isWarning && metrics.branchesMissingSlots.length > 0) {
-                document
-                  .getElementById("attention-section")
-                  ?.scrollIntoView({ behavior: "smooth" });
-              }
-            }}
-            className={`p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center ${kpi.label !== "Tổng cấu hình" && kpi.label !== "Chi nhánh đã có slot" ? "cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all" : ""}`}
+            className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center cursor-default hover:border-blue-400 hover:shadow-sm transition-all"
           >
             <div className="flex items-center gap-2 mb-2">
               <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
@@ -608,63 +570,182 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
               </span>
             </div>
             <div
-              className={`text-xl font-black ${kpi.isWarning && kpi.value > 0 ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}
+              className={`text-xl font-black ${kpi.isWarning ? "text-red-600 dark:text-red-400" : "text-gray-900 dark:text-white"}`}
             >
-              {kpi.value}
+              {kpi.value.toLocaleString("vi-VN")}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Tầng C: Chi nhánh cần bổ sung khung giờ */}
-      {!bootstrapLoading && metrics.branchesMissingSlots.length > 0 && (
-        <div id="attention-section">
-          <Card className="border-red-200 dark:border-red-900/50 flex flex-col overflow-hidden">
-            <div className="p-4 bg-red-50/50 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/50 flex justify-between items-center">
-              <h3 className="font-bold text-red-800 dark:text-red-400 flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5" />
-                Chi nhánh thiếu khung giờ giao hàng trên toàn hệ thống (
-                {metrics.branchesMissingSlots.length})
-              </h3>
-              <span className="text-xs text-red-600 font-medium bg-red-100 px-2 py-1 rounded">
-                Tổng quan hệ thống
-              </span>
-            </div>
-            <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {metrics.branchesMissingSlots.slice(0, 6).map((branch) => (
+      {/* Tầng C: Attention & Operations */}
+      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 pb-4">
+            <ShieldAlert className="h-5 w-5 text-red-600" /> Chi nhánh chưa bật
+            slot
+          </div>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Các branch này khó có thể nhận capacity hoặc mở vận hành giao hàng
+            đầy đủ.
+          </p>
+          <div className="mt-2 space-y-3">
+            {metrics.branchesMissingSlots.length === 0 ? (
+              <div className="text-center py-8 bg-green-50 dark:bg-green-900/20 rounded-xl border border-dashed border-green-300 dark:border-green-800 flex flex-col items-center">
+                <CheckCircle2 className="w-8 h-8 text-green-500 mb-2" />
+                <p className="text-sm font-semibold text-green-800 dark:text-green-400">
+                  Tất cả branch đang active đều đã bật ít nhất một slot.
+                </p>
+              </div>
+            ) : (
+              metrics.branchesMissingSlots.map((branch) => (
                 <div
                   key={branch.id}
-                  className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-red-100 dark:border-red-900/30 shadow-sm flex flex-col gap-3"
+                  className="rounded-lg border border-red-100 bg-red-50 p-4 dark:border-red-900/30 dark:bg-red-900/20 shadow-sm"
                 >
-                  <div className="flex justify-between items-start">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div>
-                      <div className="font-bold text-gray-900 dark:text-white text-sm">
-                        {branch.name}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-0.5 font-mono">
-                        {branch.code}
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-gray-900 dark:text-white text-sm">
+                          {branch.name}
+                        </p>
+                        <span className="text-xs text-gray-500 font-mono bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                          {branch.code}
+                        </span>
                       </div>
                     </div>
-                    <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
-                      <Store className="w-4 h-4 text-red-500" />
-                    </div>
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/admin/shipping/branch-delivery-slots/create?branchId=${branch.id}`,
+                        )
+                      }
+                      className="rounded text-xs font-bold px-3 py-2 bg-blue-600 text-white hover:bg-blue-700 transition shadow-sm"
+                    >
+                      Bật slot cho branch này
+                    </button>
                   </div>
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/admin/shipping/branch-delivery-slots/create?branchId=${branch.id}`,
-                      )
-                    }
-                    className="w-full py-1.5 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded transition"
-                  >
-                    Bật slot cho chi nhánh này
-                  </button>
                 </div>
-              ))}
-            </div>
-          </Card>
+              ))
+            )}
+          </div>
         </div>
-      )}
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+          <div className="flex items-center gap-2 text-lg font-bold text-gray-900 dark:text-white border-b border-gray-100 dark:border-gray-700 pb-4">
+            <ArrowRightLeft className="h-5 w-5 text-blue-600" /> Copy từ branch
+            mẫu
+          </div>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Sao chép toàn bộ slot đang bật từ một branch nguồn sang nhiều branch
+            đích để rollout nhanh.
+          </p>
+
+          <div className="mt-2 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Chi nhánh nguồn
+              </label>
+              <select
+                value={copySourceBranchId}
+                onChange={(e) =>
+                  setCopySourceBranchId(
+                    e.target.value ? Number(e.target.value) : "",
+                  )
+                }
+                className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-blue-500 transition"
+              >
+                <option value="">Chọn chi nhánh nguồn</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {branch.name} ({branch.code})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Chi nhánh đích
+              </label>
+              <div className="max-h-40 space-y-1.5 overflow-auto rounded-lg border border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-900/50">
+                {branches
+                  .filter((branch) => branch.id !== copySourceBranchId)
+                  .map((branch) => {
+                    const checked = copyTargetBranchIds.includes(branch.id);
+                    return (
+                      <label
+                        key={branch.id}
+                        className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-gray-200 dark:hover:bg-gray-800 transition cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            setCopyTargetBranchIds((current) =>
+                              checked
+                                ? current.filter((id) => id !== branch.id)
+                                : [...current, branch.id],
+                            );
+                          }}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                          {branch.name}{" "}
+                          <span className="text-xs text-gray-400 font-mono ml-1">
+                            ({branch.code})
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Conflict mode
+                </label>
+                <select
+                  value={copyMode}
+                  onChange={(e) => setCopyMode(e.target.value as BulkMode)}
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-blue-500 transition"
+                >
+                  <option value="skip_existing">Skip existing</option>
+                  <option value="overwrite">Overwrite</option>
+                  <option value="fail_on_conflict">Fail on conflict</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Trạng thái sau copy
+                </label>
+                <select
+                  value={copyStatusOverride}
+                  onChange={(e) =>
+                    setCopyStatusOverride(
+                      e.target.value as "keep" | BranchDeliveryTimeSlotStatus,
+                    )
+                  }
+                  className="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-blue-500 transition"
+                >
+                  <option value="keep">Giữ nguyên theo nguồn</option>
+                  <option value="active">Ép active</option>
+                  <option value="inactive">Ép inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <button
+              onClick={() => void handleCopyFromBranch()}
+              className="w-full inline-flex justify-center items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition shadow-sm mt-2"
+            >
+              Copy branch slot
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Tầng D: Toolbar Phân tầng */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
@@ -673,69 +754,60 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-2 flex items-center gap-1.5">
             Nghiệp vụ:
           </span>
-          {[
-            { id: "all", label: "Tất cả" },
-            { id: "active", label: "Đang hoạt động" },
-            { id: "inactive", label: "Tạm dừng" },
-            { id: "override", label: "Có Override" },
-            { id: "no_override", label: "Theo mặc định" },
-            { id: "morning", label: "Sáng" },
-            { id: "afternoon", label: "Chiều" },
-            { id: "evening", label: "Tối" },
-          ].map((f) => (
+          {quickFilters.map((filter) => (
             <button
-              key={f.id}
-              onClick={() => setQuickFilter(f.id as QuickFilterType)}
+              key={filter.key}
+              onClick={() => setQuickFilter(filter.key)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                quickFilter === f.id
+                quickFilter === filter.key
                   ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                   : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-300"
               }`}
             >
-              {f.label}
+              {filter.label}
             </button>
           ))}
         </div>
 
         {/* Advanced Filters */}
-        <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
+        <div className="flex flex-col lg:flex-row justify-between items-center gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
           <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+            <select
+              value={statusFilter}
+              onChange={(e) => handleFilterChange("status", e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white min-w-[140px] focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Mọi trạng thái</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
             <select
               value={branchFilter}
               onChange={(e) => handleFilterChange("branchId", e.target.value)}
-              disabled={bootstrapLoading}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white min-w-[180px]"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">Mọi chi nhánh</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
+              <option value="all">Tất cả chi nhánh</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
                 </option>
               ))}
             </select>
+
             <select
               value={slotFilter}
               onChange={(e) =>
                 handleFilterChange("deliveryTimeSlotId", e.target.value)
               }
-              disabled={bootstrapLoading}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white min-w-[180px]"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white min-w-[160px] focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">Mọi khung giờ</option>
-              {slots.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
+              <option value="all">Tất cả slot</option>
+              {slots.map((slot) => (
+                <option key={slot.id} value={slot.id}>
+                  {slot.label}
                 </option>
               ))}
-            </select>
-            <select
-              value={statusFilter}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="all">Mọi trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Tạm dừng</option>
             </select>
           </div>
 
@@ -744,9 +816,12 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm theo tên, mã slot..."
+                placeholder="Tìm theo branch / slot / mã..."
                 value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
+                onChange={(e) => {
+                  setSearchInput(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -755,16 +830,60 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
               <button
                 onClick={() => setViewMode("board")}
                 className={`p-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${viewMode === "board" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+                title="Board theo branch"
               >
-                <LayoutGrid className="w-4 h-4" /> Nhóm theo chi nhánh
+                <LayoutGrid className="w-4 h-4" /> Board
               </button>
               <button
                 onClick={() => setViewMode("table")}
                 className={`p-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${viewMode === "table" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+                title="Bảng chi tiết"
               >
-                <List className="w-4 h-4" /> Dạng bảng
+                <List className="w-4 h-4" /> Table
+              </button>
+              <button
+                onClick={() => setViewMode("matrix")}
+                className={`p-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${viewMode === "matrix" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+                title="Matrix branch × slot"
+              >
+                <Grid className="w-4 h-4" /> Matrix
               </button>
             </div>
+          </div>
+        </div>
+
+        {/* Bulk Action Toolbar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+            Thao tác hàng loạt:
+          </span>
+          <button
+            onClick={selectAllCurrentPage}
+            className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded-lg hover:bg-gray-200 transition"
+          >
+            {displayedRows.every((row) => selectedIds.includes(row.id)) &&
+            displayedRows.length > 0
+              ? "Bỏ chọn trang"
+              : "Chọn trang"}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={bulkStatus}
+              onChange={(e) =>
+                setBulkStatus(e.target.value as BranchDeliveryTimeSlotStatus)
+              }
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-xs font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+            <button
+              onClick={() => void handleBulkStatus()}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gray-800 dark:bg-gray-200 px-3 py-1.5 text-xs font-semibold text-white dark:text-gray-900 hover:bg-gray-900 dark:hover:bg-white transition shadow-sm"
+            >
+              <Power className="h-3.5 w-3.5" /> Áp dụng ({selectedIds.length})
+            </button>
           </div>
         </div>
       </div>
@@ -772,366 +891,410 @@ const BranchDeliveryTimeSlotsPage: React.FC = () => {
       {/* Main Content Area */}
       {loading || bootstrapLoading ? (
         <div className="flex flex-col justify-center items-center py-24 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="mt-3 text-gray-500 font-medium">
-            Đang tải cấu hình khung giờ theo chi nhánh...
-          </p>
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
+          <p className="text-gray-500 font-medium">Đang tải branch slot...</p>
         </div>
-      ) : error ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-          <p className="text-red-600 font-medium">{error}</p>
-        </div>
-      ) : displayedRows.length === 0 ? (
-        <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center">
-          <Clock3 className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            Không có cấu hình phù hợp
-          </h3>
-          <p className="text-sm text-gray-500 mt-1 mb-5">
-            Chưa có khung giờ nào được bật phù hợp với bộ lọc hiện tại.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() =>
-                navigate("/admin/shipping/branch-delivery-slots/create")
-              }
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
-            >
-              Bật slot cho chi nhánh
-            </button>
-            {quickFilter !== "all" && (
-              <button
-                onClick={() => setQuickFilter("all")}
-                className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition"
-              >
-                Xóa bộ lọc nhanh
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          <p className="text-sm text-gray-500 font-medium pl-1">
-            Hiển thị {displayedRows.length} cấu hình ở trang hiện tại.
-            {viewMode === "board" && " (Nhóm theo chi nhánh)"}
-          </p>
-
-          {viewMode === "board" ? (
-            <div className="space-y-6 mt-4">
-              {Array.from(groupedByBranch.entries()).map(
-                ([branchId, branchRows]) => {
-                  const branch = branchMap.get(branchId);
-                  const activeSlots = branchRows.filter(
-                    (r) => r.status === "active",
-                  ).length;
-                  const overrides = branchRows.filter(
-                    (r) => r.isOverride,
-                  ).length;
-                  const isHealthy = activeSlots > 0;
-
-                  return (
-                    <Card
-                      key={branchId}
-                      className="overflow-hidden p-0 border border-gray-200 dark:border-gray-700"
+      ) : viewMode === "matrix" ? (
+        <Card className="!p-0 overflow-hidden mt-4 border border-gray-200 dark:border-gray-700 shadow-none">
+          <div className="overflow-x-auto bg-white dark:bg-gray-900">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="min-w-[220px] px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase border-r border-gray-200 dark:border-gray-700 sticky left-0 z-10 bg-gray-50 dark:bg-gray-800">
+                    Chi nhánh
+                  </th>
+                  {matrixRows.slots.map((slot) => (
+                    <th
+                      key={slot.id}
+                      className="min-w-[180px] px-4 py-3.5 text-left font-bold text-gray-600 dark:text-gray-300 border-r border-gray-200 dark:border-gray-700 last:border-r-0"
                     >
-                      <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex flex-col md:flex-row justify-between md:items-center gap-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`p-2 rounded-lg shadow-sm ${isHealthy ? "bg-white dark:bg-gray-900 text-blue-600" : "bg-red-50 text-red-600"}`}
-                          >
-                            <Store className="w-5 h-5" />
-                          </div>
-                          <div>
-                            <h3 className="font-bold text-gray-900 dark:text-white text-base leading-tight">
-                              {branch?.name || `Chi nhánh #${branchId}`}
-                            </h3>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                                {branch?.code}
-                              </span>
-                              <span className="text-gray-300 dark:text-gray-600">
-                                •
-                              </span>
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded ${isHealthy ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
-                              >
-                                {activeSlots} slot hoạt động
-                              </span>
-                              {overrides > 0 && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700">
-                                  {overrides} override
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() =>
-                              navigate(buildCapacityUrl({ branchId }))
-                            }
-                            className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 rounded shadow-sm hover:bg-gray-50 transition"
-                          >
-                            Xem Capacity
-                          </button>
-                          <button
-                            onClick={() =>
-                              navigate(
-                                `/admin/shipping/branch-delivery-slots/create?branchId=${branchId}`,
-                              )
-                            }
-                            className="px-3 py-1.5 bg-blue-50 text-blue-600 text-sm font-bold rounded hover:bg-blue-100 transition"
-                          >
-                            Bật thêm slot
-                          </button>
-                        </div>
+                      <div className="text-sm">{slot.label}</div>
+                      <div className="text-[10px] uppercase font-mono text-gray-400 mt-0.5 tracking-wider">
+                        {formatTimeRange(slot.startTime, slot.endTime)}
                       </div>
-
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 bg-white dark:bg-gray-900">
-                        {branchRows.map((row) => (
-                          <div
-                            key={row.id}
-                            className={`border rounded-xl p-4 transition shadow-sm group relative ${row.status === "inactive" ? "border-gray-200 bg-gray-50 opacity-80" : row.isOverride ? "border-amber-200 bg-amber-50/30" : "border-gray-100 hover:border-blue-300"}`}
-                          >
-                            <div className="flex justify-between items-start mb-3">
-                              <div>
-                                <div
-                                  className={`font-bold text-sm ${row.status === "inactive" ? "text-gray-600" : "text-gray-900 dark:text-white"}`}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                {matrixRows.branches.map((branch) => (
+                  <tr
+                    key={branch.id}
+                    className="hover:bg-gray-50/50 dark:hover:bg-gray-800/30"
+                  >
+                    <td className="px-5 py-4 align-top border-r border-gray-200 dark:border-gray-700 sticky left-0 z-10 bg-white dark:bg-gray-900">
+                      <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                        {branch.name}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">
+                        {branch.code}
+                      </div>
+                    </td>
+                    {matrixRows.slots.map((slot) => {
+                      const row = matrixLookup[`${branch.id}-${slot.id}`];
+                      const isActive = row?.status === "active";
+                      return (
+                        <td
+                          key={`${branch.id}-${slot.id}`}
+                          className="px-2 py-2 align-top border-r border-gray-100 dark:border-gray-800 last:border-r-0"
+                        >
+                          {row ? (
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/shipping/branch-delivery-slots/edit/${row.id}`,
+                                )
+                              }
+                              className={`w-full h-full rounded-lg border p-3 text-left transition shadow-sm flex flex-col gap-2 ${
+                                isActive
+                                  ? "border-green-200 bg-green-50 hover:bg-green-100 dark:border-green-900/40 dark:bg-green-900/20"
+                                  : "border-gray-200 bg-gray-50 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800/50"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <span
+                                  className={`text-[10px] font-bold uppercase tracking-wider ${isActive ? "text-green-700 dark:text-green-400" : "text-gray-500 dark:text-gray-400"}`}
                                 >
-                                  {row.slot?.label}
-                                </div>
-                                <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                  <Clock3 className="w-3 h-3" />{" "}
+                                  {row.status}
+                                </span>
+                                <Edit
+                                  className={`h-3.5 w-3.5 ${isActive ? "text-green-600 dark:text-green-500" : "text-gray-400"}`}
+                                />
+                              </div>
+                              <div
+                                className={`text-xs font-semibold ${isActive ? "text-green-900 dark:text-green-300" : "text-gray-700 dark:text-gray-300"}`}
+                              >
+                                {formatMaxOrders(row.maxOrdersOverride)}
+                              </div>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/shipping/branch-delivery-slots/create?branchId=${branch.id}&deliveryTimeSlotId=${slot.id}`,
+                                )
+                              }
+                              className="w-full h-full min-h-[70px] flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50/50 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-700 dark:bg-gray-800/20 dark:hover:bg-blue-900/20 transition group"
+                            >
+                              <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-500 mb-1" />
+                              <span className="text-[11px] font-semibold text-gray-500 group-hover:text-blue-600 dark:text-gray-400 dark:group-hover:text-blue-400">
+                                Bật slot
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-3 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 flex items-center justify-center gap-1.5">
+              <Grid className="w-3.5 h-3.5" />
+              Matrix đang giới hạn để dễ quan sát: tối đa 12 branch × 10 slot
+              theo bộ lọc hiện tại.
+            </p>
+          </div>
+        </Card>
+      ) : viewMode === "board" ? (
+        <div className="mt-4 space-y-6">
+          {branches
+            .filter((branch) => groupedByBranch.has(branch.id))
+            .map((branch) => {
+              const branchRows = groupedByBranch.get(branch.id) ?? [];
+              return (
+                <Card
+                  key={branch.id}
+                  className="p-0 overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm"
+                >
+                  <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                          {branch.name}
+                        </h3>
+                        <span className="rounded bg-white border border-gray-200 px-1.5 py-0.5 text-xs font-mono font-semibold text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                          {branch.code}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+                        {branchRows.length} branch slot đang hiển thị theo bộ
+                        lọc.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() =>
+                        navigate(
+                          `/admin/shipping/branch-delivery-slots/create?branchId=${branch.id}`,
+                        )
+                      }
+                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-white shadow-sm dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 transition"
+                    >
+                      Bật thêm slot
+                    </button>
+                  </div>
+
+                  <div className="p-5 grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                    {branchRows.map((row) => (
+                      <div
+                        key={row.id}
+                        className={`border rounded-xl transition shadow-sm group flex flex-col overflow-hidden bg-white dark:bg-gray-800 hover:border-blue-300 ${row.status === "inactive" ? "border-gray-200 opacity-80" : "border-gray-200 dark:border-gray-700"}`}
+                      >
+                        <div
+                          className="p-4 flex-1 flex flex-col gap-4 cursor-pointer"
+                          onClick={() =>
+                            navigate(
+                              `/admin/shipping/branch-delivery-slots/edit/${row.id}`,
+                            )
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(row.id)}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  toggleSelected(row.id);
+                                }}
+                                className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                              />
+                              <div>
+                                <p className="font-bold text-sm text-gray-900 dark:text-white line-clamp-1">
+                                  {row.slot?.label ??
+                                    `Slot #${row.deliveryTimeSlotId}`}
+                                </p>
+                                <div className="mt-0.5 text-xs font-mono text-gray-500 dark:text-gray-400">
                                   {formatTimeRange(
                                     row.slot?.startTime,
                                     row.slot?.endTime,
                                   )}
                                 </div>
                               </div>
-                              <div className="flex flex-col items-end gap-1">
-                                {row.timeInsight && (
-                                  <span
-                                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${row.timeInsight.color}`}
-                                  >
-                                    {row.timeInsight.label}
-                                  </span>
-                                )}
-                              </div>
                             </div>
-
-                            <div className="bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700 mb-3">
-                              <div className="text-xs text-gray-500 mb-1">
-                                Giới hạn nhận đơn:
-                              </div>
-                              {row.isOverride ? (
-                                <div className="font-bold text-amber-700 dark:text-amber-400 text-sm flex items-center gap-1.5">
-                                  {formatMaxOrders(row.maxOrdersOverride)}
-                                  <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] uppercase">
-                                    Ghi đè
-                                  </span>
-                                </div>
-                              ) : (
-                                <div className="font-semibold text-gray-800 dark:text-gray-200 text-sm">
-                                  Theo mặc định hệ thống
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex justify-between items-center pt-2">
-                              <span
-                                className={`text-[11px] font-bold ${statusMap[row.status].textClass}`}
-                              >
-                                {statusMap[row.status].label}
-                              </span>
-                              <div className="flex gap-1">
-                                <button
-                                  onClick={() =>
-                                    navigate(
-                                      buildCreateCapacityUrl(
-                                        row.branchId,
-                                        row.deliveryTimeSlotId,
-                                      ),
-                                    )
-                                  }
-                                  className="p-1.5 text-gray-400 hover:text-indigo-600 bg-gray-50 hover:bg-indigo-50 rounded"
-                                  title="Tạo capacity hôm nay"
-                                >
-                                  <CalendarDays className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={(e) => handleToggleStatus(e, row)}
-                                  className={`p-1.5 rounded ${row.status === "active" ? "text-yellow-600 bg-yellow-50 hover:bg-yellow-100" : "text-green-600 bg-green-50 hover:bg-green-100"}`}
-                                  title={
-                                    row.status === "active"
-                                      ? "Tạm dừng slot"
-                                      : "Bật lại"
-                                  }
-                                >
-                                  <Power className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={(e) => handleEdit(e, row.id)}
-                                  className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded"
-                                  title="Sửa cấu hình"
-                                >
-                                  <Edit className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </Card>
-                  );
-                },
-              )}
-            </div>
-          ) : (
-            <Card className="!p-0 overflow-hidden mt-4">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Chi nhánh
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Khung giờ
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Buổi
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Giới hạn nhận đơn
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Trạng thái
-                      </th>
-                      <th className="px-5 py-3.5 text-right text-xs font-bold text-gray-500 uppercase">
-                        Hành động
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
-                    {displayedRows.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
-                      >
-                        <td className="px-5 py-3">
-                          <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                            {row.branch?.name}
-                          </div>
-                          <div className="text-xs text-gray-500 font-mono mt-0.5">
-                            {row.branch?.code}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3">
-                          <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                            {row.slot?.label}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-0.5">
-                            {formatTimeRange(
-                              row.slot?.startTime,
-                              row.slot?.endTime,
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-5 py-3">
-                          {row.timeInsight && (
                             <span
-                              className={`px-2 py-1 rounded text-[10px] font-bold border ${row.timeInsight.color}`}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider shrink-0 ${row.status === "active" ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}
                             >
-                              {row.timeInsight.label}
+                              {row.status === "active"
+                                ? "Đang chạy"
+                                : "Tạm dừng"}
                             </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          {row.isOverride ? (
-                            <div className="flex flex-col items-start gap-1">
-                              <span className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                          </div>
+
+                          <div className="bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-800 space-y-2 text-xs font-medium text-gray-600 dark:text-gray-300 flex-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-gray-500">
+                                Giới hạn đơn:
+                              </span>
+                              <span className="text-right font-semibold text-gray-900 dark:text-white">
                                 {formatMaxOrders(row.maxOrdersOverride)}
                               </span>
-                              <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-[9px] uppercase font-bold">
-                                Ghi đè
+                            </div>
+                            <div className="flex justify-between items-start gap-2">
+                              <span className="text-gray-500">Nguồn:</span>
+                              <span
+                                className={
+                                  row.hasOverride
+                                    ? "text-indigo-600 font-bold dark:text-indigo-400"
+                                    : ""
+                                }
+                              >
+                                {row.hasOverride
+                                  ? "Ghi đè maxOrders"
+                                  : "Mặc định hệ thống"}
                               </span>
                             </div>
-                          ) : (
-                            <span className="text-sm text-gray-600 font-medium">
-                              Mặc định hệ thống
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span
-                            className={`inline-flex px-2 py-1 rounded text-xs font-bold ${statusMap[row.status].className}`}
-                          >
-                            {statusMap[row.status].label}
-                          </span>
-                        </td>
-                        <td className="px-5 py-3 text-right">
-                          <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() =>
-                                navigate(
-                                  buildCreateCapacityUrl(
-                                    row.branchId,
-                                    row.deliveryTimeSlotId,
-                                  ),
-                                )
-                              }
-                              className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                              title="Tạo capacity hôm nay"
-                            >
-                              <CalendarDays className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => handleToggleStatus(e, row)}
-                              className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded"
-                              title="Đổi trạng thái"
-                            >
-                              <Power className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => handleEdit(e, row.id)}
-                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                              title="Sửa"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={(e) => handleDelete(e, row)}
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                              title="Xóa"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
+                        </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-end mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={(page) => {
-                  const params = new URLSearchParams(searchParams);
-                  params.set("page", String(page));
-                  setSearchParams(params);
-                }}
-              />
-            </div>
-          )}
-        </>
+                        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700/50 flex flex-wrap items-center justify-between gap-2 bg-gray-50 dark:bg-gray-800/80">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleToggleRowStatus(row);
+                            }}
+                            className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700 border text-xs font-semibold rounded shadow-sm hover:bg-gray-50 transition-colors ${row.status === "active" ? "text-amber-600 border-gray-200 dark:border-gray-600" : "text-green-600 border-gray-200 dark:border-gray-600"}`}
+                          >
+                            <Power className="w-3.5 h-3.5" />
+                            {row.status === "active" ? "Tạm dừng" : "Kích hoạt"}
+                          </button>
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/admin/shipping/branch-delivery-slot-capacities/create?branchId=${row.branchId}&deliveryTimeSlotId=${row.deliveryTimeSlotId}&deliveryDate=${getLocalDateString()}`,
+                              )
+                            }
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-400 text-xs font-semibold rounded shadow-sm hover:bg-blue-100 transition-colors"
+                          >
+                            Tạo capacity{" "}
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              );
+            })}
+        </div>
+      ) : (
+        <Card className="!p-0 overflow-hidden mt-4 border border-gray-200 dark:border-gray-700 shadow-none">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      onChange={selectAllCurrentPage}
+                      checked={
+                        displayedRows.length > 0 &&
+                        displayedRows.every((row) =>
+                          selectedIds.includes(row.id),
+                        )
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Chi nhánh
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Khung giờ
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    MaxOrders
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Trạng thái
+                  </th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-gray-500 uppercase">
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                {displayedRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-20 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <Layers className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
+                        <span className="font-medium">
+                          Không có branch slot nào phù hợp với bộ lọc.
+                        </span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  displayedRows.map((row) => (
+                    <tr
+                      key={row.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
+                    >
+                      <td className="px-5 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(row.id)}
+                          onChange={() => toggleSelected(row.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                          {row.branch?.name ?? `Branch #${row.branchId}`}
+                        </div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">
+                          {row.branch?.code ?? ""}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                          {row.slot?.label ?? `Slot #${row.deliveryTimeSlotId}`}
+                        </div>
+                        <div className="text-xs text-gray-500 font-mono mt-0.5">
+                          {formatTimeRange(
+                            row.slot?.startTime,
+                            row.slot?.endTime,
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          {formatMaxOrders(row.maxOrdersOverride)}
+                        </div>
+                        {row.hasOverride && (
+                          <span className="mt-1.5 inline-block text-[10px] font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1.5 py-0.5 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-800">
+                            Override
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${row.status === "active" ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" : "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"}`}
+                        >
+                          {row.status === "active" ? "Đang chạy" : "Tạm dừng"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/admin/shipping/branch-delivery-slots/edit/${row.id}`,
+                              )
+                            }
+                            className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            title="Chỉnh sửa"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => void handleToggleRowStatus(row)}
+                            className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded"
+                            title={
+                              row.status === "active" ? "Tạm dừng" : "Kích hoạt"
+                            }
+                          >
+                            <Power className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
+      {/* Pagination */}
+      {viewMode !== "matrix" && totalPages > 1 && (
+        <div className="flex items-center justify-between gap-3 text-sm font-medium text-gray-500 dark:text-gray-400 mt-4 px-2">
+          <div>
+            Trang {currentPage} / {totalPages}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-50 hover:bg-gray-50 transition dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            >
+              Trước
+            </button>
+            <button
+              disabled={currentPage >= totalPages}
+              onClick={() =>
+                setCurrentPage((page) => Math.min(totalPages, page + 1))
+              }
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-50 hover:bg-gray-50 transition dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+            >
+              Sau
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

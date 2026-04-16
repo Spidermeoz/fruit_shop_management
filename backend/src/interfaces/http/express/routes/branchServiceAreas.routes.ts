@@ -9,7 +9,6 @@ export const branchServiceAreasRoutes = (
   can: CanFn,
 ) => {
   const r = Router();
-
   r.get("/", auth, can("branch_service_area", "view"), controller.list);
   r.get(
     "/detail/:id",
@@ -17,12 +16,35 @@ export const branchServiceAreasRoutes = (
     can("branch_service_area", "view"),
     controller.detail,
   );
-
+  r.get(
+    "/setup-checklist",
+    auth,
+    can("branch_service_area", "view"),
+    controller.checklist,
+  );
   r.post(
     "/create",
     auth,
     can("branch_service_area", "create"),
     controller.create,
+  );
+  r.post(
+    "/bulk-upsert",
+    auth,
+    can("branch_service_area", "create"),
+    controller.bulkUpsert,
+  );
+  r.post(
+    "/copy-from-branch",
+    auth,
+    can("branch_service_area", "create"),
+    controller.copyFromBranch,
+  );
+  r.patch(
+    "/bulk/status",
+    auth,
+    can("branch_service_area", "edit"),
+    controller.bulkChangeStatus,
   );
   r.get(
     "/edit/:id",
@@ -48,6 +70,5 @@ export const branchServiceAreasRoutes = (
     can("branch_service_area", "delete"),
     controller.softDelete,
   );
-
   return r;
 };

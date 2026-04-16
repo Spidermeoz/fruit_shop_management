@@ -48,4 +48,16 @@ export class ResolveShippingZoneService {
 
     return zone;
   }
+
+  async resolveChain(input: Input): Promise<ShippingZoneEntity[]> {
+    const province = normalizeNullableText(input?.province);
+    const district = normalizeNullableText(input?.district);
+    const ward = normalizeNullableText(input?.ward);
+
+    if (!province) {
+      return [];
+    }
+
+    return this.shippingZoneRepo.findMatchChain({ province, district, ward });
+  }
 }

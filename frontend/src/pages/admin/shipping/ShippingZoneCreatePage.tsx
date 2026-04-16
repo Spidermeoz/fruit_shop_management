@@ -1,35 +1,48 @@
 import React, {
+  useEffect,
   useMemo,
   useRef,
   useState,
-  useEffect,
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
-  Loader2,
-  Save,
-  Tag,
-  CreditCard,
+  Copy,
   Globe,
-  Info,
-  AlertCircle,
-  LayoutList,
-  AlertTriangle,
-  BadgePercent,
-  ListTree,
+  Loader2,
+  MapPinned,
+  Plus,
+  Sparkles,
+  Tag,
+  Save,
   ArrowRight,
+  AlertCircle,
 } from "lucide-react";
 import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// =============================
-// TYPES
-// =============================
-interface ShippingZoneFormData {
+interface ShippingZoneRow {
+  id: number;
+  code: string;
+  name: string;
+  province?: string | null;
+  district?: string | null;
+  ward?: string | null;
+  baseFee: number;
+  freeShipThreshold?: number | null;
+  priority: number;
+  status: "active" | "inactive";
+}
+
+interface LocationItem {
+  name: string;
+  code: number;
+}
+
+interface FormState {
   code: string;
   name: string;
   province: string;
@@ -41,14 +54,12 @@ interface ShippingZoneFormData {
   status: "active" | "inactive";
 }
 
-interface LocationItem {
-  name: string;
-  code: number;
-}
+type ApiList<T> = {
+  success?: boolean;
+  data?: T[] | { items?: T[]; rows?: T[] };
+};
 
-type ScopeKey = "fallback" | "province" | "district" | "ward";
-
-const initialForm: ShippingZoneFormData = {
+const initialForm: FormState = {
   code: "",
   name: "",
   province: "",
@@ -56,118 +67,189 @@ const initialForm: ShippingZoneFormData = {
   ward: "",
   baseFee: "0",
   freeShipThreshold: "",
-  priority: "10", // Default priority
+  priority: "999",
   status: "active",
 };
 
-// =============================
-// HELPERS
-// =============================
-const formatCurrencyPreview = (val: string) => {
-  if (!val || isNaN(Number(val))) return "0 đ";
-  return Number(val).toLocaleString("vi-VN") + " đ";
+const formatCurrency = (value?: string | number | null) => {
+  if (value === "" || value === null || value === undefined) return "—";
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toLocaleString("vi-VN")} đ`;
 };
 
-const getScopeKey = (
-  province: string,
-  district: string,
-  ward: string,
-): ScopeKey => {
-  if (ward) return "ward";
-  if (district) return "district";
-  if (province) return "province";
+const normalizeCode = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+
+const getScope = (formData: FormState) => {
+  if (formData.ward) return "ward";
+  if (formData.district) return "district";
+  if (formData.province) return "province";
   return "fallback";
 };
 
-// =============================
-// MAIN COMPONENT
-// =============================
+const suggestPriority = (scope: string) => {
+  switch (scope) {
+    case "ward":
+      return "1";
+    case "district":
+      return "5";
+    case "province":
+      return "10";
+    default:
+      return "999";
+  }
+};
+
+const toArray = <T,>(input: ApiList<T>["data"] | undefined): T[] => {
+  if (Array.isArray(input)) return input;
+  if (Array.isArray(input?.items)) return input.items;
+  if (Array.isArray((input as { rows?: T[] } | undefined)?.rows)) {
+    return ((input as { rows?: T[] }).rows ?? []) as T[];
+  }
+  return [];
+};
+
 const ShippingZoneCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  const [formData, setFormData] = useState<ShippingZoneFormData>(initialForm);
+  const [formData, setFormData] = useState<FormState>(initialForm);
+  const [templateZones, setTemplateZones] = useState<ShippingZoneRow[]>([]);
+  const [templateId, setTemplateId] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bootstrapLoading, setBootstrapLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const fieldRefs = useRef<
-    Record<string, HTMLInputElement | HTMLSelectElement | null>
-  >({});
-
-  // Location States
   const [cities, setCities] = useState<LocationItem[]>([]);
   const [districts, setDistricts] = useState<LocationItem[]>([]);
   const [wards, setWards] = useState<LocationItem[]>([]);
 
-  const [loadingLocations, setLoadingLocations] = useState({
-    cities: false,
-    districts: false,
-    wards: false,
-  });
+  const fieldRefs = useRef<
+    Record<string, HTMLInputElement | HTMLSelectElement | null>
+  >({});
 
-  // --- Initial Load ---
-  useEffect(() => {
-    const fetchCities = async () => {
-      setLoadingLocations((p) => ({ ...p, cities: true }));
-      try {
-        const res = await fetch("https://provinces.open-api.vn/api/p/");
-        const data = await res.json();
-        setCities(data);
-      } catch (err) {
-        console.error("Lỗi tải danh sách tỉnh/thành", err);
-      } finally {
-        setLoadingLocations((p) => ({ ...p, cities: false }));
-      }
-    };
-    fetchCities();
-  }, []);
-
-  // --- Derived Rule Logic ---
-  const scopeKey = useMemo(
-    () => getScopeKey(formData.province, formData.district, formData.ward),
-    [formData],
-  );
-
-  const areaTextPreview = useMemo(() => {
-    if (scopeKey === "fallback") return "Toàn quốc (Mặc định)";
-    return [formData.ward, formData.district, formData.province]
-      .filter(Boolean)
-      .join(", ");
-  }, [formData, scopeKey]);
-
-  const ruleSummaryText = useMemo(() => {
-    const nameStr = formData.name ? `Zone **${formData.name}**` : "Rule này";
-    let scopeStr = "";
-    switch (scopeKey) {
-      case "ward":
-        scopeStr =
-          "đóng vai trò **rule phường/xã**, áp dụng rất cụ thể cho khu vực";
-        break;
-      case "district":
-        scopeStr = "đóng vai trò **rule quận/huyện**, áp dụng rộng cho toàn bộ";
-        break;
-      case "province":
-        scopeStr = "đóng vai trò **rule tỉnh/thành**, áp dụng chung cho";
-        break;
-      case "fallback":
-        scopeStr =
-          "đóng vai trò **vùng mặc định (fallback)**, áp dụng khi không có rule nào khác khớp với địa chỉ giao hàng";
-        break;
-    }
-
-    const feeStr = `Phí cơ bản là **${formatCurrencyPreview(formData.baseFee)}**`;
-    const freeshipStr = formData.freeShipThreshold
-      ? `và miễn phí giao hàng cho đơn từ **${formatCurrencyPreview(formData.freeShipThreshold)}**`
-      : `và **không có freeship**`;
-    const priorityStr = `Rule đang ${formData.status === "active" ? "được **bật**" : "**tạm dừng**"} với độ ưu tiên **${formData.priority || 0}**.`;
-
-    return `${nameStr} ${scopeStr} ${scopeKey !== "fallback" ? `**${areaTextPreview}**` : ""}. ${feeStr} ${freeshipStr}. ${priorityStr}`;
-  }, [formData, scopeKey, areaTextPreview]);
-
-  // --- Actions ---
   const setFieldRef =
     (name: string) => (el: HTMLInputElement | HTMLSelectElement | null) => {
       fieldRefs.current[name] = el;
     };
+
+  useEffect(() => {
+    const fetchBootstrap = async () => {
+      try {
+        setBootstrapLoading(true);
+        const zonesRes = await http<ApiList<ShippingZoneRow>>(
+          "GET",
+          "/api/v1/admin/shipping-zones?limit=1000",
+        );
+        setTemplateZones(toArray(zonesRes?.data));
+      } catch (error: any) {
+        showErrorToast(error?.message || "Không thể tải zone mẫu.");
+      } finally {
+        setBootstrapLoading(false);
+      }
+    };
+    void fetchBootstrap();
+  }, [showErrorToast]);
+
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const res = await fetch("https://provinces.open-api.vn/api/p/");
+        const data = await res.json();
+        setCities(Array.isArray(data) ? data : []);
+      } catch {
+        setCities([]);
+      }
+    };
+    void fetchCities();
+  }, []);
+
+  useEffect(() => {
+    const template = searchParams.get("templateId");
+    if (template) setTemplateId(template);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const chosen = templateZones.find((zone) => String(zone.id) === templateId);
+    if (!chosen) return;
+
+    setFormData((prev) => ({
+      ...prev,
+      baseFee: String(chosen.baseFee ?? 0),
+      freeShipThreshold:
+        chosen.freeShipThreshold === null ||
+        chosen.freeShipThreshold === undefined
+          ? ""
+          : String(chosen.freeShipThreshold),
+      priority: String(chosen.priority ?? suggestPriority(getScope(prev))),
+      status: chosen.status ?? "active",
+    }));
+  }, [templateId, templateZones]);
+
+  useEffect(() => {
+    const scope = getScope(formData);
+    setFormData((prev) => {
+      const suggested = suggestPriority(scope);
+      if (
+        prev.priority &&
+        prev.priority !== "999" &&
+        prev.priority !== "10" &&
+        prev.priority !== "5" &&
+        prev.priority !== "1"
+      ) {
+        return prev;
+      }
+      return { ...prev, priority: suggested };
+    });
+  }, [formData.province, formData.district, formData.ward]);
+
+  const selectedTemplate = useMemo(
+    () => templateZones.find((zone) => String(zone.id) === templateId) || null,
+    [templateId, templateZones],
+  );
+
+  const scope = useMemo(() => getScope(formData), [formData]);
+
+  const areaLabel = useMemo(() => {
+    const parts = [formData.ward, formData.district, formData.province].filter(
+      Boolean,
+    );
+    return parts.length ? parts.join(", ") : "Fallback toàn quốc";
+  }, [formData]);
+
+  const loadDistricts = async (cityName: string) => {
+    const city = cities.find((item) => item.name === cityName);
+    if (!city) {
+      setDistricts([]);
+      return;
+    }
+
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/p/${city.code}?depth=2`,
+    );
+    const data = await res.json();
+    setDistricts(Array.isArray(data?.districts) ? data.districts : []);
+  };
+
+  const loadWards = async (districtName: string) => {
+    const district = districts.find((item) => item.name === districtName);
+    if (!district) {
+      setWards([]);
+      return;
+    }
+
+    const res = await fetch(
+      `https://provinces.open-api.vn/api/d/${district.code}?depth=2`,
+    );
+    const data = await res.json();
+    setWards(Array.isArray(data?.wards) ? data.wards : []);
+  };
 
   const scrollToFirstError = (nextErrors: Record<string, string>) => {
     const firstKey = Object.keys(nextErrors)[0];
@@ -179,134 +261,127 @@ const ShippingZoneCreatePage: React.FC = () => {
     fieldRefs.current[firstKey]?.focus?.();
   };
 
-  const loadDistricts = async (cityName: string) => {
-    const city = cities.find((c) => c.name === cityName);
-    if (!city) return;
-    setLoadingLocations((p) => ({ ...p, districts: true }));
-    try {
-      const res = await fetch(
-        `https://provinces.open-api.vn/api/p/${city.code}?depth=2`,
-      );
-      const data = await res.json();
-      setDistricts(data.districts || []);
-    } finally {
-      setLoadingLocations((p) => ({ ...p, districts: false }));
-    }
-  };
-
-  const loadWards = async (districtName: string) => {
-    const district = districts.find((d) => d.name === districtName);
-    if (!district) return;
-    setLoadingLocations((p) => ({ ...p, wards: true }));
-    try {
-      const res = await fetch(
-        `https://provinces.open-api.vn/api/d/${district.code}?depth=2`,
-      );
-      const data = await res.json();
-      setWards(data.wards || []);
-    } finally {
-      setLoadingLocations((p) => ({ ...p, wards: false }));
-    }
-  };
-
-  const handleChange = (
-    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
-  ) => {
-    const { name, value } = e.target;
-    let nextValue =
-      name === "code" ? value.toUpperCase().replace(/\s+/g, "_") : value; // Auto format code
-    setFormData((prev) => ({ ...prev, [name]: nextValue }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const validateForm = () => {
+  const validate = () => {
     const nextErrors: Record<string, string> = {};
 
-    if (!formData.name.trim())
-      nextErrors.name = "Vui lòng nhập tên quy tắc (VD: Nội thành HN).";
-    if (!formData.code.trim())
-      nextErrors.code = "Vui lòng nhập mã rule (VD: HN_INNER).";
+    if (!formData.name.trim()) nextErrors.name = "Vui lòng nhập tên zone.";
+    if (!formData.code.trim()) nextErrors.code = "Vui lòng nhập code.";
 
-    if (formData.ward.trim() && !formData.district.trim()) {
-      nextErrors.district = "Bạn cần chọn Quận/Huyện trước khi chọn Phường/Xã.";
-    }
     if (
-      (formData.district.trim() || formData.ward.trim()) &&
-      !formData.province.trim()
+      !Number.isFinite(Number(formData.baseFee)) ||
+      Number(formData.baseFee) < 0
     ) {
-      nextErrors.province =
-        "Bạn cần chọn Tỉnh/Thành phố trước khi cấu hình cấp nhỏ hơn.";
+      nextErrors.baseFee = "Base fee không hợp lệ.";
     }
 
-    if (formData.baseFee.trim() === "") {
-      nextErrors.baseFee = "Vui lòng thiết lập phí giao hàng cơ bản.";
-    } else {
-      const baseFee = Number(formData.baseFee);
-      if (!Number.isFinite(baseFee) || baseFee < 0)
-        nextErrors.baseFee = "Phí cơ bản phải là số >= 0.";
+    if (
+      formData.freeShipThreshold &&
+      (!Number.isFinite(Number(formData.freeShipThreshold)) ||
+        Number(formData.freeShipThreshold) < 0)
+    ) {
+      nextErrors.freeShipThreshold = "Ngưỡng freeship không hợp lệ.";
     }
 
-    if (formData.freeShipThreshold.trim() !== "") {
-      const threshold = Number(formData.freeShipThreshold);
-      if (!Number.isFinite(threshold) || threshold < 0)
-        nextErrors.freeShipThreshold = "Ngưỡng freeship phải là số >= 0.";
-    }
-
-    if (formData.priority.trim() === "") {
-      nextErrors.priority = "Vui lòng thiết lập độ ưu tiên.";
-    } else {
-      const priority = Number(formData.priority);
-      if (!Number.isInteger(priority) || priority < 0)
-        nextErrors.priority = "Độ ưu tiên phải là số nguyên >= 0.";
+    if (
+      !Number.isFinite(Number(formData.priority)) ||
+      !Number.isInteger(Number(formData.priority)) ||
+      Number(formData.priority) < 0
+    ) {
+      nextErrors.priority = "Priority phải là số nguyên không âm.";
     }
 
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) {
+
+    const firstKey = Object.keys(nextErrors)[0];
+    if (firstKey) {
       scrollToFirstError(nextErrors);
-      return false;
     }
-    return true;
+
+    return Object.keys(nextErrors).length === 0;
+  };
+
+  const handleChange = async (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    const nextValue = name === "code" ? normalizeCode(value) : value;
+
+    setFormData((prev) => ({ ...prev, [name]: nextValue }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
+
+    if (name === "province") {
+      setFormData((prev) => ({
+        ...prev,
+        province: value,
+        district: "",
+        ward: "",
+      }));
+      setDistricts([]);
+      setWards([]);
+      await loadDistricts(value);
+      return;
+    }
+
+    if (name === "district") {
+      setFormData((prev) => ({
+        ...prev,
+        district: value,
+        ward: "",
+      }));
+      setWards([]);
+      await loadWards(value);
+      return;
+    }
+  };
+
+  const fillSuggestedNameAndCode = () => {
+    const name =
+      scope === "fallback"
+        ? "Zone mặc định toàn quốc"
+        : [formData.ward, formData.district, formData.province]
+            .filter(Boolean)
+            .join(" - ");
+
+    const code = normalizeCode(name || "ZONE_MOI");
+
+    setFormData((prev) => ({ ...prev, name, code }));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    if (!validate()) return;
 
     try {
       setLoading(true);
-      const payload = {
-        code: formData.code.trim(),
-        name: formData.name.trim(),
-        province: formData.province.trim() || null,
-        district: formData.district.trim() || null,
-        ward: formData.ward.trim() || null,
-        baseFee: Number(formData.baseFee),
+      await http("POST", "/api/v1/admin/shipping-zones/create", {
+        code: formData.code,
+        name: formData.name,
+        province: formData.province || null,
+        district: formData.district || null,
+        ward: formData.ward || null,
+        baseFee: Number(formData.baseFee || 0),
         freeShipThreshold:
-          formData.freeShipThreshold.trim() === ""
+          formData.freeShipThreshold === ""
             ? null
             : Number(formData.freeShipThreshold),
-        priority: Number(formData.priority),
+        priority: Number(formData.priority || 0),
         status: formData.status,
-      };
+      });
 
-      const res = await http<any>(
-        "POST",
-        "/api/v1/admin/shipping-zones/create",
-        payload,
-      );
-
-      if (res?.success) {
-        showSuccessToast({ message: "Tạo rule vùng giao hàng thành công!" });
-        navigate("/admin/shipping/zones");
-      } else {
-        showErrorToast(res?.message || "Tạo quy tắc thất bại.");
-      }
-    } catch (err: any) {
-      showErrorToast(err?.message || "Lỗi kết nối tới hệ thống.");
+      showSuccessToast({ message: "Đã tạo shipping zone." });
+      navigate("/admin/shipping/zones");
+    } catch (error: any) {
+      showErrorToast(error?.message || "Không thể tạo shipping zone.");
     } finally {
       setLoading(false);
     }
   };
+
+  // Helper để đồng bộ class CSS của các ô input
+  const getInputClass = (error?: string) =>
+    `w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${
+      error ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+    }`;
 
   return (
     <div className="max-w-7xl mx-auto pb-24">
@@ -314,22 +389,19 @@ const ShippingZoneCreatePage: React.FC = () => {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
         <div>
           <button
-            onClick={() => navigate("/admin/shipping/zones")}
+            type="button"
+            onClick={() => navigate(-1)}
             className="flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors mb-2"
           >
             <ArrowLeft className="w-4 h-4" /> Quay lại danh sách
           </button>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
-            Thiết lập Rule Vùng giao hàng
+            Tạo shipping zone
           </h1>
           <p className="text-sm text-gray-600 dark:text-gray-400 mt-1.5">
-            Tạo một rule dùng để xác định địa chỉ nào được áp dụng mức phí và
-            logic freeship tương ứng.
+            Tạo nhanh theo hướng vận hành: chọn mẫu có sẵn, sinh code/name tự
+            động và tối ưu priority theo scope.
           </p>
-        </div>
-        <div className="hidden lg:block bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 text-blue-700 dark:text-blue-300 px-4 py-2.5 rounded-lg text-sm">
-          <Info className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
-          Sau khi tạo zone, bạn cần gắn zone này vào các chi nhánh (Coverage).
         </div>
       </div>
 
@@ -339,401 +411,318 @@ const ShippingZoneCreatePage: React.FC = () => {
       >
         {/* CỘT TRÁI: FORM BUILDER */}
         <div className="xl:col-span-2 space-y-6">
-          {/* Section 1: Định danh Rule */}
+          {/* Section 1: Tạo từ zone có sẵn */}
+          <Card>
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <Copy className="w-5 h-5 text-gray-400" />
+                <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                  1. Tạo từ zone có sẵn
+                </h2>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Sao chép base fee, freeship, priority và status từ một zone mẫu để
+              nhập nhanh hơn.
+            </p>
+
+            <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_auto]">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Zone mẫu
+                </label>
+                <select
+                  value={templateId}
+                  onChange={(e) => setTemplateId(e.target.value)}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  disabled={bootstrapLoading}
+                >
+                  <option value="">Không dùng zone mẫu</option>
+                  {templateZones.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.code} — {zone.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  type="button"
+                  onClick={() =>
+                    selectedTemplate &&
+                    navigate(
+                      `/admin/shipping/zones/edit/${selectedTemplate.id}`,
+                    )
+                  }
+                  disabled={!selectedTemplate}
+                  className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Mở zone mẫu
+                </button>
+              </div>
+            </div>
+
+            {selectedTemplate && (
+              <div className="mt-5 rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-sm text-blue-800 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300">
+                <div className="font-semibold mb-2">
+                  Đang lấy cấu hình từ: {selectedTemplate.name}
+                </div>
+                <div className="grid gap-2 md:grid-cols-2 text-sm">
+                  <div>
+                    <span className="opacity-70">Base fee:</span>{" "}
+                    {formatCurrency(selectedTemplate.baseFee)}
+                  </div>
+                  <div>
+                    <span className="opacity-70">Freeship:</span>{" "}
+                    {formatCurrency(selectedTemplate.freeShipThreshold)}
+                  </div>
+                  <div>
+                    <span className="opacity-70">Priority:</span>{" "}
+                    {selectedTemplate.priority}
+                  </div>
+                  <div>
+                    <span className="opacity-70">Status:</span>{" "}
+                    {selectedTemplate.status === "active"
+                      ? "Đang chạy"
+                      : "Tạm dừng"}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Section 2: Thông tin định danh */}
           <Card>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
               <Tag className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                1. Định danh quy tắc
+                2. Thông tin định danh
               </h2>
             </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Tên và mã zone cần rõ ràng để dùng tiếp cho coverage.
+            </p>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Tên quy tắc (Zone Name){" "}
-                  <span className="text-red-500">*</span>
+                  Tên zone <span className="text-red-500">*</span>
                 </label>
                 <input
                   ref={setFieldRef("name")}
-                  type="text"
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="VD: Nội thành Hà Nội"
-                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
+                  placeholder="Ví dụ: Zone Hoàng Mai"
+                  className={getInputClass(errors.name)}
                 />
                 {errors.name && (
-                  <p className="text-xs text-red-600 mt-1.5">{errors.name}</p>
+                  <p className="mt-1.5 text-xs text-red-600">{errors.name}</p>
                 )}
               </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  Mã vùng (Zone Code) <span className="text-red-500">*</span>
+                  Code <span className="text-red-500">*</span>
                 </label>
                 <input
                   ref={setFieldRef("code")}
-                  type="text"
                   name="code"
                   value={formData.code}
                   onChange={handleChange}
-                  placeholder="VD: HN_INNER"
-                  className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all uppercase font-mono text-sm ${errors.code ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
+                  placeholder="ZONE_HOANG_MAI"
+                  className={`${getInputClass(errors.code)} font-mono`}
                 />
-                <p className="text-[11px] text-gray-500 mt-1.5">
-                  Tự động in hoa & gạch dưới. VD:{" "}
-                  <span className="font-mono bg-gray-100 px-1 py-0.5 rounded text-gray-700">
-                    HCM_QUAN_1
-                  </span>
-                </p>
                 {errors.code && (
-                  <p className="text-xs text-red-600 mt-1.5">{errors.code}</p>
+                  <p className="mt-1.5 text-xs text-red-600">{errors.code}</p>
                 )}
               </div>
             </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={fillSuggestedNameAndCode}
+                className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition flex items-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Gợi ý tên & code
+              </button>
+            </div>
           </Card>
 
-          {/* Section 2: Phạm vi Match (Scope Builder) */}
-          <Card
-            className={`border-2 transition-all ${errors.province || errors.district || errors.ward ? "border-red-200" : "border-gray-200 dark:border-gray-700"}`}
-          >
-            <div className="flex items-center gap-2 mb-2 pb-3 border-b border-gray-100 dark:border-gray-700">
-              <ListTree className="w-5 h-5 text-gray-400" />
+          {/* Section 3: Phạm vi địa lý */}
+          <Card>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <MapPinned className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                2. Cấp độ Match địa chỉ
+                3. Phạm vi địa lý
               </h2>
             </div>
-
-            {/* Visual Scope Ladder */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between relative">
-                <div className="absolute left-0 top-1/2 w-full h-0.5 bg-gray-200 dark:bg-gray-700 -z-10 -translate-y-1/2"></div>
-                {[
-                  { id: "fallback", label: "Mặc định" },
-                  { id: "province", label: "Tỉnh/Thành" },
-                  { id: "district", label: "Quận/Huyện" },
-                  { id: "ward", label: "Phường/Xã" },
-                ].map((step, idx) => {
-                  const isActive = scopeKey === step.id;
-                  const isPassed =
-                    ["fallback", "province", "district", "ward"].indexOf(
-                      scopeKey,
-                    ) > idx;
-                  return (
-                    <div
-                      key={step.id}
-                      className="flex flex-col items-center bg-gray-50 dark:bg-gray-800/50 px-2"
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full border-2 transition-all ${isActive ? "border-blue-600 bg-blue-600 scale-125 shadow-md" : isPassed ? "border-blue-600 bg-white" : "border-gray-300 bg-white"}`}
-                      ></div>
-                      <span
-                        className={`text-[11px] font-bold mt-2 ${isActive ? "text-blue-700 dark:text-blue-400" : "text-gray-500"}`}
-                      >
-                        {step.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="mt-4 text-sm text-center text-gray-600 dark:text-gray-300 font-medium">
-                {scopeKey === "fallback" &&
-                  "Rule này đang là vùng mặc định. Áp dụng cho mọi địa chỉ không khớp với các quy tắc cụ thể khác."}
-                {scopeKey === "province" &&
-                  "Rule cấp Tỉnh. Áp dụng cho mọi địa chỉ thuộc tỉnh này, ngoại trừ các quận/huyện đã có rule riêng."}
-                {scopeKey === "district" &&
-                  "Rule cấp Quận. Áp dụng cho toàn bộ quận này, ngoại trừ các phường/xã đã có rule riêng."}
-                {scopeKey === "ward" &&
-                  "Rule cấp Phường. Mức độ match chính xác và hẹp nhất."}
-              </div>
-            </div>
-
-            {scopeKey === "fallback" && (
-              <div className="mb-5 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg flex gap-3">
-                <Globe className="w-5 h-5 text-amber-600 shrink-0" />
-                <div>
-                  <p className="text-sm font-bold text-amber-800 dark:text-amber-400">
-                    Bạn đang tạo vùng mặc định (Fallback Zone)
-                  </p>
-                  <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
-                    Để trống các ô bên dưới nếu bạn muốn giữ nguyên tính chất
-                    fallback. Hãy cẩn thận cấu hình độ ưu tiên cho vùng này.
-                  </p>
-                </div>
-              </div>
-            )}
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Chọn phạm vi match của zone. Càng cụ thể thì priority thường càng
+              nhỏ.
+            </p>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  1. Tỉnh / Thành phố
+                  Tỉnh / thành
                 </label>
-                <div className="relative">
-                  <select
-                    ref={setFieldRef("province")}
-                    name="province"
-                    value={formData.province}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        province: val,
-                        district: "",
-                        ward: "",
-                      }));
-                      setDistricts([]);
-                      setWards([]);
-                      if (val) loadDistricts(val);
-                      if (errors.province)
-                        setErrors((prev) => ({ ...prev, province: "" }));
-                    }}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="">-- Bỏ trống nếu là Fallback --</option>
-                    {cities.map((c) => (
-                      <option key={c.code} value={c.name}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingLocations.cities && (
-                    <Loader2 className="absolute right-8 top-3 w-4 h-4 animate-spin text-gray-400" />
-                  )}
-                </div>
-                {errors.province && (
-                  <p className="text-xs text-red-600 mt-1">{errors.province}</p>
-                )}
+                <select
+                  ref={setFieldRef("province")}
+                  name="province"
+                  value={formData.province}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="">Fallback toàn quốc</option>
+                  {cities.map((city) => (
+                    <option key={city.code} value={city.name}>
+                      {city.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  2. Quận / Huyện
+                  Quận / huyện
                 </label>
-                <div className="relative">
-                  <select
-                    ref={setFieldRef("district")}
-                    name="district"
-                    value={formData.district}
-                    disabled={!formData.province}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        district: val,
-                        ward: "",
-                      }));
-                      setWards([]);
-                      if (val) loadWards(val);
-                      if (errors.district)
-                        setErrors((prev) => ({ ...prev, district: "" }));
-                    }}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="">
-                      {formData.province
-                        ? "-- Chọn Quận/Huyện --"
-                        : "Cần chọn Tỉnh/Thành trước"}
+                <select
+                  ref={setFieldRef("district")}
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  disabled={!formData.province}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
+                >
+                  <option value="">Không chọn</option>
+                  {districts.map((district) => (
+                    <option key={district.code} value={district.name}>
+                      {district.name}
                     </option>
-                    {districts.map((d) => (
-                      <option key={d.code} value={d.name}>
-                        {d.name}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingLocations.districts && (
-                    <Loader2 className="absolute right-8 top-3 w-4 h-4 animate-spin text-gray-400" />
-                  )}
-                </div>
-                {errors.district && (
-                  <p className="text-xs text-red-600 mt-1">{errors.district}</p>
-                )}
+                  ))}
+                </select>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                  3. Phường / Xã
+                  Phường / xã
                 </label>
-                <div className="relative">
-                  <select
-                    ref={setFieldRef("ward")}
-                    name="ward"
-                    value={formData.ward}
-                    disabled={!formData.district}
-                    onChange={(e) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        ward: e.target.value,
-                      }));
-                      if (errors.ward)
-                        setErrors((prev) => ({ ...prev, ward: "" }));
-                    }}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-                  >
-                    <option value="">
-                      {formData.district
-                        ? "-- Chọn Phường/Xã --"
-                        : "Cần chọn Quận/Huyện trước"}
+                <select
+                  ref={setFieldRef("ward")}
+                  name="ward"
+                  value={formData.ward}
+                  onChange={handleChange}
+                  disabled={!formData.district}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100 dark:disabled:bg-gray-700 disabled:cursor-not-allowed"
+                >
+                  <option value="">Không chọn</option>
+                  {wards.map((ward) => (
+                    <option key={ward.code} value={ward.name}>
+                      {ward.name}
                     </option>
-                    {wards.map((w) => (
-                      <option key={w.code} value={w.name}>
-                        {w.name}
-                      </option>
-                    ))}
-                  </select>
-                  {loadingLocations.wards && (
-                    <Loader2 className="absolute right-8 top-3 w-4 h-4 animate-spin text-gray-400" />
-                  )}
-                </div>
+                  ))}
+                </select>
               </div>
             </div>
           </Card>
 
-          {/* Section 3 & 4: Logic Giá & Hành vi (2 columns on desktop) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Logic giá */}
-            <Card>
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
-                <CreditCard className="w-5 h-5 text-gray-400" />
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                  3. Logic giá (Base Pricing)
-                </h2>
-              </div>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Phí nền cơ bản (VNĐ) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={setFieldRef("baseFee")}
-                    type="number"
-                    min="0"
-                    step="1000"
-                    name="baseFee"
-                    value={formData.baseFee}
-                    onChange={handleChange}
-                    className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none ${errors.baseFee ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                  />
-                  <div className="text-xs font-medium text-blue-600 mt-1.5 bg-blue-50 p-1.5 rounded w-fit">
-                    Preview: {formatCurrencyPreview(formData.baseFee)}
-                  </div>
-                  {errors.baseFee && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {errors.baseFee}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Ngưỡng Freeship (VNĐ)
-                  </label>
-                  <input
-                    ref={setFieldRef("freeShipThreshold")}
-                    type="number"
-                    min="0"
-                    step="1000"
-                    name="freeShipThreshold"
-                    value={formData.freeShipThreshold}
-                    onChange={handleChange}
-                    placeholder="Bỏ trống nếu không áp dụng"
-                    className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none ${errors.freeShipThreshold ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                  />
-                  {formData.freeShipThreshold && (
-                    <div className="text-xs font-medium text-green-600 mt-1.5 bg-green-50 p-1.5 rounded w-fit flex items-center gap-1">
-                      <BadgePercent className="w-3.5 h-3.5" /> Sẽ miễn phí ship
-                      từ {formatCurrencyPreview(formData.freeShipThreshold)}
-                    </div>
-                  )}
-                  {errors.freeShipThreshold && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {errors.freeShipThreshold}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </Card>
+          {/* Section 4: Giá & hành vi áp dụng */}
+          <Card>
+            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
+              <Globe className="w-5 h-5 text-gray-400" />
+              <h2 className="text-lg font-bold text-gray-800 dark:text-white">
+                4. Giá & hành vi áp dụng
+              </h2>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-5">
+              Base fee, freeship, priority và trạng thái vận hành.
+            </p>
 
-            {/* Hành vi áp dụng */}
-            <Card>
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-gray-700">
-                <LayoutList className="w-5 h-5 text-gray-400" />
-                <h2 className="text-lg font-bold text-gray-800 dark:text-white">
-                  4. Hành vi áp dụng
-                </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Base fee
+                </label>
+                <input
+                  ref={setFieldRef("baseFee")}
+                  name="baseFee"
+                  type="number"
+                  min={0}
+                  value={formData.baseFee}
+                  onChange={handleChange}
+                  className={getInputClass(errors.baseFee)}
+                />
+                {errors.baseFee && (
+                  <p className="mt-1.5 text-xs text-red-600">
+                    {errors.baseFee}
+                  </p>
+                )}
               </div>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Độ ưu tiên (Priority){" "}
-                    <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={setFieldRef("priority")}
-                    type="number"
-                    min="0"
-                    step="1"
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleChange}
-                    className={`w-full border rounded-lg p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none ${errors.priority ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
-                  />
 
-                  {/* Priority Warning Engine */}
-                  <div className="mt-2 text-[11px] leading-tight">
-                    {Number(formData.priority) > 50 && scopeKey === "ward" && (
-                      <span className="text-amber-600 flex gap-1">
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> Rule
-                        match hẹp nhưng ưu tiên thấp. Có thể bị ghi đè bởi rule
-                        cấp Tỉnh/Quận.
-                      </span>
-                    )}
-                    {Number(formData.priority) < 5 &&
-                      scopeKey === "fallback" && (
-                        <span className="text-amber-600 flex gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />{" "}
-                          Vùng fallback nhưng ưu tiên rất cao. Có thể cản trở
-                          các rule cụ thể hoạt động.
-                        </span>
-                      )}
-                    {!Number.isNaN(Number(formData.priority)) &&
-                      !(
-                        Number(formData.priority) > 50 && scopeKey === "ward"
-                      ) &&
-                      !(
-                        Number(formData.priority) < 5 && scopeKey === "fallback"
-                      ) && (
-                        <span className="text-gray-500">
-                          Số càng nhỏ, rule càng được xét trước. (0 là cao nhất)
-                        </span>
-                      )}
-                  </div>
-                  {errors.priority && (
-                    <p className="text-xs text-red-600 mt-1">
-                      {errors.priority}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-                    Trạng thái kích hoạt
-                  </label>
-                  <select
-                    ref={setFieldRef("status")}
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
-                  >
-                    <option value="active">
-                      Hoạt động (Sẵn sàng cho Coverage)
-                    </option>
-                    <option value="inactive">
-                      Tạm dừng (Lưu cấu hình, chưa dùng)
-                    </option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Freeship threshold
+                </label>
+                <input
+                  ref={setFieldRef("freeShipThreshold")}
+                  name="freeShipThreshold"
+                  type="number"
+                  min={0}
+                  value={formData.freeShipThreshold}
+                  onChange={handleChange}
+                  placeholder="Bỏ trống nếu không dùng"
+                  className={getInputClass(errors.freeShipThreshold)}
+                />
+                {errors.freeShipThreshold && (
+                  <p className="mt-1.5 text-xs text-red-600">
+                    {errors.freeShipThreshold}
+                  </p>
+                )}
               </div>
-            </Card>
-          </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Priority
+                </label>
+                <input
+                  ref={setFieldRef("priority")}
+                  name="priority"
+                  type="number"
+                  min={0}
+                  value={formData.priority}
+                  onChange={handleChange}
+                  className={getInputClass(errors.priority)}
+                />
+                {errors.priority && (
+                  <p className="mt-1.5 text-xs text-red-600">
+                    {errors.priority}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+                  Trạng thái
+                </label>
+                <select
+                  ref={setFieldRef("status")}
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 bg-white dark:bg-gray-800 text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                  <option value="active">Đang chạy</option>
+                  <option value="inactive">Tạm dừng</option>
+                </select>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* CỘT PHẢI: LIVE PREVIEW PANEL */}
@@ -741,64 +730,62 @@ const ShippingZoneCreatePage: React.FC = () => {
           <div className="sticky top-24 space-y-6">
             <Card className="border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-white dark:from-gray-800 dark:to-gray-800/80 shadow-sm overflow-hidden">
               <div className="bg-blue-600 text-white px-4 py-3 -mx-6 -mt-6 mb-5 flex items-center gap-2 font-bold shadow-sm">
-                <Info className="w-5 h-5" /> Live Rule Summary
+                <Sparkles className="w-5 h-5" /> Live Preview Rule
               </div>
 
               <div className="space-y-4 text-sm">
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                    Mức độ Match
-                  </div>
-                  <div
-                    className={`inline-flex px-2 py-1 rounded text-xs font-bold border ${scopeKey === "fallback" ? "bg-gray-100 text-gray-700 border-gray-200" : "bg-blue-100 text-blue-700 border-blue-200"}`}
-                  >
-                    Cấp {scopeKey.charAt(0).toUpperCase() + scopeKey.slice(1)}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                    Khu vực áp dụng
+                    Scope
                   </div>
                   <div className="font-bold text-gray-900 dark:text-white">
-                    {areaTextPreview}
+                    {scope === "fallback"
+                      ? "Fallback toàn hệ thống"
+                      : scope === "province"
+                        ? "Rule cấp tỉnh / thành"
+                        : scope === "district"
+                          ? "Rule cấp quận / huyện"
+                          : "Rule cấp phường / xã"}
                   </div>
+                  <div className="text-xs text-gray-500 mt-1">{areaLabel}</div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                   <div>
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                      Base Fee
+                      Base fee
                     </div>
                     <div className="font-bold text-gray-900 dark:text-white">
-                      {formatCurrencyPreview(formData.baseFee)}
+                      {formatCurrency(formData.baseFee)}
                     </div>
                   </div>
                   <div>
                     <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
                       Freeship
                     </div>
-                    <div className="font-bold text-green-600 dark:text-green-400">
-                      {formData.freeShipThreshold
-                        ? `Từ ${formatCurrencyPreview(formData.freeShipThreshold)}`
-                        : "Không"}
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {formatCurrency(formData.freeShipThreshold)}
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Cách rule này hoạt động
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Priority
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {formData.priority || "—"}
+                    </div>
                   </div>
-                  <div
-                    className="text-gray-700 dark:text-gray-300 text-[13px] leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: ruleSummaryText.replace(
-                        /\*\*(.*?)\*\*/g,
-                        '<strong class="text-gray-900 dark:text-white">$1</strong>',
-                      ),
-                    }}
-                  />
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                      Status
+                    </div>
+                    <div className="font-bold text-gray-900 dark:text-white">
+                      {formData.status === "active" ? "Đang chạy" : "Tạm dừng"}
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -807,17 +794,24 @@ const ShippingZoneCreatePage: React.FC = () => {
               <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
                 <ArrowRight className="w-4 h-4" /> Bước tiếp theo
               </h3>
-              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
-                Sau khi tạo vùng giao hàng thành công, bạn có thể chuyển sang
-                mục <strong>Coverage</strong> để gán vùng này cho các chi nhánh
-                cụ thể được phép phục vụ.
+              <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
+                Sau khi tạo zone xong, bạn có thể chuyển sang màn hình coverage
+                để gán zone này vào các chi nhánh phù hợp.
               </p>
+
+              <button
+                type="button"
+                onClick={() => navigate("/admin/shipping/service-areas")}
+                className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 transition"
+              >
+                <MapPinned className="w-4 h-4" /> Mở workspace coverage
+              </button>
             </Card>
           </div>
         </div>
       </form>
 
-      {/* Action Bar */}
+      {/* Action Bar (Fixed Bottom) */}
       <div className="fixed bottom-0 left-0 right-0 md:left-64 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-20">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm font-medium text-gray-500 hidden sm:block">
@@ -842,17 +836,25 @@ const ShippingZoneCreatePage: React.FC = () => {
             >
               {loading ? (
                 <>
-                  <Loader2 className="w-5 h-5 animate-spin" /> Đang tạo rule...
+                  <Loader2 className="w-5 h-5 animate-spin" /> Đang tạo zone...
                 </>
               ) : (
                 <>
-                  <Save className="w-5 h-5" /> Lưu vùng giao hàng
+                  <Save className="w-5 h-5" /> Lưu shipping zone
                 </>
               )}
             </button>
           </div>
         </div>
       </div>
+
+      {/* Loader hiển thị cho Bootstrap API */}
+      {bootstrapLoading && (
+        <div className="fixed bottom-24 right-6 inline-flex items-center gap-2 rounded-full bg-gray-900 dark:bg-gray-100 px-4 py-2 text-sm font-medium text-white dark:text-gray-900 shadow-lg z-30">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Đang tải zone mẫu...
+        </div>
+      )}
     </div>
   );
 };

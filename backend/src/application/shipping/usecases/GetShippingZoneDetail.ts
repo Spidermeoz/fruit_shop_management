@@ -10,6 +10,11 @@ export class GetShippingZoneDetail {
       throw new Error("Zone id không hợp lệ");
     }
 
-    return this.shippingZoneRepo.findById(zoneId);
+    const zone = await this.shippingZoneRepo.findById(zoneId);
+    if (!zone) {
+      throw new Error("Vùng giao hàng không tồn tại");
+    }
+
+    return zone;
   }
 }

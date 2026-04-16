@@ -5,6 +5,9 @@ import { CreateShippingZone } from "../../../../application/shipping/usecases/Cr
 import { EditShippingZone } from "../../../../application/shipping/usecases/EditShippingZone";
 import { ChangeShippingZoneStatus } from "../../../../application/shipping/usecases/ChangeShippingZoneStatus";
 import { SoftDeleteShippingZone } from "../../../../application/shipping/usecases/SoftDeleteShippingZone";
+import { BulkChangeShippingZoneStatus } from "../../../../application/shipping/usecases/BulkChangeShippingZoneStatus";
+import { BulkDeleteShippingZones } from "../../../../application/shipping/usecases/BulkDeleteShippingZones";
+import { BulkUpdateShippingZonePriority } from "../../../../application/shipping/usecases/BulkUpdateShippingZonePriority";
 
 const toNum = (v: any) => {
   if (v === undefined || v === null || v === "") return undefined;
@@ -19,6 +22,9 @@ export const makeShippingZonesController = (uc: {
   edit: EditShippingZone;
   changeStatus: ChangeShippingZoneStatus;
   softDelete: SoftDeleteShippingZone;
+  bulkChangeStatus: BulkChangeShippingZoneStatus;
+  bulkDelete: BulkDeleteShippingZones;
+  bulkUpdatePriority: BulkUpdateShippingZonePriority;
 }) => {
   return {
     list: async (req: Request, res: Response, next: NextFunction) => {
@@ -27,19 +33,16 @@ export const makeShippingZonesController = (uc: {
           string,
           string
         >;
-
         const normalizedPage = Math.max(1, toNum(page) ?? 1);
         const normalizedLimit = Math.max(1, toNum(limit) ?? 10);
         const offset = (normalizedPage - 1) * normalizedLimit;
         const normalizedQuery = String(q ?? keyword ?? "").trim();
-
         const data = await uc.list.execute({
           q: normalizedQuery || undefined,
           status: (status as any) ?? "all",
           limit: normalizedLimit,
           offset,
         });
-
         res.json({
           success: true,
           data: data.rows,
@@ -58,14 +61,11 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
-
         if (!dto) {
-          return res.status(404).json({
-            success: false,
-            message: "Shipping zone not found",
-          });
+          return res
+            .status(404)
+            .json({ success: false, message: "Shipping zone not found" });
         }
-
         return res.json({
           success: true,
           data: dto,
@@ -79,7 +79,6 @@ export const makeShippingZonesController = (uc: {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const payload = req.body ?? {};
-
         const result = await uc.create.execute({
           code: payload.code,
           name: payload.name,
@@ -96,12 +95,13 @@ export const makeShippingZonesController = (uc: {
           priority: toNum(payload.priority) ?? 0,
           status: payload.status ?? "active",
         });
-
-        res.status(201).json({
-          success: true,
-          data: result,
-          meta: { total: 0, page: 1, limit: 10 },
-        });
+        res
+          .status(201)
+          .json({
+            success: true,
+            data: result,
+            meta: { total: 0, page: 1, limit: 10 },
+          });
       } catch (e) {
         next(e);
       }
@@ -111,14 +111,11 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const dto = await uc.detail.execute(id);
-
         if (!dto) {
-          return res.status(404).json({
-            success: false,
-            message: "Shipping zone not found",
-          });
+          return res
+            .status(404)
+            .json({ success: false, message: "Shipping zone not found" });
         }
-
         return res.json({
           success: true,
           data: dto,
@@ -133,7 +130,6 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const payload = req.body ?? {};
-
         const result = await uc.edit.execute(id, {
           code: payload.code,
           name: payload.name,
@@ -157,7 +153,6 @@ export const makeShippingZonesController = (uc: {
               : undefined,
           status: payload.status,
         });
-
         res.json({
           success: true,
           data: result,
@@ -172,9 +167,7 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const { status } = req.body;
-
         const result = await uc.changeStatus.execute(id, status);
-
         res.json({
           success: true,
           data: result,
@@ -189,12 +182,50 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const result = await uc.softDelete.execute(id);
-
         res.json({
           success: true,
           data: result,
           meta: { total: 0, page: 1, limit: 10 },
         });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    bulkChangeStatus: async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+        const status = String(req.body?.status ?? "");
+        const result = await uc.bulkChangeStatus.execute({ ids, status });
+        res.json({ success: true, data: result });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    bulkDelete: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+        const result = await uc.bulkDelete.execute({ ids });
+        res.json({ success: true, data: result });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    bulkUpdatePriority: async (
+      req: Request,
+      res: Response,
+      next: NextFunction,
+    ) => {
+      try {
+        const items = Array.isArray(req.body?.items) ? req.body.items : [];
+        const result = await uc.bulkUpdatePriority.execute({ items });
+        res.json({ success: true, data: result });
       } catch (e) {
         next(e);
       }

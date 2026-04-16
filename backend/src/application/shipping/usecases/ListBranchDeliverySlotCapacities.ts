@@ -7,6 +7,10 @@ export class ListBranchDeliverySlotCapacities {
   constructor(private readonly repo: BranchDeliverySlotCapacityRepository) {}
 
   async execute(query: ListBranchDeliverySlotCapacitiesQuery) {
-    return this.repo.findAll(query);
+    const result = await this.repo.findAll(query);
+    return {
+      items: result.items,
+      total: result.total,
+    };
   }
 }

@@ -58,35 +58,19 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
     };
   }
 
-  async list(params: ListDeliveryTimeSlotsParams): Promise<{
-    items: DeliveryTimeSlotEntity[];
-    pagination: {
-      page: number;
-      limit: number;
-      totalItems: number;
-      totalPages: number;
-    };
-  }> {
+  async list(params: ListDeliveryTimeSlotsParams) {
     const page = Number(params.page ?? 1);
     const limit = Number(params.limit ?? 10);
     const keyword = String(params.keyword ?? "").trim();
     const status = String(params.status ?? "").trim();
-
-    const where: any = {
-      deleted: 0,
-    };
-
+    const where: any = { deleted: 0 };
     if (keyword) {
       where[Op.or] = [
         { code: { [Op.like]: `%${keyword}%` } },
         { label: { [Op.like]: `%${keyword}%` } },
       ];
     }
-
-    if (status) {
-      where.status = status;
-    }
-
+    if (status) where.status = status;
     const { count, rows } = await this.models.DeliveryTimeSlot.findAndCountAll({
       where,
       order: [
@@ -96,7 +80,6 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       offset: (page - 1) * limit,
       limit,
     });
-
     return {
       items: rows.map((row: any) => this.mapSlot(row)),
       pagination: {
@@ -108,98 +91,78 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
     };
   }
 
-  async findById(id: number): Promise<DeliveryTimeSlotEntity | null> {
-    const row = await this.models.DeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+  async listByIds(ids: number[]) {
+    const uniqIds = [
+      ...new Set(ids.map(Number).filter((x) => Number.isInteger(x) && x > 0)),
+    ];
+    if (!uniqIds.length) return [];
+    const rows = await this.models.DeliveryTimeSlot.findAll({
+      where: { id: { [Op.in]: uniqIds }, deleted: 0 },
+      order: [
+        ["sort_order", "ASC"],
+        ["id", "ASC"],
+      ],
     });
+    return rows.map((row: any) => this.mapSlot(row));
+  }
 
+  async findById(id: number) {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
     return row ? this.mapSlot(row) : null;
   }
 
-  async findByCode(code: string): Promise<DeliveryTimeSlotEntity | null> {
+  async findByCode(code: string) {
     const row = await this.models.DeliveryTimeSlot.findOne({
       where: {
-        code,
+        code: String(code ?? "")
+          .trim()
+          .toUpperCase(),
         deleted: 0,
       },
     });
-
     return row ? this.mapSlot(row) : null;
   }
 
-  async findDeletedByCode(
-    code: string,
-  ): Promise<DeliveryTimeSlotEntity | null> {
+  async findDeletedByCode(code: string) {
     const row = await this.models.DeliveryTimeSlot.findOne({
       where: {
-        code,
+        code: String(code ?? "")
+          .trim()
+          .toUpperCase(),
         deleted: 1,
       },
       order: [["id", "DESC"]],
     });
-
     return row ? this.mapSlot(row) : null;
   }
 
-  async create(
-    payload: CreateDeliveryTimeSlotPayload,
-  ): Promise<DeliveryTimeSlotEntity> {
-    try {
-      const row = await this.models.DeliveryTimeSlot.create({
-        code: payload.code,
-        label: payload.label,
-        start_time: payload.startTime,
-        end_time: payload.endTime,
-        cutoff_minutes: payload.cutoffMinutes,
-        max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
-        sort_order: payload.sortOrder,
-        status: payload.status,
-        deleted: 0,
-        deleted_at: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      });
-
-      const found = await this.models.DeliveryTimeSlot.findOne({
-        where: { id: row.id, deleted: 0 },
-      });
-
-      if (!found) {
-        throw new Error("Không tìm thấy khung giờ giao hàng sau khi tạo.");
-      }
-
-      return this.mapSlot(found);
-    } catch (error: any) {
-      if (
-        error?.name === "SequelizeUniqueConstraintError" ||
-        error?.original?.code === "ER_DUP_ENTRY"
-      ) {
-        throw new Error("Mã khung giờ giao hàng đã tồn tại.");
-      }
-      throw error;
-    }
+  async create(payload: CreateDeliveryTimeSlotPayload) {
+    const row = await this.models.DeliveryTimeSlot.create({
+      code: String(payload.code).trim().toUpperCase(),
+      label: payload.label,
+      start_time: payload.startTime,
+      end_time: payload.endTime,
+      cutoff_minutes: payload.cutoffMinutes,
+      max_orders: payload.maxOrders !== undefined ? payload.maxOrders : null,
+      sort_order: payload.sortOrder,
+      status: payload.status,
+      deleted: 0,
+      deleted_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+    return this.mapSlot(row);
   }
 
-  async update(
-    id: number,
-    payload: UpdateDeliveryTimeSlotPayload,
-  ): Promise<DeliveryTimeSlotEntity> {
+  async update(id: number, payload: UpdateDeliveryTimeSlotPayload) {
     const row = await this.models.DeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
     });
-
-    if (!row) {
-      throw new Error("Không tìm thấy khung giờ giao hàng.");
-    }
-
+    if (!row) throw new Error("Không tìm thấy khung giờ giao hàng.");
     await row.update({
-      code: payload.code,
+      code: String(payload.code).trim().toUpperCase(),
       label: payload.label,
       start_time: payload.startTime,
       end_time: payload.endTime,
@@ -209,37 +172,19 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       status: payload.status,
       updated_at: new Date(),
     });
-
-    const found = await this.models.DeliveryTimeSlot.findOne({
-      where: { id, deleted: 0 },
-    });
-
-    if (!found) {
-      throw new Error("Không tìm thấy khung giờ giao hàng sau khi cập nhật.");
-    }
-
-    return this.mapSlot(found);
+    return this.mapSlot(row);
   }
 
-  async revive(
-    id: number,
-    payload: UpdateDeliveryTimeSlotPayload,
-  ): Promise<DeliveryTimeSlotEntity> {
+  async revive(id: number, payload: UpdateDeliveryTimeSlotPayload) {
     const row = await this.models.DeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 1,
-      },
+      where: { id, deleted: 1 },
     });
-
-    if (!row) {
+    if (!row)
       throw new Error(
         "Không tìm thấy khung giờ giao hàng đã xóa để khôi phục.",
       );
-    }
-
     await row.update({
-      code: payload.code,
+      code: String(payload.code).trim().toUpperCase(),
       label: payload.label,
       start_time: payload.startTime,
       end_time: payload.endTime,
@@ -251,63 +196,45 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
       deleted_at: null,
       updated_at: new Date(),
     });
-
-    const found = await this.models.DeliveryTimeSlot.findOne({
-      where: { id, deleted: 0 },
-    });
-
-    if (!found) {
-      throw new Error("Không tìm thấy khung giờ giao hàng sau khi khôi phục.");
-    }
-
-    return this.mapSlot(found);
+    return this.mapSlot(row);
   }
 
-  async changeStatus(
-    id: number,
-    status: string,
-  ): Promise<DeliveryTimeSlotEntity> {
+  async changeStatus(id: number, status: string) {
     const row = await this.models.DeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
-    });
-
-    if (!row) {
-      throw new Error("Không tìm thấy khung giờ giao hàng.");
-    }
-
-    await row.update({
-      status,
-      updated_at: new Date(),
-    });
-
-    const found = await this.models.DeliveryTimeSlot.findOne({
       where: { id, deleted: 0 },
     });
-
-    if (!found) {
-      throw new Error(
-        "Không tìm thấy khung giờ giao hàng sau khi đổi trạng thái.",
-      );
-    }
-
-    return this.mapSlot(found);
+    if (!row) throw new Error("Không tìm thấy khung giờ giao hàng.");
+    await row.update({ status, updated_at: new Date() });
+    return this.mapSlot(row);
   }
 
-  async softDelete(id: number): Promise<void> {
-    const row = await this.models.DeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+  async bulkChangeStatus(ids: number[], status: string) {
+    const uniqIds: number[] = [
+      ...new Set(ids.map(Number).filter((x) => Number.isInteger(x) && x > 0)),
+    ];
+    const found: any[] = await this.models.DeliveryTimeSlot.findAll({
+      where: { id: { [Op.in]: uniqIds }, deleted: 0 },
     });
 
-    if (!row) {
-      throw new Error("Không tìm thấy khung giờ giao hàng.");
+    const foundIds: Set<number> = new Set(
+      found.map((row: any) => Number(row.id)),
+    );
+
+    for (const row of found) {
+      await row.update({ status, updated_at: new Date() });
     }
 
+    return {
+      updatedIds: Array.from(foundIds),
+      notFoundIds: uniqIds.filter((id) => !foundIds.has(id)),
+    };
+  }
+
+  async softDelete(id: number) {
+    const row = await this.models.DeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+    if (!row) throw new Error("Không tìm thấy khung giờ giao hàng.");
     await row.update({
       deleted: 1,
       deleted_at: new Date(),
@@ -315,45 +242,33 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
     });
   }
 
-  async listActiveByBranch(branchId: number): Promise<
-    Array<{
-      slot: DeliveryTimeSlotEntity;
-      branchSlot?: BranchDeliveryTimeSlotEntity | null;
-    }>
-  > {
-    const rows = await this.models.BranchDeliveryTimeSlot.findAll({
-      where: {
-        branch_id: branchId,
-        status: "active",
-        deleted: 0,
-      },
-      include: [
-        {
-          model: this.models.DeliveryTimeSlot,
-          as: "deliveryTimeSlot",
-          where: {
-            status: "active",
-            deleted: 0,
-          },
-        },
-      ],
+  async listActiveByBranch(branchId: number) {
+    const branchSlots = this.models.BranchDeliveryTimeSlot
+      ? await this.models.BranchDeliveryTimeSlot.findAll({
+          where: { branch_id: branchId, status: "active", deleted: 0 },
+          order: [["id", "ASC"]],
+        })
+      : [];
+
+    const slotIds = branchSlots.map((row: any) =>
+      Number(row.delivery_time_slot_id),
+    );
+    if (!slotIds.length) return [];
+    const slots = await this.models.DeliveryTimeSlot.findAll({
+      where: { id: { [Op.in]: slotIds }, status: "active", deleted: 0 },
       order: [
-        [
-          { model: this.models.DeliveryTimeSlot, as: "deliveryTimeSlot" },
-          "sort_order",
-          "ASC",
-        ],
-        [
-          { model: this.models.DeliveryTimeSlot, as: "deliveryTimeSlot" },
-          "id",
-          "ASC",
-        ],
+        ["sort_order", "ASC"],
+        ["id", "ASC"],
       ],
     });
-
-    return rows.map((row: any) => ({
-      slot: this.mapSlot(row.deliveryTimeSlot),
-      branchSlot: this.mapBranchSlot(row),
+    const branchSlotMap = new Map<number, any>(
+      branchSlots.map((row: any) => [Number(row.delivery_time_slot_id), row]),
+    );
+    return slots.map((slot: any) => ({
+      slot: this.mapSlot(slot),
+      branchSlot: branchSlotMap.has(Number(slot.id))
+        ? this.mapBranchSlot(branchSlotMap.get(Number(slot.id)))
+        : null,
     }));
   }
 
@@ -361,16 +276,16 @@ export class SequelizeDeliveryTimeSlotRepository implements DeliveryTimeSlotRepo
     branchId: number,
     deliveryDate: string,
     deliveryTimeSlotId: number,
-  ): Promise<BranchDeliverySlotCapacityEntity | null> {
+  ) {
+    if (!this.models.BranchDeliverySlotCapacity) return null;
     const row = await this.models.BranchDeliverySlotCapacity.findOne({
       where: {
         branch_id: branchId,
         delivery_date: deliveryDate,
         delivery_time_slot_id: deliveryTimeSlotId,
-        status: "active",
+        deleted: 0,
       },
     });
-
     return row ? this.mapCapacity(row) : null;
   }
 }

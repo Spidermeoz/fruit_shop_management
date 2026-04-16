@@ -109,7 +109,12 @@ export class GetAvailableDeliverySlotsService {
       let remainingCapacity: number | null = null;
       let reason: string | null = null;
 
-      if (effectiveMax !== null) {
+      if (capacity && String(capacity.status).toLowerCase() !== "active") {
+        isAvailable = false;
+        reason = "Capacity của khung giờ đang tạm dừng";
+      }
+
+      if (isAvailable && effectiveMax !== null) {
         remainingCapacity = Math.max(0, effectiveMax - reserved);
         if (remainingCapacity <= 0) {
           isAvailable = false;

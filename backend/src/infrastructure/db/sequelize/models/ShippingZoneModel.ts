@@ -64,7 +64,6 @@ ShippingZoneModel.init(
     code: {
       type: DataTypes.STRING(100),
       allowNull: false,
-      unique: true,
     },
     name: {
       type: DataTypes.STRING(255),
@@ -133,12 +132,25 @@ ShippingZoneModel.init(
     timestamps: false,
     indexes: [
       {
+        unique: true,
+        name: "uq_shipping_zones_code_deleted",
+        fields: ["code", "deleted"],
+      },
+      {
         name: "idx_shipping_zones_status_deleted_priority",
         fields: ["status", "deleted", "priority"],
       },
       {
         name: "idx_shipping_zones_province_district_ward",
         fields: ["province", "district", "ward"],
+      },
+      {
+        name: "idx_shipping_zones_scope_deleted_priority",
+        fields: ["province", "district", "ward", "deleted", "priority"],
+      },
+      {
+        name: "idx_shipping_zones_code_deleted_status",
+        fields: ["code", "deleted", "status"],
       },
     ],
   },

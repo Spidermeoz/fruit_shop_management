@@ -1,34 +1,37 @@
-import React, { useEffect, useMemo, useState } from "react";
-import Card from "../../../components/admin/layouts/Card";
-import Pagination from "../../../components/admin/common/Pagination";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Loader2,
-  MapPinned,
-  Power,
-  Globe,
+  AlertTriangle,
+  ArrowUpDown,
   CheckCircle2,
-  AlertCircle,
-  Tag,
+  Copy,
+  Edit,
+  Layers,
   LayoutGrid,
   List,
+  Loader2,
+  MapPinned,
+  Plus,
+  Power,
   RefreshCw,
-  BadgePercent,
-  Truck,
-  Layers,
-  ArrowRight,
+  Search,
+  ShieldAlert,
+  Trash2,
 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import Card from "../../../components/admin/layouts/Card";
 import { http } from "../../../services/http";
 import { useAdminToast } from "../../../context/AdminToastContext";
 
-// =============================
-// TYPES
-// =============================
-type ShippingZoneStatus = "active" | "inactive";
+type ZoneStatus = "active" | "inactive";
+type ViewMode = "table" | "board";
+type QuickFilter =
+  | "all"
+  | "active"
+  | "inactive"
+  | "fallback"
+  | "ward"
+  | "district"
+  | "province";
 
 interface ShippingZone {
   id: number;
@@ -40,246 +43,453 @@ interface ShippingZone {
   baseFee: number;
   freeShipThreshold?: number | null;
   priority: number;
-  status: ShippingZoneStatus;
+  status: ZoneStatus;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-type ApiList<T> = {
-  success: true;
-  data: T[];
-  meta?: { total?: number; limit?: number; offset?: number; page?: number };
+interface ApiList<T> {
+  success?: boolean;
+  data?: T[] | { items?: T[]; rows?: T[] };
+  meta?: { total?: number; page?: number; limit?: number };
+}
+
+const toArray = <T,>(input: ApiList<T>["data"] | undefined): T[] => {
+  if (Array.isArray(input)) return input;
+  if (Array.isArray(input?.items)) return input.items;
+  if (Array.isArray((input as { rows?: T[] } | undefined)?.rows)) {
+    return ((input as { rows?: T[] }).rows ?? []) as T[];
+  }
+  return [];
 };
 
-type QuickFilterType =
-  | "all"
-  | "active"
-  | "fallback"
-  | "province"
-  | "district"
-  | "ward"
-  | "freeship"
-  | "high_priority";
-
-// =============================
-// HELPERS
-// =============================
 const formatCurrency = (value?: number | null) => {
-  const amount = Number(value ?? 0);
-  return amount.toLocaleString("vi-VN") + " đ";
+  if (value === null || value === undefined) return "—";
+  return `${Number(value).toLocaleString("vi-VN")} đ`;
 };
 
-const getZoneScopeKey = (
+const getScope = (
   zone: ShippingZone,
 ): "fallback" | "province" | "district" | "ward" => {
+  if (!zone.province && !zone.district && !zone.ward) return "fallback";
   if (zone.ward) return "ward";
   if (zone.district) return "district";
-  if (zone.province) return "province";
-  return "fallback";
+  return "province";
 };
 
-const getMatchLevelInfo = (zone: ShippingZone) => {
-  const scope = getZoneScopeKey(zone);
+const getScopeLabel = (scope: ReturnType<typeof getScope>) => {
   switch (scope) {
     case "ward":
-      return {
-        label: "Phường/Xã",
-        color:
-          "text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400",
-      };
+      return "Phường / xã";
     case "district":
-      return {
-        label: "Quận/Huyện",
-        color:
-          "text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400",
-      };
+      return "Quận / huyện";
     case "province":
-      return {
-        label: "Tỉnh/Thành",
-        color:
-          "text-teal-600 bg-teal-50 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400",
-      };
-    case "fallback":
-      return {
-        label: "Fallback",
-        color:
-          "text-gray-600 bg-gray-100 border-gray-300 dark:bg-gray-800 dark:text-gray-400",
-      };
+      return "Tỉnh / thành";
+    default:
+      return "Fallback";
   }
 };
 
-const getZoneRuleDescription = (zone: ShippingZone) => {
-  const scope = getZoneScopeKey(zone);
+const getScopePrioritySuggestion = (scope: ReturnType<typeof getScope>) => {
   switch (scope) {
     case "ward":
-      return "Áp dụng riêng cho khu vực cấp phường/xã này.";
+      return 1;
     case "district":
-      return "Áp dụng cho mọi địa chỉ thuộc quận/huyện này nếu không có rule phường/xã cụ thể hơn.";
+      return 5;
     case "province":
-      return "Áp dụng cho mọi địa chỉ thuộc tỉnh/thành này nếu không có rule cụ thể hơn.";
-    case "fallback":
-      return "Áp dụng cho mọi địa chỉ không khớp với zone cụ thể hơn. Dùng làm rule mặc định cuối cùng.";
+      return 10;
+    default:
+      return 999;
   }
 };
 
-const hasFreeShip = (zone: ShippingZone) =>
-  zone.freeShipThreshold !== null && zone.freeShipThreshold !== undefined;
+const quickFilters: Array<{ key: QuickFilter; label: string }> = [
+  { key: "all", label: "Tất cả" },
+  { key: "active", label: "Đang chạy" },
+  { key: "inactive", label: "Tạm dừng" },
+  { key: "fallback", label: "Fallback" },
+  { key: "province", label: "Tỉnh / thành" },
+  { key: "district", label: "Quận / huyện" },
+  { key: "ward", label: "Phường / xã" },
+];
 
-// =============================
-// MAIN COMPONENT
-// =============================
 const ShippingZonesPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
-  // --- States ---
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [zones, setZones] = useState<ShippingZone[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkPriorityValue, setBulkPriorityValue] = useState<string>("");
 
-  const [searchInput, setSearchInput] = useState(searchParams.get("q") || "");
-  const [quickFilter, setQuickFilter] = useState<QuickFilterType>("all");
-  const [viewMode, setViewMode] = useState<"rule" | "table">("rule");
+  const keyword = searchParams.get("q") ?? "";
+  const view = (searchParams.get("view") as ViewMode) || "table";
+  const quickFilter = (searchParams.get("quick") as QuickFilter) || "all";
 
-  // URL Filters
-  const statusFilter = searchParams.get("status") || "all";
-  const currentPage = Number(searchParams.get("page") || 1);
-  const [totalPages, setTotalPages] = useState(1);
-
-  // --- Data Fetching ---
-  const fetchZones = async () => {
+  const fetchZones = useCallback(async () => {
     try {
       setLoading(true);
-      setError("");
+      const query = new URLSearchParams({ page: "1", limit: "1000" });
+      if (keyword.trim()) query.set("q", keyword.trim());
 
-      const limit = 24; // Limit cao hơn cho chế độ rule cards
-      const offset = (currentPage - 1) * limit;
+      const response = await http<ApiList<ShippingZone>>(
+        "GET",
+        `/api/v1/admin/shipping-zones?${query.toString()}`,
+      );
 
-      let url = `/api/v1/admin/shipping-zones?limit=${limit}&offset=${offset}`;
-
-      if (statusFilter !== "all")
-        url += `&status=${encodeURIComponent(statusFilter)}`;
-
-      const q = searchParams.get("q");
-      if (q?.trim()) url += `&q=${encodeURIComponent(q.trim())}`;
-
-      const res = await http<ApiList<ShippingZone>>("GET", url);
-
-      if (res?.success && Array.isArray(res.data)) {
-        setZones(res.data);
-        const total = Number(res.meta?.total ?? 0);
-        setTotalPages(Math.max(1, Math.ceil(total / limit)));
-      } else {
-        setError("Không thể tải danh sách quy tắc vùng.");
-      }
-    } catch (err: any) {
-      setError(err?.message || "Lỗi tải danh sách quy tắc vùng.");
+      setZones(toArray(response?.data));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể tải danh sách vùng giao hàng.";
+      showErrorToast(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [keyword, showErrorToast]);
 
   useEffect(() => {
-    fetchZones();
-  }, [currentPage, statusFilter, searchParams]);
+    void fetchZones();
+  }, [fetchZones]);
 
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const params = new URLSearchParams(searchParams);
-      if (searchInput.trim()) params.set("q", searchInput.trim());
-      else params.delete("q");
-      params.delete("page");
-      setSearchParams(params);
-    }, 400);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  // --- Derived Models & Logic ---
-  const enrichedZones = useMemo(() => {
-    return zones.map((zone) => ({
-      ...zone,
-      scopeKey: getZoneScopeKey(zone),
-      hasFreeShip: hasFreeShip(zone),
-      isHighPriority: zone.priority === 0 || zone.priority === 1,
-    }));
-  }, [zones]);
-
-  const displayedZones = useMemo(() => {
-    if (quickFilter === "all") return enrichedZones;
-    return enrichedZones.filter((zone) => {
+  const filteredZones = useMemo(() => {
+    return zones.filter((zone) => {
+      const scope = getScope(zone);
       if (quickFilter === "active") return zone.status === "active";
-      if (quickFilter === "fallback") return zone.scopeKey === "fallback";
-      if (quickFilter === "province") return zone.scopeKey === "province";
-      if (quickFilter === "district") return zone.scopeKey === "district";
-      if (quickFilter === "ward") return zone.scopeKey === "ward";
-      if (quickFilter === "freeship") return zone.hasFreeShip;
-      if (quickFilter === "high_priority") return zone.isHighPriority;
+      if (quickFilter === "inactive") return zone.status === "inactive";
+      if (["fallback", "ward", "district", "province"].includes(quickFilter)) {
+        return scope === quickFilter;
+      }
       return true;
     });
-  }, [enrichedZones, quickFilter]);
+  }, [quickFilter, zones]);
 
-  // --- Metrics ---
-  const metrics = useMemo(() => {
-    const total = enrichedZones.length;
-    let active = 0,
-      fallback = 0,
-      specific = 0,
-      freeship = 0,
-      highPriority = 0;
-
-    enrichedZones.forEach((z) => {
-      if (z.status === "active") active++;
-      if (z.scopeKey === "fallback") fallback++;
-      if (z.scopeKey === "ward") specific++;
-      if (z.hasFreeShip) freeship++;
-      if (z.isHighPriority) highPriority++;
-    });
-
-    return { total, active, fallback, specific, freeship, highPriority };
-  }, [enrichedZones]);
-
-  const fallbackZones = useMemo(
-    () => enrichedZones.filter((z) => z.scopeKey === "fallback"),
-    [enrichedZones],
+  const selectedZones = useMemo(
+    () => filteredZones.filter((zone) => selectedIds.includes(zone.id)),
+    [filteredZones, selectedIds],
   );
 
-  // --- Actions ---
-  const handleFilterChange = (status: "all" | "active" | "inactive") => {
-    const params = new URLSearchParams(searchParams);
-    if (status === "all") params.delete("status");
-    else params.set("status", status);
-    params.delete("page");
-    setSearchParams(params);
+  const summary = useMemo(() => {
+    const fallbackCount = filteredZones.filter(
+      (zone) => getScope(zone) === "fallback",
+    ).length;
+    const inactiveCount = filteredZones.filter(
+      (zone) => zone.status === "inactive",
+    ).length;
+    const wardCount = filteredZones.filter(
+      (zone) => getScope(zone) === "ward",
+    ).length;
+    return {
+      total: filteredZones.length,
+      fallbackCount,
+      inactiveCount,
+      wardCount,
+    };
+  }, [filteredZones]);
+
+  const grouped = useMemo(() => {
+    return {
+      fallback: filteredZones.filter((zone) => getScope(zone) === "fallback"),
+      province: filteredZones.filter((zone) => getScope(zone) === "province"),
+      district: filteredZones.filter((zone) => getScope(zone) === "district"),
+      ward: filteredZones.filter((zone) => getScope(zone) === "ward"),
+    };
+  }, [filteredZones]);
+
+  const updateParam = (key: string, value?: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (!value) next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
   };
 
-  const handleDelete = async (e: React.MouseEvent, zone: ShippingZone) => {
-    e.stopPropagation();
-    if (!window.confirm(`Bạn có chắc muốn xóa vùng "${zone.name}" không?`))
-      return;
-    try {
-      await http("DELETE", `/api/v1/admin/shipping-zones/delete/${zone.id}`);
-      showSuccessToast({ message: "Đã xóa vùng giao hàng thành công!" });
-      fetchZones();
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể xóa vùng giao hàng.");
+  const toggleSelectAll = () => {
+    const ids = filteredZones.map((zone) => zone.id);
+    if (ids.every((id) => selectedIds.includes(id))) {
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+    } else {
+      setSelectedIds(Array.from(new Set([...selectedIds, ...ids])));
     }
   };
 
-  const handleToggleStatus = async (
-    e: React.MouseEvent,
-    zone: ShippingZone,
-  ) => {
-    e.stopPropagation();
-    const nextStatus = zone.status === "active" ? "inactive" : "active";
+  const toggleSelect = (id: number) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
+    );
+  };
+
+  const runBulkStatus = async (status: ZoneStatus) => {
+    if (!selectedIds.length) {
+      showErrorToast("Hãy chọn ít nhất một zone để đổi trạng thái.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await http("PATCH", "/api/v1/admin/shipping-zones/bulk/status", {
+        ids: selectedIds,
+        status,
+      });
+      showSuccessToast({
+        message: `Đã cập nhật ${selectedIds.length} zone sang trạng thái ${
+          status === "active" ? "đang chạy" : "tạm dừng"
+        }.`,
+      });
+      setSelectedIds([]);
+      await fetchZones();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật trạng thái hàng loạt.";
+      showErrorToast(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const runBulkPriority = async () => {
+    const priority = Number(bulkPriorityValue);
+    if (!selectedIds.length) {
+      showErrorToast("Hãy chọn ít nhất một zone để cập nhật priority.");
+      return;
+    }
+    if (!Number.isInteger(priority) || priority < 0) {
+      showErrorToast("Priority hàng loạt phải là số nguyên không âm.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      await http("PATCH", "/api/v1/admin/shipping-zones/bulk/priority", {
+        items: selectedIds.map((id) => ({ id, priority })),
+      });
+      showSuccessToast({
+        message: `Đã cập nhật priority = ${priority} cho ${selectedIds.length} zone.`,
+      });
+      setBulkPriorityValue("");
+      await fetchZones();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật priority hàng loạt.";
+      showErrorToast(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const runBulkDelete = async () => {
+    if (!selectedIds.length) {
+      showErrorToast("Hãy chọn ít nhất một zone để xóa mềm.");
+      return;
+    }
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xóa mềm ${selectedIds.length} zone đã chọn không?`,
+    );
+    if (!confirmed) return;
+
+    try {
+      setSubmitting(true);
+      await http("DELETE", "/api/v1/admin/shipping-zones/bulk/delete", {
+        ids: selectedIds,
+      });
+      showSuccessToast({ message: `Đã xóa mềm ${selectedIds.length} zone.` });
+      setSelectedIds([]);
+      await fetchZones();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể xóa hàng loạt zone.";
+      showErrorToast(message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const runQuickStatus = async (zone: ShippingZone, status: ZoneStatus) => {
     try {
       await http("PATCH", `/api/v1/admin/shipping-zones/${zone.id}/status`, {
-        status: nextStatus,
+        status,
       });
-      showSuccessToast({ message: "Cập nhật trạng thái thành công!" });
-      fetchZones();
-    } catch (err: any) {
-      showErrorToast(err?.message || "Không thể cập nhật trạng thái.");
+      showSuccessToast({
+        message: `Đã ${status === "active" ? "bật" : "tắt"} zone ${zone.code}.`,
+      });
+      await fetchZones();
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Không thể cập nhật trạng thái zone.";
+      showErrorToast(message);
     }
   };
+
+  const renderBoardGroup = (title: string, items: ShippingZone[]) => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
+        <div>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+            {title}
+          </h3>
+          <p className="text-xs text-gray-500">{items.length} zone</p>
+        </div>
+      </div>
+
+      {items.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-500 text-center dark:border-gray-600 dark:bg-gray-800/50">
+          Không có zone nào trong nhóm này.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {items.map((zone) => {
+            const scope = getScope(zone);
+            const locationLabel =
+              [zone.ward, zone.district, zone.province]
+                .filter(Boolean)
+                .join(", ") || "Fallback toàn hệ thống";
+
+            return (
+              <div
+                key={zone.id}
+                className={`border rounded-2xl p-0 transition shadow-sm group flex flex-col overflow-hidden bg-white dark:bg-gray-800
+                  ${zone.status === "inactive" ? "border-gray-200 opacity-80" : "border-gray-200 hover:border-blue-300 dark:border-gray-700"}
+                `}
+              >
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700/50 flex justify-between items-start gap-4 bg-gray-50/50 dark:bg-gray-800/50">
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(zone.id)}
+                      onChange={() => toggleSelect(zone.id)}
+                      className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <div>
+                      <h3
+                        className={`font-bold text-base leading-tight line-clamp-1 ${zone.status === "inactive" ? "text-gray-600" : "text-gray-900 dark:text-white"}`}
+                        title={zone.name}
+                      >
+                        {zone.name}
+                      </h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs font-mono text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                          {zone.code}
+                        </span>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            zone.status === "active"
+                              ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                              : "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                          }`}
+                        >
+                          {zone.status === "active" ? "Đang chạy" : "Tạm dừng"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 flex-1 space-y-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-start gap-2.5">
+                    <MapPinned className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
+                    <span className="line-clamp-2">{locationLabel}</span>
+                  </p>
+
+                  <div className="bg-white dark:bg-gray-900 p-3 rounded-lg border border-gray-100 dark:border-gray-700 grid grid-cols-3 gap-2">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 uppercase font-semibold">
+                        Phạm vi
+                      </span>
+                      <span
+                        className="text-sm font-bold text-gray-900 dark:text-white truncate"
+                        title={getScopeLabel(scope)}
+                      >
+                        {getScopeLabel(scope)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 uppercase font-semibold">
+                        Base fee
+                      </span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        {formatCurrency(zone.baseFee)}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-gray-500 uppercase font-semibold">
+                        Priority
+                      </span>
+                      <span className="text-sm font-bold text-gray-900 dark:text-white">
+                        {zone.priority}
+                      </span>
+                    </div>
+                  </div>
+
+                  {zone.priority !== getScopePrioritySuggestion(scope) && (
+                    <div className="flex items-start gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-100 dark:border-amber-900/30">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        Gợi ý: zone cấp <strong>{getScopeLabel(scope)}</strong>{" "}
+                        thường hợp lý với priority{" "}
+                        <strong>{getScopePrioritySuggestion(scope)}</strong>.
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700/50 flex flex-wrap items-center gap-2 bg-gray-50 dark:bg-gray-800">
+                  <button
+                    onClick={() =>
+                      navigate(`/admin/shipping/zones/edit/${zone.id}`)
+                    }
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded shadow-sm hover:bg-gray-50 transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" /> Chỉnh sửa
+                  </button>
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin/shipping/service-areas/create?shippingZoneId=${zone.id}`,
+                      )
+                    }
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-xs font-semibold rounded shadow-sm hover:bg-gray-50 transition-colors"
+                  >
+                    <MapPinned className="w-3.5 h-3.5" /> Gán
+                  </button>
+                  <button
+                    onClick={() =>
+                      navigate(
+                        `/admin/shipping/zones/create?templateId=${zone.id}`,
+                      )
+                    }
+                    className="p-1.5 text-gray-500 hover:text-blue-600 bg-white hover:bg-blue-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded shadow-sm transition"
+                    title="Nhân bản"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      runQuickStatus(
+                        zone,
+                        zone.status === "active" ? "inactive" : "active",
+                      )
+                    }
+                    className={`p-1.5 rounded border shadow-sm transition ${zone.status === "active" ? "text-amber-600 bg-white border-gray-200 hover:bg-amber-50" : "text-green-600 bg-white border-gray-200 hover:bg-green-50"} dark:bg-gray-700 dark:border-gray-600`}
+                    title={zone.status === "active" ? "Tạm dừng" : "Bật lại"}
+                  >
+                    <Power className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="w-full pb-10 space-y-6">
@@ -288,107 +498,75 @@ const ShippingZonesPage: React.FC = () => {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Quy tắc vùng giao hàng
+              Shipping zones
             </h1>
-            {metrics.fallback > 0 && (
-              <span className="px-2.5 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-bold rounded-md">
-                {metrics.fallback} fallback
-              </span>
-            )}
           </div>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Quản lý các vùng giao hàng dùng để xác định phạm vi áp dụng, rule
-            tính phí và thứ tự ưu tiên match địa chỉ.
+            Quản lý zone theo hướng vận hành thực tế: bulk status, bulk
+            priority, bulk delete, duplicate từ zone mẫu và nối nhanh sang
+            coverage.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
-            onClick={fetchZones}
+            onClick={() => void fetchZones()}
             className="p-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition"
-            title="Làm mới"
+            title="Làm mới dữ liệu"
           >
-            <RefreshCw className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => setQuickFilter("fallback")}
-            className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition"
-          >
-            Xem Fallback
+            <RefreshCw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
           </button>
           <button
             onClick={() => navigate("/admin/shipping/service-areas")}
-            className="px-4 py-2 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 text-sm font-medium rounded-lg hover:bg-indigo-100 transition"
+            className="px-4 py-2 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition"
           >
-            Mở Coverage
+            <Layers className="w-4 h-4 inline-block mr-1.5" /> Mở coverage
           </button>
           <button
             onClick={() => navigate("/admin/shipping/zones/create")}
             className="flex items-center gap-2 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition shadow-sm ml-auto md:ml-0"
           >
-            <Plus className="w-4 h-4" /> Thêm quy tắc vùng
+            <Plus className="w-4 h-4" /> Tạo zone mới
           </button>
         </div>
       </div>
 
       {/* Tầng B: KPI Strip */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3">
         {[
           {
-            label: "Tổng số rule vùng",
-            value: metrics.total,
+            label: "Tổng zone",
+            value: summary.total,
             icon: Layers,
             color: "text-blue-600",
             bg: "bg-blue-50",
           },
           {
-            label: "Đang hoạt động",
-            value: metrics.active,
+            label: "Đang chạy",
+            value: filteredZones.filter((z) => z.status === "active").length,
             icon: CheckCircle2,
             color: "text-green-600",
             bg: "bg-green-50",
           },
           {
-            label: "Vùng Fallback",
-            value: metrics.fallback,
-            icon: Globe,
-            color: "text-gray-600",
-            bg: "bg-gray-100",
-          },
-          {
-            label: "Match rất cụ thể",
-            value: metrics.specific,
-            icon: MapPinned,
-            color: "text-indigo-600",
-            bg: "bg-indigo-50",
-          },
-          {
-            label: "Có ngưỡng Freeship",
-            value: metrics.freeship,
-            icon: BadgePercent,
-            color: "text-purple-600",
-            bg: "bg-purple-50",
-          },
-          {
-            label: "Priority rất cao",
-            value: metrics.highPriority,
-            icon: Tag,
+            label: "Fallback zone",
+            value: summary.fallbackCount,
+            icon: ShieldAlert,
             color: "text-amber-600",
             bg: "bg-amber-50",
+            isWarning: summary.fallbackCount > 0,
+          },
+          {
+            label: "Match hẹp (ward)",
+            value: summary.wardCount,
+            icon: AlertTriangle,
+            color: "text-indigo-600",
+            bg: "bg-indigo-50",
           },
         ].map((kpi, idx) => (
           <div
             key={idx}
-            onClick={() => {
-              if (kpi.label === "Vùng Fallback") setQuickFilter("fallback");
-              if (kpi.label === "Đang hoạt động") setQuickFilter("active");
-              if (kpi.label === "Match rất cụ thể") setQuickFilter("ward");
-              if (kpi.label === "Có ngưỡng Freeship")
-                setQuickFilter("freeship");
-              if (kpi.label === "Priority rất cao")
-                setQuickFilter("high_priority");
-            }}
-            className={`p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center ${kpi.label !== "Tổng số rule vùng" ? "cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all" : ""}`}
+            className="p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col justify-center cursor-default hover:border-blue-400 hover:shadow-sm transition-all"
           >
             <div className="flex items-center gap-2 mb-2">
               <kpi.icon className={`w-4 h-4 ${kpi.color}`} />
@@ -396,487 +574,369 @@ const ShippingZonesPage: React.FC = () => {
                 {kpi.label}
               </span>
             </div>
-            <div className="text-xl font-black text-gray-900 dark:text-white">
+            <div
+              className={`text-xl font-black ${kpi.isWarning ? "text-amber-600 dark:text-amber-400" : "text-gray-900 dark:text-white"}`}
+            >
               {kpi.value}
             </div>
           </div>
         ))}
       </div>
 
-      {/* Fallback Zones Attention Section */}
-      {!loading && fallbackZones.length > 0 && quickFilter !== "fallback" && (
-        <Card className="border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden bg-gray-50 dark:bg-gray-800/50">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-            <h3 className="font-bold text-gray-800 dark:text-gray-300 flex items-center gap-2">
-              <Globe className="w-5 h-5 text-gray-500" />
-              Vùng mặc định (Fallback Zones)
-            </h3>
-            <button
-              onClick={() => setQuickFilter("fallback")}
-              className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-            >
-              Xem tất cả
-            </button>
-          </div>
-          <div className="p-4 flex flex-wrap gap-3">
-            {fallbackZones.slice(0, 3).map((zone) => (
-              <div
-                key={zone.id}
-                className="p-3 bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm flex items-center gap-4 min-w-[300px]"
-              >
-                <div>
-                  <div className="font-bold text-gray-900 dark:text-white">
-                    {zone.name}
-                  </div>
-                  <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
-                    <span className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded font-mono">
-                      {zone.code}
-                    </span>
-                    <span>• Priority: {zone.priority}</span>
-                  </div>
-                </div>
-                <div className="ml-auto">
-                  <button
-                    onClick={() =>
-                      navigate(
-                        `/admin/shipping/service-areas?shippingZoneId=${zone.id}`,
-                      )
-                    }
-                    className="text-xs font-bold text-blue-600 hover:underline"
-                  >
-                    Coverage
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {/* Tầng D: Toolbar Phân tầng */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
         {/* Quick Filters */}
         <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 dark:border-gray-700 pb-4">
           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 mr-2 flex items-center gap-1.5">
-            Loại rule:
+            Phân loại:
           </span>
-          {[
-            { id: "all", label: "Tất cả" },
-            { id: "active", label: "Đang hoạt động" },
-            { id: "fallback", label: "Fallback" },
-            { id: "province", label: "Tỉnh/Thành" },
-            { id: "district", label: "Quận/Huyện" },
-            { id: "ward", label: "Phường/Xã" },
-            { id: "freeship", label: "Có Freeship" },
-            { id: "high_priority", label: "Priority Cao" },
-          ].map((f) => (
+          {quickFilters.map((item) => (
             <button
-              key={f.id}
-              onClick={() => setQuickFilter(f.id as QuickFilterType)}
+              key={item.key}
+              onClick={() =>
+                updateParam("quick", item.key === "all" ? undefined : item.key)
+              }
               className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                quickFilter === f.id
+                quickFilter === item.key
                   ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                   : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:border-gray-300"
               }`}
             >
-              {f.label}
+              {item.label}
             </button>
           ))}
         </div>
 
-        {/* Advanced Filters */}
+        {/* Advanced Filters & Views */}
         <div className="flex flex-col lg:flex-row justify-between items-center gap-4">
-          <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
-            <select
-              value={statusFilter}
-              onChange={(e) => handleFilterChange(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="all">Mọi trạng thái</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Tạm dừng</option>
-            </select>
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Tìm theo code, tên zone, địa danh..."
+              value={keyword}
+              onChange={(e) => updateParam("q", e.target.value || undefined)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto">
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Tìm theo tên vùng, mã vùng, tỉnh, quận..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+          <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg shrink-0 w-full sm:w-auto justify-center">
+            <button
+              onClick={() => updateParam("view", "board")}
+              className={`p-1.5 px-3 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${view === "board" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <LayoutGrid className="w-4 h-4" /> Board
+            </button>
+            <button
+              onClick={() => updateParam("view", "table")}
+              className={`p-1.5 px-3 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${view === "table" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              <List className="w-4 h-4" /> Table
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bulk Workspace (Thay thế Attention Section) */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              Bulk workspace
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Chọn nhiều zone để đổi trạng thái, dời priority hoặc xóa mềm.
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              Đang chọn:{" "}
+              <span className="font-bold text-blue-600 dark:text-blue-400">
+                {selectedIds.length}
+              </span>{" "}
+              zone
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 xl:items-end">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 transition"
+              >
+                {filteredZones.length > 0 &&
+                filteredZones.every((zone) => selectedIds.includes(zone.id))
+                  ? "Bỏ chọn tất cả"
+                  : "Chọn tất cả"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void runBulkStatus("active")}
+                disabled={submitting}
+                className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800 text-sm font-semibold rounded-lg hover:bg-green-100 transition disabled:opacity-60"
+              >
+                Bật hàng loạt
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void runBulkStatus("inactive")}
+                disabled={submitting}
+                className="px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800 text-sm font-semibold rounded-lg hover:bg-amber-100 transition disabled:opacity-60"
+              >
+                Tạm dừng hàng loạt
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void runBulkDelete()}
+                disabled={submitting}
+                className="px-3 py-1.5 bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800 text-sm font-semibold rounded-lg hover:bg-red-100 transition disabled:opacity-60"
+              >
+                Xóa mềm hàng loạt
+              </button>
             </div>
 
-            <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <ArrowUpDown className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <input
+                  value={bulkPriorityValue}
+                  onChange={(event) => setBulkPriorityValue(event.target.value)}
+                  type="number"
+                  min={0}
+                  placeholder="Priority mới"
+                  className="w-36 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 py-2 pl-9 pr-3 text-sm text-gray-900 dark:text-white outline-none transition focus:border-gray-400 focus:ring-1 focus:ring-gray-400"
+                />
+              </div>
               <button
-                onClick={() => setViewMode("rule")}
-                className={`p-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${viewMode === "rule" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
+                type="button"
+                onClick={() => void runBulkPriority()}
+                disabled={submitting}
+                className="px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-semibold rounded-lg hover:bg-gray-50 transition disabled:opacity-60"
               >
-                <LayoutGrid className="w-4 h-4" /> Dạng rule
-              </button>
-              <button
-                onClick={() => setViewMode("table")}
-                className={`p-1.5 rounded-md flex items-center gap-1.5 text-sm font-medium transition ${viewMode === "table" ? "bg-white dark:bg-gray-700 shadow-sm text-blue-600 dark:text-blue-400" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                <List className="w-4 h-4" /> Dạng bảng
+                Cập nhật priority
               </button>
             </div>
           </div>
         </div>
+
+        {selectedZones.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {selectedZones.slice(0, 12).map((zone) => (
+              <span
+                key={zone.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 px-3 py-1 text-xs font-bold text-gray-700 dark:text-gray-300 font-mono"
+              >
+                {zone.code}
+                <button
+                  type="button"
+                  onClick={() => toggleSelect(zone.id)}
+                  className="text-gray-400 hover:text-red-500 transition"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            {selectedZones.length > 12 && (
+              <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100 dark:bg-gray-800 dark:border-gray-700 px-3 py-1 text-xs font-bold text-gray-500">
+                +{selectedZones.length - 12} zone khác
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Main Content Area */}
       {loading ? (
         <div className="flex flex-col justify-center items-center py-24 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="mt-3 text-gray-500 font-medium">
-            Đang tải quy tắc vùng giao hàng...
+          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-3" />
+          <p className="text-gray-500 font-medium">
+            Đang đồng bộ mạng lưới zone...
           </p>
         </div>
-      ) : error ? (
-        <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
-          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
-          <p className="text-red-600 font-medium">{error}</p>
-        </div>
-      ) : displayedZones.length === 0 ? (
-        <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-600 flex flex-col items-center">
-          <MapPinned className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-            Không có vùng phù hợp
-          </h3>
-          <p className="text-sm text-gray-500 mt-1 mb-5">
-            Chưa có vùng nào khớp với bộ lọc hiện tại.
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate("/admin/shipping/zones/create")}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition"
-            >
-              Thêm rule vùng
-            </button>
-            {quickFilter !== "all" && (
-              <button
-                onClick={() => setQuickFilter("all")}
-                className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition"
-              >
-                Xóa bộ lọc nhanh
-              </button>
-            )}
-          </div>
+      ) : view === "board" ? (
+        <div className="space-y-8">
+          {renderBoardGroup("Fallback", grouped.fallback)}
+          {renderBoardGroup("Tỉnh / thành", grouped.province)}
+          {renderBoardGroup("Quận / huyện", grouped.district)}
+          {renderBoardGroup("Phường / xã", grouped.ward)}
         </div>
       ) : (
-        <>
-          <p className="text-sm text-gray-500 font-medium pl-1">
-            Đang hiển thị {displayedZones.length} rule vùng ở trang hiện tại.
-          </p>
+        <Card className="!p-0 overflow-hidden mt-4 border border-gray-200 dark:border-gray-700 shadow-none">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800">
+                <tr>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredZones.length > 0 &&
+                        filteredZones.every((zone) =>
+                          selectedIds.includes(zone.id),
+                        )
+                      }
+                      onChange={toggleSelectAll}
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Zone
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Phạm vi
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Base fee
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Freeship
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Priority
+                  </th>
+                  <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
+                    Trạng thái
+                  </th>
+                  <th className="px-5 py-3.5 text-right text-xs font-bold text-gray-500 uppercase">
+                    Hành động
+                  </th>
+                </tr>
+              </thead>
 
-          {viewMode === "rule" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-4">
-              {displayedZones.map((zone) => {
-                const matchInfo = getMatchLevelInfo(zone);
-                const isInactive = zone.status === "inactive";
-
-                return (
-                  <div
-                    key={zone.id}
-                    className={`bg-white dark:bg-gray-800 rounded-xl border transition-all flex flex-col h-full shadow-sm hover:shadow-md ${isInactive ? "opacity-80 border-gray-200" : "border-gray-200 dark:border-gray-700 hover:border-blue-300"}`}
-                  >
-                    {/* Layer 1: Identity & Scope */}
-                    <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex-1">
-                      <div className="flex justify-between items-start mb-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold border ${matchInfo.color}`}
-                        >
-                          {matchInfo.label}
-                        </span>
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${zone.isHighPriority ? "bg-red-100 text-red-700 border border-red-200" : "bg-gray-100 text-gray-600 border border-gray-200"}`}
-                        >
-                          Ưu tiên {zone.priority}
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
+                {filteredZones.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-20 text-center">
+                      <div className="flex flex-col items-center justify-center text-gray-500">
+                        <MapPinned className="w-10 h-10 text-gray-300 dark:text-gray-600 mb-3" />
+                        <span className="font-medium">
+                          Không có zone nào phù hợp với bộ lọc hiện tại.
                         </span>
                       </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredZones.map((zone) => {
+                    const scope = getScope(zone);
+                    const locationLabel =
+                      [zone.ward, zone.district, zone.province]
+                        .filter(Boolean)
+                        .join(", ") || "Fallback toàn hệ thống";
 
-                      <h3
-                        className={`font-bold text-lg mb-1 leading-tight ${isInactive ? "text-gray-600" : "text-gray-900 dark:text-white"}`}
+                    return (
+                      <tr
+                        key={zone.id}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group"
                       >
-                        {zone.name}
-                      </h3>
-                      <div className="text-[11px] font-mono text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded w-fit mb-3">
-                        {zone.code}
-                      </div>
-
-                      {zone.scopeKey !== "fallback" ? (
-                        <div className="text-xs text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700 space-y-1">
-                          {zone.province && (
-                            <div>
-                              <span className="text-gray-400">Tỉnh:</span>{" "}
-                              <span className="font-medium">
-                                {zone.province}
-                              </span>
-                            </div>
-                          )}
-                          {zone.district && (
-                            <div>
-                              <span className="text-gray-400">Quận:</span>{" "}
-                              <span className="font-medium">
-                                {zone.district}
-                              </span>
-                            </div>
-                          )}
-                          {zone.ward && (
-                            <div>
-                              <span className="text-gray-400">Phường:</span>{" "}
-                              <span className="font-medium">{zone.ward}</span>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="text-xs font-semibold text-gray-500 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg border border-gray-100 dark:border-gray-700 text-center">
-                          Áp dụng toàn quốc
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Layer 2: Pricing Logic & Explanation */}
-                    <div className="p-4 bg-gray-50/50 dark:bg-gray-800/30">
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-500 font-medium flex items-center gap-1.5">
-                            <Truck className="w-4 h-4" /> Phí gốc:
+                        <td className="px-5 py-4">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.includes(zone.id)}
+                            onChange={() => toggleSelect(zone.id)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="font-semibold text-gray-900 dark:text-white text-sm">
+                            {zone.name}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono mt-0.5">
+                            {zone.code}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                            {getScopeLabel(scope)}
                           </span>
-                          <span className="font-bold text-gray-900 dark:text-white">
-                            {formatCurrency(zone.baseFee)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-gray-500 font-medium flex items-center gap-1.5">
-                            <BadgePercent className="w-4 h-4" /> Freeship:
-                          </span>
-                          <span
-                            className={
-                              zone.hasFreeShip
-                                ? "font-bold text-green-600 dark:text-green-400"
-                                : "text-gray-400 font-medium"
-                            }
+                          <div
+                            className="text-xs text-gray-500 mt-1 line-clamp-1 max-w-[150px]"
+                            title={locationLabel}
                           >
-                            {zone.hasFreeShip
-                              ? `Từ ${formatCurrency(zone.freeShipThreshold)}`
-                              : "Không"}
+                            {locationLabel}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {formatCurrency(zone.baseFee)}
+                        </td>
+                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {formatCurrency(zone.freeShipThreshold)}
+                        </td>
+                        <td className="px-5 py-4 text-sm font-bold text-gray-900 dark:text-white">
+                          {zone.priority}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              zone.status === "active"
+                                ? "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
+                                : "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                            }`}
+                          >
+                            {zone.status === "active"
+                              ? "Đang chạy"
+                              : "Tạm dừng"}
                           </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700 text-[11px] text-gray-500 italic leading-relaxed">
-                        {getZoneRuleDescription(zone)}
-                      </div>
-                    </div>
-
-                    {/* Layer 3: Actions */}
-                    <div className="p-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center bg-white dark:bg-gray-800 rounded-b-xl">
-                      <button
-                        onClick={(e) => handleToggleStatus(e, zone)}
-                        className={`px-2.5 py-1 text-[11px] font-bold rounded flex items-center gap-1 transition ${isInactive ? "bg-gray-100 text-gray-500 hover:bg-gray-200" : "bg-green-100 text-green-700 hover:bg-green-200"}`}
-                      >
-                        {isInactive ? "Tạm dừng" : "Đang bật"}
-                      </button>
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() =>
-                            navigate(
-                              `/admin/shipping/service-areas?shippingZoneId=${zone.id}`,
-                            )
-                          }
-                          className="p-1.5 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded"
-                          title="Xem Coverage của zone này"
-                        >
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/admin/shipping/zones/edit/${zone.id}`);
-                          }}
-                          className="p-1.5 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded"
-                          title="Sửa"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDelete(e, zone)}
-                          className="p-1.5 text-red-600 bg-red-50 hover:bg-red-100 rounded"
-                          title="Xóa"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <Card className="!p-0 overflow-hidden mt-4">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Quy tắc Vùng
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Phạm vi Match
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Phí cơ bản
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Freeship
-                      </th>
-                      <th className="px-5 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">
-                        Ưu tiên
-                      </th>
-                      <th className="px-5 py-3.5 text-center text-xs font-bold text-gray-500 uppercase">
-                        Trạng thái
-                      </th>
-                      <th className="px-5 py-3.5 text-right text-xs font-bold text-gray-500 uppercase">
-                        Hành động
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800">
-                    {displayedZones.map((zone) => {
-                      const matchInfo = getMatchLevelInfo(zone);
-                      return (
-                        <tr
-                          key={zone.id}
-                          className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group cursor-pointer"
-                          onClick={() =>
-                            navigate(`/admin/shipping/zones/edit/${zone.id}`)
-                          }
-                        >
-                          <td className="px-5 py-3.5">
-                            <div className="font-bold text-gray-900 dark:text-white text-sm">
-                              {zone.name}
-                            </div>
-                            <div className="text-xs text-gray-500 font-mono mt-0.5">
-                              {zone.code}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span
-                              className={`inline-flex px-2 py-0.5 rounded text-[11px] font-bold border ${matchInfo.color}`}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/shipping/zones/create?templateId=${zone.id}`,
+                                )
+                              }
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Nhân bản"
                             >
-                              {matchInfo.label}
-                            </span>
-                            <div className="text-xs text-gray-500 mt-1 max-w-[200px] truncate">
-                              {zone.scopeKey === "fallback"
-                                ? "Toàn quốc"
-                                : [zone.ward, zone.district, zone.province]
-                                    .filter(Boolean)
-                                    .join(", ")}
-                            </div>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span className="font-bold text-gray-900 dark:text-white text-sm">
-                              {formatCurrency(zone.baseFee)}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            {zone.hasFreeShip ? (
-                              <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                                Từ {formatCurrency(zone.freeShipThreshold)}
-                              </span>
-                            ) : (
-                              <span className="text-gray-400 font-medium">
-                                Không
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span
-                              className={`px-2 py-0.5 rounded text-xs font-bold ${zone.isHighPriority ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}
+                              <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/admin/shipping/zones/edit/${zone.id}`,
+                                )
+                              }
+                              className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
+                              title="Chỉnh sửa"
                             >
-                              P{zone.priority}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-center">
-                            <span
-                              className={`inline-flex px-2 py-1 rounded text-[10px] font-bold ${zone.status === "active" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                runQuickStatus(
+                                  zone,
+                                  zone.status === "active"
+                                    ? "inactive"
+                                    : "active",
+                                )
+                              }
+                              className="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 rounded"
+                              title="Đổi trạng thái"
                             >
-                              {zone.status === "active"
-                                ? "Hoạt động"
-                                : "Tạm dừng"}
-                            </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-right">
-                            <div className="flex justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(
-                                    `/admin/shipping/service-areas?shippingZoneId=${zone.id}`,
-                                  );
-                                }}
-                                className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded"
-                                title="Xem Coverage"
-                              >
-                                <ArrowRight className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => handleToggleStatus(e, zone)}
-                                className="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded"
-                                title="Đổi trạng thái"
-                              >
-                                <Power className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(
-                                    `/admin/shipping/zones/edit/${zone.id}`,
-                                  );
-                                }}
-                                className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded"
-                                title="Sửa"
-                              >
-                                <Edit className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={(e) => handleDelete(e, zone)}
-                                className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
-                                title="Xóa"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          )}
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-end mt-6">
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={(page) => {
-                  const params = new URLSearchParams(searchParams);
-                  params.set("page", String(page));
-                  setSearchParams(params);
-                }}
-              />
-            </div>
-          )}
-        </>
+                              <Power className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedIds([zone.id]);
+                                void runBulkDelete();
+                              }}
+                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded"
+                              title="Xóa mềm"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );

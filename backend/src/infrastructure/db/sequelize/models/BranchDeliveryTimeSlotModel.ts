@@ -103,6 +103,14 @@ BranchDeliveryTimeSlotModel.init(
         name: "idx_branch_delivery_time_slots_slot",
         fields: ["delivery_time_slot_id"],
       },
+      {
+        name: "idx_branch_delivery_time_slots_branch_status_deleted",
+        fields: ["branch_id", "status", "deleted"],
+      },
+      {
+        name: "idx_branch_delivery_time_slots_branch_slot_status_deleted",
+        fields: ["branch_id", "delivery_time_slot_id", "status", "deleted"],
+      },
     ],
   },
 );

@@ -9,6 +9,8 @@ export type BranchDeliverySlotCapacityAttributes = {
   max_orders: number | null;
   reserved_orders: number;
   status: string;
+  deleted: number;
+  deleted_at: Date | null;
   created_at: Date;
   updated_at: Date;
 };
@@ -19,6 +21,8 @@ type BranchDeliverySlotCapacityCreationAttributes = Optional<
   | "max_orders"
   | "reserved_orders"
   | "status"
+  | "deleted"
+  | "deleted_at"
   | "created_at"
   | "updated_at"
 >;
@@ -37,6 +41,8 @@ class BranchDeliverySlotCapacityModel
   declare max_orders: number | null;
   declare reserved_orders: number;
   declare status: string;
+  declare deleted: number;
+  declare deleted_at: Date | null;
   declare created_at: Date;
   declare updated_at: Date;
 }
@@ -75,6 +81,16 @@ BranchDeliverySlotCapacityModel.init(
       allowNull: false,
       defaultValue: "active",
     },
+    deleted: {
+      type: DataTypes.TINYINT,
+      allowNull: false,
+      defaultValue: 0,
+    },
+    deleted_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null,
+    },
     created_at: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -94,12 +110,30 @@ BranchDeliverySlotCapacityModel.init(
     indexes: [
       {
         unique: true,
-        name: "uq_branch_delivery_slot_capacity",
-        fields: ["branch_id", "delivery_date", "delivery_time_slot_id"],
+        name: "uq_branch_delivery_slot_capacity_lookup_deleted",
+        fields: [
+          "branch_id",
+          "delivery_date",
+          "delivery_time_slot_id",
+          "deleted",
+        ],
       },
       {
         name: "idx_branch_delivery_slot_capacity_lookup",
-        fields: ["branch_id", "delivery_date", "status"],
+        fields: ["branch_id", "delivery_date", "status", "deleted"],
+      },
+      {
+        name: "idx_branch_delivery_slot_capacity_date_status_deleted",
+        fields: ["delivery_date", "status", "deleted"],
+      },
+      {
+        name: "idx_branch_delivery_slot_capacity_branch_slot_date_deleted",
+        fields: [
+          "branch_id",
+          "delivery_time_slot_id",
+          "delivery_date",
+          "deleted",
+        ],
       },
     ],
   },

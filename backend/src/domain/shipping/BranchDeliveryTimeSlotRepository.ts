@@ -1,3 +1,5 @@
+export type BulkWriteMode = "skip_existing" | "overwrite" | "fail_on_conflict";
+
 export interface BranchDeliveryTimeSlotEntity {
   id: number;
   branchId: number;
@@ -17,6 +19,8 @@ export interface BranchDeliveryTimeSlotEntity {
     label?: string;
     startTime?: string;
     endTime?: string;
+    maxOrders?: number | null;
+    sortOrder?: number;
   } | null;
 }
 
@@ -43,6 +47,35 @@ export interface UpdateBranchDeliveryTimeSlotPayload {
   status: string;
 }
 
+export interface BulkUpsertBranchDeliveryTimeSlotItem {
+  branchId: number;
+  deliveryTimeSlotId: number;
+  maxOrdersOverride?: number | null;
+  status?: string;
+}
+
+export interface CopyBranchDeliveryTimeSlotsFromBranchInput {
+  sourceBranchId: number;
+  targetBranchIds: number[];
+  mode?: BulkWriteMode;
+  statusOverride?: string;
+}
+
+export interface BranchDeliveryTimeSlotBulkWriteResult {
+  created: BranchDeliveryTimeSlotEntity[];
+  updated: BranchDeliveryTimeSlotEntity[];
+  skipped: Array<{
+    branchId: number;
+    deliveryTimeSlotId: number;
+    reason: string;
+  }>;
+  conflicts: Array<{
+    branchId: number;
+    deliveryTimeSlotId: number;
+    reason: string;
+  }>;
+}
+
 export interface BranchDeliveryTimeSlotRepository {
   list(params: ListBranchDeliveryTimeSlotsParams): Promise<{
     items: BranchDeliveryTimeSlotEntity[];
@@ -55,6 +88,10 @@ export interface BranchDeliveryTimeSlotRepository {
   }>;
 
   findById(id: number): Promise<BranchDeliveryTimeSlotEntity | null>;
+
+  findByIds(ids: number[]): Promise<BranchDeliveryTimeSlotEntity[]>;
+
+  findByBranchIds(branchIds: number[]): Promise<BranchDeliveryTimeSlotEntity[]>;
 
   findByBranchAndSlot(
     branchId: number,
@@ -80,10 +117,24 @@ export interface BranchDeliveryTimeSlotRepository {
     payload: UpdateBranchDeliveryTimeSlotPayload,
   ): Promise<BranchDeliveryTimeSlotEntity>;
 
+  bulkUpsert(
+    items: BulkUpsertBranchDeliveryTimeSlotItem[],
+    mode?: BulkWriteMode,
+  ): Promise<BranchDeliveryTimeSlotBulkWriteResult>;
+
+  copyFromBranch(
+    input: CopyBranchDeliveryTimeSlotsFromBranchInput,
+  ): Promise<BranchDeliveryTimeSlotBulkWriteResult>;
+
   changeStatus(
     id: number,
     status: string,
   ): Promise<BranchDeliveryTimeSlotEntity>;
+
+  bulkChangeStatus(
+    ids: number[],
+    status: string,
+  ): Promise<{ updatedIds: number[]; notFoundIds: number[] }>;
 
   softDelete(id: number): Promise<void>;
 }

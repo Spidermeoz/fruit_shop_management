@@ -128,6 +128,14 @@ DeliveryTimeSlotModel.init(
         name: "idx_delivery_time_slots_status_deleted_sort",
         fields: ["status", "deleted", "sort_order"],
       },
+      {
+        name: "idx_delivery_time_slots_time_deleted",
+        fields: ["start_time", "end_time", "deleted"],
+      },
+      {
+        name: "idx_delivery_time_slots_status_deleted_start_sort",
+        fields: ["status", "deleted", "start_time", "sort_order"],
+      },
     ],
   },
 );

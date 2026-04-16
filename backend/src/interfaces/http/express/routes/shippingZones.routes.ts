@@ -12,7 +12,6 @@ export const shippingZonesRoutes = (
 
   r.get("/", auth, can("shipping_zone", "view"), controller.list);
   r.get("/detail/:id", auth, can("shipping_zone", "view"), controller.detail);
-
   r.post("/create", auth, can("shipping_zone", "create"), controller.create);
   r.get("/edit/:id", auth, can("shipping_zone", "edit"), controller.getEdit);
   r.patch("/edit/:id", auth, can("shipping_zone", "edit"), controller.edit);
@@ -27,6 +26,25 @@ export const shippingZonesRoutes = (
     auth,
     can("shipping_zone", "delete"),
     controller.softDelete,
+  );
+
+  r.patch(
+    "/bulk/status",
+    auth,
+    can("shipping_zone", "edit"),
+    controller.bulkChangeStatus,
+  );
+  r.delete(
+    "/bulk/delete",
+    auth,
+    can("shipping_zone", "delete"),
+    controller.bulkDelete,
+  );
+  r.patch(
+    "/bulk/priority",
+    auth,
+    can("shipping_zone", "edit"),
+    controller.bulkUpdatePriority,
   );
 
   return r;

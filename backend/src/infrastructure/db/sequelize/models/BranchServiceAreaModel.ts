@@ -131,6 +131,14 @@ BranchServiceAreaModel.init(
         name: "idx_branch_service_areas_branch_status_deleted",
         fields: ["branch_id", "status", "deleted"],
       },
+      {
+        name: "idx_branch_service_areas_zone_status_deleted",
+        fields: ["shipping_zone_id", "status", "deleted"],
+      },
+      {
+        name: "idx_branch_service_areas_branch_same_day_status_deleted",
+        fields: ["branch_id", "supports_same_day", "status", "deleted"],
+      },
     ],
   },
 );

@@ -1,7 +1,10 @@
 import { Op } from "sequelize";
 import type {
+  BranchDeliveryTimeSlotBulkWriteResult,
   BranchDeliveryTimeSlotEntity,
   BranchDeliveryTimeSlotRepository,
+  BulkUpsertBranchDeliveryTimeSlotItem,
+  CopyBranchDeliveryTimeSlotsFromBranchInput,
   CreateBranchDeliveryTimeSlotPayload,
   ListBranchDeliveryTimeSlotsParams,
   UpdateBranchDeliveryTimeSlotPayload,
@@ -9,6 +12,25 @@ import type {
 
 export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDeliveryTimeSlotRepository {
   constructor(private readonly models: any) {}
+
+  private buildInclude() {
+    const include: any[] = [];
+    if (this.models.Branch)
+      include.push({
+        model: this.models.Branch,
+        as: "branch",
+        required: false,
+        where: { deleted: 0 },
+      });
+    if (this.models.DeliveryTimeSlot)
+      include.push({
+        model: this.models.DeliveryTimeSlot,
+        as: "deliveryTimeSlot",
+        required: false,
+        where: { deleted: 0 },
+      });
+    return include;
+  }
 
   private mapRow(row: any): BranchDeliveryTimeSlotEntity {
     return {
@@ -41,77 +63,29 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
             label: row.deliveryTimeSlot.label,
             startTime: row.deliveryTimeSlot.start_time,
             endTime: row.deliveryTimeSlot.end_time,
+            maxOrders:
+              row.deliveryTimeSlot.max_orders != null
+                ? Number(row.deliveryTimeSlot.max_orders)
+                : null,
+            sortOrder:
+              row.deliveryTimeSlot.sort_order != null
+                ? Number(row.deliveryTimeSlot.sort_order)
+                : undefined,
           }
         : null,
     };
   }
 
-  private buildInclude() {
-    return [
-      {
-        model: this.models.Branch,
-        as: "branch",
-        required: false,
-        where: {
-          deleted: 0,
-        },
-      },
-      {
-        model: this.models.DeliveryTimeSlot,
-        as: "deliveryTimeSlot",
-        required: false,
-        where: {
-          deleted: 0,
-        },
-      },
-    ];
-  }
-
-  async list(params: ListBranchDeliveryTimeSlotsParams): Promise<{
-    items: BranchDeliveryTimeSlotEntity[];
-    pagination: {
-      page: number;
-      limit: number;
-      totalItems: number;
-      totalPages: number;
-    };
-  }> {
+  async list(params: ListBranchDeliveryTimeSlotsParams) {
     const page = Number(params.page ?? 1);
     const limit = Number(params.limit ?? 10);
     const keyword = String(params.keyword ?? "").trim();
     const status = String(params.status ?? "").trim();
-    const branchId =
-      params.branchId !== undefined && params.branchId !== null
-        ? Number(params.branchId)
-        : null;
-    const deliveryTimeSlotId =
-      params.deliveryTimeSlotId !== undefined &&
-      params.deliveryTimeSlotId !== null
-        ? Number(params.deliveryTimeSlotId)
-        : null;
-
-    const where: any = {
-      deleted: 0,
-    };
-
-    if (status) {
-      where.status = status;
-    }
-
-    if (branchId && Number.isInteger(branchId) && branchId > 0) {
-      where.branch_id = branchId;
-    }
-
-    if (
-      deliveryTimeSlotId &&
-      Number.isInteger(deliveryTimeSlotId) &&
-      deliveryTimeSlotId > 0
-    ) {
-      where.delivery_time_slot_id = deliveryTimeSlotId;
-    }
-
-    const include = this.buildInclude();
-
+    const where: any = { deleted: 0 };
+    if (status) where.status = status;
+    if (params.branchId) where.branch_id = Number(params.branchId);
+    if (params.deliveryTimeSlotId)
+      where.delivery_time_slot_id = Number(params.deliveryTimeSlotId);
     if (keyword) {
       where[Op.or] = [
         { "$branch.name$": { [Op.like]: `%${keyword}%` } },
@@ -120,25 +94,19 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
         { "$deliveryTimeSlot.label$": { [Op.like]: `%${keyword}%` } },
       ];
     }
-
     const { count, rows } =
       await this.models.BranchDeliveryTimeSlot.findAndCountAll({
         where,
-        include,
+        include: this.buildInclude(),
         distinct: true,
         order: [
-          [{ model: this.models.Branch, as: "branch" }, "id", "ASC"],
-          [
-            { model: this.models.DeliveryTimeSlot, as: "deliveryTimeSlot" },
-            "sort_order",
-            "ASC",
-          ],
+          ["branch_id", "ASC"],
+          ["delivery_time_slot_id", "ASC"],
           ["id", "ASC"],
         ],
         offset: (page - 1) * limit,
         limit,
       });
-
     return {
       items: rows.map((row: any) => this.mapRow(row)),
       pagination: {
@@ -150,22 +118,41 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
     };
   }
 
-  async findById(id: number): Promise<BranchDeliveryTimeSlotEntity | null> {
+  async findById(id: number) {
     const row = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
       include: this.buildInclude(),
     });
-
     return row ? this.mapRow(row) : null;
   }
 
-  async findByBranchAndSlot(
-    branchId: number,
-    deliveryTimeSlotId: number,
-  ): Promise<BranchDeliveryTimeSlotEntity | null> {
+  async findByIds(ids: number[]) {
+    const uniqIds = [
+      ...new Set(ids.map(Number).filter((x) => Number.isInteger(x) && x > 0)),
+    ];
+    if (!uniqIds.length) return [];
+    const rows = await this.models.BranchDeliveryTimeSlot.findAll({
+      where: { id: { [Op.in]: uniqIds }, deleted: 0 },
+      include: this.buildInclude(),
+    });
+    return rows.map((row: any) => this.mapRow(row));
+  }
+
+  async findByBranchIds(branchIds: number[]) {
+    const uniqIds = [
+      ...new Set(
+        branchIds.map(Number).filter((x) => Number.isInteger(x) && x > 0),
+      ),
+    ];
+    if (!uniqIds.length) return [];
+    const rows = await this.models.BranchDeliveryTimeSlot.findAll({
+      where: { branch_id: { [Op.in]: uniqIds }, deleted: 0 },
+      include: this.buildInclude(),
+    });
+    return rows.map((row: any) => this.mapRow(row));
+  }
+
+  async findByBranchAndSlot(branchId: number, deliveryTimeSlotId: number) {
     const row = await this.models.BranchDeliveryTimeSlot.findOne({
       where: {
         branch_id: branchId,
@@ -174,14 +161,13 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
       },
       include: this.buildInclude(),
     });
-
     return row ? this.mapRow(row) : null;
   }
 
   async findDeletedByBranchAndSlot(
     branchId: number,
     deliveryTimeSlotId: number,
-  ): Promise<BranchDeliveryTimeSlotEntity | null> {
+  ) {
     const row = await this.models.BranchDeliveryTimeSlot.findOne({
       where: {
         branch_id: branchId,
@@ -191,71 +177,38 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
       include: this.buildInclude(),
       order: [["id", "DESC"]],
     });
-
     return row ? this.mapRow(row) : null;
   }
 
-  async create(
-    payload: CreateBranchDeliveryTimeSlotPayload,
-  ): Promise<BranchDeliveryTimeSlotEntity> {
-    try {
-      const row = await this.models.BranchDeliveryTimeSlot.create({
-        branch_id: payload.branchId,
-        delivery_time_slot_id: payload.deliveryTimeSlotId,
-        max_orders_override:
-          payload.maxOrdersOverride !== undefined
-            ? payload.maxOrdersOverride
-            : null,
-        status: payload.status,
-        deleted: 0,
-        deleted_at: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      });
-
-      const created = await this.models.BranchDeliveryTimeSlot.findOne({
-        where: {
-          id: row.id,
-          deleted: 0,
-        },
-        include: this.buildInclude(),
-      });
-
-      if (!created) {
-        throw new Error(
-          "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh sau khi tạo.",
-        );
-      }
-
-      return this.mapRow(created);
-    } catch (error: any) {
-      if (
-        error?.name === "SequelizeUniqueConstraintError" ||
-        error?.original?.code === "ER_DUP_ENTRY"
-      ) {
-        throw new Error("Khung giờ này đã được gán cho chi nhánh.");
-      }
-      throw error;
-    }
+  async create(payload: CreateBranchDeliveryTimeSlotPayload) {
+    const row = await this.models.BranchDeliveryTimeSlot.create({
+      branch_id: payload.branchId,
+      delivery_time_slot_id: payload.deliveryTimeSlotId,
+      max_orders_override:
+        payload.maxOrdersOverride !== undefined
+          ? payload.maxOrdersOverride
+          : null,
+      status: payload.status,
+      deleted: 0,
+      deleted_at: null,
+      created_at: new Date(),
+      updated_at: new Date(),
+    });
+    const created = await this.models.BranchDeliveryTimeSlot.findOne({
+      where: { id: row.id, deleted: 0 },
+      include: this.buildInclude(),
+    });
+    return this.mapRow(created || row);
   }
 
-  async update(
-    id: number,
-    payload: UpdateBranchDeliveryTimeSlotPayload,
-  ): Promise<BranchDeliveryTimeSlotEntity> {
+  async update(id: number, payload: UpdateBranchDeliveryTimeSlotPayload) {
     const row = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
     });
-
-    if (!row) {
+    if (!row)
       throw new Error(
         "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh.",
       );
-    }
-
     await row.update({
       branch_id: payload.branchId,
       delivery_time_slot_id: payload.deliveryTimeSlotId,
@@ -266,41 +219,21 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
       status: payload.status,
       updated_at: new Date(),
     });
-
     const updated = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id: row.id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
       include: this.buildInclude(),
     });
-
-    if (!updated) {
-      throw new Error(
-        "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh sau khi cập nhật.",
-      );
-    }
-
-    return this.mapRow(updated);
+    return this.mapRow(updated || row);
   }
 
-  async revive(
-    id: number,
-    payload: UpdateBranchDeliveryTimeSlotPayload,
-  ): Promise<BranchDeliveryTimeSlotEntity> {
+  async revive(id: number, payload: UpdateBranchDeliveryTimeSlotPayload) {
     const row = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 1,
-      },
+      where: { id, deleted: 1 },
     });
-
-    if (!row) {
+    if (!row)
       throw new Error(
         "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh đã xóa để khôi phục.",
       );
-    }
-
     await row.update({
       branch_id: payload.branchId,
       delivery_time_slot_id: payload.deliveryTimeSlotId,
@@ -313,71 +246,126 @@ export class SequelizeBranchDeliveryTimeSlotRepository implements BranchDelivery
       deleted_at: null,
       updated_at: new Date(),
     });
-
     const revived = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id: row.id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
       include: this.buildInclude(),
     });
-
-    if (!revived) {
-      throw new Error(
-        "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh sau khi khôi phục.",
-      );
-    }
-
-    return this.mapRow(revived);
+    return this.mapRow(revived || row);
   }
 
-  async changeStatus(
-    id: number,
-    status: string,
-  ): Promise<BranchDeliveryTimeSlotEntity> {
-    const row = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
-    });
+  async bulkUpsert(
+    items: BulkUpsertBranchDeliveryTimeSlotItem[],
+    mode: CopyBranchDeliveryTimeSlotsFromBranchInput["mode"] = "skip_existing",
+  ): Promise<BranchDeliveryTimeSlotBulkWriteResult> {
+    const result: BranchDeliveryTimeSlotBulkWriteResult = {
+      created: [],
+      updated: [],
+      skipped: [],
+      conflicts: [],
+    };
+    for (const item of items) {
+      const status = item.status ?? "active";
+      const existing = await this.findByBranchAndSlot(
+        item.branchId,
+        item.deliveryTimeSlotId,
+      );
+      if (existing) {
+        if (mode === "skip_existing") {
+          result.skipped.push({
+            branchId: item.branchId,
+            deliveryTimeSlotId: item.deliveryTimeSlotId,
+            reason: "already_exists",
+          });
+          continue;
+        }
+        if (mode === "fail_on_conflict") {
+          result.conflicts.push({
+            branchId: item.branchId,
+            deliveryTimeSlotId: item.deliveryTimeSlotId,
+            reason: "already_exists",
+          });
+          continue;
+        }
+        result.updated.push(
+          await this.update(existing.id, { ...item, status }),
+        );
+        continue;
+      }
+      const deleted = await this.findDeletedByBranchAndSlot(
+        item.branchId,
+        item.deliveryTimeSlotId,
+      );
+      if (deleted) {
+        result.updated.push(await this.revive(deleted.id, { ...item, status }));
+        continue;
+      }
+      result.created.push(await this.create({ ...item, status }));
+    }
+    return result;
+  }
 
-    if (!row) {
+  async copyFromBranch(input: CopyBranchDeliveryTimeSlotsFromBranchInput) {
+    const sourceRows = await this.findByBranchIds([input.sourceBranchId]);
+    const items: BulkUpsertBranchDeliveryTimeSlotItem[] = [];
+    for (const targetBranchId of input.targetBranchIds) {
+      for (const row of sourceRows) {
+        items.push({
+          branchId: targetBranchId,
+          deliveryTimeSlotId: row.deliveryTimeSlotId,
+          maxOrdersOverride: row.maxOrdersOverride ?? null,
+          status: input.statusOverride ?? row.status,
+        });
+      }
+    }
+    return this.bulkUpsert(items, input.mode);
+  }
+
+  async changeStatus(id: number, status: string) {
+    const row = await this.models.BranchDeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+    if (!row)
       throw new Error(
         "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh.",
       );
-    }
-
-    await row.update({
-      status,
-      updated_at: new Date(),
-    });
-
+    await row.update({ status, updated_at: new Date() });
     const updated = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id: row.id,
-        deleted: 0,
-      },
+      where: { id, deleted: 0 },
       include: this.buildInclude(),
     });
-
     return this.mapRow(updated || row);
   }
 
-  async softDelete(id: number): Promise<void> {
-    const row = await this.models.BranchDeliveryTimeSlot.findOne({
-      where: {
-        id,
-        deleted: 0,
-      },
+  async bulkChangeStatus(ids: number[], status: string) {
+    const uniqIds: number[] = [
+      ...new Set(ids.map(Number).filter((x) => Number.isInteger(x) && x > 0)),
+    ];
+    const found: any[] = await this.models.BranchDeliveryTimeSlot.findAll({
+      where: { id: { [Op.in]: uniqIds }, deleted: 0 },
     });
 
-    if (!row) {
+    const foundIds: Set<number> = new Set(
+      found.map((row: any) => Number(row.id)),
+    );
+
+    for (const row of found) {
+      await row.update({ status, updated_at: new Date() });
+    }
+
+    return {
+      updatedIds: Array.from(foundIds),
+      notFoundIds: uniqIds.filter((id) => !foundIds.has(id)),
+    };
+  }
+
+  async softDelete(id: number) {
+    const row = await this.models.BranchDeliveryTimeSlot.findOne({
+      where: { id, deleted: 0 },
+    });
+    if (!row)
       throw new Error(
         "Không tìm thấy cấu hình khung giờ giao hàng theo chi nhánh.",
       );
-    }
-
     await row.update({
       deleted: 1,
       deleted_at: new Date(),
