@@ -12,7 +12,7 @@ type Models = { Branch: any };
 const toBool = (v: any) => v === true || v === 1 || v === "1";
 
 const mapSort = (sort?: any): OrderItem[] => {
-  if (!sort) return [["id", "DESC"]];
+  if (!sort) return [["id", "ASC"]];
   const colMap: Record<string, string> = {
     id: "id",
     name: "name",

@@ -50,6 +50,7 @@ export interface QuoteBranchSummary {
   id: number;
   name: string;
   code?: string | null;
+  status?: string | null;
   addressLine1?: string | null;
   district?: string | null;
   province?: string | null;
@@ -126,6 +127,8 @@ export interface CheckoutQuote {
   selectedSlot: {
     id: number;
     label?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
   } | null;
   selectedBranch?: QuoteBranchSummary | null;
   candidateBranches?: QuoteBranchSummary[];

@@ -114,16 +114,32 @@ const computeShippingFee = (input: {
   baseFee?: number | null;
   freeShipThreshold?: number | null;
 }) => {
-  const shippingFeeRaw =
+  const hasOverride =
     input.deliveryFeeOverride !== null &&
-    input.deliveryFeeOverride !== undefined
-      ? Number(input.deliveryFeeOverride)
-      : Number(input.baseFee ?? 0);
+    input.deliveryFeeOverride !== undefined;
+
+  const hasBaseFee = input.baseFee !== null && input.baseFee !== undefined;
+
+  if (!hasOverride && !hasBaseFee) {
+    throw new Error("Thiếu cấu hình phí giao hàng cho khu vực này");
+  }
+
+  const shippingFeeRaw = hasOverride
+    ? Number(input.deliveryFeeOverride)
+    : Number(input.baseFee);
+
+  if (!Number.isFinite(shippingFeeRaw)) {
+    throw new Error("Phí giao hàng không hợp lệ");
+  }
 
   const freeShipThreshold =
     input.freeShipThreshold !== null && input.freeShipThreshold !== undefined
       ? Number(input.freeShipThreshold)
       : null;
+
+  if (freeShipThreshold !== null && !Number.isFinite(freeShipThreshold)) {
+    throw new Error("Ngưỡng miễn phí giao hàng không hợp lệ");
+  }
 
   const shippingFee =
     freeShipThreshold !== null && input.subtotal >= freeShipThreshold
@@ -135,6 +151,31 @@ const computeShippingFee = (input: {
     freeShipThreshold,
     shippingFee,
   };
+};
+
+const rankMatchedPairs = (pairs: MatchedBranchPair[]) => {
+  return [...pairs].sort((a, b) => {
+    const aOverride =
+      a.serviceArea.deliveryFeeOverride !== null &&
+      a.serviceArea.deliveryFeeOverride !== undefined
+        ? Number(a.serviceArea.deliveryFeeOverride)
+        : Number.POSITIVE_INFINITY;
+    const bOverride =
+      b.serviceArea.deliveryFeeOverride !== null &&
+      b.serviceArea.deliveryFeeOverride !== undefined
+        ? Number(b.serviceArea.deliveryFeeOverride)
+        : Number.POSITIVE_INFINITY;
+
+    if (aOverride !== bOverride) return aOverride - bOverride;
+
+    const aBranchId = Number(a.branch.props.id ?? 0);
+    const bBranchId = Number(b.branch.props.id ?? 0);
+    if (aBranchId !== bBranchId) return aBranchId - bBranchId;
+
+    return String(a.branch.props.code ?? "").localeCompare(
+      String(b.branch.props.code ?? ""),
+    );
+  });
 };
 
 export class CalculateShippingQuoteService {
@@ -219,12 +260,64 @@ export class CalculateShippingQuoteService {
       deliveryType: "pickup",
       subtotal,
       shippingFee: 0,
-      matchedZone: null,
+      shippingFeeRaw: 0,
+      freeShipThreshold: null,
+      shippingZone: null,
       matchedZones: [],
       selectedBranch: toSelectedBranchSummary(selectedBranch),
+      candidateBranches: [toCandidateBranch(selectedBranch)],
+      requiresBranchSelection: false,
       availableSlots: [],
       selectedSlot: null,
+      serviceArea: null,
     };
+  }
+
+  private validateServiceAreaRules(
+    input: NormalizedInput,
+    subtotal: number,
+    pair: MatchedBranchPair,
+  ) {
+    const minOrderValue =
+      pair.serviceArea.minOrderValue !== null &&
+      pair.serviceArea.minOrderValue !== undefined
+        ? Number(pair.serviceArea.minOrderValue)
+        : null;
+
+    const maxOrderValue =
+      pair.serviceArea.maxOrderValue !== null &&
+      pair.serviceArea.maxOrderValue !== undefined
+        ? Number(pair.serviceArea.maxOrderValue)
+        : null;
+
+    if (
+      minOrderValue !== null &&
+      Number.isFinite(minOrderValue) &&
+      subtotal < minOrderValue
+    ) {
+      throw new Error(
+        `Đơn hàng chưa đạt giá trị tối thiểu để giao ở khu vực này (${minOrderValue.toLocaleString("vi-VN")}đ)`,
+      );
+    }
+
+    if (
+      maxOrderValue !== null &&
+      Number.isFinite(maxOrderValue) &&
+      subtotal > maxOrderValue
+    ) {
+      throw new Error(
+        `Đơn hàng vượt quá giá trị tối đa để giao ở khu vực này (${maxOrderValue.toLocaleString("vi-VN")}đ)`,
+      );
+    }
+
+    if (
+      input.deliveryType === "same_day" &&
+      !pair.serviceArea.supportsSameDay
+    ) {
+      throw new Error(
+        "Chi nhánh đã chọn không hỗ trợ giao trong ngày cho khu vực này",
+      );
+    }
   }
 
   private async buildDeliveryContext(
@@ -253,11 +346,8 @@ export class CalculateShippingQuoteService {
       includeDeleted: false,
       limit: 1000,
       offset: 0,
+      sort: { column: "id", dir: "ASC" },
     } as any);
-
-    const candidateBranches = candidateBranchRows.rows
-      .filter((branch: any) => !!branch.props.supportsDelivery)
-      .map(toCandidateBranch);
 
     const matchedBranchPairs: MatchedBranchPair[] = [];
     for (const branch of candidateBranchRows.rows) {
@@ -270,9 +360,14 @@ export class CalculateShippingQuoteService {
       matchedBranchPairs.push({ branch, serviceArea, matchedZone: zone });
     }
 
+    const rankedPairs = rankMatchedPairs(matchedBranchPairs);
+    const candidateBranches = rankedPairs.map((pair) =>
+      toCandidateBranch(pair.branch),
+    );
+
     let selectedPair: MatchedBranchPair | undefined;
     if (input.requestedBranchId) {
-      selectedPair = matchedBranchPairs.find(
+      selectedPair = rankedPairs.find(
         (pair) => Number(pair.branch.props.id) === input.requestedBranchId,
       );
       if (!selectedPair) {
@@ -281,7 +376,7 @@ export class CalculateShippingQuoteService {
         );
       }
     } else {
-      selectedPair = matchedBranchPairs[0];
+      selectedPair = rankedPairs[0];
     }
 
     if (!selectedPair) {
@@ -293,7 +388,7 @@ export class CalculateShippingQuoteService {
     return {
       zone,
       matchedZones,
-      matchedBranchPairs,
+      matchedBranchPairs: rankedPairs,
       candidateBranches,
       selectedPair,
     };
@@ -309,6 +404,8 @@ export class CalculateShippingQuoteService {
 
     const deliveryContext = await this.buildDeliveryContext(input);
     const selectedPair = deliveryContext.selectedPair!;
+
+    this.validateServiceAreaRules(input, subtotal, selectedPair);
 
     const feeContext = computeShippingFee({
       subtotal,
@@ -338,6 +435,9 @@ export class CalculateShippingQuoteService {
         )
       : null;
 
+    const requiresBranchSelection =
+      !input.requestedBranchId && deliveryContext.matchedBranchPairs.length > 1;
+
     return {
       fulfillmentType: "delivery",
       deliveryType: input.deliveryType,
@@ -345,10 +445,11 @@ export class CalculateShippingQuoteService {
       shippingFee: feeContext.shippingFee,
       shippingFeeRaw: feeContext.shippingFeeRaw,
       freeShipThreshold: feeContext.freeShipThreshold,
-      matchedZone,
+      shippingZone: matchedZone,
       matchedZones,
       selectedBranch,
-      availableBranches: deliveryContext.candidateBranches,
+      candidateBranches: deliveryContext.candidateBranches,
+      requiresBranchSelection,
       availableSlots,
       selectedSlot,
       serviceArea: {

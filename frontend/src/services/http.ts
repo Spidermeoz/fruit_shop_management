@@ -4,6 +4,30 @@ const BASE = import.meta.env.VITE_API_BASE_URL; // Set base URL for backend
 
 let accessToken: string | null = null;
 
+export class ApiError extends Error {
+  status: number;
+  code?: string;
+  data?: any;
+  payload?: any;
+
+  constructor(
+    message: string,
+    options?: {
+      status?: number;
+      code?: string;
+      data?: any;
+      payload?: any;
+    },
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = options?.status ?? 0;
+    this.code = options?.code;
+    this.data = options?.data;
+    this.payload = options?.payload;
+  }
+}
+
 export const tokenStore = {
   setAccess(t: string | null) {
     accessToken = t;
@@ -78,19 +102,29 @@ async function coreFetch(url: string, init: RequestInit = {}) {
 export async function http<T = any>(
   method: HttpMethod,
   url: string,
-  body?: any
+  body?: any,
 ): Promise<T> {
   const init: RequestInit = { method };
+
   if (body !== undefined && !(body instanceof FormData)) {
     init.body = JSON.stringify(body);
   } else if (body instanceof FormData) {
     init.body = body;
   }
+
   const res = await coreFetch(url, init);
   const json = await res.json().catch(() => ({}));
+
   if (!res.ok || json?.success === false) {
     const message = json?.message || res.statusText || "Request failed";
-    throw new Error(message);
+
+    throw new ApiError(message, {
+      status: res.status,
+      code: json?.code,
+      data: json?.data ?? null,
+      payload: json,
+    });
   }
+
   return json as T;
 }

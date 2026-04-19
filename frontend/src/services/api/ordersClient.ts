@@ -1,4 +1,4 @@
-import { http } from "../http";
+import { ApiError, http } from "../http";
 import type { CheckoutQuote, ClientOrder } from "../../types/orders";
 import { mapClientOrder } from "../../utils/mapOrder";
 
@@ -85,7 +85,7 @@ export async function getClientBranches(): Promise<ClientBranch[]> {
 export async function getCheckoutQuote(
   payload: CheckoutQuotePayload,
 ): Promise<CheckoutQuote> {
-  const res = await http("POST", "/api/v1/client/orders/quote", payload);
+  const res = await http<any>("POST", "/api/v1/client/orders/quote", payload);
 
   if (!res?.success) {
     throw new Error(res?.message || "Không lấy được báo giá đơn hàng");
@@ -188,9 +188,9 @@ export async function getCheckoutQuote(
         }))
       : [],
     requiresBranchSelection: !!res.data?.requiresBranchSelection,
-    quoteMeta: res.data?.quoteMeta
+    quoteMeta: res.data?.quoteMeta?.fingerprint
       ? {
-          fingerprint: String(res.data.quoteMeta.fingerprint ?? ""),
+          fingerprint: String(res.data.quoteMeta.fingerprint),
           computedAt: String(res.data.quoteMeta.computedAt ?? ""),
           expiresAt: res.data.quoteMeta.expiresAt ?? null,
           consistencyVersion: Number(
@@ -202,20 +202,28 @@ export async function getCheckoutQuote(
 }
 
 export async function checkoutOrder(payload: CheckoutPayload): Promise<any> {
-  const res = await http("POST", "/api/v1/client/orders/checkout", payload);
+  try {
+    const res = await http<any>(
+      "POST",
+      "/api/v1/client/orders/checkout",
+      payload,
+    );
 
-  if (!res?.success) {
-    if (res?.code === "CHECKOUT_QUOTE_CHANGED") {
+    if (!res?.success) {
+      throw new Error(res?.message || "Đặt hàng thất bại");
+    }
+
+    return res.data;
+  } catch (err: any) {
+    if (err instanceof ApiError && err.code === "CHECKOUT_QUOTE_CHANGED") {
       throw new CheckoutQuoteChangedError(
-        res?.message || "Giá đơn hàng vừa được cập nhật",
-        res?.data ?? null,
+        err.message || "Giá đơn hàng vừa được cập nhật",
+        err.data ?? null,
       );
     }
 
-    throw new Error(res?.message || "Đặt hàng thất bại");
+    throw err instanceof Error ? err : new Error("Đặt hàng thất bại");
   }
-
-  return res.data;
 }
 
 export async function getMyOrders(

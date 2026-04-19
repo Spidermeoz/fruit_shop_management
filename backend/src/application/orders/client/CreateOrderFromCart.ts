@@ -164,6 +164,23 @@ export class CreateOrderFromCart {
       throw new Error("Vui lòng chọn chi nhánh phù hợp để giao hàng");
     }
 
+    if (fulfillmentType === "delivery") {
+      if (deliveryType === "scheduled" && !deliveryDate) {
+        throw new Error("Bạn cần chọn ngày giao hàng");
+      }
+
+      if (deliveryType === "scheduled" && !deliveryTimeSlotId) {
+        throw new Error("Bạn cần chọn khung giờ giao hàng");
+      }
+
+      if (
+        deliveryType === "same_day" &&
+        quote.serviceArea?.supportsSameDay === false
+      ) {
+        throw new Error("Chi nhánh đã chọn không hỗ trợ giao trong ngày");
+      }
+    }
+
     if (
       fulfillmentType === "delivery" &&
       deliveryTimeSlotId &&
@@ -385,18 +402,31 @@ export class CreateOrderFromCart {
         }
       }
 
+      const resolvedDeliveryDate =
+        fulfillmentType === "delivery" ? (deliveryDate ?? null) : null;
+
+      const resolvedDeliveryTimeSlotId =
+        fulfillmentType === "delivery"
+          ? Number(quote.selectedSlot?.id ?? deliveryTimeSlotId ?? 0) || null
+          : null;
+
+      if (fulfillmentType === "delivery" && deliveryType === "scheduled") {
+        if (!resolvedDeliveryDate) {
+          throw new Error("Bạn cần chọn ngày giao hàng");
+        }
+        if (!resolvedDeliveryTimeSlotId) {
+          throw new Error("Bạn cần chọn khung giờ giao hàng");
+        }
+      }
+
       const order = await this.orderRepo.create(
         {
           userId,
           branchId: resolvedBranchId,
           fulfillmentType,
           deliveryType,
-          deliveryDate: fulfillmentType === "delivery" ? deliveryDate : null,
-          deliveryTimeSlotId:
-            fulfillmentType === "delivery"
-              ? Number(quote.selectedSlot?.id ?? deliveryTimeSlotId ?? 0) ||
-                null
-              : null,
+          deliveryDate: resolvedDeliveryDate,
+          deliveryTimeSlotId: resolvedDeliveryTimeSlotId,
           deliveryTimeSlotLabel:
             fulfillmentType === "delivery"
               ? (quote.selectedSlot?.label ?? null)

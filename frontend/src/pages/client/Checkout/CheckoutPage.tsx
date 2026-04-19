@@ -139,9 +139,9 @@ const CheckoutPage: React.FC = () => {
   const [deliveryTimeSlotId, setDeliveryTimeSlotId] = useState<number | null>(
     null,
   );
-  const [deliveryType] = useState<"standard" | "same_day" | "scheduled">(
-    "scheduled",
-  );
+  const [deliveryType] = useState<
+    "standard" | "same_day" | "scheduled"
+  >("scheduled");
 
   const [quote, setQuote] = useState<CheckoutQuote | any>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
@@ -377,8 +377,26 @@ const CheckoutPage: React.FC = () => {
   const activePromotionCode = quote?.promotionCode ?? promotionCode ?? null;
 
   const selectedBranch = useMemo(() => {
+    if (!selectedBranchId) return null;
+
+    const quoteSelected =
+      quote?.selectedBranch &&
+      Number(quote.selectedBranch.id) === selectedBranchId
+        ? quote.selectedBranch
+        : null;
+
+    if (quoteSelected) return quoteSelected;
+
+    const candidate = Array.isArray(quote?.candidateBranches)
+      ? quote.candidateBranches.find(
+          (b: any) => Number(b.id) === Number(selectedBranchId),
+        )
+      : null;
+
+    if (candidate) return candidate;
+
     return branches.find((b) => b.id === selectedBranchId) || null;
-  }, [branches, selectedBranchId]);
+  }, [branches, quote, selectedBranchId]);
 
   const isDeliveryAddressReady =
     !!orderInfo.city &&
@@ -489,7 +507,8 @@ const CheckoutPage: React.FC = () => {
               ? Number(data.selectedBranch.id)
               : null;
 
-          if (resolvedBranchId && resolvedBranchId !== selectedBranchId) {
+          // Chỉ tự gán branch mặc định khi user chưa chọn gì
+          if (!selectedBranchId && resolvedBranchId) {
             setSelectedBranchId(resolvedBranchId);
           }
         }
@@ -534,15 +553,24 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     if (fulfillmentType !== "delivery") return;
+
+    // Đổi địa chỉ giao hàng thì phải chọn lại branch và slot
+    setSelectedBranchId(null);
     setDeliveryTimeSlotId(null);
   }, [
     fulfillmentType,
-    deliveryDate,
     orderInfo.city,
     orderInfo.district,
     orderInfo.ward,
     orderInfo.address,
   ]);
+
+  useEffect(() => {
+    if (fulfillmentType !== "delivery") return;
+
+    // Đổi ngày giao hoặc branch giao thì phải chọn lại slot
+    setDeliveryTimeSlotId(null);
+  }, [fulfillmentType, deliveryDate, selectedBranchId]);
 
   const handleChange = (
     e: React.ChangeEvent<
@@ -774,6 +802,19 @@ const CheckoutPage: React.FC = () => {
                 }
               : (prev?.quoteMeta ?? null),
           }));
+          if (err.payload.currentQuote?.selectedBranch?.id) {
+            setSelectedBranchId(
+              Number(err.payload.currentQuote.selectedBranch.id),
+            );
+          }
+
+          if (err.payload.currentQuote?.selectedSlot?.id) {
+            setDeliveryTimeSlotId(
+              Number(err.payload.currentQuote.selectedSlot.id),
+            );
+          } else {
+            setDeliveryTimeSlotId(null);
+          }
         }
 
         showErrorToast(
@@ -801,14 +842,29 @@ const CheckoutPage: React.FC = () => {
     momo: <Smartphone className="w-6 h-6" />,
   };
 
-  const availableBranches =
-    fulfillmentType === "pickup"
-      ? branches.filter((b) => b.supportsPickup)
-      : quote?.candidateBranches?.length
-        ? branches.filter((b) =>
-            quote.candidateBranches.some((x: any) => Number(x.id) === b.id),
-          )
-        : branches.filter((b) => b.supportsDelivery);
+  const availableBranches = useMemo(() => {
+    if (fulfillmentType === "pickup") {
+      return branches.filter((b) => b.supportsPickup);
+    }
+
+    if (
+      Array.isArray(quote?.candidateBranches) &&
+      quote.candidateBranches.length
+    ) {
+      return quote.candidateBranches.map((branch: any) => ({
+        id: Number(branch.id),
+        name: branch.name ?? "",
+        code: branch.code ?? null,
+        addressLine1: branch.addressLine1 ?? null,
+        district: branch.district ?? null,
+        province: branch.province ?? null,
+        supportsPickup: !!branch.supportsPickup,
+        supportsDelivery: !!branch.supportsDelivery,
+      }));
+    }
+
+    return [];
+  }, [branches, fulfillmentType, quote]);
 
   const quoteStatus = useMemo(() => {
     if (quoteLoading) {
@@ -1337,7 +1393,7 @@ const CheckoutPage: React.FC = () => {
             quote?.requiresBranchSelection &&
             availableBranches.length > 0)) && (
           <div className="grid gap-3">
-            {availableBranches.map((branch) => {
+            {availableBranches.map((branch: any) => {
               const isSelected = selectedBranchId === branch.id;
               return (
                 <button

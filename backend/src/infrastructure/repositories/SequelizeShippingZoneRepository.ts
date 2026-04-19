@@ -25,6 +25,15 @@ const ciEquals = (field: string, value: string | null) => {
   return sequelizeWhere(fn("LOWER", col(field)), value);
 };
 
+const normalizeOptionalMoney = (value: unknown): number | null => {
+  if (value === undefined || value === null || value === "") return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new Error("Phí giao hàng không hợp lệ");
+  }
+  return parsed;
+};
+
 export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
   constructor(private readonly models: any) {}
 
@@ -36,7 +45,7 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
       province: row.province ?? null,
       district: row.district ?? null,
       ward: row.ward ?? null,
-      baseFee: Number(row.base_fee ?? 0),
+      baseFee: Number(row.base_fee),
       freeShipThreshold:
         row.free_ship_threshold !== null &&
         row.free_ship_threshold !== undefined
@@ -134,13 +143,18 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
   }
 
   async create(input: CreateShippingZoneInput) {
+    const baseFee = normalizeOptionalMoney(input.baseFee);
+    if (baseFee === null) {
+      throw new Error("Bạn cần cấu hình phí giao hàng cơ bản cho khu vực này");
+    }
+
     const row = await this.models.ShippingZone.create({
       code: String(input.code).trim().toUpperCase(),
       name: input.name,
       province: input.province ?? null,
       district: input.district ?? null,
       ward: input.ward ?? null,
-      base_fee: Number(input.baseFee ?? 0),
+      base_fee: baseFee,
       free_ship_threshold:
         input.freeShipThreshold !== undefined ? input.freeShipThreshold : null,
       priority: Number(input.priority ?? 0),
@@ -164,7 +178,13 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
     if (patch.province !== undefined) payload.province = patch.province ?? null;
     if (patch.district !== undefined) payload.district = patch.district ?? null;
     if (patch.ward !== undefined) payload.ward = patch.ward ?? null;
-    if (patch.baseFee !== undefined) payload.base_fee = patch.baseFee ?? 0;
+    if (patch.baseFee !== undefined) {
+      const baseFee = normalizeOptionalMoney(patch.baseFee);
+      if (baseFee === null) {
+        throw new Error("Phí giao hàng cơ bản không được để trống");
+      }
+      payload.base_fee = baseFee;
+    }
     if (patch.freeShipThreshold !== undefined)
       payload.free_ship_threshold = patch.freeShipThreshold;
     if (patch.priority !== undefined) payload.priority = patch.priority ?? 0;
@@ -188,7 +208,13 @@ export class SequelizeShippingZoneRepository implements ShippingZoneRepository {
     if (patch.province !== undefined) payload.province = patch.province ?? null;
     if (patch.district !== undefined) payload.district = patch.district ?? null;
     if (patch.ward !== undefined) payload.ward = patch.ward ?? null;
-    if (patch.baseFee !== undefined) payload.base_fee = patch.baseFee ?? 0;
+    if (patch.baseFee !== undefined) {
+      const baseFee = normalizeOptionalMoney(patch.baseFee);
+      if (baseFee === null) {
+        throw new Error("Phí giao hàng cơ bản không được để trống");
+      }
+      payload.base_fee = baseFee;
+    }
     if (patch.freeShipThreshold !== undefined)
       payload.free_ship_threshold = patch.freeShipThreshold;
     if (patch.priority !== undefined) payload.priority = patch.priority ?? 0;

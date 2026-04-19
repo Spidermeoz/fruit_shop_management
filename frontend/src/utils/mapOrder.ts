@@ -133,6 +133,15 @@ export function mapOrder(order: any): Order {
     final_price: Number(o.finalPrice ?? o.final_price ?? o.totalPrice ?? 0),
     total_price: Number(o.totalPrice ?? o.total_price ?? 0),
     discount_amount: Number(o.discountAmount ?? o.discount_amount ?? 0),
+    shipping_discount_amount: Number(
+      o.shippingDiscountAmount ?? o.shipping_discount_amount ?? 0,
+    ),
+    promotion_code: o.promotionCode ?? o.promotion_code ?? null,
+    promotionSnapshot:
+      o.promotionSnapshot ??
+      o.promotion_snapshot_json ??
+      o.promotionSnapshotJson ??
+      null,
     shipping_fee: Number(o.shippingFee ?? o.shipping_fee ?? 0),
     status: o.status,
     payment_status: o.paymentStatus ?? o.payment_status,
@@ -195,6 +204,15 @@ export function mapClientOrder(order: any): ClientOrder {
     finalPrice: Number(o.finalPrice ?? o.final_price ?? o.totalPrice ?? 0),
     totalPrice: Number(o.totalPrice ?? o.total_price ?? 0),
     discountAmount: Number(o.discountAmount ?? o.discount_amount ?? 0),
+    shippingDiscountAmount: Number(
+      o.shippingDiscountAmount ?? o.shipping_discount_amount ?? 0,
+    ),
+    promotionCode: o.promotionCode ?? o.promotion_code ?? null,
+    promotionSnapshot:
+      o.promotionSnapshot ??
+      o.promotion_snapshot_json ??
+      o.promotionSnapshotJson ??
+      null,
     shippingFee: Number(o.shippingFee ?? o.shipping_fee ?? 0),
     paymentStatus: o.paymentStatus ?? o.payment_status ?? "unpaid",
     status: o.status,
