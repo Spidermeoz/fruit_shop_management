@@ -78,10 +78,15 @@ const formatCurrency = (value?: string | number | null) => {
   return `${n.toLocaleString("vi-VN")} đ`;
 };
 
-const normalizeCode = (value: string) =>
-  value
+const removeVietnameseTones = (str: string) => {
+  return str
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
+    .replace(/[đĐ]/g, "d"); // xử lý riêng đ
+};
+
+const normalizeCode = (value: string) =>
+  removeVietnameseTones(value)
     .replace(/[^a-zA-Z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
     .toUpperCase();
@@ -343,7 +348,6 @@ const ShippingZoneCreatePage: React.FC = () => {
             .join(" - ");
 
     const code = normalizeCode(name || "ZONE_MOI");
-
     setFormData((prev) => ({ ...prev, name, code }));
   };
 

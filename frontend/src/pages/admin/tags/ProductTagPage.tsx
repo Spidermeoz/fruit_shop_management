@@ -194,6 +194,7 @@ const ProductTagPage: React.FC = () => {
       );
       if (res?.success) {
         setNewGroupName("");
+        showSuccessToast({message: "Tạo nhóm tag mới thành công."});
         setFlashNewGroup(true);
         setTimeout(() => setFlashNewGroup(false), 500);
         await fetchGroups();
@@ -352,15 +353,16 @@ const ProductTagPage: React.FC = () => {
         { name: value, productTagGroupId: group.id },
       );
       if (res?.success) {
+        showSuccessToast({message: "Tạo tag mới thành công."});
         setCreateTagValues((prev) => ({ ...prev, [group.id]: "" }));
         setFlashingTagGroupIds((prev) => [...prev, group.id]);
         setTimeout(
           () =>
             setFlashingTagGroupIds((prev) =>
               prev.filter((id) => id !== group.id),
-            ),
-          500,
-        );
+        ),
+        500,
+      );
         await fetchGroups();
       } else showErrorToast(res?.message || "Thêm tag thất bại.");
     } catch (err: any) {
@@ -469,7 +471,7 @@ const ProductTagPage: React.FC = () => {
             onChange={(e) => setNewGroupName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleCreateGroup()}
             disabled={creatingGroup}
-            placeholder="Ví dụ: Phong cách, Chất liệu, Theo Mùa..."
+            placeholder="Ví dụ: Theo mùa, Hương vị,...."
             className={`w-full flex-1 px-3 py-2 text-sm rounded-lg border bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all disabled:opacity-60 ${
               flashNewGroup
                 ? "border-emerald-500 ring-2 ring-emerald-200"

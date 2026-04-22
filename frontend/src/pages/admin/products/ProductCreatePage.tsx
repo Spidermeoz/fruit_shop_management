@@ -1028,7 +1028,7 @@ const ProductCreatePage: React.FC = () => {
               name="title"
               value={formData.title}
               onChange={handleInputChange}
-              placeholder="Nhập tên sản phẩm (VD: Áo thun nam Cotton)"
+              placeholder="Nhập tên sản phẩm (VD: Giỏ hoa quả...)"
               className={`w-full border ${errors.title ? "border-red-500" : "border-gray-300 dark:border-gray-600"} rounded-lg p-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 transition-shadow`}
             />
             {errors.title && (
@@ -1470,6 +1470,7 @@ const ProductCreatePage: React.FC = () => {
                   Các giá trị
                 </label>
                 {option.values.map((value, valueIndex) => (
+                 <>
                   <div
                     key={value.id ?? valueIndex}
                     className="flex items-center gap-2"
@@ -1490,7 +1491,7 @@ const ProductCreatePage: React.FC = () => {
                         )
                       }
                       placeholder="VD: S / M / L"
-                      className={`flex-1 border rounded-md p-2 text-sm bg-white dark:bg-gray-900 focus:ring-1 focus:ring-blue-500 ${errors[`options.${optionIndex}.values.${valueIndex}`] ? "border-red-500" : "border-gray-300 dark:border-gray-600"}`}
+                      className={`flex-1 border rounded-md p-2 text-sm bg-white dark:bg-gray-900 focus:ring-1 focus:ring-blue-500 ${errors[`options.${optionIndex}.values.${valueIndex}`] ? "border-red-500 outline-red-500" : "border-gray-300 dark:border-gray-600"}`}
                     />
                     <button
                       type="button"
@@ -1501,6 +1502,15 @@ const ProductCreatePage: React.FC = () => {
                       <X className="w-4 h-4" />
                     </button>
                   </div>
+                  {
+                    errors[`options.${optionIndex}.values.${valueIndex}`] && 
+                    (
+                      <p className="text-xs text-red-600 mt-1">
+                        {errors[`options.${optionIndex}.values.${valueIndex}`]}
+                      </p>
+                    )
+                  }
+                 </>
                 ))}
                 <button
                   type="button"
@@ -1581,7 +1591,7 @@ const ProductCreatePage: React.FC = () => {
                         onChange={(e) =>
                           handleVariantChange(index, "title", e.target.value)
                         }
-                        placeholder="VD: Áo Thun - Đỏ - Size L"
+                        placeholder="VD: Giỏ quả-đặc biệt..."
                         className={`w-full border rounded-lg p-2.5 text-sm font-medium ${errors[`variants.${index}.title`] ? "border-red-500" : "border-gray-300 dark:border-gray-600"} focus:ring-1 focus:ring-blue-500`}
                       />
                     </div>
@@ -1595,7 +1605,7 @@ const ProductCreatePage: React.FC = () => {
                         onChange={(e) =>
                           handleVariantChange(index, "sku", e.target.value)
                         }
-                        placeholder="VD: AO-DO-L"
+                        placeholder="VD: DAC-BIET-.."
                         className="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 text-sm uppercase focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
@@ -1622,7 +1632,8 @@ const ProductCreatePage: React.FC = () => {
                         ) as React.Ref<HTMLInputElement>
                       }
                       type="number"
-                      value={variant.price}
+                      min={1000}
+                      value={+variant.price > 1000 ? variant.price : 1000}
                       onChange={(e) =>
                         handleVariantChange(index, "price", e.target.value)
                       }
@@ -1640,7 +1651,8 @@ const ProductCreatePage: React.FC = () => {
                         ) as React.Ref<HTMLInputElement>
                       }
                       type="number"
-                      value={variant.compareAtPrice || ""}
+                      min={1000}
+                      value={variant.compareAtPrice || 1000}
                       onChange={(e) =>
                         handleVariantChange(
                           index,
