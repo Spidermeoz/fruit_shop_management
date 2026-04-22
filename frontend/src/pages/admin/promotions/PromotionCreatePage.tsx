@@ -5,7 +5,7 @@ import React, {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -223,6 +223,8 @@ const buildTargetSummary = (form: PromotionFormData) => {
 // ==========================================
 const PromotionCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state;
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
   // --- States ---
@@ -904,7 +906,7 @@ const PromotionCreatePage: React.FC = () => {
   return (
     <div className="w-full pb-10 space-y-6">
       {/* A. Header */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4 sticky top-4 z-10">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <div className="flex items-center gap-3 mb-1">
             <button
