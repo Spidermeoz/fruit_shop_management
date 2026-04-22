@@ -86,6 +86,13 @@ export type CreateInventoryTransactionInput = {
   createdById?: number | null;
 };
 
+export type InventoryVariantAvailability = {
+  productVariantId: number;
+  totalQuantity: number;
+  totalReservedQuantity: number;
+  availableQuantity: number;
+};
+
 export interface InventoryRepository {
   findStock(
     branchId: number,
@@ -167,4 +174,9 @@ export interface InventoryRepository {
     input: CreateInventoryTransactionInput,
     transaction?: Transaction,
   ): Promise<void>;
+
+  getAvailabilityByVariantIds?(
+    variantIds: number[],
+    branchId?: number | null,
+  ): Promise<InventoryVariantAvailability[]>;
 }

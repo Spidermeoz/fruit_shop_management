@@ -57,7 +57,12 @@ export interface PostRepository {
       excludePostId?: number | null;
     },
   ): Promise<Post[]>;
-  findBySlug(slug: string): Promise<Post | null>;
+
+  findChatRelatedPosts?(input: {
+    productIds?: number[];
+    limit?: number;
+    excludePostId?: number | null;
+  }): Promise<Post[]>;
 
   create(input: CreatePostInput): Promise<Post>;
   update(id: number, patch: UpdatePostPatch): Promise<Post>;

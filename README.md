@@ -226,6 +226,20 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │   ├── 📄 ReorderCategoryPositions.ts
 │   │   │   │   │   └── 📄 SoftDeleteCategory.ts
 │   │   │   │   └── 📄 dto.ts
+│   │   │   ├── 📁 chat
+│   │   │   │   ├── 📁 services
+│   │   │   │   │   ├── 📄 ChatModelService.ts
+│   │   │   │   │   ├── 📄 ChatSafetyPolicyService.ts
+│   │   │   │   │   ├── 📄 ExtractChatIntentService.ts
+│   │   │   │   │   ├── 📄 GenerateChatAnswerService.ts
+│   │   │   │   │   ├── 📄 NormalizeChatInputService.ts
+│   │   │   │   │   └── 📄 RankRecommendedProductsService.ts
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 CreateChatSession.ts
+│   │   │   │       ├── 📄 GetChatSessionDetail.ts
+│   │   │   │       ├── 📄 ListChatMessages.ts
+│   │   │   │       ├── 📄 RecommendProductsForChat.ts
+│   │   │   │       └── 📄 SendChatMessage.ts
 │   │   │   ├── 📁 dashboard
 │   │   │   │   └── 📁 usecases
 │   │   │   │       └── 📄 GetAdminDashboard.ts
@@ -318,7 +332,6 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 product-tags
 │   │   │   │   ├── 📁 usecases
 │   │   │   │   │   ├── 📄 BulkDeleteProductTags.ts
-│   │   │   │   │   ├── 📄 ChangeProductTagStatus.ts
 │   │   │   │   │   ├── 📄 CreateProductTag.ts
 │   │   │   │   │   ├── 📄 DeleteProductTag.ts
 │   │   │   │   │   ├── 📄 EditProductTag.ts
@@ -461,6 +474,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 ProductCategory.ts
 │   │   │   │   ├── 📄 ProductCategoryRepository.ts
 │   │   │   │   └── 📄 types.ts
+│   │   │   ├── 📁 chat
+│   │   │   │   ├── 📄 ChatMessageRepository.ts
+│   │   │   │   ├── 📄 ChatSessionRepository.ts
+│   │   │   │   ├── 📄 NutritionReferenceSourceRepository.ts
+│   │   │   │   ├── 📄 ProductHealthCautionRepository.ts
+│   │   │   │   ├── 📄 ProductHealthFactRepository.ts
+│   │   │   │   ├── 📄 ProductRecommendationLogRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 dashboard
 │   │   │   │   ├── 📄 DashboardRepository.ts
 │   │   │   │   └── 📄 types.ts
@@ -520,6 +541,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │       ├── 📄 UserRepository.ts
 │   │   │       └── 📄 types.ts
 │   │   ├── 📁 infrastructure
+│   │   │   ├── 📁 ai
+│   │   │   │   └── 📄 GeminiChatModelService.ts
 │   │   │   ├── 📁 auth
 │   │   │   │   ├── 📄 BcryptPasswordService.ts
 │   │   │   │   ├── 📄 CryptoRefreshTokenService.ts
@@ -534,6 +557,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 BranchServiceAreaModel.ts
 │   │   │   │       │   ├── 📄 CartItemModel.ts
 │   │   │   │       │   ├── 📄 CartModel.ts
+│   │   │   │       │   ├── 📄 ChatMessageModel.ts
+│   │   │   │       │   ├── 📄 ChatSessionModel.ts
 │   │   │   │       │   ├── 📄 DeliveryStatusHistoryModel.ts
 │   │   │   │       │   ├── 📄 DeliveryTimeSlotModel.ts
 │   │   │   │       │   ├── 📄 ForgotPasswordModel.ts
@@ -541,6 +566,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 InventoryTransactionModel.ts
 │   │   │   │       │   ├── 📄 NotificationModel.ts
 │   │   │   │       │   ├── 📄 NotificationRecipientModel.ts
+│   │   │   │       │   ├── 📄 NutritionReferenceSourceModel.ts
 │   │   │   │       │   ├── 📄 OrderAddressModel.ts
 │   │   │   │       │   ├── 📄 OrderItemModel.ts
 │   │   │   │       │   ├── 📄 OrderModel.ts
@@ -552,9 +578,12 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 PostTagMapModel.ts
 │   │   │   │       │   ├── 📄 PostTagModel.ts
 │   │   │   │       │   ├── 📄 ProductCategoryModel.ts
+│   │   │   │       │   ├── 📄 ProductHealthCautionModel.ts
+│   │   │   │       │   ├── 📄 ProductHealthFactModel.ts
 │   │   │   │       │   ├── 📄 ProductModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionModel.ts
 │   │   │   │       │   ├── 📄 ProductOptionValueModel.ts
+│   │   │   │       │   ├── 📄 ProductRecommendationLogModel.ts
 │   │   │   │       │   ├── 📄 ProductReviewModel.ts
 │   │   │   │       │   ├── 📄 ProductTagGroupModel.ts
 │   │   │   │       │   ├── 📄 ProductTagMapModel.ts
@@ -584,16 +613,22 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchServiceAreaRepository.ts
 │   │   │   │   ├── 📄 SequelizeCartRepository.ts
+│   │   │   │   ├── 📄 SequelizeChatMessageRepository.ts
+│   │   │   │   ├── 📄 SequelizeChatSessionRepository.ts
 │   │   │   │   ├── 📄 SequelizeDashboardRepository.ts
 │   │   │   │   ├── 📄 SequelizeDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
 │   │   │   │   ├── 📄 SequelizeNotificationRepository.ts
+│   │   │   │   ├── 📄 SequelizeNutritionReferenceSourceRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
 │   │   │   │   ├── 📄 SequelizeOriginRepository.ts
 │   │   │   │   ├── 📄 SequelizePostCategoryRepository.ts
 │   │   │   │   ├── 📄 SequelizePostRepository.ts
 │   │   │   │   ├── 📄 SequelizePostTagRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductCategoryRepository.ts
+│   │   │   │   ├── 📄 SequelizeProductHealthCautionRepository.ts
+│   │   │   │   ├── 📄 SequelizeProductHealthFactRepository.ts
+│   │   │   │   ├── 📄 SequelizeProductRecommendationLogRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagGroupRepository.ts
 │   │   │   │   ├── 📄 SequelizeProductTagRepository.ts
@@ -614,6 +649,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   ├── 📄 ClientAuthController.ts
 │   │   │           │   │   ├── 📄 ClientCartController.ts
 │   │   │           │   │   ├── 📄 ClientCategoriesController.ts
+│   │   │           │   │   ├── 📄 ClientChatController.ts
 │   │   │           │   │   ├── 📄 ClientForgotPasswordController.ts
 │   │   │           │   │   ├── 📄 ClientOrdersController.ts
 │   │   │           │   │   ├── 📄 ClientPostCategoriesController.ts
@@ -658,6 +694,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               │   ├── 📄 clientAuth.routes.ts
 │   │   │               │   ├── 📄 clientCart.routes.ts
 │   │   │               │   ├── 📄 clientCategories.routes.ts
+│   │   │               │   ├── 📄 clientChat.routes.ts
 │   │   │               │   ├── 📄 clientForgotPassword.routes.ts
 │   │   │               │   ├── 📄 clientOrders.routes.ts
 │   │   │               │   ├── 📄 clientPostCategories.routes.ts
@@ -768,6 +805,14 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 NotificationItem.tsx
 │   │   │   │       └── 📄 NotificationList.tsx
 │   │   │   └── 📁 client
+│   │   │       ├── 📁 chat
+│   │   │       │   ├── 📄 ChatLauncher.tsx
+│   │   │       │   ├── 📄 ChatMessageBubble.tsx
+│   │   │       │   ├── 📄 ChatQuickActions.tsx
+│   │   │       │   ├── 📄 ChatRecommendationCard.tsx
+│   │   │       │   ├── 📄 ChatRecommendationList.tsx
+│   │   │       │   ├── 📄 ChatTypingIndicator.tsx
+│   │   │       │   └── 📄 ChatWidget.tsx
 │   │   │       ├── 📁 layouts
 │   │   │       │   ├── 📄 Footer.tsx
 │   │   │       │   ├── 📄 Header.tsx
@@ -779,9 +824,11 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📄 AuthContext.tsx
 │   │   │   ├── 📄 AuthContextAdmin.tsx
 │   │   │   ├── 📄 CartContext.tsx
+│   │   │   ├── 📄 ChatbotContext.tsx
 │   │   │   ├── 📄 ThemeContext.tsx
 │   │   │   └── 📄 ToastContext.tsx
 │   │   ├── 📁 hooks
+│   │   │   ├── 📄 useChatbot.ts
 │   │   │   ├── 📄 useNotifications.ts
 │   │   │   └── 📄 useTheme.ts
 │   │   ├── 📁 pages
@@ -898,6 +945,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   ├── 📁 services
 │   │   │   ├── 📁 api
 │   │   │   │   ├── 📄 auditLogsApi.ts
+│   │   │   │   ├── 📄 chatClient.ts
 │   │   │   │   ├── 📄 dashboardApi.ts
 │   │   │   │   ├── 📄 notificationsApi.ts
 │   │   │   │   ├── 📄 ordersClient.ts
@@ -905,6 +953,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types
 │   │   │   ├── 📄 auditLogs.ts
+│   │   │   ├── 📄 chat.ts
 │   │   │   ├── 📄 inventory.ts
 │   │   │   ├── 📄 notifications.ts
 │   │   │   ├── 📄 orders.ts

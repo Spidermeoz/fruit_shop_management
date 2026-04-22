@@ -86,6 +86,8 @@ import FAQPage from "./pages/client/Other/FAQPage";
 import ReturnPolicyPage from "./pages/client/Other/ReturnPolicyPage";
 import ShippingPolicyPage from "./pages/client/Other/ShippingPolicyPage";
 import { ToastProvider } from "./context/ToastContext";
+import { ChatbotProvider } from "./context/ChatbotContext";
+import ChatLauncher from "./components/client/chat/ChatLauncher";
 
 const AdminShell: React.FC = () => {
   return (
@@ -274,42 +276,48 @@ const ClientShell: React.FC = () => {
     <ClientAuthProvider>
       <CartProvider>
         <ToastProvider>
-          <>
-            <Header />
-            <main className="min-h-screen bg-white text-gray-800">
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/products" element={<ProductListPage />} />
-                <Route
-                  path="/products/:slug"
-                  element={<ProductClientDetailPage />}
-                />
-                <Route path="/posts" element={<PostsPageClient />} />
-                <Route path="/posts/:slug" element={<PostDetailPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route path="/login" element={<LoginPage />} />
-                <Route path="/register" element={<RegisterPage />} />
-                <Route
-                  path="/forgot-password"
-                  element={<ForgotPasswordPage />}
-                />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/orders" element={<OrderHistoryPage />} />
-                <Route path="/orders/:id" element={<OrderDetailPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
-                <Route path="/terms" element={<TermsOfUsePage />} />
-                <Route path="/faq" element={<FAQPage />} />
-                <Route path="/return-policy" element={<ReturnPolicyPage />} />
-                <Route
-                  path="/shipping-policy"
-                  element={<ShippingPolicyPage />}
-                />
-              </Routes>
-            </main>
-          </>
+          <ChatbotProvider>
+            <>
+              <Header />
+              <main className="min-h-screen bg-white text-gray-800">
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/products" element={<ProductListPage />} />
+                  <Route
+                    path="/products/:slug"
+                    element={<ProductClientDetailPage />}
+                  />
+                  <Route path="/posts" element={<PostsPageClient />} />
+                  <Route path="/posts/:slug" element={<PostDetailPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/checkout" element={<CheckoutPage />} />
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/register" element={<RegisterPage />} />
+                  <Route
+                    path="/forgot-password"
+                    element={<ForgotPasswordPage />}
+                  />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/orders" element={<OrderHistoryPage />} />
+                  <Route path="/orders/:id" element={<OrderDetailPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route
+                    path="/privacy-policy"
+                    element={<PrivacyPolicyPage />}
+                  />
+                  <Route path="/terms" element={<TermsOfUsePage />} />
+                  <Route path="/faq" element={<FAQPage />} />
+                  <Route path="/return-policy" element={<ReturnPolicyPage />} />
+                  <Route
+                    path="/shipping-policy"
+                    element={<ShippingPolicyPage />}
+                  />
+                </Routes>
+              </main>
+              <ChatLauncher />
+            </>
+          </ChatbotProvider>
         </ToastProvider>
       </CartProvider>
     </ClientAuthProvider>

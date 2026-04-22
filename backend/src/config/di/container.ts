@@ -47,6 +47,12 @@ import PostRelatedProductModel from "../../infrastructure/db/sequelize/models/Po
 import NotificationModel from "../../infrastructure/db/sequelize/models/NotificationModel";
 import NotificationRecipientModel from "../../infrastructure/db/sequelize/models/NotificationRecipientModel";
 import AuditLogModel from "../../infrastructure/db/sequelize/models/AuditLogModel";
+import ChatSessionModel from "../../infrastructure/db/sequelize/models/ChatSessionModel";
+import ChatMessageModel from "../../infrastructure/db/sequelize/models/ChatMessageModel";
+import ProductRecommendationLogModel from "../../infrastructure/db/sequelize/models/ProductRecommendationLogModel";
+import NutritionReferenceSourceModel from "../../infrastructure/db/sequelize/models/NutritionReferenceSourceModel";
+import ProductHealthFactModel from "../../infrastructure/db/sequelize/models/ProductHealthFactModel";
+import ProductHealthCautionModel from "../../infrastructure/db/sequelize/models/ProductHealthCautionModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -74,6 +80,12 @@ import { SequelizePostTagRepository } from "../../infrastructure/repositories/Se
 import { SequelizeDashboardRepository } from "../../infrastructure/repositories/SequelizeDashboardRepository";
 import { SequelizeNotificationRepository } from "../../infrastructure/repositories/SequelizeNotificationRepository";
 import { SequelizeAuditLogRepository } from "../../infrastructure/repositories/SequelizeAuditLogRepository";
+import { SequelizeChatSessionRepository } from "../../infrastructure/repositories/SequelizeChatSessionRepository";
+import { SequelizeChatMessageRepository } from "../../infrastructure/repositories/SequelizeChatMessageRepository";
+import { SequelizeProductRecommendationLogRepository } from "../../infrastructure/repositories/SequelizeProductRecommendationLogRepository";
+import { SequelizeNutritionReferenceSourceRepository } from "../../infrastructure/repositories/SequelizeNutritionReferenceSourceRepository";
+import { SequelizeProductHealthFactRepository } from "../../infrastructure/repositories/SequelizeProductHealthFactRepository";
+import { SequelizeProductHealthCautionRepository } from "../../infrastructure/repositories/SequelizeProductHealthCautionRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -332,6 +344,24 @@ import { GetPostTagSummary } from "../../application/post-tags/usecases/GetPostT
 import { CanDeletePostTag } from "../../application/post-tags/usecases/CanDeletePostTag";
 import { GetPostTagUsage } from "../../application/post-tags/usecases/GetPostTagUsage";
 
+
+// ===== Chat usecases =====
+import { CreateChatSession } from "../../application/chat/usecases/CreateChatSession";
+import { SendChatMessage } from "../../application/chat/usecases/SendChatMessage";
+import { ListChatMessages } from "../../application/chat/usecases/ListChatMessages";
+import { GetChatSessionDetail } from "../../application/chat/usecases/GetChatSessionDetail";
+import { RecommendProductsForChat } from "../../application/chat/usecases/RecommendProductsForChat";
+
+// ===== Chat services =====
+import { NormalizeChatInputService } from "../../application/chat/services/NormalizeChatInputService";
+import { ChatSafetyPolicyService } from "../../application/chat/services/ChatSafetyPolicyService";
+import { ExtractChatIntentService } from "../../application/chat/services/ExtractChatIntentService";
+import { BuildRecommendationFiltersService } from "../../application/chat/services/BuildRecommendationFiltersService";
+import { RankRecommendedProductsService } from "../../application/chat/services/RankRecommendedProductsService";
+import { BuildChatPromptService } from "../../application/chat/services/BuildChatPromptService";
+import { GenerateChatAnswerService } from "../../application/chat/services/GenerateChatAnswerService";
+import { GeminiChatModelService } from "../../infrastructure/ai/GeminiChatModelService";
+
 // ===== Controllers =====
 import { makeClientAuthController } from "../../interfaces/http/express/controllers/client/ClientAuthController";
 import { makeClientCartController } from "../../interfaces/http/express/controllers/client/ClientCartController";
@@ -354,6 +384,7 @@ import {
   type ClientPostTagsController,
 } from "../../interfaces/http/express/controllers/client/ClientPostTagsController";
 import { ClientVerifyOtpController } from "../../interfaces/http/express/controllers/client/ClientVerifyOtpController";
+import { makeClientChatController, type ClientChatController } from "../../interfaces/http/express/controllers/client/ClientChatController";
 
 import {
   AdminReviewsController,
@@ -1011,6 +1042,103 @@ AuditLogModel.belongsTo(BranchModel, {
   foreignKey: "branch_id",
 });
 
+UserModel.hasMany(ChatSessionModel, {
+  as: "chatSessions",
+  foreignKey: "user_id",
+});
+ChatSessionModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+ChatSessionModel.hasMany(ChatMessageModel, {
+  as: "messages",
+  foreignKey: "chat_session_id",
+});
+ChatMessageModel.belongsTo(ChatSessionModel, {
+  as: "session",
+  foreignKey: "chat_session_id",
+});
+ChatSessionModel.hasMany(ProductRecommendationLogModel, {
+  as: "recommendationLogs",
+  foreignKey: "chat_session_id",
+});
+ProductRecommendationLogModel.belongsTo(ChatSessionModel, {
+  as: "session",
+  foreignKey: "chat_session_id",
+});
+ChatMessageModel.hasMany(ProductRecommendationLogModel, {
+  as: "recommendationLogs",
+  foreignKey: "chat_message_id",
+});
+ProductRecommendationLogModel.belongsTo(ChatMessageModel, {
+  as: "message",
+  foreignKey: "chat_message_id",
+});
+ProductModel.hasMany(ProductRecommendationLogModel, {
+  as: "chatRecommendationLogs",
+  foreignKey: "product_id",
+});
+ProductRecommendationLogModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+ProductVariantModel.hasMany(ProductRecommendationLogModel, {
+  as: "chatRecommendationLogs",
+  foreignKey: "product_variant_id",
+});
+ProductRecommendationLogModel.belongsTo(ProductVariantModel, {
+  as: "variant",
+  foreignKey: "product_variant_id",
+});
+NutritionReferenceSourceModel.hasMany(ProductHealthFactModel, {
+  as: "healthFacts",
+  foreignKey: "source_id",
+});
+ProductHealthFactModel.belongsTo(NutritionReferenceSourceModel, {
+  as: "source",
+  foreignKey: "source_id",
+});
+NutritionReferenceSourceModel.hasMany(ProductHealthCautionModel, {
+  as: "healthCautions",
+  foreignKey: "source_id",
+});
+ProductHealthCautionModel.belongsTo(NutritionReferenceSourceModel, {
+  as: "source",
+  foreignKey: "source_id",
+});
+ProductModel.hasMany(ProductHealthFactModel, {
+  as: "healthFacts",
+  foreignKey: "product_id",
+});
+ProductHealthFactModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+ProductModel.hasMany(ProductHealthCautionModel, {
+  as: "healthCautions",
+  foreignKey: "product_id",
+});
+ProductHealthCautionModel.belongsTo(ProductModel, {
+  as: "product",
+  foreignKey: "product_id",
+});
+UserModel.hasMany(ProductHealthFactModel, {
+  as: "reviewedHealthFacts",
+  foreignKey: "reviewed_by_id",
+});
+ProductHealthFactModel.belongsTo(UserModel, {
+  as: "reviewedBy",
+  foreignKey: "reviewed_by_id",
+});
+UserModel.hasMany(ProductHealthCautionModel, {
+  as: "reviewedHealthCautions",
+  foreignKey: "reviewed_by_id",
+});
+ProductHealthCautionModel.belongsTo(UserModel, {
+  as: "reviewedBy",
+  foreignKey: "reviewed_by_id",
+});
+
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
@@ -1053,6 +1181,48 @@ const inventoryModels = {
   Branch: BranchModel, // Added Branch
 };
 const inventoryRepo = new SequelizeInventoryRepository(inventoryModels);
+
+
+const chatSessionRepo = new SequelizeChatSessionRepository({
+  ChatSession: ChatSessionModel,
+});
+const chatMessageRepo = new SequelizeChatMessageRepository({
+  ChatMessage: ChatMessageModel,
+});
+const productRecommendationLogRepo =
+  new SequelizeProductRecommendationLogRepository({
+    ProductRecommendationLog: ProductRecommendationLogModel,
+  });
+const nutritionReferenceSourceRepo =
+  new SequelizeNutritionReferenceSourceRepository({
+    NutritionReferenceSource: NutritionReferenceSourceModel,
+  });
+const productHealthFactRepo = new SequelizeProductHealthFactRepository({
+  ProductHealthFact: ProductHealthFactModel,
+});
+const productHealthCautionRepo =
+  new SequelizeProductHealthCautionRepository({
+    ProductHealthCaution: ProductHealthCautionModel,
+  });
+
+const chatModelService = new GeminiChatModelService();
+const normalizeChatInputService = new NormalizeChatInputService();
+const chatSafetyPolicyService = new ChatSafetyPolicyService();
+const extractChatIntentService = new ExtractChatIntentService();
+const buildRecommendationFiltersService =
+  new BuildRecommendationFiltersService();
+const rankRecommendedProductsService = new RankRecommendedProductsService();
+const buildChatPromptService = new BuildChatPromptService();
+const generateChatAnswerService = new GenerateChatAnswerService(
+  buildChatPromptService,
+  chatModelService,
+);
+const recommendProductsForChatUsecase = new RecommendProductsForChat(
+  productRepo,
+  rankRecommendedProductsService,
+  productHealthFactRepo,
+  productHealthCautionRepo,
+);
 
 // Category
 const categoryModels = {
@@ -1768,6 +1938,24 @@ export const usecases = {
     validateCode: new ValidatePromotionCode(validatePromotionCodeService),
     listUsages: new ListPromotionUsages(promotionRepo),
   },
+
+  chat: {
+    createSession: new CreateChatSession(chatSessionRepo),
+    getSessionDetail: new GetChatSessionDetail(chatSessionRepo, chatMessageRepo),
+    listMessages: new ListChatMessages(chatSessionRepo, chatMessageRepo),
+    recommendProducts: recommendProductsForChatUsecase,
+    sendMessage: new SendChatMessage(
+      chatSessionRepo,
+      chatMessageRepo,
+      productRecommendationLogRepo,
+      normalizeChatInputService,
+      chatSafetyPolicyService,
+      extractChatIntentService,
+      buildRecommendationFiltersService,
+      recommendProductsForChatUsecase,
+      generateChatAnswerService,
+    ),
+  },
 };
 
 // ===== Controllers =====
@@ -2049,6 +2237,7 @@ type ClientControllers = {
   orders: ReturnType<typeof makeClientOrdersController>;
   reviews: ReturnType<typeof makeClientReviewsController>;
   clientSettings: SettingsGeneralController;
+  chat: ClientChatController;
 };
 
 export const clientControllers: ClientControllers = {
@@ -2135,5 +2324,12 @@ export const clientControllers: ClientControllers = {
     get: usecases.settings.get,
     update: usecases.settings.update,
     upload: usecases.upload.upload,
+  }),
+
+  chat: makeClientChatController({
+    createSession: usecases.chat.createSession,
+    getSessionDetail: usecases.chat.getSessionDetail,
+    listMessages: usecases.chat.listMessages,
+    sendMessage: usecases.chat.sendMessage,
   }),
 } as const;

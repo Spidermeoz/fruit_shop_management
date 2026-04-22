@@ -920,4 +920,41 @@ export class SequelizePostRepository implements PostRepository {
       { where: { id, deleted: 0 } },
     );
   }
+
+  async findChatRelatedPosts(input: {
+    productIds?: number[];
+    limit?: number;
+    excludePostId?: number | null;
+  }) {
+    const productIds = Array.isArray(input.productIds)
+      ? input.productIds.map(Number).filter((id) => Number.isInteger(id) && id > 0)
+      : [];
+
+    if (!productIds.length) return [];
+
+    const collected = [];
+    const seen = new Set<number>();
+    const limit = Math.max(1, Number(input.limit ?? 6));
+
+    for (const productId of productIds) {
+      const posts = await this.findRelatedPostsByProductId(productId, {
+        limit,
+        excludePostId: input.excludePostId ?? null,
+      });
+
+      for (const post of posts) {
+        if (!seen.has(Number(post.id))) {
+          seen.add(Number(post.id));
+          collected.push(post);
+        }
+
+        if (collected.length >= limit) {
+          return collected.slice(0, limit);
+        }
+      }
+    }
+
+    return collected.slice(0, limit);
+  }
+
 }

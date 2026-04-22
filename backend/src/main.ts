@@ -55,6 +55,7 @@ import { clientSettingsRoutes } from "./interfaces/http/express/routes/client/cl
 import { clientPostsRoutes } from "./interfaces/http/express/routes/client/clientPosts.routes";
 import clientPostCategoriesRoutes from "./interfaces/http/express/routes/client/clientPostCategories.routes";
 import clientPostTagsRoutes from "./interfaces/http/express/routes/client/clientPostTags.routes";
+import { clientChatRoutes } from "./interfaces/http/express/routes/client/clientChat.routes";
 
 const app = express();
 
@@ -244,6 +245,7 @@ app.use(
   "/api/v1/client/settings",
   clientSettingsRoutes(clientControllers.clientSettings),
 );
+app.use("/api/v1/client/chat", clientChatRoutes(clientControllers.chat));
 
 // ------------------------------------
 // Error Handler

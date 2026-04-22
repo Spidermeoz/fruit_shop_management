@@ -1360,4 +1360,22 @@ export class SequelizeProductRepository implements ProductRepository {
       },
     );
   }
+
+  async listChatCandidates(filter?: {
+    q?: string;
+    status?: string | null;
+    limit?: number;
+  }) {
+    const result = await this.list({
+      page: 1,
+      limit: Math.max(1, Number(filter?.limit ?? 20)),
+      q: filter?.q,
+      status: (filter?.status as any) ?? "active",
+      sortBy: "id",
+      order: "DESC",
+    } as any);
+
+    return result.rows;
+  }
+
 }

@@ -51,6 +51,13 @@ export type UpdateProductPatch = Partial<
   variants?: ProductVariantInput[];
 };
 
+
+
+export interface ProductChatCandidateFilter {
+  q?: string;
+  status?: ProductStatus | string | null;
+  limit?: number;
+}
 export interface ProductVariantStockInfo {
   id: number;
   productId: number;
@@ -110,4 +117,8 @@ export interface ProductRepository {
     quantity: number,
     transaction?: any,
   ): Promise<void>;
+
+  listChatCandidates?(
+    filter?: ProductChatCandidateFilter,
+  ): Promise<Product[]>;
 }

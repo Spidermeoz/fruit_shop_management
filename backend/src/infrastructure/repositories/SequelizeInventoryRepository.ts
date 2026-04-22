@@ -1,4 +1,4 @@
-import { Op, Transaction } from "sequelize";
+import { Op, Transaction, fn, col } from "sequelize";
 import type {
   CreateInventoryTransactionInput,
   InventoryRepository,
@@ -611,4 +611,52 @@ export class SequelizeInventoryRepository implements InventoryRepository {
       };
     });
   }
+
+  async getAvailabilityByVariantIds(
+    variantIds: number[],
+    branchId?: number | null,
+  ): Promise<
+    Array<{
+      productVariantId: number;
+      totalQuantity: number;
+      totalReservedQuantity: number;
+      availableQuantity: number;
+    }>
+  > {
+    const InventoryStock = this.models.InventoryStock;
+    if (!InventoryStock || !Array.isArray(variantIds) || !variantIds.length) {
+      return [];
+    }
+
+    const where: any = {
+      product_variant_id: { [Op.in]: variantIds.map(Number) },
+    };
+
+    if (branchId && Number(branchId) > 0) {
+      where.branch_id = Number(branchId);
+    }
+
+    const rows = await InventoryStock.findAll({
+      where,
+      attributes: [
+        "product_variant_id",
+        [fn("SUM", col("quantity")), "total_quantity"],
+        [fn("SUM", col("reserved_quantity")), "total_reserved_quantity"],
+      ],
+      group: ["product_variant_id"],
+      raw: true,
+    });
+
+    return rows.map((row: any) => {
+      const totalQuantity = Number(row.total_quantity ?? 0);
+      const totalReservedQuantity = Number(row.total_reserved_quantity ?? 0);
+      return {
+        productVariantId: Number(row.product_variant_id),
+        totalQuantity,
+        totalReservedQuantity,
+        availableQuantity: Math.max(0, totalQuantity - totalReservedQuantity),
+      };
+    });
+  }
+
 }
