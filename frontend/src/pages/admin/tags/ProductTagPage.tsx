@@ -194,6 +194,7 @@ const ProductTagPage: React.FC = () => {
       );
       if (res?.success) {
         setNewGroupName("");
+        showSuccessToast({message: "Tạo nhóm tag mới thành công."});
         setFlashNewGroup(true);
         setTimeout(() => setFlashNewGroup(false), 500);
         await fetchGroups();
@@ -352,15 +353,16 @@ const ProductTagPage: React.FC = () => {
         { name: value, productTagGroupId: group.id },
       );
       if (res?.success) {
+        showSuccessToast({message: "Tạo tag mới thành công."});
         setCreateTagValues((prev) => ({ ...prev, [group.id]: "" }));
         setFlashingTagGroupIds((prev) => [...prev, group.id]);
         setTimeout(
           () =>
             setFlashingTagGroupIds((prev) =>
               prev.filter((id) => id !== group.id),
-            ),
-          500,
-        );
+        ),
+        500,
+      );
         await fetchGroups();
       } else showErrorToast(res?.message || "Thêm tag thất bại.");
     } catch (err: any) {
