@@ -1,7 +1,7 @@
-// src/application/roles/usecases/CreateRole.ts
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
 import { Role } from "../../../domain/roles/Role";
 import { toRoleDTO, type RoleDTO } from "../../roles/dto";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 const normalizePermissions = (
   input: unknown,
@@ -44,10 +44,33 @@ export type CreateRoleInput = {
   permissions?: Record<string, string[]> | null;
 };
 
-export class CreateRole {
-  constructor(private repo: RoleRepository) {}
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
 
-  async execute(input: CreateRoleInput): Promise<RoleDTO> {
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+export class CreateRole {
+  constructor(
+    private repo: RoleRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+
+  async execute(
+    input: CreateRoleInput,
+    actor?: ActorContext,
+  ): Promise<RoleDTO> {
     const normalizedCode = String(input.code ?? "")
       .trim()
       .toLowerCase();
@@ -92,6 +115,30 @@ export class CreateRole {
       permissions: role.props.permissions,
     });
 
-    return toRoleDTO(created);
+    const dto = toRoleDTO(created);
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "role",
+        entityType: "role",
+        entityId: Number(created.props.id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: dto as any,
+      });
+    }
+
+    return dto;
   }
 }

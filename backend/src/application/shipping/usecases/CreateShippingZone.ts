@@ -1,5 +1,26 @@
 import type { ShippingZoneRepository } from "../../../domain/shipping/ShippingZoneRepository";
 
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 type CreateShippingZoneInput = {
   code: string;
   name: string;
@@ -18,9 +39,12 @@ const normalizeNullableText = (value?: string | null): string | null => {
 };
 
 export class CreateShippingZone {
-  constructor(private readonly shippingZoneRepo: ShippingZoneRepository) {}
+  constructor(
+    private readonly shippingZoneRepo: ShippingZoneRepository,
+    private readonly createAuditLog?: CreateAuditLog,
+  ) {}
 
-  async execute(input: CreateShippingZoneInput) {
+  async execute(input: CreateShippingZoneInput, actor?: ActorContext) {
     const name = String(input?.name ?? "").trim();
     const rawCode = String(input?.code ?? "").trim();
 
@@ -83,8 +107,23 @@ export class CreateShippingZone {
 
     const deletedCandidate =
       await this.shippingZoneRepo.findDeletedByCode(code);
+
+    let created;
+
     if (deletedCandidate) {
-      return this.shippingZoneRepo.revive(deletedCandidate.id, {
+      created = await this.shippingZoneRepo.revive(deletedCandidate.id, {
+        code,
+        name,
+        province,
+        district,
+        ward,
+        baseFee,
+        freeShipThreshold,
+        priority,
+        status,
+      });
+    } else {
+      created = await this.shippingZoneRepo.create({
         code,
         name,
         province,
@@ -97,16 +136,29 @@ export class CreateShippingZone {
       });
     }
 
-    return this.shippingZoneRepo.create({
-      code,
-      name,
-      province,
-      district,
-      ward,
-      baseFee,
-      freeShipThreshold,
-      priority,
-      status,
-    });
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "shipping_zone",
+        entityType: "shipping_zone",
+        entityId: Number(created?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: toSnapshot(created) as any,
+        metaJson: { code, name } as any,
+      });
+    }
+
+    return created;
   }
 }

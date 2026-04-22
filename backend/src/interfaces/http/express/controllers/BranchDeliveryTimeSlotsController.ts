@@ -20,6 +20,42 @@ type Deps = {
   copyFromBranch: CopyBranchDeliveryTimeSlotsFromBranch;
   bulkChangeStatus: BulkChangeBranchDeliveryTimeSlotStatus;
 };
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export class BranchDeliveryTimeSlotsController {
   constructor(private readonly deps: Deps) {}
   list = async (req: Request, res: Response) => {
@@ -81,12 +117,12 @@ export class BranchDeliveryTimeSlotsController {
   };
   create = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.create.execute({
+      const result = await (this.deps.create.execute as any)({
         branchId: req.body.branchId,
         deliveryTimeSlotId: req.body.deliveryTimeSlotId,
         maxOrdersOverride: req.body.maxOrdersOverride,
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(201)
         .json({
@@ -108,13 +144,13 @@ export class BranchDeliveryTimeSlotsController {
   };
   edit = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.edit.execute({
+      const result = await (this.deps.edit.execute as any)({
         id: Number(req.params.id),
         branchId: req.body.branchId,
         deliveryTimeSlotId: req.body.deliveryTimeSlotId,
         maxOrdersOverride: req.body.maxOrdersOverride,
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(200)
         .json({
@@ -136,10 +172,10 @@ export class BranchDeliveryTimeSlotsController {
   };
   changeStatus = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.changeStatus.execute({
+      const result = await (this.deps.changeStatus.execute as any)({
         id: Number(req.params.id),
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(200)
         .json({
@@ -161,7 +197,7 @@ export class BranchDeliveryTimeSlotsController {
   };
   softDelete = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.softDelete.execute(Number(req.params.id));
+      const result = await (this.deps.softDelete.execute as any)(Number(req.params.id), buildActor(req));
       return res
         .status(200)
         .json({ success: true, message: result.message, data: result });
@@ -178,10 +214,10 @@ export class BranchDeliveryTimeSlotsController {
   };
   bulkUpsert = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.bulkUpsert.execute({
+      const result = await (this.deps.bulkUpsert.execute as any)({
         items: Array.isArray(req.body?.items) ? req.body.items : [],
         mode: req.body?.mode,
-      });
+      }, buildActor(req));
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
       return res
@@ -196,14 +232,14 @@ export class BranchDeliveryTimeSlotsController {
   };
   copyFromBranch = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.copyFromBranch.execute({
+      const result = await (this.deps.copyFromBranch.execute as any)({
         sourceBranchId: Number(req.body?.sourceBranchId),
         targetBranchIds: Array.isArray(req.body?.targetBranchIds)
           ? req.body.targetBranchIds
           : [],
         mode: req.body?.mode,
         statusOverride: req.body?.statusOverride,
-      });
+      }, buildActor(req));
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
       return res
@@ -217,10 +253,10 @@ export class BranchDeliveryTimeSlotsController {
   };
   bulkChangeStatus = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.bulkChangeStatus.execute({
+      const result = await (this.deps.bulkChangeStatus.execute as any)({
         ids: Array.isArray(req.body?.ids) ? req.body.ids : [],
         status: req.body?.status,
-      });
+      }, buildActor(req));
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
       return res

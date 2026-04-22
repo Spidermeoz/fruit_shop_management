@@ -1,5 +1,26 @@
 import type { DeliveryTimeSlotRepository } from "../../../domain/shipping/DeliveryTimeSlotRepository";
 
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 type CreateDeliveryTimeSlotInput = {
   code: string;
   label: string;
@@ -32,9 +53,10 @@ function timeToMinutes(value: string): number {
 export class CreateDeliveryTimeSlot {
   constructor(
     private readonly deliveryTimeSlotRepo: DeliveryTimeSlotRepository,
+    private readonly createAuditLog?: CreateAuditLog,
   ) {}
 
-  async execute(input: CreateDeliveryTimeSlotInput) {
+  async execute(input: CreateDeliveryTimeSlotInput, actor?: ActorContext) {
     const code = String(input.code ?? "").trim();
     const label = String(input.label ?? "").trim();
     const startTime = normalizeTime(input.startTime);
@@ -99,8 +121,21 @@ export class CreateDeliveryTimeSlot {
     const deletedCandidate =
       await this.deliveryTimeSlotRepo.findDeletedByCode(code);
 
+    let created;
+
     if (deletedCandidate) {
-      return this.deliveryTimeSlotRepo.revive(deletedCandidate.id, {
+      created = await this.deliveryTimeSlotRepo.revive(deletedCandidate.id, {
+        code,
+        label,
+        startTime,
+        endTime,
+        cutoffMinutes,
+        maxOrders,
+        sortOrder,
+        status,
+      });
+    } else {
+      created = await this.deliveryTimeSlotRepo.create({
         code,
         label,
         startTime,
@@ -111,16 +146,28 @@ export class CreateDeliveryTimeSlot {
         status,
       });
     }
-
-    return this.deliveryTimeSlotRepo.create({
-      code,
-      label,
-      startTime,
-      endTime,
-      cutoffMinutes,
-      maxOrders,
-      sortOrder,
-      status,
-    });
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "delivery_time_slot",
+        entityType: "delivery_time_slot",
+        entityId: Number(created?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: toSnapshot(created) as any,
+        metaJson: { code } as any,
+      });
+    }
+    return created;
   }
 }

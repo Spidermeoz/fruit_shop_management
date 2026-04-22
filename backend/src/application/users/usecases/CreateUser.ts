@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import type { UserRepository } from "../../../domain/users/UserRepository";
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
 import type { Role } from "../../../domain/roles/Role";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 export type CreateUserInput = {
   roleId?: number | null;
@@ -18,6 +19,7 @@ export type CreateUserInput = {
 };
 
 type ActorContext = {
+  id?: number | null;
   roleId?: number | null;
   roleCode?: string | null;
   roleScope?: "system" | "branch" | "client" | null;
@@ -25,6 +27,9 @@ type ActorContext = {
   isRoleProtected?: boolean;
   isSuperAdmin?: boolean;
   branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 };
 
 const mapUserView = (u: any) => ({
@@ -187,10 +192,16 @@ const ensureTargetRoleCanBeAssigned = (
   }
 };
 
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  const branchIds = normalizeBranchIds(actor?.branchIds);
+  return branchIds[0] ?? null;
+};
+
 export class CreateUser {
   constructor(
     private repo: UserRepository,
     private rolesRepo: RoleRepository,
+    private createAuditLog?: CreateAuditLog,
   ) {}
 
   async execute(input: CreateUserInput, actor?: ActorContext) {
@@ -228,6 +239,34 @@ export class CreateUser {
       branchAssignments: finalBranchAssignments,
     });
 
-    return mapUserView(created);
+    const userView = mapUserView(created);
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "user",
+        entityType: "user",
+        entityId: Number(created.props.id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: userView,
+        metaJson: {
+          roleId,
+          branchAssignments: finalBranchAssignments,
+        },
+      });
+    }
+
+    return userView;
   }
 }

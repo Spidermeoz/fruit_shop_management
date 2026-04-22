@@ -5,6 +5,7 @@ import type {
 } from "../../../domain/users/UserRepository";
 import type { RoleRepository } from "../../../domain/roles/RoleRepository";
 import type { Role } from "../../../domain/roles/Role";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 export type EditUserInput = Partial<{
   roleId: number | null;
@@ -29,6 +30,9 @@ type ActorContext = {
   isRoleProtected?: boolean;
   isSuperAdmin?: boolean;
   branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
 };
 
 const mapUserView = (u: any) => ({
@@ -243,7 +247,6 @@ const ensureTargetUserCanBeManaged = (existing: any, actor?: ActorContext) => {
     return;
   }
 
-  // Khóa cứng các role đặc biệt, không cho actor thường chạm vào
   if (targetRoleCode === "super_admin") {
     throw new Error("Bạn không có quyền chỉnh sửa tài khoản Super Admin.");
   }
@@ -275,10 +278,16 @@ const ensureTargetUserCanBeManaged = (existing: any, actor?: ActorContext) => {
   }
 };
 
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  const branchIds = normalizeBranchIds(actor?.branchIds);
+  return branchIds[0] ?? null;
+};
+
 export class EditUser {
   constructor(
     private repo: UserRepository,
     private rolesRepo: RoleRepository,
+    private createAuditLog?: CreateAuditLog,
   ) {}
 
   async execute(id: number, patch: EditUserInput, actor?: ActorContext) {
@@ -286,6 +295,8 @@ export class EditUser {
     if (!existing) {
       throw new Error("User not found");
     }
+
+    const beforeUser = mapUserView(existing);
 
     const actorUserId =
       actor?.id !== undefined && actor?.id !== null ? Number(actor.id) : null;
@@ -324,12 +335,10 @@ export class EditUser {
     const existingIsInternal =
       existing.props.roleId !== null && existing.props.roleId !== undefined;
 
-    // Cửa 1: target user có phải đối tượng được phép chạm vào không?
     if (existingIsInternal) {
       ensureTargetUserCanBeManaged(existing, actor);
     }
 
-    // Cửa 2: nếu không phải super admin thì vẫn phải nằm trong branch scope hợp lệ
     if (existingIsInternal && !isSuperAdminActor(actor)) {
       const allowedBranchIds = normalizeBranchIds(actor?.branchIds);
       if (
@@ -354,14 +363,12 @@ export class EditUser {
     const isActuallyChangingRole =
       patch.roleId !== undefined && nextRoleId !== currentRoleId;
 
-    // Chỉ validate target role khi người dùng thực sự đang đổi sang role khác
     if (isActuallyChangingRole && nextRoleId !== null) {
       const targetRole = await this.rolesRepo.findById(
         Number(nextRoleId),
         false,
       );
 
-      // Cửa 3: nếu được phép chạm vào target user, actor vẫn chỉ được đổi sang role hợp lệ
       ensureTargetRoleCanBeAssigned(targetRole, actor);
     }
 
@@ -406,6 +413,31 @@ export class EditUser {
     }
 
     const updated = await this.repo.update(id, outPatch);
-    return { id: updated.props.id!, user: mapUserView(updated) };
+    const afterUser = mapUserView(updated);
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId: actorUserId,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "user",
+        entityType: "user",
+        entityId: Number(id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: beforeUser,
+        newValuesJson: afterUser,
+        metaJson: {
+          changedFields: Object.keys(outPatch),
+        },
+      });
+    }
+
+    return { id: updated.props.id!, user: afterUser };
   }
 }

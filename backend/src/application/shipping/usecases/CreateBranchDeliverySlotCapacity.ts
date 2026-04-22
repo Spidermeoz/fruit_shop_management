@@ -2,6 +2,27 @@ import { BranchDeliverySlotCapacityRepository } from "../../../domain/shipping/B
 import type { BranchRepository } from "../../../domain/branches/BranchRepository";
 import type { DeliveryTimeSlotRepository } from "../../../domain/shipping/DeliveryTimeSlotRepository";
 
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 interface Input {
   branchId: number;
   deliveryDate: string;
@@ -19,9 +40,10 @@ export class CreateBranchDeliverySlotCapacity {
     private readonly repo: BranchDeliverySlotCapacityRepository,
     private readonly branchRepo: BranchRepository,
     private readonly deliveryTimeSlotRepo: DeliveryTimeSlotRepository,
+    private readonly createAuditLog?: CreateAuditLog,
   ) {}
 
-  async execute(input: Input) {
+  async execute(input: Input, actor?: ActorContext) {
     const branchId = Number(input.branchId);
     const deliveryDate = normalizeDate(input.deliveryDate);
     const deliveryTimeSlotId = Number(input.deliveryTimeSlotId);
@@ -76,8 +98,10 @@ export class CreateBranchDeliverySlotCapacity {
       deliveryTimeSlotId,
     });
 
+    let created;
+
     if (deletedCandidate) {
-      return this.repo.revive(deletedCandidate.id, {
+      created = await this.repo.revive(deletedCandidate.id, {
         branchId,
         deliveryDate,
         deliveryTimeSlotId,
@@ -85,15 +109,38 @@ export class CreateBranchDeliverySlotCapacity {
         reservedOrders: deletedCandidate.reservedOrders ?? 0,
         status: status as "active" | "inactive",
       });
+    } else {
+      created = await this.repo.create({
+        branchId,
+        deliveryDate,
+        deliveryTimeSlotId,
+        maxOrders,
+        reservedOrders: 0,
+        status: status as "active" | "inactive",
+      });
     }
-
-    return this.repo.create({
-      branchId,
-      deliveryDate,
-      deliveryTimeSlotId,
-      maxOrders,
-      reservedOrders: 0,
-      status: status as "active" | "inactive",
-    });
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "branch_delivery_slot_capacity",
+        entityType: "branch_delivery_slot_capacity",
+        entityId: Number(created?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: toSnapshot(created) as any,
+        metaJson: { branchId, deliveryDate, deliveryTimeSlotId } as any,
+      });
+    }
+    return created;
   }
 }

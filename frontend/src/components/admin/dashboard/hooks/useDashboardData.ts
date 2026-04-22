@@ -108,6 +108,15 @@ export const useDashboardData = (
     void fetchDashboard();
   }, [fetchDashboard]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void fetchDashboard({ silent: true });
+    }, 30000);
+
+    return () => window.clearInterval(timer);
+  }, [fetchDashboard]);
+
   const setRange = useCallback((nextRange: DashboardRange) => {
     setRangeState(normalizeRange(nextRange));
   }, []);

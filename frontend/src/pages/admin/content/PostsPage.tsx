@@ -311,7 +311,7 @@ function normalizePost(raw: any): Post {
         ? Number(raw.position)
         : null,
 
-    published_at: raw?.published_at ?? null,
+    published_at: raw?.published_at ?? raw?.publishedAt ?? null,
 
     seo_title: String(raw?.seo_title ?? ""),
     seo_description: String(raw?.seo_description ?? ""),
@@ -326,8 +326,8 @@ function normalizePost(raw: any): Post {
 
     tags,
     relatedProducts,
-    created_at: raw?.created_at ?? null,
-    updated_at: raw?.updated_at ?? null,
+    created_at: raw?.created_at ?? raw?.createdAt ?? null,
+    updated_at: raw?.updated_at ?? raw?.updatedAt ?? null,
   };
 }
 
@@ -462,6 +462,20 @@ function normalizeReorderPairs(rows: Post[]): ReorderPair[] {
     id: Number(row.id),
     position: index,
   }));
+}
+
+function getPublishPayload(
+  nextStatus: PostStatus,
+  currentPublishedAt?: string | null,
+) {
+  if (nextStatus !== "published") {
+    return { status: nextStatus };
+  }
+
+  return {
+    status: nextStatus,
+    publishedAt: currentPublishedAt || new Date().toISOString(),
+  };
 }
 
 // =============================
@@ -847,9 +861,11 @@ const PostsPage: React.FC = () => {
   const handleStatusChange = async (post: Post, nextStatus: PostStatus) => {
     try {
       setActionLoadingIds((prev) => [...prev, post.id]);
-      await http("PATCH", `/api/v1/admin/posts/${post.id}/status`, {
-        status: nextStatus,
-      });
+      await http(
+        "PATCH",
+        `/api/v1/admin/posts/${post.id}/status`,
+        getPublishPayload(nextStatus, post.published_at),
+      );
       showSuccessToast({ message: "Cập nhật trạng thái bài viết thành công!" });
       setPosts((prev) =>
         prev.map((item) =>
@@ -954,9 +970,7 @@ const PostsPage: React.FC = () => {
     try {
       await http<BulkEditResponse>("PATCH", "/api/v1/admin/posts/bulk-edit", {
         ids: selectedPosts,
-        patch: {
-          status: nextStatus,
-        },
+        patch: getPublishPayload(nextStatus),
       });
 
       showSuccessToast({

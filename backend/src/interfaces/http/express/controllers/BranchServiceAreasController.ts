@@ -27,6 +27,42 @@ const toBool = (v: any) => {
   return undefined;
 };
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makeBranchServiceAreasController = (uc: {
   list: ListBranchServiceAreas;
   detail: GetBranchServiceAreaDetail;
@@ -83,7 +119,7 @@ export const makeBranchServiceAreasController = (uc: {
   create: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const payload = req.body ?? {};
-      const result = await uc.create.execute({
+      const result = await (uc.create.execute as any)({
         branchId: toNum(payload.branchId) ?? 0,
         shippingZoneId: toNum(payload.shippingZoneId) ?? 0,
         deliveryFeeOverride:
@@ -106,7 +142,7 @@ export const makeBranchServiceAreasController = (uc: {
             : null,
         supportsSameDay: toBool(payload.supportsSameDay) ?? true,
         status: payload.status ?? "active",
-      });
+      }, buildActor(req));
       res
         .status(201)
         .json({
@@ -134,7 +170,7 @@ export const makeBranchServiceAreasController = (uc: {
     try {
       const id = Number(req.params.id);
       const payload = req.body ?? {};
-      const result = await uc.edit.execute(id, {
+      const result = await (uc.edit.execute as any)(id, {
         branchId:
           payload.branchId !== undefined
             ? (toNum(payload.branchId) ?? 0)
@@ -167,7 +203,7 @@ export const makeBranchServiceAreasController = (uc: {
             ? toBool(payload.supportsSameDay)
             : undefined,
         status: payload.status,
-      });
+      }, buildActor(req));
       res.json({
         success: true,
         data: result,
@@ -179,10 +215,10 @@ export const makeBranchServiceAreasController = (uc: {
   },
   changeStatus: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await uc.changeStatus.execute(
+      const result = await (uc.changeStatus.execute as any)(
         Number(req.params.id),
         req.body.status,
-      );
+        buildActor(req));
       res.json({
         success: true,
         data: result,
@@ -194,7 +230,7 @@ export const makeBranchServiceAreasController = (uc: {
   },
   softDelete: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await uc.softDelete.execute(Number(req.params.id));
+      const result = await (uc.softDelete.execute as any)(Number(req.params.id), buildActor(req));
       res.json({
         success: true,
         data: result,
@@ -206,10 +242,10 @@ export const makeBranchServiceAreasController = (uc: {
   },
   bulkUpsert: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await uc.bulkUpsert.execute({
+      const result = await (uc.bulkUpsert.execute as any)({
         items: Array.isArray(req.body?.items) ? req.body.items : [],
         mode: req.body?.mode,
-      });
+      }, buildActor(req));
       res.json({ success: true, data: result });
     } catch (e) {
       next(e);
@@ -217,14 +253,14 @@ export const makeBranchServiceAreasController = (uc: {
   },
   copyFromBranch: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await uc.copyFromBranch.execute({
+      const result = await (uc.copyFromBranch.execute as any)({
         sourceBranchId: Number(req.body?.sourceBranchId),
         targetBranchIds: Array.isArray(req.body?.targetBranchIds)
           ? req.body.targetBranchIds
           : [],
         mode: req.body?.mode,
         statusOverride: req.body?.statusOverride,
-      });
+      }, buildActor(req));
       res.json({ success: true, data: result });
     } catch (e) {
       next(e);
@@ -232,10 +268,10 @@ export const makeBranchServiceAreasController = (uc: {
   },
   bulkChangeStatus: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const result = await uc.bulkChangeStatus.execute({
+      const result = await (uc.bulkChangeStatus.execute as any)({
         ids: Array.isArray(req.body?.ids) ? req.body.ids : [],
         status: req.body?.status,
-      });
+      }, buildActor(req));
       res.json({ success: true, data: result });
     } catch (e) {
       next(e);

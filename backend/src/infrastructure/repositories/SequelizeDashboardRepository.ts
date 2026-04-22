@@ -1155,7 +1155,7 @@ export class SequelizeDashboardRepository implements DashboardRepository {
         category: "reviews",
         title: "Review chưa phản hồi",
         message: `${reviewsSummary.pendingReviewProducts} sản phẩm đang có review chưa được phản hồi.`,
-        href: "/api/v1/admin/reviews/pending-summary",
+        href: "/admin/notifications?category=review",
       });
     }
 
@@ -1224,7 +1224,7 @@ export class SequelizeDashboardRepository implements DashboardRepository {
       {
         key: "reviews",
         label: "Reviews",
-        href: "/admin/reviews",
+        href: "/admin/notifications?category=review",
         module: "reviews",
       },
       {

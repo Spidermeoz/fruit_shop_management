@@ -58,6 +58,8 @@ import PostCreatePage from "./pages/admin/content/PostCreatePage";
 import PostEditPage from "./pages/admin/content/PostEditPage";
 import PostCategoriesPage from "./pages/admin/content/PostCategoriesPage";
 import PostTagsPage from "./pages/admin/content/PostTagsPage";
+import NotificationsPage from "./pages/admin/notifications/NotificationsPage";
+import AuditLogsPage from "./pages/admin/audit-logs/AuditLogsPage";
 
 // Client Layout & Pages
 import HomePage from "./pages/client/Home/HomePage";
@@ -251,6 +253,9 @@ const AdminShell: React.FC = () => {
                   path="promotions/edit/:id"
                   element={<PromotionEditPage />}
                 />
+
+                <Route path="notifications" element={<NotificationsPage />} />
+                <Route path="audit-logs" element={<AuditLogsPage />} />
                 <Route
                   path="settings/general"
                   element={<SettingsGeneralPage />}

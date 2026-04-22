@@ -44,6 +44,9 @@ import PostCategoryModel from "../../infrastructure/db/sequelize/models/PostCate
 import PostTagModel from "../../infrastructure/db/sequelize/models/PostTagModel";
 import PostTagMapModel from "../../infrastructure/db/sequelize/models/PostTagMapModel";
 import PostRelatedProductModel from "../../infrastructure/db/sequelize/models/PostRelatedProductModel";
+import NotificationModel from "../../infrastructure/db/sequelize/models/NotificationModel";
+import NotificationRecipientModel from "../../infrastructure/db/sequelize/models/NotificationRecipientModel";
+import AuditLogModel from "../../infrastructure/db/sequelize/models/AuditLogModel";
 
 // ===== Repositories =====
 import { SequelizeCartRepository } from "../../infrastructure/repositories/SequelizeCartRepository";
@@ -69,6 +72,8 @@ import { SequelizePostRepository } from "../../infrastructure/repositories/Seque
 import { SequelizePostCategoryRepository } from "../../infrastructure/repositories/SequelizePostCategoryRepository";
 import { SequelizePostTagRepository } from "../../infrastructure/repositories/SequelizePostTagRepository";
 import { SequelizeDashboardRepository } from "../../infrastructure/repositories/SequelizeDashboardRepository";
+import { SequelizeNotificationRepository } from "../../infrastructure/repositories/SequelizeNotificationRepository";
+import { SequelizeAuditLogRepository } from "../../infrastructure/repositories/SequelizeAuditLogRepository";
 
 import sequelize from "../../infrastructure/db/sequelize";
 
@@ -82,6 +87,13 @@ import { JwtTokenService } from "../../infrastructure/auth/JwtTokenService";
 
 // ===== Dashboard usecases =====
 import { GetAdminDashboard } from "../../application/dashboard/usecases/GetAdminDashboard";
+import { CreateNotification } from "../../application/notifications/usecases/CreateNotification";
+import { ListMyNotifications } from "../../application/notifications/usecases/ListMyNotifications";
+import { GetUnreadNotificationCount } from "../../application/notifications/usecases/GetUnreadNotificationCount";
+import { MarkNotificationRead } from "../../application/notifications/usecases/MarkNotificationRead";
+import { MarkAllNotificationsRead } from "../../application/notifications/usecases/MarkAllNotificationsRead";
+import { CreateAuditLog } from "../../application/audit-logs/usecases/CreateAuditLog";
+import { ListAuditLogs } from "../../application/audit-logs/usecases/ListAuditLogs";
 
 // ===== Product usecases =====
 import { BulkEditProducts } from "../../application/products/usecases/BulkEditProducts";
@@ -407,6 +419,14 @@ import {
   makeDashboardController,
   type DashboardController,
 } from "../../interfaces/http/express/controllers/DashboardController";
+import {
+  makeNotificationsController,
+  type NotificationsController,
+} from "../../interfaces/http/express/controllers/NotificationsController";
+import {
+  makeAuditLogsController,
+  type AuditLogsController,
+} from "../../interfaces/http/express/controllers/AuditLogsController";
 
 // ===== Export Auth services (cho main.ts / middlewares) =====
 export const authServices = {
@@ -934,6 +954,63 @@ PromotionBranchModel.belongsTo(PromotionModel, {
   foreignKey: "promotion_id",
 });
 
+NotificationModel.hasMany(NotificationRecipientModel, {
+  as: "recipients",
+  foreignKey: "notification_id",
+});
+NotificationRecipientModel.belongsTo(NotificationModel, {
+  as: "notification",
+  foreignKey: "notification_id",
+});
+UserModel.hasMany(NotificationRecipientModel, {
+  as: "notificationRecipients",
+  foreignKey: "user_id",
+});
+NotificationRecipientModel.belongsTo(UserModel, {
+  as: "user",
+  foreignKey: "user_id",
+});
+UserModel.hasMany(NotificationModel, {
+  as: "actorNotifications",
+  foreignKey: "actor_user_id",
+});
+NotificationModel.belongsTo(UserModel, {
+  as: "actorUser",
+  foreignKey: "actor_user_id",
+});
+BranchModel.hasMany(NotificationModel, {
+  as: "notifications",
+  foreignKey: "branch_id",
+});
+NotificationModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+UserModel.hasMany(AuditLogModel, {
+  as: "auditLogs",
+  foreignKey: "actor_user_id",
+});
+AuditLogModel.belongsTo(UserModel, {
+  as: "actorUser",
+  foreignKey: "actor_user_id",
+});
+RoleModel.hasMany(AuditLogModel, {
+  as: "auditLogs",
+  foreignKey: "actor_role_id",
+});
+AuditLogModel.belongsTo(RoleModel, {
+  as: "actorRole",
+  foreignKey: "actor_role_id",
+});
+BranchModel.hasMany(AuditLogModel, {
+  as: "auditLogs",
+  foreignKey: "branch_id",
+});
+AuditLogModel.belongsTo(BranchModel, {
+  as: "branch",
+  foreignKey: "branch_id",
+});
+
 // ===== Models & Repos =====
 const productModels = {
   Product: ProductModel,
@@ -1163,11 +1240,48 @@ const dashboardModels = {
 
 const dashboardRepo = new SequelizeDashboardRepository(dashboardModels);
 
+const notificationModels = {
+  Notification: NotificationModel,
+  NotificationRecipient: NotificationRecipientModel,
+  User: UserModel,
+  Role: RoleModel,
+  Branch: BranchModel,
+  UserBranch: UserBranchModel,
+};
+
+const notificationRepo = new SequelizeNotificationRepository(
+  notificationModels,
+);
+
+const auditLogModels = {
+  AuditLog: AuditLogModel,
+  User: UserModel,
+  Role: RoleModel,
+  Branch: BranchModel,
+};
+
+const auditLogRepo = new SequelizeAuditLogRepository(auditLogModels);
+
+const notificationsUsecases = {
+  create: new CreateNotification(notificationRepo),
+  listMy: new ListMyNotifications(notificationRepo),
+  unreadCount: new GetUnreadNotificationCount(notificationRepo),
+  markRead: new MarkNotificationRead(notificationRepo),
+  markAllRead: new MarkAllNotificationsRead(notificationRepo),
+};
+
+const auditLogsUsecases = {
+  create: new CreateAuditLog(auditLogRepo),
+  list: new ListAuditLogs(auditLogRepo),
+};
+
 // ===== Usecases =====
 export const usecases = {
   dashboard: {
     getAdminDashboard: new GetAdminDashboard(dashboardRepo),
   },
+  notifications: notificationsUsecases,
+  auditLogs: auditLogsUsecases,
   products: {
     list: new ListProducts(productRepo),
     detail: new GetProductDetail(productRepo, inventoryRepo),
@@ -1177,27 +1291,32 @@ export const usecases = {
       inventoryRepo,
       productTagRepo,
       branchRepo,
+      auditLogsUsecases.create,
     ),
     edit: new EditProduct(
       productRepo,
       productTagRepo,
       inventoryRepo,
       branchRepo,
+      auditLogsUsecases.create,
     ),
-    changeStatus: new ChangeProductStatus(productRepo),
-    softDelete: new SoftDeleteProduct(productRepo),
-    bulkEdit: new BulkEditProducts(productRepo),
-    reorder: new BulkReorderProducts(productRepo),
+    changeStatus: new ChangeProductStatus(
+      productRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeleteProduct(productRepo, auditLogsUsecases.create),
+    bulkEdit: new BulkEditProducts(productRepo, auditLogsUsecases.create),
+    reorder: new BulkReorderProducts(productRepo, auditLogsUsecases.create),
   },
 
   posts: {
     list: new ListPosts(postRepo),
     detail: new GetPostDetail(postRepo),
-    create: new CreatePost(postRepo),
-    edit: new EditPost(postRepo),
-    changeStatus: new ChangePostStatus(postRepo),
-    softDelete: new SoftDeletePost(postRepo),
-    bulkEdit: new BulkEditPosts(postRepo),
+    create: new CreatePost(postRepo, auditLogsUsecases.create),
+    edit: new EditPost(postRepo, auditLogsUsecases.create),
+    changeStatus: new ChangePostStatus(postRepo, auditLogsUsecases.create),
+    softDelete: new SoftDeletePost(postRepo, auditLogsUsecases.create),
+    bulkEdit: new BulkEditPosts(postRepo, auditLogsUsecases.create),
     reorder: new ReorderPostPositions(postRepo),
     summary: new GetPostSummary(postRepo),
   },
@@ -1219,11 +1338,20 @@ export const usecases = {
   postsCategories: {
     list: new ListPostCategories(postCategoryRepo),
     detail: new GetPostCategoryDetail(postCategoryRepo),
-    create: new CreatePostCategory(postCategoryRepo),
-    edit: new EditPostCategory(postCategoryRepo),
-    changeStatus: new ChangePostCategoryStatus(postCategoryRepo),
-    softDelete: new SoftDeletePostCategory(postCategoryRepo),
-    bulkEdit: new BulkEditPostCategories(postCategoryRepo),
+    create: new CreatePostCategory(postCategoryRepo, auditLogsUsecases.create),
+    edit: new EditPostCategory(postCategoryRepo, auditLogsUsecases.create),
+    changeStatus: new ChangePostCategoryStatus(
+      postCategoryRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeletePostCategory(
+      postCategoryRepo,
+      auditLogsUsecases.create,
+    ),
+    bulkEdit: new BulkEditPostCategories(
+      postCategoryRepo,
+      auditLogsUsecases.create,
+    ),
     reorder: new ReorderPostCategoryPositions(postCategoryRepo),
     summary: new GetPostCategorySummary(postCategoryRepo),
   },
@@ -1231,11 +1359,14 @@ export const usecases = {
   postTags: {
     list: new ListPostTags(postTagRepo),
     detail: new GetPostTagDetail(postTagRepo),
-    create: new CreatePostTag(postTagRepo),
-    edit: new EditPostTag(postTagRepo),
-    changeStatus: new ChangePostTagStatus(postTagRepo),
-    softDelete: new SoftDeletePostTag(postTagRepo),
-    bulkEdit: new BulkEditPostTags(postTagRepo),
+    create: new CreatePostTag(postTagRepo, auditLogsUsecases.create),
+    edit: new EditPostTag(postTagRepo, auditLogsUsecases.create),
+    changeStatus: new ChangePostTagStatus(
+      postTagRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeletePostTag(postTagRepo, auditLogsUsecases.create),
+    bulkEdit: new BulkEditPostTags(postTagRepo, auditLogsUsecases.create),
     summary: new GetPostTagSummary(postTagRepo),
     canDelete: new CanDeletePostTag(postTagRepo),
     usage: new GetPostTagUsage(postTagRepo),
@@ -1248,11 +1379,14 @@ export const usecases = {
   categories: {
     list: new ListCategories(categoryRepo),
     detail: new GetCategoryDetail(categoryRepo),
-    create: new CreateCategory(categoryRepo),
-    edit: new EditCategory(categoryRepo),
-    changeStatus: new ChangeCategoryStatus(categoryRepo),
-    softDelete: new SoftDeleteCategory(categoryRepo),
-    bulkEdit: new BulkEditCategories(categoryRepo),
+    create: new CreateCategory(categoryRepo, auditLogsUsecases.create),
+    edit: new EditCategory(categoryRepo, auditLogsUsecases.create),
+    changeStatus: new ChangeCategoryStatus(
+      categoryRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeleteCategory(categoryRepo, auditLogsUsecases.create),
+    bulkEdit: new BulkEditCategories(categoryRepo, auditLogsUsecases.create),
     reorder: new ReorderCategoryPositions(categoryRepo),
   },
 
@@ -1260,44 +1394,65 @@ export const usecases = {
     list: new ListRoles(rolesRepo),
     listAssignable: new ListAssignableRoles(rolesRepo),
     detail: new GetRoleDetail(rolesRepo),
-    create: new CreateRole(rolesRepo),
-    update: new UpdateRole(rolesRepo),
+    create: new CreateRole(rolesRepo, auditLogsUsecases.create),
+    update: new UpdateRole(rolesRepo, auditLogsUsecases.create),
     softDelete: new SoftDeleteRole(rolesRepo),
     getPermissions: new GetRolePermissions(rolesRepo),
-    updatePermissions: new UpdateRolePermissions(rolesRepo),
+    updatePermissions: new UpdateRolePermissions(
+      rolesRepo,
+      auditLogsUsecases.create,
+    ),
     listForPermissions: new ListRolesForPermissions(rolesRepo),
-    bulkUpdatePermissions: new BulkUpdateRolePermissions(rolesRepo),
+    bulkUpdatePermissions: new BulkUpdateRolePermissions(
+      rolesRepo,
+      auditLogsUsecases.create,
+    ),
   },
 
   users: {
     list: new ListUsers(userRepo),
     detail: new GetUserDetail(userRepo),
-    create: new CreateUser(userRepo, rolesRepo),
-    edit: new EditUser(userRepo, rolesRepo),
-    updateStatus: new UpdateUserStatus(userRepo),
-    softDelete: new SoftDeleteUser(userRepo),
-    bulkEdit: new BulkEditUsers(userRepo),
+    create: new CreateUser(userRepo, rolesRepo, auditLogsUsecases.create),
+    edit: new EditUser(userRepo, rolesRepo, auditLogsUsecases.create),
+    updateStatus: new UpdateUserStatus(userRepo, auditLogsUsecases.create),
+    softDelete: new SoftDeleteUser(userRepo, auditLogsUsecases.create),
+    bulkEdit: new BulkEditUsers(userRepo, auditLogsUsecases.create),
   },
 
   branches: {
     list: new ListBranches(branchRepo),
     detail: new GetBranchDetail(branchRepo),
-    create: new CreateBranch(branchRepo),
-    edit: new EditBranch(branchRepo),
-    changeStatus: new ChangeBranchStatus(branchRepo),
-    softDelete: new SoftDeleteBranch(branchRepo),
+    create: new CreateBranch(branchRepo, auditLogsUsecases.create),
+    edit: new EditBranch(branchRepo, auditLogsUsecases.create),
+    changeStatus: new ChangeBranchStatus(branchRepo, auditLogsUsecases.create),
+    softDelete: new SoftDeleteBranch(branchRepo, auditLogsUsecases.create),
   },
 
   shippingZones: {
     list: new ListShippingZones(shippingZoneRepo),
     detail: new GetShippingZoneDetail(shippingZoneRepo),
-    create: new CreateShippingZone(shippingZoneRepo),
-    edit: new EditShippingZone(shippingZoneRepo),
-    changeStatus: new ChangeShippingZoneStatus(shippingZoneRepo),
-    softDelete: new SoftDeleteShippingZone(shippingZoneRepo),
-    bulkChangeStatus: new BulkChangeShippingZoneStatus(shippingZoneRepo),
-    bulkDelete: new BulkDeleteShippingZones(shippingZoneRepo),
-    bulkUpdatePriority: new BulkUpdateShippingZonePriority(shippingZoneRepo),
+    create: new CreateShippingZone(shippingZoneRepo, auditLogsUsecases.create),
+    edit: new EditShippingZone(shippingZoneRepo, auditLogsUsecases.create),
+    changeStatus: new ChangeShippingZoneStatus(
+      shippingZoneRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeleteShippingZone(
+      shippingZoneRepo,
+      auditLogsUsecases.create,
+    ),
+    bulkChangeStatus: new BulkChangeShippingZoneStatus(
+      shippingZoneRepo,
+      auditLogsUsecases.create,
+    ),
+    bulkDelete: new BulkDeleteShippingZones(
+      shippingZoneRepo,
+      auditLogsUsecases.create,
+    ),
+    bulkUpdatePriority: new BulkUpdateShippingZonePriority(
+      shippingZoneRepo,
+      auditLogsUsecases.create,
+    ),
   },
 
   branchServiceAreas: {
@@ -1307,18 +1462,27 @@ export const usecases = {
       branchServiceAreaRepo,
       branchRepo,
       shippingZoneRepo,
+      auditLogsUsecases.create,
     ),
     edit: new EditBranchServiceArea(
       branchServiceAreaRepo,
       branchRepo,
       shippingZoneRepo,
+      auditLogsUsecases.create,
     ),
-    changeStatus: new ChangeBranchServiceAreaStatus(branchServiceAreaRepo),
-    softDelete: new SoftDeleteBranchServiceArea(branchServiceAreaRepo),
+    changeStatus: new ChangeBranchServiceAreaStatus(
+      branchServiceAreaRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeleteBranchServiceArea(
+      branchServiceAreaRepo,
+      auditLogsUsecases.create,
+    ),
     bulkUpsert: new BulkUpsertBranchServiceAreas(
       branchServiceAreaRepo,
       branchRepo,
       shippingZoneRepo,
+      auditLogsUsecases.create,
     ),
     copyFromBranch: new CopyBranchServiceAreasFromBranch(
       branchServiceAreaRepo,
@@ -1326,6 +1490,7 @@ export const usecases = {
     ),
     bulkChangeStatus: new BulkChangeBranchServiceAreaStatus(
       branchServiceAreaRepo,
+      auditLogsUsecases.create,
     ),
     checklist: new GetBranchShippingSetupChecklist(
       branchRepo,
@@ -1338,10 +1503,22 @@ export const usecases = {
   deliveryTimeSlots: {
     list: new ListDeliveryTimeSlots(deliveryTimeSlotRepo),
     detail: new GetDeliveryTimeSlotDetail(deliveryTimeSlotRepo),
-    create: new CreateDeliveryTimeSlot(deliveryTimeSlotRepo),
-    edit: new EditDeliveryTimeSlot(deliveryTimeSlotRepo),
-    changeStatus: new ChangeDeliveryTimeSlotStatus(deliveryTimeSlotRepo),
-    softDelete: new SoftDeleteDeliveryTimeSlot(deliveryTimeSlotRepo),
+    create: new CreateDeliveryTimeSlot(
+      deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
+    ),
+    edit: new EditDeliveryTimeSlot(
+      deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
+    ),
+    changeStatus: new ChangeDeliveryTimeSlotStatus(
+      deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeleteDeliveryTimeSlot(
+      deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
+    ),
   },
 
   branchDeliveryTimeSlots: {
@@ -1351,22 +1528,27 @@ export const usecases = {
       branchDeliveryTimeSlotRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     edit: new EditBranchDeliveryTimeSlot(
       branchDeliveryTimeSlotRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     changeStatus: new ChangeBranchDeliveryTimeSlotStatus(
       branchDeliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     softDelete: new SoftDeleteBranchDeliveryTimeSlot(
       branchDeliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     bulkUpsert: new BulkUpsertBranchDeliveryTimeSlots(
       branchDeliveryTimeSlotRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     copyFromBranch: new CopyBranchDeliveryTimeSlotsFromBranch(
       branchDeliveryTimeSlotRepo,
@@ -1374,6 +1556,7 @@ export const usecases = {
     ),
     bulkChangeStatus: new BulkChangeBranchDeliveryTimeSlotStatus(
       branchDeliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
   },
 
@@ -1386,22 +1569,27 @@ export const usecases = {
       branchDeliverySlotCapacityRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     edit: new EditBranchDeliverySlotCapacity(
       branchDeliverySlotCapacityRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     changeStatus: new ChangeBranchDeliverySlotCapacityStatus(
       branchDeliverySlotCapacityRepo,
+      auditLogsUsecases.create,
     ),
     softDelete: new SoftDeleteBranchDeliverySlotCapacity(
       branchDeliverySlotCapacityRepo,
+      auditLogsUsecases.create,
     ),
     bulkUpsert: new BulkUpsertBranchDeliverySlotCapacities(
       branchDeliverySlotCapacityRepo,
       branchRepo,
       deliveryTimeSlotRepo,
+      auditLogsUsecases.create,
     ),
     copyFromDate: new CopyBranchDeliverySlotCapacitiesFromDate(
       branchDeliverySlotCapacityRepo,
@@ -1413,6 +1601,7 @@ export const usecases = {
     ),
     bulkChangeStatus: new BulkChangeBranchDeliverySlotCapacityStatus(
       branchDeliverySlotCapacityRepo,
+      auditLogsUsecases.create,
     ),
     planner: new GetBranchCapacityPlanner(
       branchDeliverySlotCapacityRepo,
@@ -1467,6 +1656,7 @@ export const usecases = {
       evaluatePromotionService,
       validatePromotionCodeService,
       promotionRepo,
+      notificationsUsecases.create,
     ),
     myOrders: new GetMyOrders(orderRepo),
     myOrderDetail: new GetMyOrderDetail(orderRepo),
@@ -1474,15 +1664,26 @@ export const usecases = {
 
     list: new ListOrders(orderRepo),
     detail: new GetOrderDetailAdmin(orderRepo),
-    updateStatus: new UpdateOrderStatus(orderRepo, inventoryRepo),
-    addDeliveryStatus: new AddDeliveryHistory(orderRepo),
-    addPayment: new AddPayment(orderRepo),
+    updateStatus: new UpdateOrderStatus(
+      orderRepo,
+      inventoryRepo,
+      auditLogsUsecases.create,
+    ),
+    addDeliveryStatus: new AddDeliveryHistory(
+      orderRepo,
+      auditLogsUsecases.create,
+    ),
+    addPayment: new AddPayment(
+      orderRepo,
+      auditLogsUsecases.create,
+      notificationsUsecases.create,
+    ),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
     listBranches: new ListBranches(branchRepo),
   },
 
   reviews: {
-    create: new CreateReview(reviewRepo),
+    create: new CreateReview(reviewRepo, notificationsUsecases.create),
     reply: new ReplyReview(reviewRepo),
     listByProduct: new ListReviewsByProduct(reviewRepo),
     listMine: new ListMyReviews(reviewRepo),
@@ -1492,49 +1693,78 @@ export const usecases = {
 
   settings: {
     get: new GetGeneralSettings(settingsRepo),
-    update: new UpdateGeneralSettings(settingsRepo),
+    update: new UpdateGeneralSettings(settingsRepo, auditLogsUsecases.create),
   },
 
   origins: {
     list: new ListOrigins(originRepo),
     detail: new GetOriginDetail(originRepo),
-    create: new CreateOrigin(originRepo),
-    edit: new EditOrigin(originRepo),
-    changeStatus: new ChangeOriginStatus(originRepo),
-    softDelete: new SoftDeleteOrigin(originRepo),
-    bulkDelete: new BulkDeleteOrigins(originRepo),
+    create: new CreateOrigin(originRepo, auditLogsUsecases.create),
+    edit: new EditOrigin(originRepo, auditLogsUsecases.create),
+    changeStatus: new ChangeOriginStatus(originRepo, auditLogsUsecases.create),
+    softDelete: new SoftDeleteOrigin(originRepo, auditLogsUsecases.create),
+    bulkDelete: new BulkDeleteOrigins(originRepo, auditLogsUsecases.create),
   },
 
   productTags: {
     list: new ListProductTags(productTagRepo),
     detail: new GetProductTagDetail(productTagRepo),
-    create: new CreateProductTag(productTagRepo),
-    edit: new EditProductTag(productTagRepo),
-    deleteTag: new DeleteProductTag(productTagRepo),
-    bulkDelete: new BulkDeleteProductTags(productTagRepo),
+    create: new CreateProductTag(productTagRepo, auditLogsUsecases.create),
+    edit: new EditProductTag(productTagRepo, auditLogsUsecases.create),
+    deleteTag: new DeleteProductTag(productTagRepo, auditLogsUsecases.create),
+    bulkDelete: new BulkDeleteProductTags(
+      productTagRepo,
+      auditLogsUsecases.create,
+    ),
   },
 
   productTagGroups: {
     list: new ListProductTagGroups(productTagGroupRepo),
-    create: new CreateProductTagGroup(productTagGroupRepo),
-    edit: new EditProductTagGroup(productTagGroupRepo),
-    deleteGroup: new DeleteProductTagGroup(productTagGroupRepo),
+    create: new CreateProductTagGroup(
+      productTagGroupRepo,
+      auditLogsUsecases.create,
+    ),
+    edit: new EditProductTagGroup(
+      productTagGroupRepo,
+      auditLogsUsecases.create,
+    ),
+    deleteGroup: new DeleteProductTagGroup(
+      productTagGroupRepo,
+      auditLogsUsecases.create,
+    ),
   },
 
   inventory: {
     list: new ListInventoryStocks(inventoryRepo),
-    setStock: new SetInventoryStock(inventoryRepo, productRepo),
-    transfer: new TransferInventoryStock(inventoryRepo, productRepo, sequelize),
+    setStock: new SetInventoryStock(
+      inventoryRepo,
+      productRepo,
+      notificationsUsecases.create,
+      auditLogsUsecases.create,
+    ),
+    transfer: new TransferInventoryStock(
+      inventoryRepo,
+      productRepo,
+      sequelize,
+      notificationsUsecases.create,
+      auditLogsUsecases.create,
+    ),
     listTransactions: new ListInventoryTransactions(inventoryRepo),
   },
 
   promotions: {
     list: new ListPromotions(promotionRepo),
     detail: new GetPromotionDetail(promotionRepo),
-    create: new CreatePromotion(promotionRepo),
-    edit: new EditPromotion(promotionRepo),
-    changeStatus: new ChangePromotionStatus(promotionRepo),
-    softDelete: new SoftDeletePromotion(promotionRepo),
+    create: new CreatePromotion(promotionRepo, auditLogsUsecases.create),
+    edit: new EditPromotion(promotionRepo, auditLogsUsecases.create),
+    changeStatus: new ChangePromotionStatus(
+      promotionRepo,
+      auditLogsUsecases.create,
+    ),
+    softDelete: new SoftDeletePromotion(
+      promotionRepo,
+      auditLogsUsecases.create,
+    ),
     validateCode: new ValidatePromotionCode(validatePromotionCodeService),
     listUsages: new ListPromotionUsages(promotionRepo),
   },
@@ -1543,6 +1773,8 @@ export const usecases = {
 // ===== Controllers =====
 type Controllers = {
   dashboard: DashboardController;
+  notifications: NotificationsController;
+  auditLogs: AuditLogsController;
   products: ProductsController;
   posts: PostsController;
   postsCategories: PostCategoriesController;
@@ -1571,6 +1803,17 @@ type Controllers = {
 export const controllers: Controllers = {
   dashboard: makeDashboardController({
     getAdminDashboard: usecases.dashboard.getAdminDashboard,
+  }),
+  notifications: makeNotificationsController({
+    create: notificationsUsecases.create,
+    list: usecases.notifications.listMy,
+    unreadCount: usecases.notifications.unreadCount,
+    markRead: usecases.notifications.markRead,
+    markAllRead: usecases.notifications.markAllRead,
+  }),
+  auditLogs: makeAuditLogsController({
+    create: auditLogsUsecases.create,
+    list: usecases.auditLogs.list,
   }),
   products: makeProductsController({
     list: usecases.products.list,

@@ -18,6 +18,42 @@ const toBool = (v: any) =>
     ? undefined
     : v === "true" || v === true || v === 1 || v === "1";
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makeProductCategoriesController = (uc: {
   list: ListCategories;
   detail: GetCategoryDetail;
@@ -138,7 +174,7 @@ export const makeProductCategoriesController = (uc: {
           }
         }
 
-        const result = await uc.create.execute(payload);
+        const result = await (uc.create.execute as any)(payload, buildActor(req));
         res.status(201).json({
           success: true,
           data: result,
@@ -268,7 +304,7 @@ export const makeProductCategoriesController = (uc: {
             : {}),
         };
 
-        const result = await uc.edit.execute(id, patch);
+        const result = await (uc.edit.execute as any)(id, patch, buildActor(req));
 
         return res.json({
           success: true,
@@ -285,7 +321,7 @@ export const makeProductCategoriesController = (uc: {
       try {
         const id = Number(req.params.id);
         const { status } = req.body as { status: CategoryStatus };
-        const result = await uc.changeStatus.execute(id, status);
+        const result = await (uc.changeStatus.execute as any)(id, status, buildActor(req));
         res.json({
           success: true,
           data: result,
@@ -300,7 +336,7 @@ export const makeProductCategoriesController = (uc: {
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const result = await uc.softDelete.execute(id);
+        const result = await (uc.softDelete.execute as any)(id, buildActor(req));
         res.json({
           success: true,
           data: result,
@@ -342,7 +378,7 @@ export const makeProductCategoriesController = (uc: {
               meta: { total: 0, page: 1, limit: 10 },
             });
           }
-          const result = await uc.reorder.execute(pairs);
+          const result = await (uc.reorder.execute as any)(pairs, buildActor(req));
           return res.json({
             success: true,
             data: result,
@@ -355,7 +391,7 @@ export const makeProductCategoriesController = (uc: {
           const patch = {
             status: body.value,
           };
-          const result = await uc.bulkEdit.execute(body.ids, patch);
+          const result = await (uc.bulkEdit.execute as any)(body.ids, patch, buildActor(req));
           return res.json({
             success: true,
             data: result,
@@ -368,7 +404,7 @@ export const makeProductCategoriesController = (uc: {
           ids: number[];
           patch: UpdateCategoryPatch;
         };
-        const result = await uc.bulkEdit.execute(ids, patch);
+        const result = await (uc.bulkEdit.execute as any)(ids, patch, buildActor(req));
         res.json({
           success: true,
           data: result,

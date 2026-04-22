@@ -39,6 +39,8 @@ import { promotionsRoutes } from "./interfaces/http/express/routes/promotions.ro
 import { postsRoutes } from "./interfaces/http/express/routes/posts.routes";
 import { postCategoriesRoutes } from "./interfaces/http/express/routes/postCategories.routes";
 import { postTagsRoutes } from "./interfaces/http/express/routes/postTags.routes";
+import { notificationsRoutes } from "./interfaces/http/express/routes/notifications.routes";
+import { auditLogsRoutes } from "./interfaces/http/express/routes/auditLogs.routes";
 
 // ===== Client routes =====
 import { clientProductsRoutes } from "./interfaces/http/express/routes/client/clientProducts.routes";
@@ -114,6 +116,14 @@ app.use("/api/v1/auth", authRoutes(controllers.auth, auth));
 app.use(
   "/api/v1/admin/dashboard",
   dashboardRoutes(controllers.dashboard, auth),
+);
+app.use(
+  "/api/v1/admin/notifications",
+  notificationsRoutes(controllers.notifications, auth, can),
+);
+app.use(
+  "/api/v1/admin/audit-logs",
+  auditLogsRoutes(controllers.auditLogs, auth, can),
 );
 app.use(
   "/api/v1/admin/products",

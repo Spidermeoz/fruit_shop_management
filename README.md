@@ -175,6 +175,10 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 ├── 📁 backend
 │   ├── 📁 src
 │   │   ├── 📁 application
+│   │   │   ├── 📁 audit-logs
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 CreateAuditLog.ts
+│   │   │   │       └── 📄 ListAuditLogs.ts
 │   │   │   ├── 📁 auth
 │   │   │   │   ├── 📁 mappers
 │   │   │   │   │   └── 📄 toAuthUserView.ts
@@ -231,6 +235,13 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       ├── 📄 ListInventoryTransactions.ts
 │   │   │   │       ├── 📄 SetInventoryStock.ts
 │   │   │   │       └── 📄 TransferInventoryStock.ts
+│   │   │   ├── 📁 notifications
+│   │   │   │   └── 📁 usecases
+│   │   │   │       ├── 📄 CreateNotification.ts
+│   │   │   │       ├── 📄 GetUnreadNotificationCount.ts
+│   │   │   │       ├── 📄 ListMyNotifications.ts
+│   │   │   │       ├── 📄 MarkAllNotificationsRead.ts
+│   │   │   │       └── 📄 MarkNotificationRead.ts
 │   │   │   ├── 📁 orders
 │   │   │   │   ├── 📁 admin
 │   │   │   │   │   ├── 📄 AddDeliveryHistory.ts
@@ -434,6 +445,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   └── 📁 di
 │   │   │       └── 📄 container.ts
 │   │   ├── 📁 domain
+│   │   │   ├── 📁 audit-logs
+│   │   │   │   ├── 📄 AuditLogRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 auth
 │   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 branches
@@ -452,6 +466,9 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 inventory
 │   │   │   │   └── 📄 InventoryRepository.ts
+│   │   │   ├── 📁 notifications
+│   │   │   │   ├── 📄 NotificationRepository.ts
+│   │   │   │   └── 📄 types.ts
 │   │   │   ├── 📁 orders
 │   │   │   │   ├── 📄 Order.ts
 │   │   │   │   ├── 📄 OrderRepository.ts
@@ -510,6 +527,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 db
 │   │   │   │   └── 📁 sequelize
 │   │   │   │       ├── 📁 models
+│   │   │   │       │   ├── 📄 AuditLogModel.ts
 │   │   │   │       │   ├── 📄 BranchDeliverySlotCapacityModel.ts
 │   │   │   │       │   ├── 📄 BranchDeliveryTimeSlotModel.ts
 │   │   │   │       │   ├── 📄 BranchModel.ts
@@ -521,6 +539,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │       │   ├── 📄 ForgotPasswordModel.ts
 │   │   │   │       │   ├── 📄 InventoryStockModel.ts
 │   │   │   │       │   ├── 📄 InventoryTransactionModel.ts
+│   │   │   │       │   ├── 📄 NotificationModel.ts
+│   │   │   │       │   ├── 📄 NotificationRecipientModel.ts
 │   │   │   │       │   ├── 📄 OrderAddressModel.ts
 │   │   │   │       │   ├── 📄 OrderItemModel.ts
 │   │   │   │       │   ├── 📄 OrderModel.ts
@@ -558,6 +578,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📁 email
 │   │   │   │   └── 📄 EmailService.ts
 │   │   │   ├── 📁 repositories
+│   │   │   │   ├── 📄 SequelizeAuditLogRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchDeliverySlotCapacityRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeBranchRepository.ts
@@ -566,6 +587,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📄 SequelizeDashboardRepository.ts
 │   │   │   │   ├── 📄 SequelizeDeliveryTimeSlotRepository.ts
 │   │   │   │   ├── 📄 SequelizeInventoryRepository.ts
+│   │   │   │   ├── 📄 SequelizeNotificationRepository.ts
 │   │   │   │   ├── 📄 SequelizeOrderRepository.ts
 │   │   │   │   ├── 📄 SequelizeOriginRepository.ts
 │   │   │   │   ├── 📄 SequelizePostCategoryRepository.ts
@@ -602,6 +624,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   │   ├── 📄 ClientReviewsController.ts
 │   │   │           │   │   └── 📄 ClientVerifyOtpController.ts
 │   │   │           │   ├── 📄 AdminReviewsController.ts
+│   │   │           │   ├── 📄 AuditLogsController.ts
 │   │   │           │   ├── 📄 AuthController.ts
 │   │   │           │   ├── 📄 BranchDeliverySlotCapacitiesController.ts
 │   │   │           │   ├── 📄 BranchDeliveryTimeSlotsController.ts
@@ -610,6 +633,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           │   ├── 📄 DashboardController.ts
 │   │   │           │   ├── 📄 DeliveryTimeSlotsController.ts
 │   │   │           │   ├── 📄 InventoryController.ts
+│   │   │           │   ├── 📄 NotificationsController.ts
 │   │   │           │   ├── 📄 OrdersController.ts
 │   │   │           │   ├── 📄 OriginsController.ts
 │   │   │           │   ├── 📄 PostCategoriesController.ts
@@ -645,6 +669,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               │   └── 📄 clientUpload.routes.ts
 │   │   │               ├── 📄 adminReviews.routes.ts
 │   │   │               ├── 📄 adminSettings.routes.ts
+│   │   │               ├── 📄 auditLogs.routes.ts
 │   │   │               ├── 📄 auth.routes.ts
 │   │   │               ├── 📄 branchDeliverySlotCapacities.routes.ts
 │   │   │               ├── 📄 branchDeliveryTimeSlots.routes.ts
@@ -653,6 +678,7 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │               ├── 📄 dashboard.routes.ts
 │   │   │               ├── 📄 deliveryTimeSlots.routes.ts
 │   │   │               ├── 📄 inventory.routes.ts
+│   │   │               ├── 📄 notifications.routes.ts
 │   │   │               ├── 📄 orders.routes.ts
 │   │   │               ├── 📄 origins.routes.ts
 │   │   │               ├── 📄 postCategories.routes.ts
@@ -732,11 +758,15 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   │       ├── 📄 StatusDistributionCard.tsx
 │   │   │   │   │       ├── 📄 UsersHealthCard.tsx
 │   │   │   │   │       └── 📄 WorkQueueCard.tsx
-│   │   │   │   └── 📁 layouts
-│   │   │   │       ├── 📄 Card.tsx
-│   │   │   │       ├── 📄 DashboardHeader.tsx
-│   │   │   │       ├── 📄 RecentTransactions.tsx
-│   │   │   │       └── 📄 Sidebar.tsx
+│   │   │   │   ├── 📁 layouts
+│   │   │   │   │   ├── 📄 Card.tsx
+│   │   │   │   │   ├── 📄 DashboardHeader.tsx
+│   │   │   │   │   ├── 📄 RecentTransactions.tsx
+│   │   │   │   │   └── 📄 Sidebar.tsx
+│   │   │   │   └── 📁 notifications
+│   │   │   │       ├── 📄 NotificationDropdown.tsx
+│   │   │   │       ├── 📄 NotificationItem.tsx
+│   │   │   │       └── 📄 NotificationList.tsx
 │   │   │   └── 📁 client
 │   │   │       ├── 📁 layouts
 │   │   │       │   ├── 📄 Footer.tsx
@@ -752,9 +782,12 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   ├── 📄 ThemeContext.tsx
 │   │   │   └── 📄 ToastContext.tsx
 │   │   ├── 📁 hooks
+│   │   │   ├── 📄 useNotifications.ts
 │   │   │   └── 📄 useTheme.ts
 │   │   ├── 📁 pages
 │   │   │   ├── 📁 admin
+│   │   │   │   ├── 📁 audit-logs
+│   │   │   │   │   └── 📄 AuditLogsPage.tsx
 │   │   │   │   ├── 📁 auth
 │   │   │   │   │   └── 📄 LoginPageAdmin.tsx
 │   │   │   │   ├── 📁 branches
@@ -779,6 +812,8 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │   │   ├── 📁 inventory
 │   │   │   │   │   ├── 📄 InventoryPage.tsx
 │   │   │   │   │   └── 📄 InventoryTransactionHistoryPage.tsx
+│   │   │   │   ├── 📁 notifications
+│   │   │   │   │   └── 📄 NotificationsPage.tsx
 │   │   │   │   ├── 📁 orders
 │   │   │   │   │   ├── 📄 OrderWorkspacePage.tsx
 │   │   │   │   │   └── 📄 OrdersPage.tsx
@@ -862,12 +897,16 @@ Dự án này được cấp phép theo [MIT License](./LICENSE).
 │   │   │           └── 📄 ProfilePage.tsx
 │   │   ├── 📁 services
 │   │   │   ├── 📁 api
+│   │   │   │   ├── 📄 auditLogsApi.ts
 │   │   │   │   ├── 📄 dashboardApi.ts
+│   │   │   │   ├── 📄 notificationsApi.ts
 │   │   │   │   ├── 📄 ordersClient.ts
 │   │   │   │   └── 📄 postsClient.ts
 │   │   │   └── 📄 http.ts
 │   │   ├── 📁 types
+│   │   │   ├── 📄 auditLogs.ts
 │   │   │   ├── 📄 inventory.ts
+│   │   │   ├── 📄 notifications.ts
 │   │   │   ├── 📄 orders.ts
 │   │   │   ├── 📄 posts.ts
 │   │   │   └── 📄 products.ts

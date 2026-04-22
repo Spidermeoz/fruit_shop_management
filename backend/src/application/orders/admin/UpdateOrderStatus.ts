@@ -1,7 +1,10 @@
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
 export class UpdateOrderStatus {
   constructor(
     private orderRepo: any,
     private inventoryRepo: any,
+    private createAuditLog?: CreateAuditLog,
   ) {}
 
   async execute(orderId: number, nextStatus: string, actor?: any) {
@@ -83,8 +86,32 @@ export class UpdateOrderStatus {
         `Status changed to ${normalizedNextStatus}`,
       );
 
-      await transaction.commit();
-      return { success: true };
+await transaction.commit();
+
+if (this.createAuditLog) {
+  await this.createAuditLog.execute({
+    actorUserId:
+      actor?.id !== undefined && actor?.id !== null
+        ? Number(actor.id)
+        : null,
+    branchId: Number(freshOrder.props.branchId ?? 0) || null,
+    action: "update_status",
+    moduleName: "order",
+    entityType: "order",
+    entityId: Number(orderId),
+    oldValuesJson: {
+      status: freshCurrentStatus,
+    },
+    newValuesJson: {
+      status: normalizedNextStatus,
+    },
+    metaJson: {
+      orderCode: freshOrder.props.code ?? null,
+    },
+  });
+}
+
+return { success: true };
     } catch (error) {
       await transaction.rollback();
       throw error;

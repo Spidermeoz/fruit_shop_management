@@ -15,6 +15,42 @@ type DeliveryTimeSlotsControllerDeps = {
   softDelete: SoftDeleteDeliveryTimeSlot;
 };
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export class DeliveryTimeSlotsController {
   constructor(private readonly deps: DeliveryTimeSlotsControllerDeps) {}
 
@@ -72,7 +108,7 @@ export class DeliveryTimeSlotsController {
 
   create = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.create.execute({
+      const result = await (this.deps.create.execute as any)({
         code: req.body.code,
         label: req.body.label,
         startTime: req.body.startTime,
@@ -81,7 +117,7 @@ export class DeliveryTimeSlotsController {
         maxOrders: req.body.maxOrders,
         sortOrder: req.body.sortOrder,
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(201)
         .json({
@@ -102,7 +138,7 @@ export class DeliveryTimeSlotsController {
   edit = async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
-      const result = await this.deps.edit.execute({
+      const result = await (this.deps.edit.execute as any)({
         id,
         code: req.body.code,
         label: req.body.label,
@@ -112,7 +148,7 @@ export class DeliveryTimeSlotsController {
         maxOrders: req.body.maxOrders,
         sortOrder: req.body.sortOrder,
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(200)
         .json({
@@ -133,10 +169,10 @@ export class DeliveryTimeSlotsController {
   changeStatus = async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
-      const result = await this.deps.changeStatus.execute({
+      const result = await (this.deps.changeStatus.execute as any)({
         id,
         status: req.body.status,
-      });
+      }, buildActor(req));
       return res
         .status(200)
         .json({
@@ -159,7 +195,7 @@ export class DeliveryTimeSlotsController {
   softDelete = async (req: Request, res: Response) => {
     try {
       const id = Number(req.params.id);
-      const result = await this.deps.softDelete.execute(id);
+      const result = await (this.deps.softDelete.execute as any)(id, buildActor(req));
       return res
         .status(200)
         .json({ success: true, message: result.message, data: result });

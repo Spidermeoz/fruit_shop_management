@@ -10,7 +10,7 @@ import React, {
 // ==========================
 // TYPES
 // ==========================
-type ToastType = "success" | "error" | null;
+type ToastType = "success" | "error" | "info" | null;
 
 interface ToastOptions {
   title?: string;
@@ -20,6 +20,7 @@ interface ToastOptions {
 interface ToastContextType {
   showSuccessToast: (options: ToastOptions) => void;
   showErrorToast: (message: string, title?: string) => void;
+  showInfoToast: (options: ToastOptions) => void;
 }
 
 // ==========================
@@ -66,6 +67,22 @@ const ErrorIcon = () => (
     <circle cx="12" cy="12" r="10" />
     <line x1="12" y1="8" x2="12" y2="12" />
     <line x1="12" y1="16" x2="12.01" y2="16" />
+  </svg>
+);
+
+const InfoIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    className="h-5 w-5"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="12" x2="12" y2="16" />
+    <line x1="12" y1="8" x2="12.01" y2="8" />
   </svg>
 );
 
@@ -116,7 +133,11 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
     setToastContent({
       title:
         options.title ||
-        (newType === "success" ? "Thành công" : "Có lỗi xảy ra"),
+        (newType === "success"
+          ? "Thành công"
+          : newType === "info"
+            ? "Thông tin"
+            : "Có lỗi xảy ra"),
       message: options.message,
     });
 
@@ -147,6 +168,9 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
   const showErrorToast = (message: string, title?: string) =>
     triggerToast("error", { message, title });
 
+  const showInfoToast = (options: ToastOptions) =>
+    triggerToast("info", options);
+
   // Đóng toast thủ công bằng nút X
   const handleClose = () => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -167,7 +191,9 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   return (
-    <ToastContext.Provider value={{ showSuccessToast, showErrorToast }}>
+    <ToastContext.Provider
+      value={{ showSuccessToast, showErrorToast, showInfoToast }}
+    >
       {children}
 
       {/* Inline style cho thanh tiến trình (để không phải cấu hình tailwind.config) */}
@@ -192,13 +218,19 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
             } ${
               type === "success"
                 ? "border-emerald-100/80"
-                : "border-rose-100/80"
+                : type === "info"
+                  ? "border-blue-100/80"
+                  : "border-rose-100/80"
             }`}
           >
             {/* Thanh accent mảnh bên trái */}
             <div
               className={`absolute bottom-0 left-0 top-0 w-1 ${
-                type === "success" ? "bg-emerald-500" : "bg-rose-500"
+                type === "success"
+                  ? "bg-emerald-500"
+                  : type === "info"
+                    ? "bg-blue-500"
+                    : "bg-rose-500"
               }`}
             />
 
@@ -207,10 +239,20 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
               {/* Icon */}
               <div
                 className={`mt-0.5 shrink-0 ${
-                  type === "success" ? "text-emerald-500" : "text-rose-500"
+                  type === "success"
+                    ? "text-emerald-500"
+                    : type === "info"
+                      ? "text-blue-500"
+                      : "text-rose-500"
                 }`}
               >
-                {type === "success" ? <SuccessIcon /> : <ErrorIcon />}
+                {type === "success" ? (
+                  <SuccessIcon />
+                ) : type === "info" ? (
+                  <InfoIcon />
+                ) : (
+                  <ErrorIcon />
+                )}
               </div>
 
               {/* Text: Title & Message */}
@@ -237,7 +279,11 @@ export const AdminToastProvider: React.FC<{ children: ReactNode }> = ({
               <div
                 key={toastKey} // Đổi key ép React reset lại div & keyframes khi spam click
                 className={`h-full w-full origin-left ${
-                  type === "success" ? "bg-emerald-500" : "bg-rose-500"
+                  type === "success"
+                    ? "bg-emerald-500"
+                    : type === "info"
+                      ? "bg-blue-500"
+                      : "bg-rose-500"
                 }`}
                 style={{
                   animation: `shrink-progress ${TOAST_DURATION}ms linear forwards`,

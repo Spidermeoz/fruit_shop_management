@@ -24,6 +24,32 @@ type Deps = {
   bulkChangeStatus: BulkChangeBranchDeliverySlotCapacityStatus;
   planner: GetBranchCapacityPlanner;
 };
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId: (req as any)?.user?.roleId ?? (req as any)?.authUser?.roleId ?? null,
+  roleCode:
+    (req as any)?.user?.roleCode ?? (req as any)?.authUser?.roleCode ?? null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ?? (req as any)?.authUser?.roleLevel ?? null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ?? (req as any)?.authUser?.branchIds ?? [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export class BranchDeliverySlotCapacitiesController {
   constructor(private readonly deps: Deps) {}
   list = async (req: Request, res: Response) => {
@@ -45,231 +71,220 @@ export class BranchDeliverySlotCapacitiesController {
           ? String(req.query.deliveryDate)
           : "",
       });
-      return res
-        .status(200)
-        .json({
-          success: true,
-          message: "Lấy danh sách branch delivery slot capacities thành công.",
-          data: result.items,
-          meta: { total: result.total },
-        });
+      return res.status(200).json({
+        success: true,
+        message: "Lấy danh sách branch delivery slot capacities thành công.",
+        data: result.items,
+        meta: { total: result.total },
+      });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể lấy danh sách branch delivery slot capacities.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể lấy danh sách branch delivery slot capacities.",
+      });
     }
   };
   detail = async (req: Request, res: Response) => {
     try {
       const result = await this.deps.detail.execute(Number(req.params.id));
-      return res
-        .status(200)
-        .json({
-          success: true,
-          message: "Lấy chi tiết branch delivery slot capacity thành công.",
-          data: result,
-        });
+      return res.status(200).json({
+        success: true,
+        message: "Lấy chi tiết branch delivery slot capacity thành công.",
+        data: result,
+      });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể lấy chi tiết branch delivery slot capacity.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể lấy chi tiết branch delivery slot capacity.",
+      });
     }
   };
   create = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.create.execute({
-        branchId: Number(req.body.branchId),
-        deliveryDate: String(req.body.deliveryDate),
-        deliveryTimeSlotId: Number(req.body.deliveryTimeSlotId),
-        maxOrders:
-          req.body.maxOrders === null ||
-          req.body.maxOrders === undefined ||
-          req.body.maxOrders === ""
-            ? null
-            : Number(req.body.maxOrders),
-        status: req.body.status,
+      const result = await (this.deps.create.execute as any)(
+        {
+          branchId: Number(req.body.branchId),
+          deliveryDate: String(req.body.deliveryDate),
+          deliveryTimeSlotId: Number(req.body.deliveryTimeSlotId),
+          maxOrders:
+            req.body.maxOrders === null ||
+            req.body.maxOrders === undefined ||
+            req.body.maxOrders === ""
+              ? null
+              : Number(req.body.maxOrders),
+          status: req.body.status,
+        },
+        buildActor(req),
+      );
+      return res.status(201).json({
+        success: true,
+        message: "Tạo branch delivery slot capacity thành công.",
+        data: result,
       });
-      return res
-        .status(201)
-        .json({
-          success: true,
-          message: "Tạo branch delivery slot capacity thành công.",
-          data: result,
-        });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message || "Không thể tạo branch delivery slot capacity.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message || "Không thể tạo branch delivery slot capacity.",
+      });
     }
   };
   edit = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.edit.execute({
-        id: Number(req.params.id),
-        branchId: Number(req.body.branchId),
-        deliveryDate: String(req.body.deliveryDate),
-        deliveryTimeSlotId: Number(req.body.deliveryTimeSlotId),
-        maxOrders:
-          req.body.maxOrders === null ||
-          req.body.maxOrders === undefined ||
-          req.body.maxOrders === ""
-            ? null
-            : Number(req.body.maxOrders),
-        status: req.body.status,
+      const result = await (this.deps.edit.execute as any)(
+        {
+          id: Number(req.params.id),
+          branchId: Number(req.body.branchId),
+          deliveryDate: String(req.body.deliveryDate),
+          deliveryTimeSlotId: Number(req.body.deliveryTimeSlotId),
+          maxOrders:
+            req.body.maxOrders === null ||
+            req.body.maxOrders === undefined ||
+            req.body.maxOrders === ""
+              ? null
+              : Number(req.body.maxOrders),
+          status: req.body.status,
+        },
+        buildActor(req),
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Cập nhật branch delivery slot capacity thành công.",
+        data: result,
       });
-      return res
-        .status(200)
-        .json({
-          success: true,
-          message: "Cập nhật branch delivery slot capacity thành công.",
-          data: result,
-        });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể cập nhật branch delivery slot capacity.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message || "Không thể cập nhật branch delivery slot capacity.",
+      });
     }
   };
   changeStatus = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.changeStatus.execute(
+      const result = await (this.deps.changeStatus.execute as any)(
         Number(req.params.id),
         req.body.status as "active" | "inactive",
+        buildActor(req),
       );
-      return res
-        .status(200)
-        .json({
-          success: true,
-          message:
-            "Cập nhật trạng thái branch delivery slot capacity thành công.",
-          data: result,
-        });
+      return res.status(200).json({
+        success: true,
+        message:
+          "Cập nhật trạng thái branch delivery slot capacity thành công.",
+        data: result,
+      });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể cập nhật trạng thái branch delivery slot capacity.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể cập nhật trạng thái branch delivery slot capacity.",
+      });
     }
   };
   softDelete = async (req: Request, res: Response) => {
     try {
-      await this.deps.softDelete.execute(Number(req.params.id));
-      return res
-        .status(200)
-        .json({
-          success: true,
-          message: "Xóa branch delivery slot capacity thành công.",
-        });
+      await (this.deps.softDelete.execute as any)(
+        Number(req.params.id),
+        buildActor(req),
+      );
+      return res.status(200).json({
+        success: true,
+        message: "Xóa branch delivery slot capacity thành công.",
+      });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message || "Không thể xóa branch delivery slot capacity.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message || "Không thể xóa branch delivery slot capacity.",
+      });
     }
   };
   bulkUpsert = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.bulkUpsert.execute({
-        items: Array.isArray(req.body?.items) ? req.body.items : [],
-        mode: req.body?.mode,
-      });
+      const result = await (this.deps.bulkUpsert.execute as any)(
+        {
+          items: Array.isArray(req.body?.items) ? req.body.items : [],
+          mode: req.body?.mode,
+        },
+        buildActor(req),
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể bulk upsert branch delivery slot capacities.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể bulk upsert branch delivery slot capacities.",
+      });
     }
   };
   copyFromDate = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.copyFromDate.execute({
-        sourceDate: String(req.body?.sourceDate),
-        targetDate: String(req.body?.targetDate),
-        branchIds: Array.isArray(req.body?.branchIds)
-          ? req.body.branchIds
-          : undefined,
-        mode: req.body?.mode,
-        statusOverride: req.body?.statusOverride,
-      });
+      const result = await (this.deps.copyFromDate.execute as any)(
+        {
+          sourceDate: String(req.body?.sourceDate),
+          targetDate: String(req.body?.targetDate),
+          branchIds: Array.isArray(req.body?.branchIds)
+            ? req.body.branchIds
+            : undefined,
+          mode: req.body?.mode,
+          statusOverride: req.body?.statusOverride,
+        },
+        buildActor(req),
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: error.message || "Không thể copy capacities từ ngày khác.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Không thể copy capacities từ ngày khác.",
+      });
     }
   };
   generateFromDefaults = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.generateFromDefaults.execute({
-        deliveryDate: String(req.body?.deliveryDate),
-        branchIds: Array.isArray(req.body?.branchIds)
-          ? req.body.branchIds
-          : undefined,
-        mode: req.body?.mode,
-        status: req.body?.status,
-      });
+      const result = await (this.deps.generateFromDefaults.execute as any)(
+        {
+          deliveryDate: String(req.body?.deliveryDate),
+          branchIds: Array.isArray(req.body?.branchIds)
+            ? req.body.branchIds
+            : undefined,
+          mode: req.body?.mode,
+          status: req.body?.status,
+        },
+        buildActor(req),
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể generate capacities từ cấu hình mặc định.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể generate capacities từ cấu hình mặc định.",
+      });
     }
   };
   bulkChangeStatus = async (req: Request, res: Response) => {
     try {
-      const result = await this.deps.bulkChangeStatus.execute({
-        ids: Array.isArray(req.body?.ids) ? req.body.ids : [],
-        status: req.body?.status,
-      });
+      const result = await (this.deps.bulkChangeStatus.execute as any)(
+        {
+          ids: Array.isArray(req.body?.ids) ? req.body.ids : [],
+          status: req.body?.status,
+        },
+        buildActor(req),
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message:
-            error.message ||
-            "Không thể cập nhật trạng thái hàng loạt capacities.",
-        });
+      return res.status(400).json({
+        success: false,
+        message:
+          error.message ||
+          "Không thể cập nhật trạng thái hàng loạt capacities.",
+      });
     }
   };
   planner = async (req: Request, res: Response) => {
@@ -277,18 +292,19 @@ export class BranchDeliverySlotCapacitiesController {
       const branchIds = req.query.branchIds
         ? String(req.query.branchIds).split(",").map(Number)
         : undefined;
-      const result = await this.deps.planner.execute({
-        deliveryDate: String(req.query.deliveryDate ?? ""),
-        branchIds,
-      });
+      const result = await (this.deps.planner.execute as any)(
+        {
+          deliveryDate: String(req.query.deliveryDate ?? ""),
+          branchIds,
+        },
+        buildActor(req),
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (error: any) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: error.message || "Không thể lấy planner branch capacities.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Không thể lấy planner branch capacities.",
+      });
     }
   };
 }

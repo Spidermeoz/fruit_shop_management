@@ -7,6 +7,7 @@ import {
   isValidHttpUrl,
   type PostStatus,
 } from "../../../domain/posts/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 function normalizeIdArray(values?: number[]) {
   if (!Array.isArray(values)) return [];
@@ -141,10 +142,31 @@ function validateBusinessRules(input: {
   }
 }
 
-export class CreatePost {
-  constructor(private repo: PostRepository) {}
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
 
-  async execute(input: CreatePostInput) {
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
+export class CreatePost {
+  constructor(
+    private repo: PostRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+
+  async execute(input: CreatePostInput, actor?: ActorContext) {
     const normalizedTagIds = normalizeIdArray(input.tagIds);
     const normalizedRelatedProductIds = normalizeIdArray(
       input.relatedProductIds,
@@ -216,6 +238,46 @@ export class CreatePost {
       relatedProductIds: normalizedPayload.relatedProductIds ?? [],
     });
 
-    return this.repo.create(normalizedPayload);
+    const created = await this.repo.create(normalizedPayload);
+
+    if (this.createAuditLog) {
+      const createdProps = toSnapshot(created);
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : normalizedPayload.createdById !== undefined &&
+                normalizedPayload.createdById !== null
+              ? Number(normalizedPayload.createdById)
+              : normalizedPayload.updatedById !== undefined &&
+                  normalizedPayload.updatedById !== null
+                ? Number(normalizedPayload.updatedById)
+                : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "post",
+        entityType: "post",
+        entityId: Number(createdProps?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: created
+          ? {
+              id: Number(created.props.id),
+              title: String(created.props.title ?? ""),
+              status: String(created.props.status ?? ""),
+              tagCount: Array.isArray(created.props.tags)
+                ? created.props.tags.length
+                : 0,
+            }
+          : null,
+      });
+    }
+
+    return created;
   }
 }

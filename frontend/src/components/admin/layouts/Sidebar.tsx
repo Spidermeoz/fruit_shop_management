@@ -28,6 +28,7 @@ import {
   FileText,
   BookOpen,
   Hash,
+  Bell,
 } from "lucide-react";
 import Can from "../../../auth/Can";
 
@@ -165,6 +166,8 @@ const contentChildren: SidebarItem[] = [
 
 const sidebarItems: SidebarItem[] = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Notifications", href: "/admin/notifications", icon: Bell },
+  { name: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
   {
     name: "Branches",
     href: "/admin/branches",

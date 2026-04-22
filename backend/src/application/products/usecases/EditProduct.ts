@@ -6,6 +6,7 @@ import type {
 import type { ProductTagRepository } from "../../../domain/products/ProductTagRepository";
 import type { InventoryRepository } from "../../../domain/inventory/InventoryRepository";
 import type { BranchRepository } from "../../../domain/branches/BranchRepository";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 function normalizeTagIds(tagIds?: number[]) {
   if (!Array.isArray(tagIds)) return [];
@@ -15,12 +16,76 @@ function normalizeTagIds(tagIds?: number[]) {
   );
 }
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toProductSnapshot = (product: any) => ({
+  id: product?.props?.id ?? null,
+  categoryId: product?.props?.categoryId ?? null,
+  originId: product?.props?.originId ?? null,
+  title: product?.props?.title ?? null,
+  slug: product?.props?.slug ?? null,
+  status: product?.props?.status ?? null,
+  featured: !!product?.props?.featured,
+  price: product?.props?.price ?? null,
+  thumbnail: product?.props?.thumbnail ?? null,
+  tagIds: product?.props?.tagIds ?? [],
+  options: product?.props?.options ?? [],
+  variants: product?.props?.variants ?? [],
+});
+
+const toProductSummarySnapshot = (product: any) => ({
+  id: Number(product?.props?.id ?? 0) || null,
+  title: String(product?.props?.title ?? ""),
+  slug: String(product?.props?.slug ?? ""),
+  status: String(product?.props?.status ?? ""),
+  featured: Boolean(product?.props?.featured),
+  categoryId:
+    product?.props?.categoryId !== undefined &&
+    product?.props?.categoryId !== null
+      ? Number(product.props.categoryId)
+      : null,
+  originId:
+    product?.props?.originId !== undefined && product?.props?.originId !== null
+      ? Number(product.props.originId)
+      : null,
+  price:
+    product?.props?.price !== undefined && product?.props?.price !== null
+      ? Number(product.props.price)
+      : null,
+  thumbnail: String(product?.props?.thumbnail ?? ""),
+  tagIds: Array.isArray(product?.props?.tagIds)
+    ? product.props.tagIds.map(Number)
+    : [],
+  optionCount: Array.isArray(product?.props?.options)
+    ? product.props.options.length
+    : 0,
+  variantCount: Array.isArray(product?.props?.variants)
+    ? product.props.variants.length
+    : 0,
+});
+
 export class EditProduct {
   constructor(
     private repo: ProductRepository,
     private productTagRepo: ProductTagRepository,
     private inventoryRepo: InventoryRepository,
     private branchRepo: BranchRepository,
+    private createAuditLog?: CreateAuditLog,
   ) {}
 
   private async seedZeroInventoryForAllActiveBranches(productId: number) {
@@ -56,12 +121,14 @@ export class EditProduct {
     }
   }
 
-  async execute(id: number, patch: UpdateProductPatch) {
+  async execute(id: number, patch: UpdateProductPatch, actor?: ActorContext) {
     const existingProduct = await this.repo.findById(id);
 
     if (!existingProduct) {
       throw new Error("Product not found");
     }
+
+    const beforeSnapshot = toProductSnapshot(existingProduct);
 
     let sanitizedTagIds: number[] | undefined =
       patch.tagIds !== undefined ? normalizeTagIds(patch.tagIds) : undefined;
@@ -70,8 +137,6 @@ export class EditProduct {
       const validTags =
         await this.productTagRepo.findActiveByIds(sanitizedTagIds);
 
-      // Admin-friendly:
-      // tự loại bỏ tag đã bị xóa / không còn hợp lệ thay vì throw error
       sanitizedTagIds = validTags
         .map((tag) => Number(tag.id))
         .filter((tagId) => Number.isInteger(tagId) && tagId > 0);
@@ -165,6 +230,33 @@ export class EditProduct {
     const saved = await this.repo.update(id, updatePayload);
 
     await this.seedZeroInventoryForAllActiveBranches(id);
+
+    if (this.createAuditLog) {
+      const fresh = await this.repo.findById(id);
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "product",
+        entityType: "product",
+        entityId: Number(id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: beforeSnapshot as any,
+        newValuesJson: toProductSummarySnapshot(fresh ?? saved) as any,
+        metaJson: {
+          changedFields: Object.keys(updatePayload),
+        },
+      });
+    }
 
     return { id: saved.props.id! };
   }

@@ -3,11 +3,29 @@ import type {
   UpdatePostCategoryPatch,
 } from "../../../domain/post-categories/PostCategoryRepository";
 import type { PostCategoryStatus } from "../../../domain/post-categories/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 import { PostCategoryTreeGuard } from "../services/PostCategoryTreeGuard";
 
 type BulkEditInput = {
   ids: number[];
   patch: UpdatePostCategoryPatch;
+};
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
 };
 
 function normalizeNullableText(value?: string | null) {
@@ -22,10 +40,15 @@ function isValidStatus(value: any): value is PostCategoryStatus {
   return value === "active" || value === "inactive";
 }
 
-export class BulkEditPostCategories {
-  constructor(private repo: PostCategoryRepository) {}
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
 
-  async execute(input: BulkEditInput) {
+export class BulkEditPostCategories {
+  constructor(
+    private repo: PostCategoryRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+
+  async execute(input: BulkEditInput, actor?: ActorContext) {
     const ids = Array.isArray(input.ids)
       ? Array.from(
           new Set(
@@ -131,6 +154,7 @@ export class BulkEditPostCategories {
       }
     }
 
+    const before = await Promise.all(ids.map((id) => this.repo.findById(id)));
     const updated = [];
 
     for (const id of ids) {
@@ -148,6 +172,47 @@ export class BulkEditPostCategories {
 
       const row = await this.repo.update(id, normalizedPatch);
       updated.push(row);
+    }
+
+    const after = await Promise.all(ids.map((id) => this.repo.findById(id)));
+    const affected = updated.length;
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "bulk_update",
+        moduleName: "post_category",
+        entityType: "post_category",
+        entityId: null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: before.map((item) => ({
+          id: Number(item?.props?.id ?? 0),
+          name: String(item?.props?.title ?? ""),
+          slug: String(item?.props?.slug ?? ""),
+          status: String(item?.props?.status ?? ""),
+        })),
+        newValuesJson: after.map((item) => ({
+          id: Number(item?.props?.id ?? 0),
+          name: String(item?.props?.title ?? ""),
+          slug: String(item?.props?.slug ?? ""),
+          status: String(item?.props?.status ?? ""),
+        })),
+        metaJson: {
+          ids,
+          affected,
+          changedFields: Object.keys(patch ?? {}),
+        },
+      });
     }
 
     return {

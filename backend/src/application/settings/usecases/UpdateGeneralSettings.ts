@@ -4,12 +4,59 @@ import type {
   SettingGeneralRepository,
   UpdateSettingGeneralInput,
 } from "../../../domain/settings/SettingGeneralRepository";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
 
 export class UpdateGeneralSettings {
-  constructor(private repo: SettingGeneralRepository) {}
+  constructor(
+    private repo: SettingGeneralRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
 
-  async execute(patch: UpdateSettingGeneralInput) {
+  async execute(patch: UpdateSettingGeneralInput, actor?: ActorContext) {
+    const before = await this.repo.get();
     const updated = await this.repo.update(patch);
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "setting_general",
+        entityType: "setting_general",
+        entityId: Number(updated?.props?.id ?? before?.props?.id ?? 1),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: toSnapshot(before) as any,
+        newValuesJson: toSnapshot(updated) as any,
+        metaJson: { changedFields: Object.keys(patch ?? {}) },
+      });
+    }
 
     return {
       id: updated.props.id,

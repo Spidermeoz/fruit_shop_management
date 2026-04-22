@@ -15,6 +15,42 @@ const toNum = (v: any) => {
   return Number.isNaN(n) ? undefined : n;
 };
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makeShippingZonesController = (uc: {
   list: ListShippingZones;
   detail: GetShippingZoneDetail;
@@ -79,7 +115,7 @@ export const makeShippingZonesController = (uc: {
     create: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const payload = req.body ?? {};
-        const result = await uc.create.execute({
+        const result = await (uc.create.execute as any)({
           code: payload.code,
           name: payload.name,
           province: payload.province ?? null,
@@ -94,7 +130,7 @@ export const makeShippingZonesController = (uc: {
               : null,
           priority: toNum(payload.priority) ?? 0,
           status: payload.status ?? "active",
-        });
+        }, buildActor(req));
         res
           .status(201)
           .json({
@@ -130,7 +166,7 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const payload = req.body ?? {};
-        const result = await uc.edit.execute(id, {
+        const result = await (uc.edit.execute as any)(id, {
           code: payload.code,
           name: payload.name,
           province: payload.province,
@@ -152,7 +188,7 @@ export const makeShippingZonesController = (uc: {
               ? (toNum(payload.priority) ?? null)
               : undefined,
           status: payload.status,
-        });
+        }, buildActor(req));
         res.json({
           success: true,
           data: result,
@@ -167,7 +203,7 @@ export const makeShippingZonesController = (uc: {
       try {
         const id = Number(req.params.id);
         const { status } = req.body;
-        const result = await uc.changeStatus.execute(id, status);
+        const result = await (uc.changeStatus.execute as any)(id, status, buildActor(req));
         res.json({
           success: true,
           data: result,
@@ -181,7 +217,7 @@ export const makeShippingZonesController = (uc: {
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const result = await uc.softDelete.execute(id);
+        const result = await (uc.softDelete.execute as any)(id, buildActor(req));
         res.json({
           success: true,
           data: result,
@@ -200,7 +236,7 @@ export const makeShippingZonesController = (uc: {
       try {
         const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
         const status = String(req.body?.status ?? "");
-        const result = await uc.bulkChangeStatus.execute({ ids, status });
+        const result = await (uc.bulkChangeStatus.execute as any)({ ids, status }, buildActor(req));
         res.json({ success: true, data: result });
       } catch (e) {
         next(e);
@@ -210,7 +246,7 @@ export const makeShippingZonesController = (uc: {
     bulkDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
-        const result = await uc.bulkDelete.execute({ ids });
+        const result = await (uc.bulkDelete.execute as any)({ ids }, buildActor(req));
         res.json({ success: true, data: result });
       } catch (e) {
         next(e);
@@ -224,7 +260,7 @@ export const makeShippingZonesController = (uc: {
     ) => {
       try {
         const items = Array.isArray(req.body?.items) ? req.body.items : [];
-        const result = await uc.bulkUpdatePriority.execute({ items });
+        const result = await (uc.bulkUpdatePriority.execute as any)({ items }, buildActor(req));
         res.json({ success: true, data: result });
       } catch (e) {
         next(e);

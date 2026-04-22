@@ -6,6 +6,7 @@ import type {
   PromotionScope,
   PromotionStatus,
 } from "../../../domain/promotions/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 const normalizeNullableNumber = (value: unknown): number | null => {
   if (value === undefined || value === null || value === "") return null;
@@ -40,10 +41,34 @@ const normalizeCode = (value: unknown): string => {
     .toUpperCase();
 };
 
-export class CreatePromotion {
-  constructor(private readonly promotionRepo: PromotionRepository) {}
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
 
-  async execute(input: CreatePromotionInput): Promise<PromotionProps> {
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
+export class CreatePromotion {
+  constructor(
+    private readonly promotionRepo: PromotionRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+
+  async execute(
+    input: CreatePromotionInput,
+    actor?: ActorContext,
+  ): Promise<PromotionProps> {
     const name = String(input.name ?? "").trim();
     const description =
       input.description !== undefined && input.description !== null
@@ -160,7 +185,7 @@ export class CreatePromotion {
       uniqueCodes.add(item.code);
     }
 
-    return this.promotionRepo.create({
+    const created = await this.promotionRepo.create({
       name,
       description,
       promotionScope,
@@ -183,5 +208,30 @@ export class CreatePromotion {
       originIds: normalizeIdList(input.originIds),
       branchIds: normalizeIdList(input.branchIds),
     });
+
+    if (this.createAuditLog) {
+      const createdSnapshot = toSnapshot(created);
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "promotion",
+        entityType: "promotion",
+        entityId: Number(createdSnapshot?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: createdSnapshot as any,
+      });
+    }
+
+    return created;
   }
 }

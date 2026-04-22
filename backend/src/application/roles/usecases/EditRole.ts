@@ -1,5 +1,8 @@
 // src/application/roles/usecases/EditRole.ts
-import type { RoleRepository, UpdateRolePatch } from "../../../domain/roles/RoleRepository";
+import type {
+  RoleRepository,
+  UpdateRolePatch,
+} from "../../../domain/roles/RoleRepository";
 import { toRoleDTO } from "../dto";
 
 export class EditRole {

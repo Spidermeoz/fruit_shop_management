@@ -2,6 +2,27 @@ import type { BranchRepository } from "../../../domain/branches/BranchRepository
 import type { BranchDeliveryTimeSlotRepository } from "../../../domain/shipping/BranchDeliveryTimeSlotRepository";
 import type { DeliveryTimeSlotRepository } from "../../../domain/shipping/DeliveryTimeSlotRepository";
 
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 type CreateBranchDeliveryTimeSlotInput = {
   branchId: number;
   deliveryTimeSlotId: number;
@@ -14,9 +35,13 @@ export class CreateBranchDeliveryTimeSlot {
     private readonly branchDeliveryTimeSlotRepo: BranchDeliveryTimeSlotRepository,
     private readonly branchRepo: BranchRepository,
     private readonly deliveryTimeSlotRepo: DeliveryTimeSlotRepository,
+    private readonly createAuditLog?: CreateAuditLog,
   ) {}
 
-  async execute(input: CreateBranchDeliveryTimeSlotInput) {
+  async execute(
+    input: CreateBranchDeliveryTimeSlotInput,
+    actor?: ActorContext,
+  ) {
     const branchId = Number(input.branchId);
     const deliveryTimeSlotId = Number(input.deliveryTimeSlotId);
     const status =
@@ -77,20 +102,48 @@ export class CreateBranchDeliveryTimeSlot {
         deliveryTimeSlotId,
       );
 
+    let created;
+
     if (deletedCandidate) {
-      return this.branchDeliveryTimeSlotRepo.revive(deletedCandidate.id, {
+      created = await this.branchDeliveryTimeSlotRepo.revive(
+        deletedCandidate.id,
+        {
+          branchId,
+          deliveryTimeSlotId,
+          maxOrdersOverride,
+          status,
+        },
+      );
+    } else {
+      created = await this.branchDeliveryTimeSlotRepo.create({
         branchId,
         deliveryTimeSlotId,
         maxOrdersOverride,
         status,
       });
     }
-
-    return this.branchDeliveryTimeSlotRepo.create({
-      branchId,
-      deliveryTimeSlotId,
-      maxOrdersOverride,
-      status,
-    });
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "branch_delivery_time_slot",
+        entityType: "branch_delivery_time_slot",
+        entityId: Number(created?.id ?? 0) || null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: toSnapshot(created) as any,
+        metaJson: { branchId, deliveryTimeSlotId } as any,
+      });
+    }
+    return created;
   }
 }

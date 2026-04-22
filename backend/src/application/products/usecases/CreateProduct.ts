@@ -4,6 +4,7 @@ import type {
   ProductRepository,
 } from "../../../domain/products/ProductRepository";
 import type { ProductTagRepository } from "../../../domain/products/ProductTagRepository";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 function normalizeTagIds(tagIds?: number[]) {
   if (!Array.isArray(tagIds)) return [];
@@ -13,15 +14,48 @@ function normalizeTagIds(tagIds?: number[]) {
   );
 }
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
+const toProductSnapshot = (product: any) => ({
+  id: product?.props?.id ?? null,
+  categoryId: product?.props?.categoryId ?? null,
+  originId: product?.props?.originId ?? null,
+  title: product?.props?.title ?? null,
+  slug: product?.props?.slug ?? null,
+  status: product?.props?.status ?? null,
+  featured: !!product?.props?.featured,
+  price: product?.props?.price ?? null,
+  thumbnail: product?.props?.thumbnail ?? null,
+  tagIds: product?.props?.tagIds ?? [],
+  options: product?.props?.options ?? [],
+  variants: product?.props?.variants ?? [],
+});
+
 export class CreateProduct {
   constructor(
     private repo: ProductRepository,
     private inventoryRepo: any,
     private productTagRepo: ProductTagRepository,
     private branchRepo: BranchRepository,
+    private createAuditLog?: CreateAuditLog,
   ) {}
 
-  async execute(input: CreateProductInput) {
+  async execute(input: CreateProductInput, actor?: ActorContext) {
     if (!input.title?.trim()) {
       throw new Error("Title is required");
     }
@@ -119,6 +153,51 @@ export class CreateProduct {
           0,
         );
       }
+    }
+
+    const auditProduct = fresh ?? created;
+    const auditProps = auditProduct?.props;
+
+    if (!auditProps) {
+      throw new Error("Product not found after create");
+    }
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "create",
+        moduleName: "product",
+        entityType: "product",
+        entityId: Number(created.props.id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        newValuesJson: {
+          id: Number(created.props.id),
+          title: String((fresh ?? created).props.title ?? ""),
+          slug: String((fresh ?? created).props.slug ?? ""),
+          status: String((fresh ?? created).props.status ?? ""),
+          featured: Boolean((fresh ?? created).props.featured),
+          variantCount: Array.isArray(auditProps?.variants)
+            ? auditProps.variants.length
+            : 0,
+          tagCount: Array.isArray(auditProps?.tags)
+            ? auditProps.tags.length
+            : 0,
+        },
+        metaJson: {
+          categoryId: Number((fresh ?? created).props.categoryId ?? 0) || null,
+          originId: Number((fresh ?? created).props.originId ?? 0) || null,
+        },
+      });
     }
 
     return { id: created.props.id! };

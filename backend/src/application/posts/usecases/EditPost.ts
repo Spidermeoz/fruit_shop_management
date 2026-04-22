@@ -8,6 +8,7 @@ import {
   isValidHttpUrl,
   type PostStatus,
 } from "../../../domain/posts/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 function normalizeIdArray(values?: number[]) {
   if (!Array.isArray(values)) return [];
@@ -140,13 +141,33 @@ function validateBusinessRules(input: {
   }
 }
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
 export class EditPost {
-  constructor(private repo: PostRepository) {}
+  constructor(
+    private repo: PostRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
 
-  async execute(id: number, patch: UpdatePostPatch) {
-    const existingPost = await this.repo.findById(id);
+  async execute(id: number, patch: UpdatePostPatch, actor?: ActorContext) {
+    const before = await this.repo.findById(id);
 
-    if (!existingPost) {
+    if (!before) {
       throw new Error("Post not found");
     }
 
@@ -244,12 +265,12 @@ export class EditPost {
     });
 
     const updatedPost = Post.create({
-      ...existingPost.props,
+      ...before.props,
       ...normalizedPatch,
       title:
         normalizedPatch.title !== undefined
           ? normalizedPatch.title
-          : existingPost.props.title,
+          : before.props.title,
       publishedAt:
         normalizedPatch.publishedAt !== undefined
           ? normalizedPatch.publishedAt instanceof Date
@@ -257,7 +278,7 @@ export class EditPost {
             : normalizedPatch.publishedAt
               ? new Date(normalizedPatch.publishedAt)
               : null
-          : existingPost.props.publishedAt,
+          : before.props.publishedAt,
     });
 
     validateBusinessRules({
@@ -306,6 +327,49 @@ export class EditPost {
         : {}),
     };
 
-    return this.repo.update(id, updatePayload);
+    const after = await this.repo.update(id, updatePayload);
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : updatePayload.updatedById !== undefined &&
+                updatePayload.updatedById !== null
+              ? Number(updatePayload.updatedById)
+              : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "post",
+        entityType: "post",
+        entityId: Number(id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: before
+          ? {
+              id: Number(before.props.id),
+              title: String(before.props.title ?? ""),
+              status: String(before.props.status ?? ""),
+            }
+          : null,
+        newValuesJson: after
+          ? {
+              id: Number(after.props.id),
+              title: String(after.props.title ?? ""),
+              status: String(after.props.status ?? ""),
+              tagCount: Array.isArray(after.props.tags)
+                ? after.props.tags.length
+                : 0,
+            }
+          : null,
+      });
+    }
+
+    return after;
   }
 }

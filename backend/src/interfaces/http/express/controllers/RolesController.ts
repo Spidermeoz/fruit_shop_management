@@ -73,6 +73,42 @@ const mapRoleView = (role: any) => ({
   updated_at: role?.updated_at ?? role?.updatedAt ?? null,
 });
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makeRolesController = (uc: {
   list: ListRoles;
   listAssignable: ListAssignableRoles;
@@ -197,7 +233,7 @@ export const makeRolesController = (uc: {
           });
         }
 
-        const created = await uc.create.execute({
+        const created = await (uc.create.execute as any)({
           code: finalCode,
           scope: payload.scope ?? "branch",
           level:
@@ -209,7 +245,7 @@ export const makeRolesController = (uc: {
           title,
           description: payload.description ?? null,
           permissions: normalizedPermissions ?? {},
-        });
+        }, buildActor(req));
 
         res.status(201).json({
           success: true,
@@ -307,7 +343,7 @@ export const makeRolesController = (uc: {
           patch.permissions = normalizedPermissions;
         }
 
-        const updated = await uc.update.execute(id, patch);
+        const updated = await (uc.update.execute as any)(id, patch, buildActor(req));
 
         res.json({
           success: true,
@@ -322,7 +358,7 @@ export const makeRolesController = (uc: {
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const result = await uc.softDelete.execute(id);
+        const result = await (uc.softDelete.execute as any)(id, buildActor(req));
 
         res.json({
           success: true,
@@ -367,10 +403,10 @@ export const makeRolesController = (uc: {
           });
         }
 
-        const updated = await uc.updatePermissions.execute({
+        const updated = await (uc.updatePermissions.execute as any)({
           id,
           permissions: normalizedPermissions,
-        });
+        }, buildActor(req));
 
         res.json({
           success: true,
@@ -579,6 +615,22 @@ export const makeRolesController = (uc: {
             actions: [
               { key: "view", label: "Xem đánh giá" },
               { key: "reply", label: "Trả lời đánh giá" },
+            ],
+          },
+          {
+            group: "Thông báo",
+            key: "notification",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Tạo thông báo" },
+            ],
+          },
+          {
+            group: "Nhật ký thao tác",
+            key: "audit_log",
+            actions: [
+              { key: "view", label: "Xem" },
+              { key: "create", label: "Tạo log" },
             ],
           },
           {

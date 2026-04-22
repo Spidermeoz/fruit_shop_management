@@ -392,7 +392,24 @@ export const makePostsController = (uc: {
         const id = Number(req.params.id);
         const { status } = req.body as { status: PostStatus };
 
-        const result = await uc.changeStatus.execute(id, status);
+        const actorId = getActorId(req);
+
+        const actor = {
+          id: actorId,
+          roleId:
+            (req as any)?.user?.roleId ??
+            (req as any)?.authUser?.roleId ??
+            null,
+          branchIds:
+            (req as any)?.user?.branchIds ??
+            (req as any)?.authUser?.branchIds ??
+            [],
+          requestId: (req as any)?.requestId ?? null,
+          ipAddress: req.ip ?? null,
+          userAgent: req.get("user-agent") ?? null,
+        };
+
+        const result = await uc.changeStatus.execute(id, status, actor);
 
         return res.json({
           success: true,

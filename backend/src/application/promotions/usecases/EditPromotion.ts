@@ -6,6 +6,7 @@ import type {
   PromotionStatus,
   UpdatePromotionPatch,
 } from "../../../domain/promotions/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 const normalizeNullableNumber = (value: unknown): number | null | undefined => {
   if (value === undefined) return undefined;
@@ -43,12 +44,34 @@ const normalizeCode = (value: unknown): string => {
     .toUpperCase();
 };
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 export class EditPromotion {
-  constructor(private readonly promotionRepo: PromotionRepository) {}
+  constructor(
+    private readonly promotionRepo: PromotionRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
 
   async execute(
     id: number,
     patch: UpdatePromotionPatch,
+    actor?: ActorContext,
   ): Promise<PromotionProps> {
     const promotionId = Number(id);
 
@@ -61,6 +84,8 @@ export class EditPromotion {
     if (!existing) {
       throw new Error("Khuyến mãi không tồn tại");
     }
+
+    const beforeSnapshot = toSnapshot(existing);
 
     const normalizedPatch: UpdatePromotionPatch = {};
 
@@ -97,7 +122,11 @@ export class EditPromotion {
 
     if (patch.discountValue !== undefined) {
       const discountValue = normalizeNullableNumber(patch.discountValue);
-      if (discountValue === null || discountValue === undefined || discountValue < 0) {
+      if (
+        discountValue === null ||
+        discountValue === undefined ||
+        discountValue < 0
+      ) {
         throw new Error("Giá trị giảm giá không hợp lệ");
       }
       normalizedPatch.discountValue = discountValue;
@@ -281,6 +310,33 @@ export class EditPromotion {
       normalizedPatch.branchIds = normalizeIdList(patch.branchIds);
     }
 
-    return this.promotionRepo.update(promotionId, normalizedPatch);
+    const saved = await this.promotionRepo.update(promotionId, normalizedPatch);
+
+    if (this.createAuditLog) {
+      const fresh = await this.promotionRepo.findById(promotionId);
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "promotion",
+        entityType: "promotion",
+        entityId: promotionId,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: beforeSnapshot as any,
+        newValuesJson: toSnapshot(fresh ?? saved) as any,
+        metaJson: { changedFields: Object.keys(normalizedPatch) },
+      });
+    }
+
+    return saved;
   }
 }

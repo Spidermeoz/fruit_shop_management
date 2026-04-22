@@ -1,9 +1,9 @@
-// src/application/roles/usecases/UpdateRole.ts
 import type {
   RoleRepository,
   UpdateRolePatch,
 } from "../../../domain/roles/RoleRepository";
 import { toRoleDTO } from "../dto";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 const normalizePermissions = (
   input: unknown,
@@ -36,9 +36,34 @@ const normalizePermissions = (
   return out;
 };
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+
 export class UpdateRole {
-  constructor(private repo: RoleRepository) {}
-  async execute(id: number, patch: UpdateRolePatch) {
+  constructor(
+    private repo: RoleRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+  async execute(id: number, patch: UpdateRolePatch, actor?: ActorContext) {
+    const before =
+      typeof (this.repo as any).findById === "function"
+        ? await (this.repo as any).findById(id, false)
+        : null;
+
     const normalizedPatch: UpdateRolePatch = {};
 
     if (patch.code !== undefined) {
@@ -83,6 +108,32 @@ export class UpdateRole {
     }
 
     const updated = await this.repo.update(id, normalizedPatch);
-    return { id: updated.props.id!, role: toRoleDTO(updated) };
+    const result = { id: updated.props.id!, role: toRoleDTO(updated) };
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "role",
+        entityType: "role",
+        entityId: Number(id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: before ? (toRoleDTO(before as any) as any) : null,
+        newValuesJson: result.role as any,
+        metaJson: { changedFields: Object.keys(normalizedPatch) },
+      });
+    }
+
+    return result;
   }
 }

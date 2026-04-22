@@ -3,12 +3,30 @@ import type {
   UpdatePostPatch,
 } from "../../../domain/posts/PostRepository";
 import type { PostStatus } from "../../../domain/posts/types";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 type BulkEditPostsInput = {
   ids: number[];
   patch: UpdatePostPatch & {
     status?: PostStatus;
   };
+};
+
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
 };
 
 function normalizeIds(values: number[]) {
@@ -35,10 +53,15 @@ function normalizeIdArray(values?: number[]) {
   );
 }
 
-export class BulkEditPosts {
-  constructor(private repo: PostRepository) {}
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
 
-  async execute(input: BulkEditPostsInput) {
+export class BulkEditPosts {
+  constructor(
+    private repo: PostRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
+
+  async execute(input: BulkEditPostsInput, actor?: ActorContext) {
     const ids = normalizeIds(input.ids);
 
     if (!ids.length) {
@@ -145,7 +168,47 @@ export class BulkEditPosts {
       throw new Error("Bulk edit patch is empty");
     }
 
+    const before = await Promise.all(
+      ids.map(async (id) =>
+        typeof (this.repo as any).findById === "function"
+          ? await (this.repo as any).findById(id)
+          : null,
+      ),
+    );
+
     const count = await this.repo.bulkEdit(ids, normalizedPatch);
+
+    const after = await Promise.all(
+      ids.map(async (id) =>
+        typeof (this.repo as any).findById === "function"
+          ? await (this.repo as any).findById(id)
+          : null,
+      ),
+    );
+
+    if (this.createAuditLog) {
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "bulk_update",
+        moduleName: "post",
+        entityType: "post",
+        entityId: null,
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: before.map(toSnapshot),
+        newValuesJson: after.map(toSnapshot),
+        metaJson: { ids, count, patch: normalizedPatch },
+      });
+    }
 
     return {
       ids,

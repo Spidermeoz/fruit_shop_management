@@ -1,3 +1,5 @@
+import type { CreateNotification } from "../../notifications/usecases/CreateNotification";
+
 const normalizeDateOnly = (value?: string | null): string | null => {
   if (value === undefined || value === null) return null;
   const v = String(value).trim();
@@ -66,6 +68,7 @@ export class CreateOrderFromCart {
     private readonly evaluatePromotionService: any,
     private readonly validatePromotionCodeService: any,
     private readonly promotionRepo: any,
+    private readonly createNotification?: CreateNotification,
   ) {}
 
   async execute(userId: number, payload: any) {
@@ -562,6 +565,35 @@ export class CreateOrderFromCart {
       );
 
       await transaction.commit();
+
+
+if (this.createNotification) {
+  await this.createNotification.execute({
+    eventKey: "order_created",
+    category: "order",
+    severity: "info",
+    title: `Đơn hàng mới #${order.props.code}`,
+    message: `Có đơn hàng mới tại chi nhánh #${resolvedBranchId} với tổng thanh toán ${Number(order.props.finalPrice ?? 0).toLocaleString("vi-VN")}đ.`,
+    entityType: "order",
+    entityId: Number(order.props.id),
+    actorUserId: userId,
+    branchId: resolvedBranchId,
+    targetUrl: `/admin/orders/edit/${Number(order.props.id)}`,
+    metaJson: {
+      orderCode: order.props.code,
+      fulfillmentType: order.props.fulfillmentType,
+      deliveryType: order.props.deliveryType ?? "standard",
+      finalPrice: Number(order.props.finalPrice ?? 0),
+      shippingFee: Number(order.props.shippingFee ?? 0),
+      itemCount: Array.isArray(order.props.items)
+        ? order.props.items.length
+        : 0,
+    },
+    dedupeKey: `order_created:${Number(order.props.id)}`,
+    includeSuperAdmins: true,
+    recipientBranchIds: resolvedBranchId ? [resolvedBranchId] : [],
+  });
+}
 
       return {
         id: order.props.id,

@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { AlertCircle, AlertTriangle, ChevronRight, Info } from "lucide-react";
 import type { DashboardAlert } from "../types/dashboard";
 import DashboardBadge from "../shared/DashboardBadge";
@@ -166,6 +167,12 @@ export default function DashboardAlertList({
             count={metrics.warning}
             onClick={() => setActiveFilter("warning")}
           />
+          <FilterChip
+            active={activeFilter === "info"}
+            label="Info"
+            count={metrics.info}
+            onClick={() => setActiveFilter("info")}
+          />
         </div>
       </div>
 
@@ -219,14 +226,28 @@ export default function DashboardAlertList({
             );
 
             if (alert.href) {
+              const isExternalHref = /^(https?:)?\/\//.test(alert.href);
+
+              if (isExternalHref) {
+                return (
+                  <a
+                    key={alert.id}
+                    href={alert.href}
+                    className="block outline-none"
+                  >
+                    {CardContent}
+                  </a>
+                );
+              }
+
               return (
-                <a
+                <Link
                   key={alert.id}
-                  href={alert.href}
+                  to={alert.href}
                   className="block outline-none"
                 >
                   {CardContent}
-                </a>
+                </Link>
               );
             }
 

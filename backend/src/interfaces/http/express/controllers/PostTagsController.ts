@@ -47,6 +47,42 @@ const toTagDto = (tag: PostTag | { props: any } | any) => {
   };
 };
 
+
+
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId:
+    (req as any)?.user?.roleId ??
+    (req as any)?.authUser?.roleId ??
+    null,
+  roleCode:
+    (req as any)?.user?.roleCode ??
+    (req as any)?.authUser?.roleCode ??
+    null,
+  roleLevel:
+    (req as any)?.user?.roleLevel ??
+    (req as any)?.authUser?.roleLevel ??
+    null,
+  isSuperAdmin:
+    (req as any)?.user?.isSuperAdmin === true ||
+    (req as any)?.authUser?.isSuperAdmin === true,
+  branchIds:
+    (req as any)?.user?.branchIds ??
+    (req as any)?.authUser?.branchIds ??
+    [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makePostTagsController = (uc: {
   list: ListPostTags;
   detail: GetPostTagDetail;
@@ -198,12 +234,12 @@ export const makePostTagsController = (uc: {
           throw new Error("Invalid post tag status");
         }
 
-        const created = await uc.create.execute({
+        const created = await (uc.create.execute as any)({
           name: String(payload.name ?? ""),
           slug: payload.slug ?? null,
           description: payload.description ?? null,
           status: payload.status ?? "active",
-        });
+        }, buildActor(req));
 
         const fresh = await uc.detail.execute(created.id);
 
@@ -258,7 +294,7 @@ export const makePostTagsController = (uc: {
           ...(body.deleted !== undefined ? { deleted: !!body.deleted } : {}),
         };
 
-        const updated = await uc.edit.execute(id, payload);
+        const updated = await (uc.edit.execute as any)(id, payload, buildActor(req));
 
         return res.json({
           success: true,
@@ -283,7 +319,7 @@ export const makePostTagsController = (uc: {
           throw new Error("Invalid post tag status");
         }
 
-        const result = await uc.changeStatus.execute(id, status);
+        const result = await (uc.changeStatus.execute as any)(id, status, buildActor(req));
 
         return res.json({
           success: true,
@@ -301,7 +337,7 @@ export const makePostTagsController = (uc: {
           throw new Error("Invalid post tag id");
         }
 
-        const result = await uc.softDelete.execute(id);
+        const result = await (uc.softDelete.execute as any)(id, buildActor(req));
 
         return res.json({
           success: true,
@@ -348,10 +384,10 @@ export const makePostTagsController = (uc: {
             : {}),
         };
 
-        const result = await uc.bulkEdit.execute({
+        const result = await (uc.bulkEdit.execute as any)({
           ids,
           patch,
-        });
+        }, buildActor(req));
 
         return res.json({
           success: true,

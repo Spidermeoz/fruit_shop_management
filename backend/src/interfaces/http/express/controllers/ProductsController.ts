@@ -97,6 +97,24 @@ const normalizeVariants = (
       }))
     : undefined;
 
+const getActorId = (req: Request): number | null => {
+  const user = (req as any).user ?? (req as any).authUser ?? null;
+  const rawId = user?.id ?? user?.userId ?? user?.adminId ?? user?.sub ?? null;
+
+  const num = Number(rawId);
+  return Number.isInteger(num) && num > 0 ? num : null;
+};
+
+const buildActor = (req: Request) => ({
+  id: getActorId(req),
+  roleId: (req as any)?.user?.roleId ?? (req as any)?.authUser?.roleId ?? null,
+  branchIds:
+    (req as any)?.user?.branchIds ?? (req as any)?.authUser?.branchIds ?? [],
+  requestId: (req as any)?.requestId ?? null,
+  ipAddress: req.ip ?? null,
+  userAgent: req.get("user-agent") ?? null,
+});
+
 export const makeProductsController = (uc: {
   list: ListProducts;
   detail: GetProductDetail;
@@ -273,11 +291,16 @@ export const makeProductsController = (uc: {
           }>;
         };
 
-        const result = await uc.create.execute({
-          ...payload,
-          options: normalizeOptions(payload.options),
-          variants: normalizeVariants(payload.variants),
-        });
+        const actor = buildActor(req);
+
+        const result = await (uc.create.execute as any)(
+          {
+            ...payload,
+            options: normalizeOptions(payload.options),
+            variants: normalizeVariants(payload.variants),
+          },
+          actor,
+        );
 
         res.status(201).json({
           success: true,
@@ -353,7 +376,13 @@ export const makeProductsController = (uc: {
           variants: normalizeVariants(patch.variants as any),
         };
 
-        const result = await uc.edit.execute(id, normalizedPatch);
+        const actor = buildActor(req);
+
+        const result = await (uc.edit.execute as any)(
+          id,
+          normalizedPatch,
+          actor,
+        );
 
         res.json({
           success: true,
@@ -369,7 +398,8 @@ export const makeProductsController = (uc: {
       try {
         const id = Number(req.params.id);
         const { status } = req.body as { status: ProductStatus };
-        const result = await uc.changeStatus.execute(id, status);
+        const actor = buildActor(req);
+        const result = await uc.changeStatus.execute(id, status, actor);
         res.json({
           success: true,
           data: result,
@@ -383,7 +413,8 @@ export const makeProductsController = (uc: {
     softDelete: async (req: Request, res: Response, next: NextFunction) => {
       try {
         const id = Number(req.params.id);
-        const result = await uc.softDelete.execute(id);
+        const actor = buildActor(req);
+        const result = await (uc.softDelete.execute as any)(id, actor);
         res.json({
           success: true,
           data: result,
@@ -424,10 +455,16 @@ export const makeProductsController = (uc: {
           const updatedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : null;
 
-          const result = await uc.bulkEdit.execute(ids, {
-            status: value as any,
-            updatedById,
-          });
+          const actor = buildActor(req);
+
+          const result = await (uc.bulkEdit.execute as any)(
+            ids,
+            {
+              status: value as any,
+              updatedById,
+            },
+            actor,
+          );
 
           return res.json({
             success: true,
@@ -452,10 +489,16 @@ export const makeProductsController = (uc: {
           const deletedById =
             body.updated_by_id != null ? Number(body.updated_by_id) : null;
 
-          const result = await uc.bulkEdit.execute(ids, {
-            deleted: true,
-            deletedById,
-          });
+          const actor = buildActor(req);
+
+          const result = await (uc.bulkEdit.execute as any)(
+            ids,
+            {
+              deleted: true,
+              deletedById,
+            },
+            actor,
+          );
 
           return res.json({
             success: true,
@@ -517,7 +560,13 @@ export const makeProductsController = (uc: {
           });
         }
 
-        const result = await uc.bulkEdit.execute(ids, patch ?? {});
+        const actor = buildActor(req);
+
+        const result = await (uc.bulkEdit.execute as any)(
+          ids,
+          patch ?? {},
+          actor,
+        );
 
         res.json({
           success: true,

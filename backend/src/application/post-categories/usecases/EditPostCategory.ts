@@ -3,6 +3,7 @@ import type {
   PostCategoryRepository,
   UpdatePostCategoryPatch,
 } from "../../../domain/post-categories/PostCategoryRepository";
+import type { CreateAuditLog } from "../../audit-logs/usecases/CreateAuditLog";
 
 function normalizeNullableText(value?: string | null) {
   if (value === undefined) return undefined;
@@ -16,8 +17,29 @@ function isValidStatus(value: any): value is "active" | "inactive" {
   return value === "active" || value === "inactive";
 }
 
+type ActorContext = {
+  id?: number | null;
+  roleId?: number | null;
+  branchIds?: number[];
+  requestId?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+};
+
+const pickActorBranchId = (actor?: ActorContext): number | null => {
+  if (!Array.isArray(actor?.branchIds)) return null;
+  const branchId = actor.branchIds
+    .map(Number)
+    .find((x) => Number.isFinite(x) && x > 0);
+  return branchId ?? null;
+};
+const toSnapshot = (value: any) => value?.props ?? value ?? null;
+
 export class EditPostCategory {
-  constructor(private repo: PostCategoryRepository) {}
+  constructor(
+    private repo: PostCategoryRepository,
+    private createAuditLog?: CreateAuditLog,
+  ) {}
 
   private async ensureNoCycle(currentId: number, nextParentId: number | null) {
     if (nextParentId === null) return;
@@ -44,12 +66,18 @@ export class EditPostCategory {
     }
   }
 
-  async execute(id: number, patch: UpdatePostCategoryPatch) {
+  async execute(
+    id: number,
+    patch: UpdatePostCategoryPatch,
+    actor?: ActorContext,
+  ) {
     const existingCategory = await this.repo.findById(id);
 
     if (!existingCategory) {
       throw new Error("Post category not found");
     }
+
+    const before = await this.repo.findById(id);
 
     const normalizedPatch: UpdatePostCategoryPatch = {
       ...(patch.title !== undefined
@@ -174,6 +202,46 @@ export class EditPostCategory {
         : {}),
     };
 
-    return this.repo.update(id, updatePayload);
+    const saved = await this.repo.update(id, updatePayload);
+    const after = await this.repo.findById(id);
+
+    if (this.createAuditLog) {
+      const fresh = await this.repo.findById(id);
+      await this.createAuditLog.execute({
+        actorUserId:
+          actor?.id !== undefined && actor?.id !== null
+            ? Number(actor.id)
+            : null,
+        actorRoleId:
+          actor?.roleId !== undefined && actor?.roleId !== null
+            ? Number(actor.roleId)
+            : null,
+        branchId: pickActorBranchId(actor),
+        action: "update",
+        moduleName: "post_category",
+        entityType: "post_category",
+        entityId: Number(id),
+        requestId: actor?.requestId ?? null,
+        ipAddress: actor?.ipAddress ?? null,
+        userAgent: actor?.userAgent ?? null,
+        oldValuesJson: {
+          id: Number(id),
+          name: String(before?.props?.title ?? ""),
+          slug: String(before?.props?.slug ?? ""),
+          status: String(before?.props?.status ?? ""),
+        },
+        newValuesJson: {
+          id: Number(id),
+          name: String(after?.props?.title ?? ""),
+          slug: String(after?.props?.slug ?? ""),
+          status: String(after?.props?.status ?? ""),
+        },
+        metaJson: {
+          changedFields: Object.keys(patch ?? {}),
+        },
+      });
+    }
+
+    return saved;
   }
 }
