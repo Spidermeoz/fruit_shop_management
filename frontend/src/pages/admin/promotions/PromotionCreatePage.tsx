@@ -5,7 +5,7 @@ import React, {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Loader2,
@@ -223,6 +223,8 @@ const buildTargetSummary = (form: PromotionFormData) => {
 // ==========================================
 const PromotionCreatePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state;
   const { showSuccessToast, showErrorToast } = useAdminToast();
 
   // --- States ---

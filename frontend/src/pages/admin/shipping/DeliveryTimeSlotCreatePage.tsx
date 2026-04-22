@@ -53,14 +53,18 @@ const initialForm: DeliveryTimeSlotFormData = {
 // =============================
 // HELPERS
 // =============================
+const removeVietnameseTones = (str: string) => {
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // bỏ dấu
+    .replace(/[đĐ]/g, "d"); // xử lý riêng đ
+};
+
 const normalizeCode = (value: string) =>
-  value
-    .trim()
-    .toUpperCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Z0-9_]/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "");
+  removeVietnameseTones(value)
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
 
 const formatMaxOrdersPreview = (value: string) => {
   if (!value || value.trim() === "") return "Không giới hạn";
