@@ -1388,9 +1388,9 @@ const PromotionCreatePage: React.FC = () => {
                       {formData.couponCodes.map((item) => (
                         <div
                           key={item.localId}
-                          className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
+                          className="grid grid-cols-1 md:grid-cols-12 gap-4 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900"
                         >
-                          <div className="md:col-span-4">
+                          <div className="md:col-span-3">
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                               Code
                             </label>
@@ -1464,7 +1464,7 @@ const PromotionCreatePage: React.FC = () => {
                             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">
                               End
                             </label>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 w-full">
                               <input
                                 type="datetime-local"
                                 value={item.endAt}
@@ -1473,14 +1473,14 @@ const PromotionCreatePage: React.FC = () => {
                                     endAt: e.target.value,
                                   })
                                 }
-                                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                                className="w-full flex-1 px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                               />
                               <button
                                 type="button"
                                 onClick={() => removeCouponCode(item.localId)}
-                                className="px-3 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50"
+                                className="px-3 py-2 text-red-600 hover:text-red-300"
                               >
-                                Xóa
+                                X
                               </button>
                             </div>
                           </div>
