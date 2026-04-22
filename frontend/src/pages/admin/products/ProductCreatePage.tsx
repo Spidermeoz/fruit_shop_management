@@ -1632,7 +1632,8 @@ const ProductCreatePage: React.FC = () => {
                         ) as React.Ref<HTMLInputElement>
                       }
                       type="number"
-                      value={variant.price}
+                      min={1000}
+                      value={+variant.price > 1000 ? variant.price : 1000}
                       onChange={(e) =>
                         handleVariantChange(index, "price", e.target.value)
                       }
@@ -1650,7 +1651,8 @@ const ProductCreatePage: React.FC = () => {
                         ) as React.Ref<HTMLInputElement>
                       }
                       type="number"
-                      value={variant.compareAtPrice || ""}
+                      min={1000}
+                      value={variant.compareAtPrice || 1000}
                       onChange={(e) =>
                         handleVariantChange(
                           index,
