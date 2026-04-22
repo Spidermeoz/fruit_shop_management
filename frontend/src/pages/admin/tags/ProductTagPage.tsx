@@ -559,7 +559,16 @@ const ProductTagPage: React.FC = () => {
                             ...p,
                             [group.id]: e.target.value,
                           }));
-                          markState(setDeleteBlockedGroupIds, group.id, false);
+                        }}
+                        // blur ra ngoài nếu mà không có giá trị thì set về giá trị ban đầu
+                        onBlur={() => {
+                          const value = editingGroupValues[group.id];
+                          if (!value || value.trim() === "") {
+                            setEditingGroupValues((p) => ({
+                              ...p,
+                              [group.id]: group.name,
+                            }));
+                          }
                         }}
                         className={`text-base font-bold bg-transparent border-b-2 focus:outline-none transition-colors w-full pb-0.5 px-1 ${
                           groupDirty
@@ -568,11 +577,13 @@ const ProductTagPage: React.FC = () => {
                         }`}
                       />
                     </div>
+
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         onClick={() => handleSaveGroup(group)}
+                        // nếu mà input không có giá trị thì disabled
                         disabled={
-                          !groupDirty || savingGroupIds.includes(group.id)
+                          !groupDirty || savingGroupIds.includes(group.id) || editingGroupValues[group.id]?.trim() === ""
                         }
                         className="p-1.5 rounded-md text-blue-600 hover:bg-blue-100 disabled:opacity-30 transition-colors"
                         title="Lưu tên nhóm"
@@ -631,6 +642,16 @@ const ProductTagPage: React.FC = () => {
                               [tag.id]: e.target.value,
                             }))
                           }
+                          // blur ra ngoài nếu mà không có giá trị thì set về giá trị ban đầu
+                          onBlur={() => {
+                            const value = editingTagValues[tag.id];
+                            if (!value || value.trim() === "") {
+                              setEditingTagValues((p) => ({
+                                ...p,
+                                [tag.id]: tag.name,
+                              }));
+                            }
+                          }}
                           className={`flex-1 bg-transparent border rounded px-2 py-1.5 text-[13px] font-medium focus:outline-none transition-colors ${
                             tagDirty
                               ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
@@ -641,7 +662,7 @@ const ProductTagPage: React.FC = () => {
                           <button
                             onClick={() => handleSaveTag(tag)}
                             disabled={
-                              !tagDirty || savingTagIds.includes(tag.id)
+                              !tagDirty || savingTagIds.includes(tag.id) || editingTagValues[tag.id]?.trim() === ""
                             }
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded disabled:opacity-30"
                             title="Lưu thay đổi tag"
