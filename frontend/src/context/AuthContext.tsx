@@ -15,10 +15,18 @@ type ClientUser = {
   avatar: string | null;
 };
 
+type RegisterInput = {
+  fullName: string;
+  email: string;
+  password: string;
+  phone?: string;
+};
+
 type AuthState = {
   loading: boolean;
   user: ClientUser | null;
   isAuthenticated: boolean;
+  register: (input: RegisterInput) => Promise<void>;
   login: (
     email: string,
     password: string,
@@ -80,6 +88,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } else {
       localStorage.removeItem(CLIENT_USER_KEY);
     }
+  };
+
+  const register = async (input: RegisterInput) => {
+    const res = await http<any>("POST", "/api/v1/client/auth/register", {
+      fullName: input.fullName,
+      email: input.email,
+      password: input.password,
+      phone: input.phone,
+    });
+
+    const accessToken = res?.data?.accessToken;
+    const refreshToken = res?.data?.refreshToken;
+    const nextUser = normalizeUser(res?.data?.user ?? null);
+
+    if (!accessToken || !refreshToken || !nextUser) {
+      throw new Error("Đăng ký không thành công. Vui lòng thử lại.");
+    }
+
+    tokenStore.setAccess(accessToken);
+    tokenStore.setRefresh(refreshToken);
+    persistUser(nextUser);
   };
 
   const login = async (
@@ -164,6 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       loading,
       user,
       isAuthenticated,
+      register,
       login,
       logout,
       refreshSession,

@@ -60,6 +60,21 @@ export interface CheckoutPayload extends CheckoutQuotePayload {
   } | null;
 }
 
+export interface ClientAvailablePromotion {
+  promotionId: number;
+  name: string;
+  description?: string | null;
+  discountType: "fixed" | "percent" | "free_shipping";
+  discountValue: number;
+  maxDiscountAmount?: number | null;
+  minOrderValue?: number | null;
+  code: string;
+  isApplicable: boolean;
+  reasonMessage: string;
+  discountAmount: number;
+  shippingDiscountAmount: number;
+}
+
 export async function getClientBranches(): Promise<ClientBranch[]> {
   const res = await http("GET", "/api/v1/client/orders/branches");
 
@@ -199,6 +214,18 @@ export async function getCheckoutQuote(
         }
       : null,
   };
+}
+
+export async function getAvailablePromotions(
+  payload: CheckoutQuotePayload,
+): Promise<ClientAvailablePromotion[]> {
+  const res = await http<any>("POST", "/api/v1/client/orders/available-promotions", payload);
+
+  if (!res?.success) {
+    throw new Error(res?.message || "Không tải được danh sách mã giảm giá");
+  }
+
+  return Array.isArray(res.data) ? res.data : [];
 }
 
 export async function checkoutOrder(payload: CheckoutPayload): Promise<any> {

@@ -9,9 +9,14 @@ import {
   checkoutOrder,
   getCheckoutQuote,
   getClientBranches,
+  getAvailablePromotions,
   CheckoutQuoteChangedError,
 } from "../../../services/api/ordersClient";
 import type { CheckoutQuote, DeliverySlotSummary } from "../../../types/orders";
+import type {
+  ClientBranch,
+  ClientAvailablePromotion,
+} from "../../../services/api/ordersClient";
 import {
   User,
   Phone,
@@ -134,6 +139,7 @@ const CheckoutPage: React.FC = () => {
     "delivery",
   );
   const [selectedBranchId, setSelectedBranchId] = useState<number | null>(null);
+  const [recommendedBranchId, setRecommendedBranchId] = useState<number | null>(null);
 
   const [deliveryDate, setDeliveryDate] = useState<string>("");
   const [deliveryTimeSlotId, setDeliveryTimeSlotId] = useState<number | null>(
@@ -160,6 +166,9 @@ const CheckoutPage: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<DeliverySlotSummary[]>(
     [],
   );
+
+  const [availablePromotions, setAvailablePromotions] = useState<ClientAvailablePromotion[]>([]);
+  const [loadingPromotions, setLoadingPromotions] = useState(false);
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [newOrderId, setNewOrderId] = useState<string | null>(null);
@@ -254,11 +263,12 @@ const CheckoutPage: React.FC = () => {
         return;
       }
 
+      // Không tự động chọn — chỉ reset nếu branch đang chọn không còn hỗ trợ pickup
       const currentValid = pickupBranches.some(
         (b) => b.id === selectedBranchId,
       );
-      if (!currentValid) {
-        setSelectedBranchId(pickupBranches[0].id);
+      if (!currentValid && selectedBranchId !== null) {
+        setSelectedBranchId(null);
       }
     }
   }, [fulfillmentType, branches, selectedBranchId]);
@@ -507,10 +517,9 @@ const CheckoutPage: React.FC = () => {
               ? Number(data.selectedBranch.id)
               : null;
 
-          // Chỉ tự gán branch mặc định khi user chưa chọn gì
-          if (!selectedBranchId && resolvedBranchId) {
-            setSelectedBranchId(resolvedBranchId);
-          }
+          // Chỉ lưu gợi ý ở lần gọi quote đầu tiên cho địa chỉ này (khi recommendedBranchId còn null)
+          // Tránh việc user chọn branch khác -> gọi lại quote -> backend trả về branch mới -> ghi đè mất gợi ý ban đầu
+          setRecommendedBranchId((prev) => prev === null ? resolvedBranchId : prev);
         }
 
         if (
@@ -552,10 +561,66 @@ const CheckoutPage: React.FC = () => {
   ]);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const fetchPromotions = async () => {
+      if (!checkoutItems.length) {
+        setAvailablePromotions([]);
+        return;
+      }
+
+      if (fulfillmentType === "pickup" && !selectedBranchId) {
+        setAvailablePromotions([]);
+        return;
+      }
+
+      if (fulfillmentType === "delivery") {
+        if (!isDeliveryAddressReady || !deliveryDate) {
+          setAvailablePromotions([]);
+          return;
+        }
+      }
+
+      try {
+        if (!cancelled) setLoadingPromotions(true);
+        const payload = buildQuotePayload();
+        // Không gửi mã ưu đãi khi lấy danh sách để xem tất cả mã hiện hành
+        payload.promotionCode = null; 
+        
+        const data = await getAvailablePromotions(payload);
+        if (!cancelled) {
+          setAvailablePromotions(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch available promotions", err);
+      } finally {
+        if (!cancelled) setLoadingPromotions(false);
+      }
+    };
+
+    void fetchPromotions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    checkoutItemIdsKey,
+    selectedBranchId,
+    fulfillmentType,
+    deliveryType,
+    deliveryDate,
+    orderInfo.city,
+    orderInfo.district,
+    orderInfo.ward,
+    orderInfo.address,
+  ]);
+
+  useEffect(() => {
     if (fulfillmentType !== "delivery") return;
 
-    // Đổi địa chỉ giao hàng thì phải chọn lại branch và slot
+    // Đổi địa chỉ giao hàng thì phải chọn lại branch, slot và xóa gợi ý cũ
     setSelectedBranchId(null);
+    setRecommendedBranchId(null);
     setDeliveryTimeSlotId(null);
   }, [
     fulfillmentType,
@@ -621,7 +686,7 @@ const CheckoutPage: React.FC = () => {
 
       if (!deliveryDate) newErrors.deliveryDate = "Vui lòng chọn ngày giao";
 
-      if (quote?.requiresBranchSelection && !selectedBranchId) {
+      if (availableBranches.length > 0 && !selectedBranchId) {
         newErrors.branch =
           "Vui lòng chọn chi nhánh phù hợp cho khu vực giao hàng này";
       }
@@ -695,7 +760,7 @@ const CheckoutPage: React.FC = () => {
 
     if (
       fulfillmentType === "delivery" &&
-      quote?.requiresBranchSelection &&
+      availableBranches.length > 0 &&
       !selectedBranchId
     ) {
       showErrorToast("Vui lòng chọn chi nhánh phù hợp để giao hàng.");
@@ -847,6 +912,7 @@ const CheckoutPage: React.FC = () => {
       return branches.filter((b) => b.supportsPickup);
     }
 
+    // Delivery: dùng candidateBranches từ quote nếu có
     if (
       Array.isArray(quote?.candidateBranches) &&
       quote.candidateBranches.length
@@ -861,6 +927,21 @@ const CheckoutPage: React.FC = () => {
         supportsPickup: !!branch.supportsPickup,
         supportsDelivery: !!branch.supportsDelivery,
       }));
+    }
+
+    // Delivery: nếu quote đã xác định 1 chi nhánh duy nhất, vẫn show để user xác nhận
+    if (quote?.selectedBranch && !quote?.requiresBranchSelection) {
+      const b = quote.selectedBranch;
+      return [{
+        id: Number(b.id),
+        name: b.name ?? "",
+        code: b.code ?? null,
+        addressLine1: b.addressLine1 ?? null,
+        district: b.district ?? null,
+        province: b.province ?? null,
+        supportsPickup: !!b.supportsPickup,
+        supportsDelivery: true,
+      }];
     }
 
     return [];
@@ -1298,11 +1379,11 @@ const CheckoutPage: React.FC = () => {
     const title =
       fulfillmentType === "pickup"
         ? "Chọn chi nhánh nhận hàng"
-        : "Chi nhánh / phạm vi giao";
+        : "Chi nhánh giao hàng";
     const subtitle =
       fulfillmentType === "pickup"
         ? "Chọn chi nhánh bạn muốn đến nhận hàng."
-        : "Xác định chi nhánh phục vụ phù hợp cho địa chỉ giao hàng của bạn.";
+        : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này.";
 
     return renderSectionShell(
       <Building className="h-5 w-5" />,
@@ -1321,12 +1402,12 @@ const CheckoutPage: React.FC = () => {
               <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
               <div>
                 <p className="font-bold">
-                  Hoàn tất địa chỉ để xác định chi nhánh
+                  Hoàn tất địa chỉ để xem chi nhánh
                 </p>
                 <p className="mt-1 leading-relaxed">
                   Sau khi bạn chọn đủ tỉnh/thành, quận/huyện, phường/xã và địa
-                  chỉ cụ thể, hệ thống sẽ xác định chi nhánh có thể phục vụ đơn
-                  hàng của bạn.
+                  chỉ cụ thể, hệ thống sẽ hiển thị các chi nhánh có thể phục vụ
+                  khu vực của bạn.
                 </p>
               </div>
             </div>
@@ -1340,10 +1421,10 @@ const CheckoutPage: React.FC = () => {
               <div className="flex items-start gap-3">
                 <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
                 <div>
-                  <p className="font-bold">Đang xác định chi nhánh phục vụ</p>
+                  <p className="font-bold">Đang tìm chi nhánh phục vụ</p>
                   <p className="mt-1 leading-relaxed">
-                    Hệ thống đang đối chiếu khu vực giao hàng để chọn chi nhánh
-                    phù hợp và tính phí giao hàng chính xác.
+                    Hệ thống đang đối chiếu khu vực giao hàng để tìm chi nhánh
+                    phù hợp nhất cho bạn lựa chọn.
                   </p>
                 </div>
               </div>
@@ -1351,68 +1432,56 @@ const CheckoutPage: React.FC = () => {
           )}
 
         {fulfillmentType === "delivery" &&
-          quote?.requiresBranchSelection &&
-          !quoteLoading && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          isDeliveryAddressReady &&
+          !quoteLoading &&
+          availableBranches.length > 0 &&
+          !selectedBranchId && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
               <div className="flex items-start gap-3">
-                <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
                 <div>
-                  <p className="font-bold">Cần bạn chọn chi nhánh phục vụ</p>
+                  <p className="font-bold">Vui lòng chọn chi nhánh bên dưới</p>
                   <p className="mt-1 leading-relaxed">
-                    Khu vực của bạn hiện có nhiều chi nhánh cùng phục vụ được.
-                    Hãy chọn chi nhánh bạn muốn ưu tiên để hệ thống tính đúng
-                    phí giao hàng và khung giờ khả dụng.
+                    {recommendedBranchId
+                      ? "Hệ thống đã gợi ý chi nhánh phù hợp nhất. Bạn có thể chọn chi nhánh đó hoặc một chi nhánh khác theo ý muốn."
+                      : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này."}
                   </p>
                 </div>
               </div>
             </div>
           )}
 
-        {fulfillmentType === "delivery" &&
-          !quote?.requiresBranchSelection &&
-          quote?.selectedBranch &&
-          !quoteLoading && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-                <div>
-                  <p className="font-bold">
-                    Chi nhánh phục vụ đã được xác định
-                  </p>
-                  <p className="mt-1 leading-relaxed">
-                    Hệ thống đã chọn chi nhánh phù hợp theo khu vực giao hàng
-                    của bạn. Bạn có thể tiếp tục chọn ngày và khung giờ giao.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {(fulfillmentType === "pickup" ||
-          (fulfillmentType === "delivery" &&
-            quote?.requiresBranchSelection &&
-            availableBranches.length > 0)) && (
+        {availableBranches.length > 0 && !loadingBranches && (
           <div className="grid gap-3">
             {availableBranches.map((branch: any) => {
               const isSelected = selectedBranchId === branch.id;
+              const isRecommended = recommendedBranchId === branch.id;
               return (
                 <button
                   key={branch.id}
                   type="button"
                   onClick={() => setSelectedBranchId(branch.id)}
-                  className={`rounded-[1.35rem] border p-4 text-left transition-all ${
+                  className={`rounded-[1.35rem] border-2 p-4 text-left transition-all ${
                     isSelected
                       ? "border-green-500 bg-green-50 shadow-sm"
                       : "border-slate-100 bg-white hover:border-green-200 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="font-bold text-slate-900">
-                        {branch.name}
-                        {branch.code ? ` (${branch.code})` : ""}
-                      </p>
-                      <p className="mt-2 text-sm leading-relaxed text-slate-500">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <p className="font-bold text-slate-900">
+                          {branch.name}
+                          {branch.code ? ` (${branch.code})` : ""}
+                        </p>
+                        {isRecommended && (
+                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Gợi ý
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-500">
                         {[branch.addressLine1, branch.district, branch.province]
                           .filter(Boolean)
                           .join(", ") || "Đang cập nhật địa chỉ chi nhánh"}
@@ -1420,11 +1489,11 @@ const CheckoutPage: React.FC = () => {
                     </div>
 
                     {isSelected ? (
-                      <span className="rounded-xl bg-green-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-700">
+                      <span className="shrink-0 rounded-xl bg-green-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-700">
                         Đã chọn
                       </span>
                     ) : (
-                      <span className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                      <span className="shrink-0 rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">
                         Chọn
                       </span>
                     )}
@@ -1432,24 +1501,6 @@ const CheckoutPage: React.FC = () => {
                 </button>
               );
             })}
-          </div>
-        )}
-
-        {selectedBranch && (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-            <p className="font-bold text-slate-900">
-              {selectedBranch.name}
-              {selectedBranch.code ? ` (${selectedBranch.code})` : ""}
-            </p>
-            <p className="mt-1 leading-relaxed">
-              {[
-                selectedBranch.addressLine1,
-                selectedBranch.district,
-                selectedBranch.province,
-              ]
-                .filter(Boolean)
-                .join(", ") || "Đang cập nhật địa chỉ chi nhánh"}
-            </p>
           </div>
         )}
 
@@ -1662,6 +1713,70 @@ const CheckoutPage: React.FC = () => {
               ) : null}
             </div>
           )}
+
+          {/* Danh sách mã giảm giá khả dụng */}
+          <div className="mt-6 space-y-3">
+            {loadingPromotions ? (
+              <div className="py-4 text-center text-sm text-slate-500">
+                Đang tải mã giảm giá...
+              </div>
+            ) : availablePromotions.length > 0 ? (
+              availablePromotions.map((promo) => (
+                <div
+                  key={promo.code}
+                  className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border bg-white p-4 transition-all ${
+                    promo.isApplicable
+                      ? "border-green-200 shadow-sm"
+                      : "border-slate-200 opacity-60 grayscale-[50%]"
+                  }`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-slate-900 px-2 py-1 text-xs font-bold text-white tracking-widest">
+                        {promo.code}
+                      </span>
+                      <span className="font-bold text-slate-900">
+                        {promo.name}
+                      </span>
+                    </div>
+                    {promo.description && (
+                      <p className="mt-1 text-sm text-slate-500">
+                        {promo.description}
+                      </p>
+                    )}
+                    {!promo.isApplicable && promo.reasonMessage && (
+                      <p className="mt-1 text-xs font-semibold text-red-500">
+                        {promo.reasonMessage}
+                      </p>
+                    )}
+                  </div>
+                  
+                  <button
+                    type="button"
+                    disabled={!promo.isApplicable || activePromotionCode === promo.code}
+                    onClick={() => {
+                      setPromotionInput(promo.code);
+                      setPromotionCode(promo.code);
+                      setPromotionTouched(true);
+                    }}
+                    className={`shrink-0 rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                      activePromotionCode === promo.code
+                        ? "bg-green-100 text-green-700"
+                        : promo.isApplicable
+                        ? "bg-slate-100 text-slate-900 hover:bg-green-600 hover:text-white"
+                        : "bg-slate-50 text-slate-400 cursor-not-allowed"
+                    }`}
+                  >
+                    {activePromotionCode === promo.code ? "Đang áp dụng" : "Sử dụng"}
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="py-4 text-center text-sm text-slate-500">
+                Không có mã giảm giá nào
+              </div>
+            )}
+          </div>
         </div>
 
         {appliedPromotions.length > 0 && (

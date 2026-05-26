@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Card from "../../../components/admin/layouts/Card";
+import { createPortal } from "react-dom";
 import {
   Search,
   Loader2,
@@ -821,178 +822,180 @@ const InventoryPage: React.FC = () => {
       </Card>
 
       {/* 🔹 TẦNG E: TRANSFER MODAL */}
-      {transferModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-purple-500" />
-                Điều chuyển Tồn kho
-              </h3>
-              <button
-                onClick={() => setTransferModal(null)}
-                className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Product Info Card */}
-              <div className="flex gap-3 items-start p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
-                <img
-                  src={
-                    transferModal.productThumbnail ||
-                    "https://via.placeholder.com/48"
-                  }
-                  alt="thumb"
-                  className="w-12 h-12 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
-                    {transferModal.productTitle}
-                  </p>
-                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate mt-0.5">
-                    {transferModal.variantTitle || "Mặc định"}
-                  </p>
-                  <p className="text-[10px] font-mono text-gray-500 mt-0.5">
-                    {transferModal.variantSku || "No SKU"}
-                  </p>
-                </div>
+      {transferModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white dark:bg-gray-900 shadow-2xl border border-gray-200 dark:border-gray-700 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5 text-purple-500" />
+                  Điều chuyển Tồn kho
+                </h3>
+                <button
+                  onClick={() => setTransferModal(null)}
+                  className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* Transfer Flow Viz */}
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Từ chi nhánh
-                  </label>
-                  <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm">
-                    <span className="truncate block">
-                      {transferModal.branchName}
-                    </span>
-                    <div className="text-xs font-normal text-gray-500 mt-1">
-                      Tồn khả dụng:{" "}
-                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        {transferModal.availableQuantity}
-                      </span>
-                    </div>
+              <div className="p-6 space-y-6">
+                {/* Product Info Card */}
+                <div className="flex gap-3 items-start p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <img
+                    src={
+                      transferModal.productThumbnail ||
+                      "https://via.placeholder.com/48"
+                    }
+                    alt="thumb"
+                    className="w-12 h-12 rounded-lg object-cover border border-gray-200 dark:border-gray-700"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-sm text-gray-900 dark:text-white truncate">
+                      {transferModal.productTitle}
+                    </p>
+                    <p className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate mt-0.5">
+                      {transferModal.variantTitle || "Mặc định"}
+                    </p>
+                    <p className="text-[10px] font-mono text-gray-500 mt-0.5">
+                      {transferModal.variantSku || "No SKU"}
+                    </p>
                   </div>
                 </div>
 
-                <div className="pt-5 shrink-0 text-gray-400 dark:text-gray-500">
-                  <ArrowRightLeft className="w-5 h-5" />
+                {/* Transfer Flow Viz */}
+                <div className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Từ chi nhánh
+                    </label>
+                    <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 shadow-sm">
+                      <span className="truncate block">
+                        {transferModal.branchName}
+                      </span>
+                      <div className="text-xs font-normal text-gray-500 mt-1">
+                        Tồn khả dụng:{" "}
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                          {transferModal.availableQuantity}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-5 shrink-0 text-gray-400 dark:text-gray-500">
+                    <ArrowRightLeft className="w-5 h-5" />
+                  </div>
+
+                  <div className="flex-1">
+                    <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
+                      Đến chi nhánh
+                    </label>
+                    <select
+                      value={targetBranchId}
+                      onChange={(e) =>
+                        setTargetBranchId(
+                          e.target.value === "" ? "" : Number(e.target.value),
+                        )
+                      }
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-700/50 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 rounded-lg text-sm font-semibold text-gray-900 dark:text-white outline-none transition-shadow shadow-sm"
+                    >
+                      <option value="" disabled>
+                        Chọn đích đến...
+                      </option>
+                      {branches
+                        .filter(
+                          (b: any) => Number(b.id) !== transferModal.branchId,
+                        )
+                        .map((b: any) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
 
-                <div className="flex-1">
+                {/* Quantity Input */}
+                <div>
                   <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Đến chi nhánh
+                    Số lượng điều chuyển
                   </label>
-                  <select
-                    value={targetBranchId}
-                    onChange={(e) =>
-                      setTargetBranchId(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-purple-300 dark:border-purple-700/50 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 rounded-lg text-sm font-semibold text-gray-900 dark:text-white outline-none transition-shadow shadow-sm"
-                  >
-                    <option value="" disabled>
-                      Chọn đích đến...
-                    </option>
-                    {branches
-                      .filter(
-                        (b: any) => Number(b.id) !== transferModal.branchId,
-                      )
-                      .map((b: any) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={transferQty}
+                      onChange={(e) =>
+                        setTransferQty(
+                          e.target.value === "" ? "" : Number(e.target.value),
+                        )
+                      }
+                      className="w-full pl-4 pr-20 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 rounded-lg text-base font-bold text-gray-900 dark:text-white outline-none transition-all shadow-sm"
+                      placeholder="0"
+                      min={1}
+                      max={transferModal.availableQuantity}
+                    />
+                    <button
+                      onClick={() =>
+                        setTransferQty(transferModal.availableQuantity)
+                      }
+                      className="absolute right-2 top-2 bottom-2 px-2.5 text-[10px] font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 rounded-md transition-colors uppercase tracking-wider"
+                    >
+                      Tối đa
+                    </button>
+                  </div>
+                  {typeof transferQty === "number" &&
+                    transferQty > transferModal.availableQuantity && (
+                      <p className="mt-1.5 text-xs font-medium text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5" /> Không được vượt
+                        quá tồn khả dụng
+                      </p>
+                    )}
                 </div>
               </div>
 
-              {/* Quantity Input */}
-              <div>
-                <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Số lượng điều chuyển
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    value={transferQty}
-                    onChange={(e) =>
-                      setTransferQty(
-                        e.target.value === "" ? "" : Number(e.target.value),
-                      )
-                    }
-                    className="w-full pl-4 pr-20 py-2.5 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 focus:border-purple-500 focus:ring-2 focus:ring-purple-500 rounded-lg text-base font-bold text-gray-900 dark:text-white outline-none transition-all shadow-sm"
-                    placeholder="0"
-                    min={1}
-                    max={transferModal.availableQuantity}
-                  />
-                  <button
-                    onClick={() =>
-                      setTransferQty(transferModal.availableQuantity)
-                    }
-                    className="absolute right-2 top-2 bottom-2 px-2.5 text-[10px] font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 dark:text-purple-400 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 rounded-md transition-colors uppercase tracking-wider"
-                  >
-                    Tối đa
-                  </button>
-                </div>
-                {typeof transferQty === "number" &&
-                  transferQty > transferModal.availableQuantity && (
-                    <p className="mt-1.5 text-xs font-medium text-red-500 flex items-center gap-1">
-                      <AlertCircle className="w-3.5 h-3.5" /> Không được vượt
-                      quá tồn khả dụng
-                    </p>
-                  )}
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
-              <button
-                className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 shadow-sm rounded-lg transition-colors"
-                onClick={() => setTransferModal(null)}
-              >
-                Hủy bỏ
-              </button>
-              <button
-                className="px-5 py-2.5 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
-                disabled={
-                  !targetBranchId ||
-                  !transferQty ||
-                  transferQty <= 0 ||
-                  transferQty > transferModal.availableQuantity
-                }
-                onClick={async () => {
-                  try {
-                    await http("POST", "/api/v1/admin/inventory/transfer", {
-                      sourceBranchId: transferModal.branchId,
-                      targetBranchId,
-                      productVariantId: transferModal.variantId,
-                      quantity: transferQty,
-                    });
-
-                    showSuccessToast({
-                      message: "Điều chuyển tồn kho thành công!",
-                    });
-                    setTransferModal(null);
-                    fetchInventory(); // Refresh data sau transfer
-                  } catch (e: any) {
-                    showErrorToast(
-                      e.message || "Đã xảy ra lỗi khi điều chuyển",
-                    );
+              <div className="flex justify-end gap-3 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800 rounded-b-2xl">
+                <button
+                  className="px-5 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600 dark:hover:bg-gray-700 shadow-sm rounded-lg transition-colors"
+                  onClick={() => setTransferModal(null)}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  className="px-5 py-2.5 text-sm font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-lg shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2"
+                  disabled={
+                    !targetBranchId ||
+                    !transferQty ||
+                    transferQty <= 0 ||
+                    transferQty > transferModal.availableQuantity
                   }
-                }}
-              >
-                Xác nhận chuyển
-              </button>
+                  onClick={async () => {
+                    try {
+                      await http("POST", "/api/v1/admin/inventory/transfer", {
+                        sourceBranchId: transferModal.branchId,
+                        targetBranchId,
+                        productVariantId: transferModal.variantId,
+                        quantity: transferQty,
+                      });
+
+                      showSuccessToast({
+                        message: "Điều chuyển tồn kho thành công!",
+                      });
+                      setTransferModal(null);
+                      fetchInventory(); // Refresh data sau transfer
+                    } catch (e: any) {
+                      showErrorToast(
+                        e.message || "Đã xảy ra lỗi khi điều chuyển",
+                      );
+                    }
+                  }}
+                >
+                  Xác nhận chuyển
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 };

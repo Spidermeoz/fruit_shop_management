@@ -9,7 +9,6 @@ export class ChangePassword {
 
   async execute(userId: number, currentPassword: string, newPassword: string) {
     // 1) Lấy user với hash
-    const auth = await this.userRepo.findAuthByEmail;
     const found = await this.userRepo.findById(userId, false);
     if (!found) throw new Error("User not found");
 

@@ -9,6 +9,7 @@ export const clientOrdersRoutes = (
 
   r.get("/branches", auth, controller.branches);
   r.post("/quote", auth, controller.quote);
+  r.post("/available-promotions", auth, controller.availablePromotions);
   r.post("/checkout", auth, controller.checkout);
   r.get("/", auth, controller.list);
   r.get("/addresses", auth, controller.addresses);

@@ -144,6 +144,7 @@ import { UpdateOrderStatus } from "../../application/orders/admin/UpdateOrderSta
 import { CancelMyOrder } from "../../application/orders/client/CancelMyOrder";
 import { CreateOrderFromCart } from "../../application/orders/client/CreateOrderFromCart";
 import { GetCheckoutQuote } from "../../application/orders/client/GetCheckoutQuote";
+import { GetAvailablePromotionsClient } from "../../application/orders/client/GetAvailablePromotionsClient";
 import { GetMyOrderDetail } from "../../application/orders/client/GetMyOrderDetail";
 import { GetMyOrders } from "../../application/orders/client/GetMyOrders";
 import { ListMyOrderAddresses } from "../../application/orders/client/ListMyOrderAddresses";
@@ -1850,6 +1851,12 @@ export const usecases = {
     ),
     listMyOrderAddresses: new ListMyOrderAddresses(orderRepo),
     listBranches: new ListBranches(branchRepo),
+    getAvailablePromotionsClient: new GetAvailablePromotionsClient(
+      calculateShippingQuoteService,
+      cartRepo,
+      evaluatePromotionService,
+      promotionRepo
+    ),
   },
 
   reviews: {
@@ -2311,6 +2318,7 @@ export const clientControllers: ClientControllers = {
     cancelMyOrder: usecases.orders.cancelMyOrder,
     listMyOrderAddresses: usecases.orders.listMyOrderAddresses,
     listBranches: usecases.orders.listBranches,
+    getAvailablePromotionsClient: usecases.orders.getAvailablePromotionsClient,
   }),
 
   reviews: makeClientReviewsController({

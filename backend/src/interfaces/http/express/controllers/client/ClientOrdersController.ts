@@ -8,6 +8,7 @@ export const makeClientOrdersController = (uc: {
   myOrderDetail: any;
   cancelMyOrder: any;
   listBranches: any;
+  getAvailablePromotionsClient: any;
 }) => {
   return {
     branches: async (req: Request, res: Response, next: NextFunction) => {
@@ -32,6 +33,20 @@ export const makeClientOrdersController = (uc: {
       try {
         const userId = req.user!.id;
         const result = await uc.quoteCheckout.execute(userId, req.body);
+
+        res.json({
+          success: true,
+          data: result,
+        });
+      } catch (e) {
+        next(e);
+      }
+    },
+
+    availablePromotions: async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user!.id;
+        const result = await uc.getAvailablePromotionsClient.execute(userId, req.body);
 
         res.json({
           success: true,
