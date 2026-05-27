@@ -48,12 +48,17 @@ export class SendChatMessage {
     });
 
     // Không chạy recommend khi câu hỏi rõ ràng không cần sản phẩm
+    // HOẶC khi câu hỏi không chứa bất kỳ tín hiệu nào liên quan đến thực phẩm/sức khỏe
     const shouldSkipRecommendation =
       extractedIntent.isGreeting ||
       extractedIntent.isSocialChat ||
       extractedIntent.isOffTopic ||
       extractedIntent.isHarmfulRequest ||
-      extractedIntent.isUnrealisticRequest;
+      extractedIntent.isUnrealisticRequest ||
+      // Cổng chặn cuối cùng: nếu câu hỏi không chứa BẤT KỲ tín hiệu thực phẩm/sức khỏe nào
+      // VÀ không match intent cụ thể → không cần tìm sản phẩm
+      (!extractedIntent.hasFoodHealthSignal &&
+        extractedIntent.primaryIntent === "general");
 
     const recommendationResult = shouldSkipRecommendation
       ? { filters, recommendations: [] }

@@ -108,6 +108,9 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
           typeof navigator !== "undefined" ? navigator.userAgent : null,
       },
     });
+    // Đánh dấu là đã hydrate để tránh useEffect loadHistory bị gọi đè 
+    // trong lúc sendMessage đang chạy trên session mới tinh này
+    hydratedRef.current = true;
     setSessionId(session.id);
     return session.id;
   }, [sessionId]);

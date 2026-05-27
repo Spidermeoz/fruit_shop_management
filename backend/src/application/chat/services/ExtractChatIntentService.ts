@@ -57,12 +57,14 @@ const USAGE_KEYWORDS = [
  */
 const STOPWORDS = new Set([
   // Đại từ / xưng hô
-  "toi", "tôi", "ban", "bạn", "minh", "mình",
+  "toi", "tôi", "ban", "bạn", "minh", "mình", "no", "nó", "ho", "họ",
+  "ta", "chung", "chúng",
   // Động từ cầu khiến
   "muon", "muốn", "can", "cần", "tim", "tìm", "giup", "giúp",
-  "hay", "hãy", "nhe", "nhé",
+  "hay", "hãy", "nhe", "nhé", "xin", "mong",
   // Từ chỉ sản phẩm chung (quá generic)
   "san", "sản", "pham", "phẩm", "loai", "loại", "do", "đồ",
+  "hang", "hàng", "mon", "món",
   // Động từ ăn uống chung chung
   "an", "ăn", "uong", "uống", "vao", "vào",
   // Trợ từ / kết từ
@@ -72,8 +74,16 @@ const STOPWORDS = new Set([
   "voi", "với", "cua", "của", "tren", "trên", "duoi", "dưới",
   "theo", "tu", "từ", "ra", "len", "lên",
   "khi", "neu", "nếu", "thi", "thì", "ma", "mà",
+  // So sánh / mức độ (quá generic, gây false positive)
+  "hon", "hơn", "nhat", "nhất", "lam", "làm", "rat", "rất",
+  "qua", "quá", "them", "thêm", "nua", "nữa", "lai", "lại",
+  "tro", "trở", "nen", "nên", "thanh", "thành",
   // Số lượng / đơn vị chung
-  "mot", "một", "cai", "cái", "qua", "quả",
+  "mot", "một", "cai", "cái",
+  // Thời gian
+  "hom", "hôm", "nay", "ngay", "ngày", "mai",
+  // Câu hỏi / đại từ hỏi (đã có 1 phần)
+  "dau", "đâu", "sao",
 ]);
 
 // ─── Patterns: Phi thực tế / Fantasy ─────────────────────────────────────────
@@ -113,7 +123,15 @@ const UNREALISTIC_PATTERNS: RegExp[] = [
   /gi[aả]m\s*\d+\s*kg\s*(trong|chỉ)\s*\d+\s*(ngày|giờ|phút)/i,
   // Tăng trưởng không thực tế
   /cao\s*thêm\s*\d+\s*cm/i,
-  /thông\s*minh\s*(hơn|ra)\s*\d+\s*lần/i,
+  /thông\s*minh\s*(hơn|ra)/i,
+
+  // ─── Kết quả phi thực tế từ ăn uống (pattern rộng) ───
+  // Bắt: "ăn vào sẽ [X]", "uống để [X]", "ăn cho [X]" hoặc đơn giản "ăn vào [X]" với X = kết quả phi thực tế
+  /(ăn|uống)\s*(vào\s*)?(sẽ|để|cho|giúp|làm)?\s*.{0,30}(giàu|giỏi|thông minh|đẹp trai|đẹp gái|nổi tiếng|thành công|may mắn|quyền lực|tài giỏi|thiên tài|iq)/i,
+  /(ăn|uống)\s*(vào\s*)?(sẽ|để|cho|giúp|làm)?\s*.{0,30}(học giỏi|thi đỗ|đậu đại học|trúng số|trúng thưởng|kiếm tiền|làm giàu)/i,
+  /(ăn|uống)\s*(vào\s*)?(sẽ|để|cho|giúp|làm)?\s*.{0,30}(hạnh phúc|vui vẻ|yêu đời|giải thoát|thoát nghèo|phát tài|phát đạt)/i,
+  // "trái cây/sản phẩm nào ăn vào sẽ [X]" — broad
+  /(trái|quả|sản\s*phẩm|loại)\s*.{0,30}(sẽ|để|cho|giúp|làm)?\s*.{0,30}(giàu|giỏi|thông minh|đẹp trai|nổi tiếng|thành công|may mắn|tài giỏi|học giỏi|thi đỗ|trúng số|kiếm tiền|hạnh phúc)/i,
 ];
 
 // ─── Patterns: Yêu cầu sản phẩm gây hại ─────────────────────────────────────
@@ -242,7 +260,7 @@ const GREETING_PATTERNS: RegExp[] = [
   /^(happy\s*(birthday|new\s*year|holiday))[!.\s]*$/i,
 ];
 
-/** Bắt các câu chat xã giao không phải lời chào chuẩn */
+/** Bắt các câu chat xã giao / chửi bới / không phải lời chào chuẩn */
 const SOCIAL_CHAT_PATTERNS: RegExp[] = [
   // Bày tỏ trạng thái cảm xúc không liên quan
   /^(bored?|ch[áa]n\s*qu[áa]|bu[ồo]n\s*qu[áa]|m[ệe]t\s*qu[áa]|stress\s*qu[áa])[!.?\s]*$/i,
@@ -250,8 +268,16 @@ const SOCIAL_CHAT_PATTERNS: RegExp[] = [
   /^(test|th[ửu]|ki[ểe]m\s*tra|th[ửu]\s*xem)[!.?\s]*$/i,
   /^(haha+|hihi+|hehe+|lol+|huhu+)[!.?\s]*$/i,
   /^(b[àa]i\s*h[áa]t|xem\s*phim|ng[ẹe]\s*nh[ạa]c)[?!\s]*$/i,
-  // Từ ngữ tục tĩu
+  // Từ ngữ tục tĩu / chửi bới thô tục
   /[đd][uụ]|[đd][mM][cs]|[đd][cC][mM]|l[ồo]n|bu[ồo]i|c[ặa]c|v[ãa]i|shit|fuck|ass|wtf/i,
+  // Chửi / xúc phạm / gây hấn (không tục nhưng mang tính chửi)
+  /\b(ngu|ng[ốo]c|ngu\s*ng[ốo]c|[đd][ầa]n|[đd][ầa]n\s*[đd][ộo]n|ngu\s*si|ngu\s*xu[ẩa]n)\b/i,
+  /\b([đd]i[êe]n|kh[ùu]ng|h[âa]m|d[ởo]\s*h[ơo]i|ngu\s*nh[ưu]\s*b[oò]|ngu\s*nh[ưu]\s*ch[oó])\b/i,
+  /\b([đd][ồo]\s*ngu|[đd][ồo]\s*ng[ốo]c|[đd][ồo]\s*[đd]i[êe]n|[đd][ồo]\s*kh[ùu]ng|[đd][ồo]\s*h[âa]m)\b/i,
+  /\b([đd][ồo]\s*r[áa]c|v[ôo]\s*d[ụu]ng|[đd][ồo]\s*b[ỏo]\s*[đd]i|r[áa]c\s*r[ưư][ởo]i)\b/i,
+  /\b(m[àa]y\s*ngu|m[àa]y\s*[đd]i[êe]n|m[àa]y\s*kh[ùu]ng|m[àa]y\s*h[âa]m)\b/i,
+  /\b(ch[eế]t\s*[đd]i|bi[ếe]n\s*[đd]i|c[úu]t\s*[đd]i|c[úu]t)\b/i,
+  /\b(stupid|idiot|dumb|moron|loser|trash|garbage)\b/i,
 ];
 
 const FOOD_HEALTH_SIGNALS: RegExp[] = [
@@ -339,6 +365,9 @@ export class ExtractChatIntentService {
       !isGreeting &&
       detectSocialChat(lower);
 
+    // Kiểm tra xem câu hỏi có chứa BẤT KỲ tín hiệu nào liên quan đến thực phẩm/sức khỏe không
+    const hasFoodHealthSignal = FOOD_HEALTH_SIGNALS.some((p) => p.test(lower));
+
     return {
       rawText: normalizedText,
       normalizedText,
@@ -368,6 +397,7 @@ export class ExtractChatIntentService {
       isHarmfulRequest,
       isGreeting,
       isSocialChat,
+      hasFoodHealthSignal,
     };
   }
 }

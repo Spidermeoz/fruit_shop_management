@@ -173,7 +173,7 @@ export class GenerateChatAnswerService {
   constructor(
     private promptBuilder: BuildChatPromptService,
     private chatModel?: ChatModelService,
-  ) {}
+  ) { }
 
   async execute(input: {
     userMessage: string;
@@ -204,13 +204,14 @@ export class GenerateChatAnswerService {
         systemPrompt: prompt.systemPrompt,
         userPrompt: prompt.userPrompt,
         temperature: 0.4,
-        maxTokens: 500,
+        maxTokens: 5000,
       });
       return {
         ...response,
         text: String(response.text ?? "").trim() || fallbackText,
       };
     } catch (error) {
+      console.error("[GenerateChatAnswerService] Gemini request failed:", error);
       return {
         text: fallbackText,
         modelName: null,

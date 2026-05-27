@@ -128,6 +128,8 @@ export interface ExtractedChatIntent {
   isHarmfulRequest: boolean;
   isGreeting: boolean;
   isSocialChat: boolean;
+  /** true nếu câu hỏi chứa ít nhất 1 tín hiệu liên quan đến thực phẩm/sức khỏe/trái cây */
+  hasFoodHealthSignal: boolean;
 }
 
 export interface RecommendationFilters {

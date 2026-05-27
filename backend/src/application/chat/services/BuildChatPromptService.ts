@@ -99,21 +99,22 @@ export class BuildChatPromptService {
     const userPromptParts = [
       `Câu hỏi của khách: "${userMessage}"`,
       `Intent phát hiện: ${extractedIntent.primaryIntent}`,
-      extractedIntent.isGreeting
-        ? "⚠️ Lời chào / hỏi thăm — chào lại thân thiện và mời đặt câu hỏi về trái cây."
-        : null,
-      extractedIntent.isSocialChat
-        ? "⚠️ Chat xã giao không liên quan — giải thích phạm vi tư vấn và mời hỏi về trái cây."
-        : null,
+      // 1. Luôn cho LLM quyền phủ quyết (veto power) nếu câu hỏi có vấn đề
+      "Nếu câu hỏi hoàn toàn vô lý (ví dụ: ăn vào sẽ học giỏi hơn, phép thuật, bất tử...), mang tính chửi bới/gây hấn (ví dụ: đồ ngu ngốc...), gây hại sức khỏe (ví dụ: ăn để bị bệnh...), hoặc ngoài lề, HÃY CHỦ ĐỘNG bắt đầu câu trả lời bằng `[REJECT]` để từ chối lịch sự và KHÔNG liệt kê sản phẩm.",
       extractedIntent.isHarmfulRequest
-        ? "⚠️ CẢNH BÁO: Câu hỏi yêu cầu sản phẩm có tác dụng GÂY HẠI. Bắt buộc dùng `[REJECT]` và không gợi ý sản phẩm."
+        ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Câu hỏi này yêu cầu sản phẩm GÂY HẠI. Bắt buộc dùng `[REJECT]`."
         : null,
       extractedIntent.isUnrealisticRequest
-        ? "⚠️ CẢNH BÁO: Câu hỏi phi thực tế. Bắt buộc dùng `[REJECT]` và không gợi ý sản phẩm."
+        ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Câu hỏi phi thực tế. Bắt buộc dùng `[REJECT]`."
         : null,
       extractedIntent.isOffTopic
-        ? "⚠️ CẢNH BÁO: Câu hỏi ngoài phạm vi. Bắt buộc dùng `[REJECT]`."
+        ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Câu hỏi ngoài phạm vi. Bắt buộc dùng `[REJECT]`."
         : null,
+      extractedIntent.isGreeting || extractedIntent.isSocialChat
+        ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Lời chào hoặc chat xã giao. Hãy chào lại, từ chối và KHÔNG gợi ý sản phẩm (Nên dùng `[REJECT]`)."
+        : null,
+
+      // 2. Data cho context
       filters.keywords.length
         ? `Từ khóa trích xuất: ${filters.keywords.join(", ")}`
         : null,
@@ -121,15 +122,12 @@ export class BuildChatPromptService {
         ? `Tags liên quan: ${filters.tags.join(", ")}`
         : null,
       productSection,
+
+      // 3. Định dạng đầu ra nếu câu hỏi hợp lệ
+      "Nếu câu hỏi HOÀN TOÀN HỢP LÝ và liên quan đến trái cây:",
       recommendations.length > 0
-        ? "Hãy trả lời với: (1) Một câu giới thiệu nhắc lại yêu cầu của khách và giải thích tại sao những sản phẩm này phù hợp (dựa vào Ghi chú dinh dưỡng / Mô tả ngắn, không copy dòng 'Lý do hệ thống'); (2) Danh sách sản phẩm; (3) Lưu ý nếu cần."
-        : extractedIntent.isHarmfulRequest ||
-            extractedIntent.isUnrealisticRequest ||
-            extractedIntent.isOffTopic ||
-            extractedIntent.isGreeting ||
-            extractedIntent.isSocialChat
-          ? "Hãy bắt đầu câu trả lời bằng `[REJECT]` và giải thích / từ chối lịch sự."
-          : "Nếu câu hỏi có vẻ vô lý hoặc gây hại mà hệ thống chưa nhận diện được, HÃY CHỦ ĐỘNG dùng `[REJECT]` để từ chối. Nếu không, hãy giải thích tại sao chưa tìm được sản phẩm phù hợp.",
+        ? "=> Hãy trả lời theo format: (1) Nhắc lại yêu cầu và giải thích tại sao những sản phẩm này phù hợp; (2) Liệt kê sản phẩm; (3) Thêm lưu ý."
+        : "=> Hãy giải thích tại sao chưa tìm được sản phẩm phù hợp và gợi ý khách hỏi lại cụ thể hơn.",
     ]
       .filter(Boolean)
       .join("\n\n");
