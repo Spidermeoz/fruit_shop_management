@@ -165,7 +165,8 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
             result.assistantMessage,
           ];
         });
-        setRecommendations(result.recommendations);
+        // Luôn set lại recommendations (kể cả mảng rỗng) để xoá gợi ý cũ
+        setRecommendations(result.recommendations ?? []);
       } catch (err) {
         const message =
           err instanceof Error ? err.message : "Không thể gửi tin nhắn";

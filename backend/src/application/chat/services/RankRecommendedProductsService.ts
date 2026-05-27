@@ -6,7 +6,30 @@ import type {
   ExtractedChatIntent,
 } from "../../../domain/chat/types";
 
-const normalize = (value: unknown) => String(value ?? "").toLowerCase();
+// ─── HTML stripping ────────────────────────────────────────────────────────────
+/**
+ * Loại bỏ toàn bộ HTML tags, entities và whitespace thừa từ field text.
+ * Dữ liệu sản phẩm (usageSuggestions, nutritionNotes, description...) có thể
+ * chứa rich-text HTML từ admin editor.
+ */
+const stripHtml = (value: unknown): string => {
+  const text = String(value ?? "");
+  return text
+    .replace(/<[^>]*>/g, " ")          // loại bỏ HTML tags
+    .replace(/&[a-z#0-9]+;/gi, " ")    // loại bỏ HTML entities
+    .replace(/\s+/g, " ")               // chuẩn hóa whitespace
+    .trim();
+};
+
+/** Truncate plain text về maxLen ký tự, thêm "..." nếu cắt */
+const truncatePlain = (text: string, maxLen: number): string => {
+  const plain = stripHtml(text);
+  if (plain.length <= maxLen) return plain;
+  return plain.slice(0, maxLen).replace(/\s+\S*$/, "") + "...";
+};
+
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+const normalize = (value: unknown) => stripHtml(value).toLowerCase();
 const hasKeyword = (haystacks: Array<unknown>, keyword: string) =>
   haystacks.some((value) => normalize(value).includes(normalize(keyword)));
 
@@ -49,7 +72,15 @@ const cautionPenalty = (cautions: ProductHealthCaution[] = []) =>
     0,
   );
 
+// ─── Ranking Service ───────────────────────────────────────────────────────────
 export class RankRecommendedProductsService {
+  /**
+   * Ngưỡng score tối thiểu để một sản phẩm được coi là "thực sự liên quan".
+   * Stock (+5) + Rating (max 5) = 10 → đặt ngưỡng = 11 để buộc phải có ít nhất
+   * 1 keyword match (8đ) hoặc tag match (10đ) thật sự.
+   */
+  private static readonly MIN_RELEVANCE_SCORE = 11;
+
   execute(input: {
     products: ChatProductCandidate[];
     filters: RecommendationFilters;
@@ -61,6 +92,8 @@ export class RankRecommendedProductsService {
       let score = 0;
       const matchedTags = new Set<string>();
       const matchedAttributes: Record<string, any> = {};
+
+      // Các field searchable — đều đã được strip HTML trước khi search
       const searchableTexts = [
         product.title,
         product.description,
@@ -184,30 +217,82 @@ export class RankRecommendedProductsService {
         matchedAttributes.variantId = variantId;
       }
 
+      // ─── Xây reason text từ dữ liệu thực tế của sản phẩm (đã strip HTML) ──
       const reasonParts: string[] = [];
-      if (matchedTags.size)
-        reasonParts.push(
-          `Khớp nhu cầu: ${Array.from(matchedTags).slice(0, 3).join(", ")}`,
-        );
-      if (matchedAttributes.totalStock) reasonParts.push("đang còn hàng");
-      if (matchedAttributes.giftSize)
-        reasonParts.push("có quy cách phù hợp biếu tặng");
-      if (matchedAttributes.juicingFit)
-        reasonParts.push("có gợi ý phù hợp để ép nước");
-      if (!reasonParts.length) reasonParts.push("phù hợp với nhu cầu hiện tại");
+
+      if (matchedAttributes.weightLossFit || matchedAttributes.lowSugarMention) {
+        reasonParts.push("ít đường, phù hợp cho người ăn kiêng");
+      }
+      if (matchedAttributes.juicingFit) {
+        reasonParts.push("phù hợp để ép nước hoặc làm sinh tố");
+      }
+      if (matchedAttributes.giftSize) {
+        reasonParts.push("có quy cách đóng gói đẹp, phù hợp biếu tặng");
+      }
+
+      // Dùng usageSuggestions → nutritionNotes → shortDescription (theo thứ tự ưu tiên)
+      if (product.usageSuggestions) {
+        const plain = truncatePlain(product.usageSuggestions, 70);
+        if (plain) reasonParts.push(plain);
+      } else if (product.nutritionNotes) {
+        const plain = truncatePlain(product.nutritionNotes, 70);
+        if (plain) reasonParts.push(plain);
+      } else if (product.shortDescription) {
+        const plain = truncatePlain(product.shortDescription, 70);
+        if (plain) reasonParts.push(plain);
+      }
+
+      if (product.origin?.name) {
+        reasonParts.push(`Xuất xứ ${product.origin.name}`);
+      }
+
+      const productRating = Number(product.averageRating ?? 0);
+      if (productRating >= 4) {
+        reasonParts.push(`Đánh giá ${productRating.toFixed(1)}/5 ⭐`);
+      }
+
+      if (!reasonParts.length) {
+        reasonParts.push("Phù hợp với nhu cầu hiện tại");
+      }
 
       return {
         product,
         variantId,
         score,
-        reason: reasonParts.join(", "),
+        reason: reasonParts.slice(0, 2).join(" • "),
         matchedTags: Array.from(matchedTags),
         matchedAttributes,
       } as RankedChatRecommendation;
     });
 
-    return ranked.sort(
-      (a, b) => b.score - a.score || a.product.id - b.product.id,
-    );
+    return ranked
+      .filter((item) => {
+        // Ngưỡng điểm cứng: loại bỏ sản phẩm điểm âm sâu (hết hàng + caution nặng)
+        if (item.score < 0) return false;
+
+        // Nếu user có yêu cầu cụ thể (có keyword sau khi loại stopword, hoặc intent không phải general)
+        // thì bắt buộc phải có ít nhất 1 match thực sự (tag, keyword, hoặc thuộc tính intent)
+        const hasSpecificNeeds =
+          filters.keywords.length > 0 ||
+          filters.tags.length > 0 ||
+          filters.usageKeywords.length > 0 ||
+          filters.audienceKeywords.length > 0 ||
+          extractedIntent.primaryIntent !== "general";
+
+        if (hasSpecificNeeds) {
+          const hasMeaningfulMatch =
+            item.matchedTags.length > 0 ||
+            item.matchedAttributes.weightGainFit ||
+            item.matchedAttributes.weightLossFit ||
+            item.matchedAttributes.lowSugarMention ||
+            item.matchedAttributes.juicingFit ||
+            item.matchedAttributes.giftSize;
+
+          if (!hasMeaningfulMatch) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => b.score - a.score || a.product.id - b.product.id);
   }
 }

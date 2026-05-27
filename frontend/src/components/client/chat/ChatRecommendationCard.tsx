@@ -58,9 +58,10 @@ const ChatRecommendationCard: React.FC<ChatRecommendationCardProps> = ({
         </div>
 
         {item.reason ? (
-          <p className="line-clamp-3 text-xs leading-5 text-slate-600">
-            {item.reason}
-          </p>
+          <div className="flex gap-1.5 text-xs leading-5 text-slate-600">
+            <span className="mt-0.5 flex-shrink-0 text-green-600">✓</span>
+            <p className="line-clamp-3">{item.reason}</p>
+          </div>
         ) : null}
 
         {price || compareAtPrice ? (

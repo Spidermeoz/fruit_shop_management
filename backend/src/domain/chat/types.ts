@@ -120,6 +120,14 @@ export interface ExtractedChatIntent {
   shouldAskClarifyingQuestion: boolean;
   shouldAvoidMedicalClaims: boolean;
   requiresDisclaimer: boolean;
+  /** Câu hỏi chứa yêu cầu phi thực tế / fantasy (siêu nhân, bất tử, trẻ lại...) */
+  isUnrealisticRequest: boolean;
+  /** Câu hỏi hoàn toàn ngoài phạm vi cửa hàng trái cây */
+  isOffTopic: boolean;
+  /** Câu hỏi yêu cầu sản phẩm gây hại / tác dụng tiêu cực (béo phì, sỏi thận...) */
+  isHarmfulRequest: boolean;
+  isGreeting: boolean;
+  isSocialChat: boolean;
 }
 
 export interface RecommendationFilters {

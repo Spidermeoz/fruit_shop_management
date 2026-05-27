@@ -47,11 +47,22 @@ export class SendChatMessage {
       extractedFiltersJson: { extractedIntent, filters },
     });
 
-    const recommendationResult = await this.recommendProductsUsecase.execute({
-      userMessage: normalizedContent,
-      extractedIntent,
-      filters,
-    });
+    // Không chạy recommend khi câu hỏi rõ ràng không cần sản phẩm
+    const shouldSkipRecommendation =
+      extractedIntent.isGreeting ||
+      extractedIntent.isSocialChat ||
+      extractedIntent.isOffTopic ||
+      extractedIntent.isHarmfulRequest ||
+      extractedIntent.isUnrealisticRequest;
+
+    const recommendationResult = shouldSkipRecommendation
+      ? { filters, recommendations: [] }
+      : await this.recommendProductsUsecase.execute({
+          userMessage: normalizedContent,
+          extractedIntent,
+          filters,
+        });
+
     const generated = await this.generateAnswerService.execute({
       userMessage: normalizedContent,
       extractedIntent,
@@ -59,6 +70,13 @@ export class SendChatMessage {
       recommendations: recommendationResult.recommendations,
       safety,
     });
+
+    // Nếu LLM quyết định từ chối do câu hỏi vô lý/gây hại/off-topic,
+    // ta bắt tín hiệu [REJECT] và dọn dẹp danh sách recommendations
+    if (generated.text.includes("[REJECT]")) {
+      recommendationResult.recommendations = [];
+      generated.text = generated.text.replace(/\[REJECT\]\s*/g, "").trim();
+    }
 
     const assistantMessage = await this.messageRepo.create({
       chatSessionId: Number(session.id),

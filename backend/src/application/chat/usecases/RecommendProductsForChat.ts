@@ -79,9 +79,25 @@ export class RecommendProductsForChat {
     private healthCautionRepo?: ProductHealthCautionRepository,
   ) {}
 
+  /**
+   * Ngưỡng score tối thiểu để một sản phẩm được coi là "thực sự liên quan".
+   * Score 8 = ít nhất 1 keyword khớp (8 điểm) — loại bỏ các sản phẩm chỉ có điểm
+   * nhờ còn hàng (5đ) hoặc rating (≤5đ) mà không khớp nội dung câu hỏi.
+   */
+  private static readonly MIN_RELEVANCE_SCORE = 8;
+
   async execute(
     input: RecommendProductsInput,
   ): Promise<RecommendProductsOutput> {
+    // Không gợi ý gì nếu câu hỏi phi thực tế, ngoài phạm vi, hoặc yêu cầu gây hại
+    if (
+      input.extractedIntent.isUnrealisticRequest ||
+      input.extractedIntent.isOffTopic ||
+      input.extractedIntent.isHarmfulRequest
+    ) {
+      return { filters: input.filters, recommendations: [] };
+    }
+
     const [primary, fallback] = await Promise.all([
       this.productRepo.list({
         page: 1,
@@ -136,7 +152,9 @@ export class RecommendProductsForChat {
         filters: input.filters,
         extractedIntent: input.extractedIntent,
       })
-      .filter((item) => item.score > -10)
+      .filter(
+        (item) => item.score >= RecommendProductsForChat.MIN_RELEVANCE_SCORE,
+      )
       .slice(0, input.filters.maxResults);
 
     return { filters: input.filters, recommendations: ranked };
