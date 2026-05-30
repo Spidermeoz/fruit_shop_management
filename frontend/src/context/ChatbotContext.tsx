@@ -13,9 +13,12 @@ import type {
   ChatMessage,
   ChatQuickAction,
   ChatRecommendation,
+  SendChatMessageResponse,
 } from "../types/chat";
 
 const STORAGE_KEY = "phase9-chatbot-session-id";
+/** TTL cho quick-action cache: 5 phút */
+const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const quickActions: ChatQuickAction[] = [
   {
@@ -41,6 +44,14 @@ const quickActions: ChatQuickAction[] = [
       "Tôi muốn chọn hoa quả để biếu tặng, ưu tiên hình thức đẹp và size phù hợp.",
   },
 ];
+
+/** Prompt → { result, expiresAt } */
+type CacheEntry = {
+  result: SendChatMessageResponse;
+  expiresAt: number;
+};
+
+const quickActionPrompts = new Set(quickActions.map((qa) => qa.prompt));
 
 const ChatbotContext = createContext<ChatContextValue | undefined>(undefined);
 
@@ -68,6 +79,10 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
   const [error, setError] = useState<string | null>(null);
   const hydratedRef = useRef(false);
 
+  /** In-memory cache cho Quick Action responses */
+  const cacheRef = useRef<Map<string, CacheEntry>>(new Map());
+
+  // ── Restore sessionId từ sessionStorage ──────────────────────────────────
   useEffect(() => {
     const saved = window.sessionStorage.getItem(STORAGE_KEY);
     if (!saved) return;
@@ -108,8 +123,6 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
           typeof navigator !== "undefined" ? navigator.userAgent : null,
       },
     });
-    // Đánh dấu là đã hydrate để tránh useEffect loadHistory bị gọi đè 
-    // trong lúc sendMessage đang chạy trên session mới tinh này
     hydratedRef.current = true;
     setSessionId(session.id);
     return session.id;
@@ -140,6 +153,48 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
     void loadHistory();
   }, [isOpen, sessionId, loadHistory]);
 
+  // ── Prefetch quick action cache khi widget mở ─────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const controller = new AbortController();
+
+    const prefetch = async () => {
+      for (const qa of quickActions) {
+        if (controller.signal.aborted) break;
+        const cached = cacheRef.current.get(qa.prompt);
+        if (cached && cached.expiresAt > Date.now()) continue; // còn hạn
+
+        try {
+          // Tạo session tạm để prefetch (không lưu vào state)
+          const tempSession = await chatClient.createSession({ channel: "web" });
+          if (controller.signal.aborted) break;
+          const result = await chatClient.sendMessage(tempSession.id, {
+            content: qa.prompt,
+          });
+          if (!controller.signal.aborted) {
+            cacheRef.current.set(qa.prompt, {
+              result,
+              expiresAt: Date.now() + CACHE_TTL_MS,
+            });
+          }
+        } catch {
+          // Prefetch thất bại thì bỏ qua, vẫn fallback về gọi API bình thường
+        }
+      }
+    };
+
+    // Delay 2 giây sau khi mở widget mới bắt đầu prefetch (không tranh tài nguyên)
+    const timer = setTimeout(() => {
+      void prefetch();
+    }, 2000);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [isOpen]);
+
   const sendMessage = useCallback(
     async (content: string) => {
       const trimmed = content.trim();
@@ -152,10 +207,44 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
       setIsOpen(true);
 
       try {
-        const ensuredSessionId = await ensureSession();
-        const result = await chatClient.sendMessage(ensuredSessionId, {
-          content: trimmed,
-        });
+        // ── Kiểm tra cache cho quick actions ─────────────────────────────────
+        const isQuickAction = quickActionPrompts.has(trimmed);
+        const cached = isQuickAction
+          ? cacheRef.current.get(trimmed)
+          : undefined;
+
+        let result: SendChatMessageResponse;
+
+        if (cached && cached.expiresAt > Date.now()) {
+          // Cache HIT → dùng kết quả cũ nhưng tạo session mới thực sự
+          // để message được lưu vào DB và sessionId hợp lệ
+          const ensuredSessionId = await ensureSession();
+          // Gửi message thật ngầm (không await) để lưu DB
+          chatClient
+            .sendMessage(ensuredSessionId, { content: trimmed })
+            .catch(() => {
+              /* ignore background save */
+            });
+          // Hiển thị ngay từ cache
+          result = {
+            ...cached.result,
+            session: { ...cached.result.session, id: ensuredSessionId },
+          };
+        } else {
+          // Cache MISS → gọi API bình thường
+          const ensuredSessionId = await ensureSession();
+          result = await chatClient.sendMessage(ensuredSessionId, {
+            content: trimmed,
+          });
+
+          // Lưu vào cache nếu là quick action
+          if (isQuickAction) {
+            cacheRef.current.set(trimmed, {
+              result,
+              expiresAt: Date.now() + CACHE_TTL_MS,
+            });
+          }
+        }
 
         setSessionId(result.session.id);
         setMessages((prev) => {
@@ -168,7 +257,6 @@ export const ChatbotProvider: React.FC<{ children: React.ReactNode }> = ({
             result.assistantMessage,
           ];
         });
-        // Luôn set lại recommendations (kể cả mảng rỗng) để xoá gợi ý cũ
         setRecommendations(result.recommendations ?? []);
       } catch (err) {
         const message =
