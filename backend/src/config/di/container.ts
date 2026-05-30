@@ -1807,7 +1807,7 @@ export const usecases = {
   carts: {
     addToCart: new AddToCart(cartRepo, productRepo, inventoryRepo),
     listItems: new ListCartItems(cartRepo),
-    updateItem: new UpdateCartItem(cartRepo, productRepo, inventoryRepo),
+    updateItem: new UpdateCartItem(cartRepo, productRepo),
     removeItem: new RemoveFromCart(cartRepo),
     removeAllItems: new RemoveAllFromCart(cartRepo),
   },
