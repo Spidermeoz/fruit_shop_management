@@ -1,5 +1,6 @@
 import type {
   ChatSafetyAssessment,
+  ConversationTurn,
   ExtractedChatIntent,
   RankedChatRecommendation,
   RecommendationFilters,
@@ -181,6 +182,7 @@ export class GenerateChatAnswerService {
     filters: RecommendationFilters;
     recommendations: RankedChatRecommendation[];
     safety: ChatSafetyAssessment;
+    conversationHistory?: ConversationTurn[];
   }): Promise<ChatModelGenerateOutput> {
     const fallbackText = formatFallback({
       recommendations: input.recommendations,
@@ -199,7 +201,11 @@ export class GenerateChatAnswerService {
     }
 
     try {
-      const prompt = this.promptBuilder.execute(input);
+      // Truyền conversationHistory vào promptBuilder để AI hiểu ngữ cảnh đa lượt
+      const prompt = this.promptBuilder.execute({
+        ...input,
+        conversationHistory: input.conversationHistory ?? [],
+      });
       const response = await this.chatModel.generate({
         systemPrompt: prompt.systemPrompt,
         userPrompt: prompt.userPrompt,

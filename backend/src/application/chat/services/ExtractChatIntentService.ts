@@ -1,6 +1,7 @@
 import type {
   ChatIntentKey,
   ChatSizePreference,
+  ConversationTurn,
   ExtractedChatIntent,
 } from "../../../domain/chat/types";
 
@@ -323,31 +324,137 @@ const detectOffTopic = (text: string): boolean => {
   return false;
 };
 
+// ─── Patterns: Câu hỏi nối tiếp ngữ cảnh (Follow-up) ─────────────────────────────
+/**
+ * Bắt các câu hỏi ngắn, ngữ cảnh phụ thuộc vào lượt trước.
+ * Ví dụ: "loại nào rẻ hơn?", "đó có vitamin c không", "còn cái nào nữa không"
+ */
+const CONTEXTUAL_FOLLOWUP_PATTERNS: RegExp[] = [
+  // Đại từ thảy thế rõ ràng
+  /^(cái|loại|quả|trái|sản\s*phẩm|cơi|cách)\s*(nào|kia|này|[0-9]+|trước|sau|vừa\s*rồi|bạn\s*vừa|mình\s*vừa)/i,
+  // Câu hỏi hỏi thêm về sản phẩm trong kết quả trước
+  /^(cái|loại|quả|sản\s*phẩm)\s*(số|thứ)\s*[0-9]+/i,
+  // Hỏi tiếp về giá
+  /^(giá|bao\s*(nhiêu|tiền|ngàn)|mấy\s*(tiền|ngàn|trăm|thọi))[?\s]*$/i,
+  // Hỏi so sánh với lượt trước
+  /(rẻ|mắc|tốt|ngon|ngon\s*hơn|rẻ\s*hơn|mua\s*được\s*không)\s*[?]?$/i,
+  // Còn, thêm, khác
+  /^(còn|thêm|khác|nữa|nào|gì)\s+(nữa|khác|không)[?\s]*$/i,
+  // "Đó có X không" hay "cái đó X không"
+  /^(đó|cái\s*đó|cái\s*kia|loại\s*đó|sản\s*phẩm\s*đó)\s+/i,
+  // "Cái [tên sản phẩm] có X không" — mắ chẩm dứt phủ thuộc
+  /(vitamin|chất\s*(xơ|đạm|béo|khoáng)|cơ|nước|calo|dinh\s*dưỡng)\s*(có|không|bao\s*nhiêu)[?\s]*$/i,
+  // Mua thêm, lấy thêm
+  /^(mua|lấy|cho\s*mình|order|thêm)\s+(thêm|cái|loại|quả)?\s*[0-9]*[?\s]*$/i,
+  // "Loại nào tốt nhất trong mấy loại này"
+  /(trong|giữa|với\s*nhau|mấy\s*loại|cả\s*hai|cả\s*ba|hai\s*loại|ba\s*loại)/i,
+  // "Mua cái nào thì ngon hơn"
+  /cái\s*nào\s+(thì\s+)?(ngon|tốt|phù\s*hợp|nên|nên\s*mua|hơn)/i,
+];
+
+/**
+ * Trích xuất keywords có nghĩa từ lịch sử hội thoại:
+ * Chỉ lấy từ user messages, loai bỏ stopwords.
+ */
+const extractContextKeywords = (
+  history: ConversationTurn[],
+): string[] => {
+  const userMessages = history
+    .filter((turn) => turn.role === "user")
+    .map((turn) => turn.content.toLowerCase())
+    .join(" ");
+
+  return userMessages
+    .normalize("NFKC")
+    .split(/[^\p{L}\p{N}]+/u)
+    .map((word) => word.trim())
+    .filter((word) => word.length >= 2 && !STOPWORDS.has(word))
+    .slice(0, 15);
+};
+
+/**
+ * Lấy primary intent từ lịch sử hội thoại (câu trả lời gần nhất của assistant có intent)
+ */
+const extractContextIntent = (
+  history: ConversationTurn[],
+): ChatIntentKey | null => {
+  // Tìm user messages gần nhất có intent cụ thể
+  for (let i = history.length - 1; i >= 0; i--) {
+    const turn = history[i];
+    if (turn.role !== "user") continue;
+    const lower = turn.content.toLowerCase();
+    for (const { intent, patterns } of INTENT_PATTERNS) {
+      if (patterns.some((p) => p.test(lower))) return intent;
+    }
+  }
+  return null;
+};
+
 // ─── Main Service ─────────────────────────────────────────────────────────────
 export class ExtractChatIntentService {
-  execute(message: string): ExtractedChatIntent {
+  execute(
+    message: string,
+    conversationHistory: ConversationTurn[] = [],
+  ): ExtractedChatIntent {
     const normalizedText = String(message ?? "").trim();
     const lower = normalizedText.toLowerCase();
 
+    // ── Phân tích intent từ tin nhắn hiện tại ──────────────────────────────────
     const intents = INTENT_PATTERNS.filter((item) =>
       item.patterns.some((pattern) => pattern.test(lower)),
     ).map((item) => item.intent);
-    const primaryIntent = intents[0] ?? "general";
 
+    // ── Trích xuất ngữ cảnh từ lịch sử hội thoại ──────────────────────────────
+    const hasHistory = conversationHistory.length > 0;
+    const contextKeywords = hasHistory
+      ? extractContextKeywords(conversationHistory)
+      : [];
+    const contextIntent = hasHistory
+      ? extractContextIntent(conversationHistory)
+      : null;
+
+    // Phát hiện câu hỏi nối tiếp ngữ cảnh
+    const isContextualFollowUp =
+      hasHistory &&
+      intents.length === 0 &&
+      CONTEXTUAL_FOLLOWUP_PATTERNS.some((p) => p.test(lower));
+
+    // Nếu là follow-up và không có intent riêng, kế thừa intent từ ngữ cảnh
+    const effectiveIntents =
+      intents.length > 0
+        ? intents
+        : isContextualFollowUp && contextIntent
+          ? [contextIntent]
+          : intents;
+
+    const primaryIntent = effectiveIntents[0] ?? "general";
+
+    // ── Keywords từ tin nhắn hiện tại ──────────────────────────────────────────
     const keywords = lower
       .normalize("NFKC")
       .split(/[^\p{L}\p{N}]+/u)
       .map((word) => word.trim())
       .filter((word) => word.length >= 2 && !STOPWORDS.has(word));
 
+    // Với follow-up, bổ sung context keywords để tăng khả năng tìm kiếm
+    const enrichedKeywords = isContextualFollowUp
+      ? Array.from(new Set([...keywords, ...contextKeywords])).slice(0, 15)
+      : Array.from(new Set(keywords)).slice(0, 12);
+
     const audienceKeywords = AUDIENCE_KEYWORDS.filter((item) =>
       lower.includes(item),
     );
     const usageKeywords = USAGE_KEYWORDS.filter((item) => lower.includes(item));
     const tags = Array.from(
-      new Set([...intents, ...audienceKeywords, ...usageKeywords, ...keywords]),
+      new Set([
+        ...effectiveIntents,
+        ...audienceKeywords,
+        ...usageKeywords,
+        ...enrichedKeywords,
+      ]),
     ).slice(0, 20);
 
+    // ── Safety checks (dựa trên tin nhắn hiện tại, không kế thừa history) ──────
     const isHarmfulRequest = detectHarmfulRequest(lower);
     const isUnrealisticRequest =
       !isHarmfulRequest && detectUnrealisticRequest(lower);
@@ -365,16 +472,22 @@ export class ExtractChatIntentService {
       !isGreeting &&
       detectSocialChat(lower);
 
-    // Kiểm tra xem câu hỏi có chứa BẤT KỲ tín hiệu nào liên quan đến thực phẩm/sức khỏe không
-    const hasFoodHealthSignal = FOOD_HEALTH_SIGNALS.some((p) => p.test(lower));
+    // Kiểm tra tín hiệu thực phẩm/sức khỏe
+    // Follow-up trong ngữ cảnh thực phẩm → cũng xét là có food signal
+    const hasFoodHealthSignal =
+      FOOD_HEALTH_SIGNALS.some((p) => p.test(lower)) ||
+      (isContextualFollowUp &&
+        contextKeywords.some((kw) =>
+          FOOD_HEALTH_SIGNALS.some((p) => p.test(kw)),
+        ));
 
     return {
       rawText: normalizedText,
       normalizedText,
       primaryIntent,
-      intents: intents.length ? intents : ["general"],
+      intents: effectiveIntents.length ? effectiveIntents : ["general"],
       tags,
-      keywords: Array.from(new Set(keywords)).slice(0, 12),
+      keywords: enrichedKeywords,
       audienceKeywords,
       usageKeywords,
       sizePreference: detectSizePreference(lower),
@@ -385,7 +498,8 @@ export class ExtractChatIntentService {
         !isHarmfulRequest &&
         !isGreeting &&
         !isSocialChat &&
-        intents.length === 0 &&
+        !isContextualFollowUp && // Follow-up không cần hỏi thêm
+        effectiveIntents.length === 0 &&
         keywords.length < 2,
       shouldAvoidMedicalClaims:
         /(tiểu đường|huyết áp|bệnh|thuốc|mang thai)/i.test(lower),
@@ -398,6 +512,9 @@ export class ExtractChatIntentService {
       isGreeting,
       isSocialChat,
       hasFoodHealthSignal,
+      isContextualFollowUp,
+      contextKeywords,
     };
   }
 }
+

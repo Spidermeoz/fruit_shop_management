@@ -1,5 +1,6 @@
 import type {
   ChatSafetyAssessment,
+  ConversationTurn,
   ExtractedChatIntent,
   RankedChatRecommendation,
   RecommendationFilters,
@@ -49,6 +50,23 @@ const productToPromptLine = (item: RankedChatRecommendation, index: number) => {
     .join("\n");
 };
 
+/**
+ * Dựng đoạn lịch sử hội thoại thành định dạng rõ ràng cho AI.
+ * Chỉ giữ tối đa 6 lượt (3 user + 3 assistant) để tránh tốn token.
+ */
+const buildConversationHistorySection = (
+  history: ConversationTurn[],
+): string | null => {
+  if (!history.length) return null;
+  const recentTurns = history.slice(-6);
+  const lines = recentTurns.map((turn) => {
+    const role = turn.role === "user" ? "Khách" : "Tư vấn viên";
+    const content = truncatePrompt(turn.content, 200);
+    return `${role}: ${content}`;
+  });
+  return `--- LỊCH SỬ HỘI THOẠI GẦN ĐÂY ---\n${lines.join("\n")}\n--- KẾT THÚC LỊCH SỬ ---`;
+};
+
 export class BuildChatPromptService {
   execute(input: {
     userMessage: string;
@@ -56,12 +74,22 @@ export class BuildChatPromptService {
     filters: RecommendationFilters;
     recommendations: RankedChatRecommendation[];
     safety: ChatSafetyAssessment;
+    conversationHistory?: ConversationTurn[];
   }) {
-    const { userMessage, extractedIntent, filters, recommendations, safety } =
-      input;
+    const {
+      userMessage,
+      extractedIntent,
+      filters,
+      recommendations,
+      safety,
+      conversationHistory = [],
+    } = input;
 
     const systemPromptParts = [
       "Bạn là nhân viên tư vấn chuyên nghiệp của cửa hàng trái cây. Nhiệm vụ duy nhất của bạn là giúp khách hàng tìm sản phẩm trái cây phù hợp.",
+
+      // — Quy tắc hiểu ngữ cảnh đa lượt —
+      "BẠN CÓ KHẢ NĂNG NHỚ lịch sử hội thoại. Khi khách hỏi câu ngắn như 'Còn cái nào nữa không?', 'Loại nào rẻ hơn?', 'Cái đó có vitamin C không?' — hãy nhìn vào LỊCH SỬ HỘI THOẠI để hiểu họ đang nói về sản phẩm nào, chủ đề gì từ lượt trước.",
 
       // — Quy tắc coi mục đích câu hỏi —
       "LƯU Ý CỰC KỲ QUAN TRỌNG: Lắng nghe kỹ câu hỏi của khách. Nếu câu hỏi rơi vào các trường hợp sau:",
@@ -72,7 +100,7 @@ export class BuildChatPromptService {
       "-> BẠN BẮT BUỘC phải bắt đầu câu trả lời bằng đúng chuỗi ký tự `[REJECT]` (viết hoa, có ngoặc vuông). Sau đó viết lời giải thích thân thiện để từ chối hoặc chào lại. Tuyệt đối KHÔNG đưa ra danh sách sản phẩm trong trường hợp này.",
 
       // — Quy tắc trình bày khi có sản phẩm —
-      "Khi gợi ý sản phẩm, BẪN PHẢI: (1) Bắt đầu bằng câu nhắc lại yêu cầu của khách và giải thích tại sao lại chọn những sản phẩm này dựa trên ghi chú dinh dưỡng và công dụng thực tế. (2) Liệt kê từng sản phẩm có giải thích NGẮN GỌN tại sao phù hợp. (3) Thêm lưu ý nếu cần.",
+      "Khi gợi ý sản phẩm, BẠN PHẢI: (1) Bắt đầu bằng câu nhắc lại yêu cầu của khách và giải thích tại sao lại chọn những sản phẩm này dựa trên ghi chú dinh dưỡng và công dụng thực tế. (2) Liệt kê từng sản phẩm có giải thích NGẮN GỌN tại sao phù hợp. (3) Thêm lưu ý nếu cần.",
       "TUYỆT ĐỐI KHÔNG sao chép y hệt dòng 'Lý do hệ thống chọn'. Thay vào đó hãy dùng ngôn ngữ tự nhiên dựa vào Mô tả ngắn và Ghi chú dinh dưỡng của sản phẩm.",
       "KHÔNG tự bịa ra sản phẩm hoặc công dụng không có trong dữ liệu.",
       "KHÔNG chẩn đoán, kê đơn hoặc nói như bác sĩ.",
@@ -80,7 +108,7 @@ export class BuildChatPromptService {
 
       // — Cảnh báo y tế —
       safety.shouldAvoidMedicalClaims
-        ? "Câu hỏi liên quan đến sức khỏe đặc thù. Chỉ trả lời ở mức tham khảo, tránh mọi khẳng định y khoa mạnh, không dùng từ như  'chữa', 'trị', 'điều trị'."
+        ? "Câu hỏi liên quan đến sức khỏe đặc thù. Chỉ trả lời ở mức tham khảo, tránh mọi khẳng định y khoa mạnh, không dùng từ như 'chữa', 'trị', 'điều trị'."
         : null,
       extractedIntent.requiresDisclaimer || safety.requiresDisclaimer
         ? "Kết thúc bằng disclaimer ngắn: 'Thông tin mang tính tham khảo, không thay thế tư vấn bác sĩ hoặc chuyên gia dinh dưỡng.'"
@@ -96,10 +124,26 @@ export class BuildChatPromptService {
             .join("\n\n")}`
         : "Không tìm thấy sản phẩm phù hợp trong kho dữ liệu hiện có.";
 
+    // Xây dựng phần lịch sử hội thoại (chỉ hiển thị nếu có)
+    const historySection = buildConversationHistorySection(conversationHistory);
+
+    // Ghi chú follow-up context nếu có
+    const followUpNote =
+      extractedIntent.isContextualFollowUp && extractedIntent.contextKeywords.length > 0
+        ? `[Ngữ cảnh nhận diện: Câu hỏi nối tiếp. Từ khóa từ cuộc trò chuyện trước: ${extractedIntent.contextKeywords.slice(0, 8).join(", ")}]`
+        : null;
+
     const userPromptParts = [
-      `Câu hỏi của khách: "${userMessage}"`,
-      `Intent phát hiện: ${extractedIntent.primaryIntent}`,
-      // 1. Luôn cho LLM quyền phủ quyết (veto power) nếu câu hỏi có vấn đề
+      // Lịch sử hội thoại → đặt đầu tiên để AI có context
+      historySection,
+
+      // Ngữ cảnh follow-up (nếu có)
+      followUpNote,
+
+      `Câu hỏi hiện tại của khách: "${userMessage}"`,
+      `Intent phát hiện: ${extractedIntent.primaryIntent}${extractedIntent.isContextualFollowUp ? " (câu hỏi nối tiếp ngữ cảnh)" : ""}`,
+
+      // Quyền phủ quyết của AI
       "Nếu câu hỏi hoàn toàn vô lý (ví dụ: ăn vào sẽ học giỏi hơn, phép thuật, bất tử...), mang tính chửi bới/gây hấn (ví dụ: đồ ngu ngốc...), gây hại sức khỏe (ví dụ: ăn để bị bệnh...), hoặc ngoài lề, HÃY CHỦ ĐỘNG bắt đầu câu trả lời bằng `[REJECT]` để từ chối lịch sự và KHÔNG liệt kê sản phẩm.",
       extractedIntent.isHarmfulRequest
         ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Câu hỏi này yêu cầu sản phẩm GÂY HẠI. Bắt buộc dùng `[REJECT]`."
@@ -114,7 +158,7 @@ export class BuildChatPromptService {
         ? "⚠️ CẢNH BÁO TỪ HỆ THỐNG: Lời chào hoặc chat xã giao. Hãy chào lại, từ chối và KHÔNG gợi ý sản phẩm (Nên dùng `[REJECT]`)."
         : null,
 
-      // 2. Data cho context
+      // Data cho context
       filters.keywords.length
         ? `Từ khóa trích xuất: ${filters.keywords.join(", ")}`
         : null,
@@ -123,7 +167,7 @@ export class BuildChatPromptService {
         : null,
       productSection,
 
-      // 3. Định dạng đầu ra nếu câu hỏi hợp lệ
+      // Định dạng đầu ra nếu câu hỏi hợp lệ
       "Nếu câu hỏi HOÀN TOÀN HỢP LÝ và liên quan đến trái cây:",
       recommendations.length > 0
         ? "=> Hãy trả lời theo format: (1) Nhắc lại yêu cầu và giải thích tại sao những sản phẩm này phù hợp; (2) Liệt kê sản phẩm; (3) Thêm lưu ý."

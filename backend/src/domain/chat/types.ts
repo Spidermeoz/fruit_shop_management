@@ -130,6 +130,10 @@ export interface ExtractedChatIntent {
   isSocialChat: boolean;
   /** true nếu câu hỏi chứa ít nhất 1 tín hiệu liên quan đến thực phẩm/sức khỏe/trái cây */
   hasFoodHealthSignal: boolean;
+  /** true nếu đây là câu hỏi nối tiếp ngữ cảnh ("loại nào rẻ hơn", "đó có vitamin c không") */
+  isContextualFollowUp: boolean;
+  /** Danh sách từ khóa rút ra từ lịch sử hội thoại trước đó để bổ sung ngữ cảnh */
+  contextKeywords: string[];
 }
 
 export interface RecommendationFilters {
@@ -225,6 +229,12 @@ export interface ChatSessionDetail {
   session: ChatSession;
   messages: ChatMessage[];
 }
+/** Một lượt hội thoại (user → assistant) để làm ngữ cảnh multi-turn */
+export interface ConversationTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface RecommendProductsInput {
   userMessage: string;
   extractedIntent: ExtractedChatIntent;
