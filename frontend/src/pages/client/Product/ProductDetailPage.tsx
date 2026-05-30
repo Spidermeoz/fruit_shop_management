@@ -826,22 +826,39 @@ const ProductDetailPage: React.FC = () => {
                 <Leaf className="w-4 h-4" /> Trái cây tươi tuyển chọn
               </span>
 
-              <h1 className="text-3xl md:text-5xl font-black text-slate-900 leading-tight mb-4">
+              <h1 className="text-3xl md:text-3xl font-black text-slate-900 leading-tight mb-4">
                 {product.title}
               </h1>
 
-              {/* 2.F Bổ sung Short Description ngay dưới title */}
-              {product.shortDescription && (
-                <p className="text-slate-600 text-base md:text-lg font-medium leading-relaxed mb-6">
-                  {product.shortDescription}
-                </p>
-              )}
+              {/* 2.F SKU & Xuất Xứ Area */}
+              <div className="flex flex-wrap items-center gap-2 mb-6 text-sm text-slate-500">
+                {activeVariant?.sku && (
+                  <div>
+                    <span className="font-bold text-slate-700">SKU:</span>{" "}
+                    {activeVariant.sku}
+                  </div>
+                )}
 
+                {activeVariant?.sku && product.origin?.name && (
+                  <span className="text-slate-300">|</span>
+                )}
+
+                {product.origin?.name && (
+                  <div>
+                    <span className="font-bold text-slate-700">Xuất xứ:</span>{" "}
+                    {product.origin.name}
+                    {product.origin.countryCode
+                      ? ` (${product.origin.countryCode})`
+                      : ""}
+                  </div>
+                )}
+              </div>
+             
               {/* Price Block */}
               <div className="flex items-end gap-4 mb-8 flex-wrap">
                 {hasVariantComparePrice ? (
                   <>
-                    <span className="text-4xl md:text-5xl font-black text-green-600 tracking-tight">
+                    <span className="text-4xl md:text-3xl font-black text-green-600 tracking-tight">
                       {displayPrice.toLocaleString("vi-VN")} đ
                     </span>
                     <div className="flex flex-col mb-1.5">
@@ -851,14 +868,14 @@ const ProductDetailPage: React.FC = () => {
                     </div>
                   </>
                 ) : (
-                  <span className="text-4xl md:text-5xl font-black text-green-600 tracking-tight">
+                  <span className="text-4xl md:text-3xl font-black text-green-600 tracking-tight">
                     {displayPrice.toLocaleString("vi-VN")} đ
                   </span>
                 )}
 
-                <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2 ml-2">
+                {/* <span className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-2 ml-2">
                   {activeVariant?.title || "Quy cách mặc định"}
-                </span>
+                </span> */}
               </div>
 
               {/* Mini Features */}
@@ -871,20 +888,6 @@ const ProductDetailPage: React.FC = () => {
                   <Truck className="w-4 h-4 text-blue-500" /> Giao nhanh 2h
                 </div>
               </div>
-
-              {/* 2.F Tags List */}
-              {Array.isArray(product.tags) && product.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-8">
-                  {product.tags.map((tag) => (
-                    <span
-                      key={tag.id}
-                      className="px-3 py-1.5 rounded-xl bg-green-50 text-green-700 border border-green-100 text-xs font-bold"
-                    >
-                      {tag.name}
-                    </span>
-                  ))}
-                </div>
-              )}
 
               {/* Variant / Option Selector */}
               {product.options && product.options.length > 0 && (
@@ -950,26 +953,6 @@ const ProductDetailPage: React.FC = () => {
                   <span className="text-slate-400">
                     Mã SP: {activeVariant?.sku || `#${product.id}`}
                   </span>
-                </div>
-
-                {/* 2.F SKU & Xuất Xứ Area */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-sm">
-                  {activeVariant?.sku && (
-                    <div className="text-slate-500">
-                      <span className="font-bold text-slate-700">SKU:</span>{" "}
-                      {activeVariant.sku}
-                    </div>
-                  )}
-
-                  {product.origin?.name && (
-                    <div className="text-slate-500">
-                      <span className="font-bold text-slate-700">Xuất xứ:</span>{" "}
-                      {product.origin.name}
-                      {product.origin.countryCode
-                        ? ` (${product.origin.countryCode})`
-                        : ""}
-                    </div>
-                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-4">

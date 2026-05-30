@@ -308,13 +308,12 @@ const CartPage: React.FC = () => {
                                 {item.product?.title}
                               </Link>
 
-                              {item.variant?.title && (
-                                <p className="text-sm font-bold text-slate-500 mb-1">
-                                  {item.variant.title}
+                              <div className="mb-4 sm:mb-0">
+                                <p className="text-green-600 font-black text-lg">
+                                  {getEffectivePrice(item).toLocaleString()} đ
                                 </p>
-                              )}
 
-                              {item.variant?.optionValues &&
+                                {item.variant?.optionValues &&
                                 item.variant.optionValues.length > 0 && (
                                   <p className="text-xs text-slate-400 font-medium mb-2">
                                     {item.variant.optionValues
@@ -322,21 +321,6 @@ const CartPage: React.FC = () => {
                                       .join(" / ")}
                                   </p>
                                 )}
-
-                              <div className="mb-4 sm:mb-0">
-                                <p className="text-green-600 font-black text-lg">
-                                  {getEffectivePrice(item).toLocaleString()} đ
-                                </p>
-
-                                {item.variant?.sku && (
-                                  <p className="text-xs text-slate-400 font-medium mt-1">
-                                    SKU: {item.variant.sku}
-                                  </p>
-                                )}
-
-                                <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-wider">
-                                  Quy cách: {item.variant?.title || "Mặc định"}
-                                </p>
 
                                 <p className="text-xs text-slate-400 font-medium mt-1">
                                   Tồn khả dụng: {availableStock}
