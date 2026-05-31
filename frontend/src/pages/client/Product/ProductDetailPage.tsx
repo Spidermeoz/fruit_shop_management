@@ -629,13 +629,9 @@ const ProductDetailPage: React.FC = () => {
         title: "Thêm vào giỏ hàng thành công",
         message: (
           <p>
-            Bạn đã thêm{" "}
-            <span className="font-bold text-slate-900">{quantity}</span> ×{" "}
-            <span className="font-bold text-green-700">
-              {product.title}
-              {activeVariant.title ? ` - ${activeVariant.title}` : ""}
-            </span>{" "}
-            vào giỏ hàng.
+            Bạn đã thêm {" "}
+            <span className="font-bold text-slate-900">{quantity}</span>{" "}
+             sản phẩm vào giỏ hàng.
           </p>
         ),
       });

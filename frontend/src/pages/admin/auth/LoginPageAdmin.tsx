@@ -1,23 +1,45 @@
 import React, { useState } from "react";
-import { useLocation, useNavigate, type Location } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../context/AuthContextAdmin";
 
-interface LocationState {
-  from?: {
-    pathname?: string;
-  };
-}
+// interface LocationState {
+//   from?: {
+//     pathname?: string;
+//   };
+// }
 
 const LoginPageAdmin: React.FC = () => {
   const { login } = useAuth();
   const nav = useNavigate();
-  const loc = useLocation() as Location<LocationState>;
-  const from = loc.state?.from?.pathname || "/admin/dashboard";
+  // const loc = useLocation() as Location<LocationState>;
+  // const from = loc.state?.from?.pathname || "/admin/dashboard";
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+
+  // const onSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setError("");
+
+  //   try {
+  //     setLoading(true);
+  //     await login(form.email, form.password);
+  //     nav(from, { replace: true });
+  //   } catch (err: any) {
+  //     const rawMessage = String(err?.message || "Đăng nhập thất bại");
+
+  //     const friendlyMessage =
+  //       /khách hàng không thể đăng nhập trang quản trị/i.test(rawMessage)
+  //         ? "Tài khoản khách hàng không thể đăng nhập trang quản trị."
+  //         : rawMessage;
+
+  //     setError(friendlyMessage);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,8 +47,10 @@ const LoginPageAdmin: React.FC = () => {
 
     try {
       setLoading(true);
+
       await login(form.email, form.password);
-      nav(from, { replace: true });
+
+      nav("/admin/dashboard", { replace: true });
     } catch (err: any) {
       const rawMessage = String(err?.message || "Đăng nhập thất bại");
 
@@ -40,6 +64,7 @@ const LoginPageAdmin: React.FC = () => {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-[#fcfdfc] text-slate-800 font-sans selection:bg-blue-200 selection:text-blue-900 relative overflow-hidden">
