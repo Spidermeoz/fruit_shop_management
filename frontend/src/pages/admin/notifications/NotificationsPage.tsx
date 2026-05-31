@@ -31,13 +31,13 @@ const categoryOptions: Array<{
   value: NotificationCategory | "all";
 }> = [
   { label: "Tất cả nhóm", value: "all" },
-  { label: "Đơn hàng", value: "orders" },
+  { label: "Đơn hàng", value: "order" },
   { label: "Tồn kho", value: "inventory" },
-  { label: "Review", value: "reviews" },
-  { label: "Chi nhánh", value: "branches" },
+  { label: "Review", value: "review" },
+  { label: "Chi nhánh", value: "branche" },
   { label: "Giao hàng", value: "shipping" },
-  { label: "Khuyến mãi", value: "promotions" },
-  { label: "User", value: "users" },
+  { label: "Khuyến mãi", value: "promotion" },
+  { label: "User", value: "user" },
   { label: "Nội dung", value: "content" },
   { label: "Hệ thống", value: "system" },
 ];
@@ -60,13 +60,9 @@ const NotificationsPage: React.FC = () => {
   const params = useMemo(
     () => ({
       page,
-      limit: 12,
-      q: search,
-      severity,
-      category,
-      readState,
+      limit: 12
     }),
-    [page, search, severity, category, readState],
+    [page],
   );
 
   const {
@@ -84,6 +80,47 @@ const NotificationsPage: React.FC = () => {
     autoFetch: true,
     pollIntervalMs: 15000,
   });
+
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchSearch =
+        !search.trim() ||
+        [
+          item.title,
+          item.message,
+        ]
+          .filter(Boolean)
+          .some((value) =>
+            value.toLowerCase().includes(search.trim().toLowerCase()),
+          );
+
+      const matchSeverity =
+        severity === "all" ||
+        item.severity === severity;
+
+      const matchCategory =
+        category === "all" ||
+        item.category === category;
+
+      const matchReadState =
+        readState === "all" ||
+        (readState === "read" && item.isRead) ||
+        (readState === "unread" && !item.isRead);
+
+      return (
+        matchSearch &&
+        matchSeverity &&
+        matchCategory &&
+        matchReadState
+      );
+    });
+  }, [
+    items,
+    search,
+    severity,
+    category,
+    readState,
+  ]);
 
   const handleItemClick = async (item: NotificationItem) => {
     if (!item.isRead) {
@@ -150,7 +187,7 @@ const NotificationsPage: React.FC = () => {
             </span>
           </div>
           <div className="text-xl font-black text-gray-900 dark:text-white">
-            {pagination.total}
+            {filteredItems.length} / {pagination.total}
           </div>
         </div>
 
@@ -199,7 +236,6 @@ const NotificationsPage: React.FC = () => {
               <input
                 value={search}
                 onChange={(e) => {
-                  setPage(1);
                   setSearch(e.target.value);
                 }}
                 placeholder="Tiêu đề, nội dung..."
@@ -215,7 +251,6 @@ const NotificationsPage: React.FC = () => {
             <select
               value={severity}
               onChange={(e) => {
-                setPage(1);
                 setSeverity(e.target.value as NotificationSeverity | "all");
               }}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
@@ -235,7 +270,6 @@ const NotificationsPage: React.FC = () => {
             <select
               value={category}
               onChange={(e) => {
-                setPage(1);
                 setCategory(e.target.value as NotificationCategory | "all");
               }}
               className="w-full border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
@@ -273,7 +307,7 @@ const NotificationsPage: React.FC = () => {
       {/* Main List Component */}
       <div className="min-h-[400px]">
         <NotificationList
-          items={items}
+          items={filteredItems}
           loading={isLoading}
           onItemClick={(item) => void handleItemClick(item)}
           onMarkRead={(item) => void markRead(item.id)}

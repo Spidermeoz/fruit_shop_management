@@ -1,12 +1,12 @@
 export type NotificationSeverity = "info" | "warning" | "critical";
 export type NotificationCategory =
-  | "orders"
+  | "order"
   | "inventory"
-  | "users"
-  | "branches"
+  | "user"
+  | "branche"
   | "shipping"
-  | "promotions"
-  | "reviews"
+  | "promotion"
+  | "review"
   | "content"
   | "system";
 
