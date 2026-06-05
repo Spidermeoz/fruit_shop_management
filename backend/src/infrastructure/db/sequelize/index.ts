@@ -23,7 +23,7 @@ const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
   port: DB_PORT,
   dialect: "mysql",
   dialectModule: require("mysql2"),
-  logging: NODE_ENV !== "production" ? console.log : false,
+  logging: false,
   timezone: "+07:00",
   define: {
     underscored: true,

@@ -33,44 +33,70 @@ const AuditLogsPage: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<ListAuditLogsResponse>(defaultResponse);
   const [search, setSearch] = useState("");
-  const [moduleName, setModuleName] = useState("");
   const [action, setAction] = useState("");
 
   const params = useMemo(
     () => ({
       page,
-      limit: 20,
-      q: search,
-      moduleName,
-      action,
+      limit: 20
     }),
-    [page, search, moduleName, action],
+    [page],
   );
 
-  const loadAuditLogs = async (opts?: { silent?: boolean }) => {
-    const silent = Boolean(opts?.silent);
-    if (silent) setRefreshing(true);
-    else setLoading(true);
+ const loadAuditLogs = async (opts?: { silent?: boolean }) => {
+  const silent = Boolean(opts?.silent);
 
-    try {
-      const nextData = await auditLogsApi.list(params);
-      setData(nextData);
-    } catch (err: any) {
-      showErrorToast(
-        err?.message || "Không tải được audit logs.",
-        "Tải audit logs thất bại",
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  if (silent) {
+    setRefreshing(true);
+  } else {
+    setLoading(true);
+  }
+
+  try {
+    const nextData = await auditLogsApi.list(params);
+    setData(nextData);
+  } catch (err: any) {
+    showErrorToast(
+      err?.message || "Không tải được audit logs.",
+      "Tải audit logs thất bại",
+    );
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+
+  const filteredLogs = useMemo(() => {
+  return data.items.filter((log) => {
+    const matchSearch =
+      !search.trim() ||
+      [
+        log.entityId,
+        log.requestId,
+        log.routePath,
+      ]
+        .filter(Boolean)
+        .some((value) =>
+          String(value)
+            .toLowerCase()
+            .includes(search.trim().toLowerCase()),
+        );
+
+    const matchAction =
+      !action.trim() ||
+      log.action
+        ?.toLowerCase()
+        .includes(action.trim().toLowerCase());
+
+    return matchSearch && matchAction;
+  });
+}, [data.items, search, action]);
 
   useEffect(() => {
     void loadAuditLogs();
   }, [params]);
 
-  const rows = data.items;
+  const rows = filteredLogs;
   const pagination = data.pagination;
 
   return (
@@ -117,7 +143,6 @@ const AuditLogsPage: React.FC = () => {
               <input
                 value={search}
                 onChange={(e) => {
-                  setPage(1);
                   setSearch(e.target.value);
                 }}
                 placeholder="request id, entity type, route path..."
@@ -128,27 +153,11 @@ const AuditLogsPage: React.FC = () => {
 
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Module
-            </label>
-            <input
-              value={moduleName}
-              onChange={(e) => {
-                setPage(1);
-                setModuleName(e.target.value);
-              }}
-              placeholder="order, user, promotion..."
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               Action
             </label>
             <input
               value={action}
               onChange={(e) => {
-                setPage(1);
                 setAction(e.target.value);
               }}
               placeholder="create, update, delete..."
@@ -164,9 +173,7 @@ const AuditLogsPage: React.FC = () => {
           <h2 className="text-lg font-bold text-gray-900 dark:text-white">
             Danh sách Audit Logs
           </h2>
-          <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-            Tổng <strong>{pagination.total}</strong> bản ghi
-          </span>
+            Hiển thị <strong>{rows.length}</strong> / {pagination.total} bản ghi
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -249,7 +256,7 @@ const AuditLogsPage: React.FC = () => {
                       </div>
                       <div className="mt-1 text-xs text-gray-500 font-mono dark:text-gray-400">
                         {item.entityId != null
-                          ? `#${item.entityId}`
+                          ? `id: ${item.entityId}`
                           : "Không có entity id"}
                       </div>
                     </td>

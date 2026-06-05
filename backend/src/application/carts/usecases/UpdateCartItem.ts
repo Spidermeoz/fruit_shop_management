@@ -11,7 +11,6 @@ export class UpdateCartItem {
   constructor(
     private cartRepo: CartRepository,
     private productRepo: ProductRepository,
-    private inventoryRepo: any,
   ) {}
 
   async execute(input: Input) {
@@ -31,21 +30,21 @@ export class UpdateCartItem {
       throw new Error("Product variant is inactive");
     }
 
-    await this.inventoryRepo.ensureStockForVariant(
-      input.productVariantId,
-      Number(variant.stock ?? 0),
+    const availableStock = Number(
+      variant.availableStock ?? variant.stock ?? 0,
     );
 
-    const availableStock =
-      variant.availableStock !== undefined
-        ? Number(variant.availableStock)
-        : Number(variant.stock ?? 0);
-
-    if (input.quantity > availableStock) {
-      throw new Error("Quantity exceeds available stock");
+    if (availableStock <= 0) {
+      throw new Error("Product is out of stock");
     }
 
-    return this.cartRepo.updateItem(
+    if (input.quantity > availableStock) {
+      throw new Error(
+        `Only ${availableStock} item(s) available in stock`,
+      );
+    }
+
+    return await this.cartRepo.updateItem(
       input.userId,
       input.productVariantId,
       input.quantity,

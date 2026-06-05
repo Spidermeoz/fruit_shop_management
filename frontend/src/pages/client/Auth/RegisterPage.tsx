@@ -57,8 +57,9 @@ const RegisterPage: React.FC = () => {
     if (!formData.lastName) newErrors.lastName = "Vui lòng nhập tên";
 
     if (!formData.email) newErrors.email = "Vui lòng nhập email";
-    else if (!/\S+@\S+\.\S+/.test(formData.email))
+    else if (!(/\S+@\S+\.\S+/.test(formData.email)))
       newErrors.email = "Email không hợp lệ";
+
 
     if (!formData.phone) newErrors.phone = "Vui lòng nhập số điện thoại";
     else if (!/^[0-9]{10,11}$/.test(formData.phone))
@@ -272,7 +273,7 @@ const RegisterPage: React.FC = () => {
                         </svg>
                       </span>
                       <input
-                        type="email"
+                        type="text"
                         name="email"
                         value={formData.email}
                         onChange={handleChange}

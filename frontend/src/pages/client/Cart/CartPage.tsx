@@ -359,40 +359,11 @@ const CartPage: React.FC = () => {
                                   >
                                     <Minus className="w-4 h-4 stroke-[3]" />
                                   </button>
-                                  <input
-                                    type="number"
-                                    min="1"
-                                    max={Math.max(1, availableStock)}
-                                    value={
-                                      qtyInputs[item.productVariantId] ??
-                                      item.quantity
-                                    }
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      if (!/^\d*$/.test(val)) return;
-                                      setQtyInputs((prev) => ({
-                                        ...prev,
-                                        [item.productVariantId]: Number(val),
-                                      }));
-                                    }}
-                                    onBlur={(e) => {
-                                      let qty = Number(e.target.value);
-                                      if (!qty || qty <= 0) qty = 1;
+                                  
+                                 <span className="w-12 h-8 flex items-center justify-center font-bold text-slate-900">
+                                    {qtyInputs[item.productVariantId] ?? item.quantity}
+                                  </span>
 
-                                      if (qty > availableStock) {
-                                        showErrorToast(
-                                          `Chỉ còn ${availableStock} sản phẩm`,
-                                        );
-                                        qty = availableStock;
-                                      }
-                                      setQtyInputs((prev) => ({
-                                        ...prev,
-                                        [item.productVariantId]: qty,
-                                      }));
-                                      updateItem(item.productVariantId, qty);
-                                    }}
-                                    className="w-12 h-8 text-center font-bold text-slate-900 bg-transparent focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                  />
                                   <button
                                     disabled={!canIncrease}
                                     onClick={() =>
