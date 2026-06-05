@@ -408,6 +408,19 @@ const ProductDetailPage: React.FC = () => {
     return counts;
   }, [reviews]);
 
+  // Tính điểm trung bình từ danh sách reviews đã fetch (nguồn chính xác nhất)
+  const averageRating = useMemo(() => {
+    if (reviews.length > 0) {
+      const total = reviews.reduce((acc, r) => acc + (Number(r.rating) || 0), 0);
+      return total / reviews.length;
+    }
+    // Fallback về giá trị từ API nếu chưa có reviews
+    if (typeof product?.averageRating === "number" && product.averageRating > 0) {
+      return product.averageRating;
+    }
+    return 0;
+  }, [reviews, product?.averageRating]);
+
   const { addToCart, items } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -1176,27 +1189,39 @@ const ProductDetailPage: React.FC = () => {
                       <h3 className="font-bold text-slate-900 text-lg mb-2">
                         Đánh giá trung bình
                       </h3>
-                      <div className="text-6xl font-black text-slate-900 mb-4">
-                        {/* 2.H Sử dụng AverageRating và ReviewCount */}
-                        {typeof product.averageRating === "number"
-                          ? product.averageRating.toFixed(1)
-                          : reviews.length > 0
-                            ? (
-                                reviews.reduce((acc, r) => acc + r.rating, 0) /
-                                reviews.length
-                              ).toFixed(1)
-                            : "0.0"}
+                      <div className="text-6xl font-black text-slate-900 mb-2">
+                        {averageRating > 0 ? averageRating.toFixed(1) : "0.0"}
                       </div>
-                      <div className="flex justify-center gap-1 text-yellow-400 mb-2">
-                        {[1, 2, 3, 4, 5].map((s) => (
-                          <Star key={s} className="w-6 h-6 fill-current" />
-                        ))}
+                      {/* Hiển thị sao theo đúng điểm trung bình */}
+                      <div className="flex justify-center gap-1 mb-3" aria-label={`${averageRating.toFixed(1)} sao`}>
+                        {[1, 2, 3, 4, 5].map((s) => {
+                          const filled = averageRating >= s;
+                          const partial = !filled && averageRating > s - 1;
+                          const fillPercent = partial
+                            ? Math.round((averageRating - (s - 1)) * 100)
+                            : 0;
+                          return (
+                            <span key={s} className="relative inline-block w-7 h-7">
+                              {/* Nền sao xám */}
+                              <Star className="w-7 h-7 text-slate-200 fill-slate-200 absolute inset-0" />
+                              {/* Sao vàng fill theo tỉ lệ */}
+                              <span
+                                className="absolute inset-0 overflow-hidden"
+                                style={{ width: filled ? "100%" : `${fillPercent}%` }}
+                              >
+                                <Star className="w-7 h-7 text-yellow-400 fill-yellow-400" />
+                              </span>
+                            </span>
+                          );
+                        })}
                       </div>
                       <p className="text-sm font-bold text-slate-500">
                         Dựa trên{" "}
-                        {typeof product.reviewCount === "number"
-                          ? product.reviewCount
-                          : reviews.length}{" "}
+                        {reviews.length > 0
+                          ? reviews.length
+                          : typeof product.reviewCount === "number"
+                            ? product.reviewCount
+                            : 0}{" "}
                         nhận xét
                       </p>
                     </div>
