@@ -4,7 +4,7 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import Footer from "../../../components/client/layouts/Footer";
 import { useCart } from "../../../context/CartContext";
-import {  http } from "../../../services/http";
+import { clientHttp as http } from "../../../services/http";
 import { useToast } from "../../../context/ToastContext";
 
 import {
