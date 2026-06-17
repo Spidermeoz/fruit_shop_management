@@ -40,7 +40,13 @@ type OrderStatus =
 type PaymentStatus = "unpaid" | "paid" | "partial" | "refunded" | "failed";
 type FulfillmentType = "pickup" | "delivery";
 
-type ConfirmActionType = "workflow" | "cancel" | "collect_cod" | "complete";
+type ConfirmActionType = "workflow" | "cancel" | "collect_cod" | "complete" | "incident";
+
+interface IncidentContext {
+  label: string; // Tên bước đang xảy ra sự cố, VD: "Bàn giao vận chuyển"
+  statusTag: string; // Giá trị ghi vào deliveryHistory.status
+  allowReturnToProcessing?: boolean; // Cho phép lùi về trạng thái processing
+}
 
 interface ConfirmActionState {
   open: boolean;
@@ -49,8 +55,9 @@ interface ConfirmActionState {
   title: string;
   description: string;
   confirmLabel: string;
-  confirmTone: "blue" | "purple" | "orange" | "green" | "red";
+  confirmTone: "blue" | "purple" | "orange" | "green" | "red" | "yellow";
   blockingReason?: string | null;
+  incidentContext?: IncidentContext | null;
 }
 
 interface OrderItem {
@@ -190,6 +197,19 @@ const confirmToneClassMap: Record<
   orange: "bg-orange-500 hover:bg-orange-600 text-white",
   green: "bg-green-600 hover:bg-green-700 text-white",
   red: "bg-red-600 hover:bg-red-700 text-white",
+  yellow: "bg-yellow-500 hover:bg-yellow-600 text-white",
+};
+
+// Đếm số sự cố trong delivery history
+const countIncidents = (deliveryHistory: DeliveryItem[] | undefined): number => {
+  if (!Array.isArray(deliveryHistory)) return 0;
+  return deliveryHistory.filter(
+    (h) =>
+      h.status &&
+      (String(h.status).toLowerCase().includes("sự cố") ||
+        String(h.status).toLowerCase().includes("thất bại") ||
+        String(h.status).toLowerCase().includes("incident")),
+  ).length;
 };
 
 const getOrderFinalPrice = (order: Order) => {
@@ -219,6 +239,11 @@ const OrderWorkspacePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Incident state
+  const [incidentNote, setIncidentNote] = useState("");
+  const [incidentNoteError, setIncidentNoteError] = useState("");
+  const [incidentAction, setIncidentAction] = useState<"continue" | "return">("continue");
+
   // Modals
   const [showInvoice, setShowInvoice] = useState(false);
   const [confirmAction, setConfirmAction] = useState<ConfirmActionState>({
@@ -229,6 +254,7 @@ const OrderWorkspacePage: React.FC = () => {
     confirmLabel: "",
     confirmTone: "blue",
     blockingReason: null,
+    incidentContext: null,
   });
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -270,6 +296,27 @@ const OrderWorkspacePage: React.FC = () => {
       confirmLabel: "",
       confirmTone: "blue",
       blockingReason: null,
+      incidentContext: null,
+    });
+    setIncidentNote("");
+    setIncidentNoteError("");
+    setIncidentAction("continue");
+  };
+
+  const openIncidentConfirm = (context: IncidentContext) => {
+    if (!order) return;
+    setIncidentNote("");
+    setIncidentNoteError("");
+    setIncidentAction("continue");
+    setConfirmAction({
+      open: true,
+      type: "incident",
+      title: "Báo cáo sự cố",
+      description: `Ghi nhận sự cố tại bước "${context.label}". Trạng thái đơn hàng sẽ KHÔNG thay đổi — đơn hàng sẽ ở lại trạng thái hiện tại để xử lý lại.`,
+      confirmLabel: "Xác nhận sự cố",
+      confirmTone: "yellow",
+      blockingReason: null,
+      incidentContext: context,
     });
   };
 
@@ -355,6 +402,19 @@ const OrderWorkspacePage: React.FC = () => {
   const executeConfirmedAction = async () => {
     if (!order || !confirmAction.type || confirmAction.blockingReason) return;
 
+    // Validate ghi chú sự cố
+    if (confirmAction.type === "incident") {
+      const trimmed = incidentNote.trim();
+      if (!trimmed) {
+        setIncidentNoteError("Vui lòng nhập ghi chú mô tả sự cố.");
+        return;
+      }
+      if (trimmed.length < 10) {
+        setIncidentNoteError("Ghi chú quá ngắn. Vui lòng mô tả rõ hơn (tối thiểu 10 ký tự).");
+        return;
+      }
+    }
+
     try {
       setActionLoading(true);
 
@@ -379,6 +439,23 @@ const OrderWorkspacePage: React.FC = () => {
         });
 
         showSuccessToast({ message: "Xác nhận thu COD thành công!" });
+      }
+
+      if (confirmAction.type === "incident" && confirmAction.incidentContext) {
+        await http("POST", `/api/v1/admin/orders/${order.id}/delivery`, {
+          status: confirmAction.incidentContext.statusTag,
+          note: incidentNote.trim(),
+          location: null,
+        });
+
+        if (confirmAction.incidentContext.allowReturnToProcessing && incidentAction === "return") {
+          await http("PATCH", `/api/v1/admin/orders/${order.id}/status`, {
+            status: "processing",
+          });
+          showSuccessToast({ message: "Đã ghi nhận sự cố và hoàn đơn về trạng thái Đang xử lý." });
+        } else {
+          showSuccessToast({ message: "Đã ghi nhận sự cố. Đơn hàng giữ nguyên trạng thái." });
+        }
       }
 
       closeConfirmAction();
@@ -560,13 +637,12 @@ const OrderWorkspacePage: React.FC = () => {
                     className="flex flex-col items-center gap-2 w-24"
                   >
                     <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${
-                        isPassed
+                      className={`w-10 h-10 rounded-full flex items-center justify-center border-4 transition-all duration-300 ${isPassed
                           ? "bg-blue-600 border-blue-200 text-white"
                           : isCurrent
                             ? "bg-white dark:bg-gray-800 border-blue-600 text-blue-600 shadow-md ring-4 ring-blue-100 dark:ring-blue-900/40"
                             : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400"
-                      }`}
+                        }`}
                     >
                       {isPassed ? (
                         <CheckCircle2 className="w-5 h-5" />
@@ -717,15 +793,23 @@ const OrderWorkspacePage: React.FC = () => {
           {/* D. Integrated Timeline */}
           {order.fulfillmentType === "delivery" && (
             <Card className="!p-0 overflow-hidden border border-gray-200 dark:border-gray-700">
-              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
-                <Activity className="w-5 h-5 text-purple-600" />
-                <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                  Tiến trình Giao hàng
-                </h2>
+              <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-600" />
+                  <h2 className="text-base font-bold text-gray-900 dark:text-white">
+                    Tiến trình Giao hàng
+                  </h2>
+                </div>
+                {countIncidents(order.deliveryHistory) > 0 && (
+                  <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-xs font-bold border border-red-200 dark:border-red-800">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {countIncidents(order.deliveryHistory)} sự cố
+                  </span>
+                )}
               </div>
               <div className="p-6">
                 {!order.deliveryHistory ||
-                order.deliveryHistory.length === 0 ? (
+                  order.deliveryHistory.length === 0 ? (
                   <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-800/30 rounded-xl border border-dashed border-gray-200 dark:border-gray-700">
                     Chưa có ghi nhận giao hàng nào từ hệ thống logistics.
                   </div>
@@ -734,15 +818,33 @@ const OrderWorkspacePage: React.FC = () => {
                     {order.deliveryHistory.map((log, index) => {
                       const isLast =
                         index === order.deliveryHistory!.length - 1;
+                      const isIncident =
+                        log.status &&
+                        (String(log.status).toLowerCase().includes("sự cố") ||
+                          String(log.status).toLowerCase().includes("thất bại") ||
+                          String(log.status).toLowerCase().includes("incident"));
                       return (
                         <div key={log.id} className="relative pl-6">
                           <div
-                            className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 bg-white dark:bg-gray-900 ${isLast ? "border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900/30" : "border-gray-300 dark:border-gray-600"}`}
+                            className={`absolute -left-[9px] top-1 w-4 h-4 rounded-full border-2 bg-white dark:bg-gray-900 ${isIncident
+                                ? "border-red-500 ring-4 ring-red-100 dark:ring-red-900/30"
+                                : isLast
+                                  ? "border-purple-500 ring-4 ring-purple-100 dark:ring-purple-900/30"
+                                  : "border-gray-300 dark:border-gray-600"
+                              }`}
                           ></div>
                           <div>
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              {isIncident && (
+                                <AlertTriangle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                              )}
                               <span
-                                className={`font-bold text-sm ${isLast ? "text-purple-700 dark:text-purple-400" : "text-gray-700 dark:text-gray-300"}`}
+                                className={`font-bold text-sm ${isIncident
+                                    ? "text-red-700 dark:text-red-400"
+                                    : isLast
+                                      ? "text-purple-700 dark:text-purple-400"
+                                      : "text-gray-700 dark:text-gray-300"
+                                  }`}
                               >
                                 {log.status}
                               </span>
@@ -752,7 +854,10 @@ const OrderWorkspacePage: React.FC = () => {
                               </span>
                             </div>
                             {log.note && (
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              <p className={`text-sm mt-1 ${isIncident
+                                  ? "text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-lg border border-red-100 dark:border-red-800"
+                                  : "text-gray-600 dark:text-gray-400"
+                                }`}>
                                 {log.note}
                               </p>
                             )}
@@ -789,7 +894,7 @@ const OrderWorkspacePage: React.FC = () => {
                 </p>
                 <p className="text-sm font-bold text-gray-900 dark:text-white">
                   {order.status === "delivered" &&
-                  order.paymentStatus !== "paid" ? (
+                    order.paymentStatus !== "paid" ? (
                     <span className="text-orange-600 flex items-start gap-1.5">
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" /> Cần
                       xác nhận thu COD trước khi hoàn tất đơn.
@@ -829,20 +934,46 @@ const OrderWorkspacePage: React.FC = () => {
                     {order.status === "processing" && (
                       <>
                         {order.fulfillmentType === "delivery" ? (
-                          <button
-                            onClick={() => openWorkflowConfirm("shipping")}
-                            className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
-                          >
-                            Giao cho Vận chuyển <Truck className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => openWorkflowConfirm("shipping")}
+                              className="w-full py-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                            >
+                              Giao cho Vận chuyển <Truck className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                openIncidentConfirm({
+                                  label: "Bàn giao vận chuyển",
+                                  statusTag: "Sự cố bàn giao vận chuyển",
+                                })
+                              }
+                              className="w-full py-2.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-800 font-bold rounded-xl border border-yellow-300 transition flex items-center justify-center gap-2"
+                            >
+                              <AlertTriangle className="w-4 h-4" /> Báo sự cố bàn giao
+                            </button>
+                          </>
                         ) : (
-                          <button
-                            onClick={() => openWorkflowConfirm("delivered")}
-                            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
-                          >
-                            Khách đã đến nhận{" "}
-                            <PackageCheck className="w-4 h-4" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => openWorkflowConfirm("delivered")}
+                              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                            >
+                              Khách đã đến nhận{" "}
+                              <PackageCheck className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                openIncidentConfirm({
+                                  label: "Nhận hàng tại cửa hàng",
+                                  statusTag: "Sự cố nhận hàng",
+                                })
+                              }
+                              className="w-full py-2.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-800 font-bold rounded-xl border border-yellow-300 transition flex items-center justify-center gap-2"
+                            >
+                              <AlertTriangle className="w-4 h-4" /> Báo sự cố nhận hàng
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => openWorkflowConfirm("cancelled")}
@@ -854,12 +985,26 @@ const OrderWorkspacePage: React.FC = () => {
                     )}
 
                     {order.status === "shipping" && (
-                      <button
-                        onClick={() => openWorkflowConfirm("delivered")}
-                        className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
-                      >
-                        Đánh dấu Đã Giao <MapPin className="w-4 h-4" />
-                      </button>
+                      <>
+                        <button
+                          onClick={() => openWorkflowConfirm("delivered")}
+                          className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2"
+                        >
+                          Đánh dấu Đã Giao <MapPin className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            openIncidentConfirm({
+                              label: "Giao hàng",
+                              statusTag: "Sự cố giao hàng",
+                              allowReturnToProcessing: true,
+                            })
+                          }
+                          className="w-full py-2.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-800 font-bold rounded-xl border border-yellow-300 transition flex items-center justify-center gap-2"
+                        >
+                          <AlertTriangle className="w-4 h-4" /> Báo giao hàng thất bại
+                        </button>
+                      </>
                     )}
 
                     {order.status === "delivered" &&
@@ -881,11 +1026,11 @@ const OrderWorkspacePage: React.FC = () => {
 
                     {(order.status === "completed" ||
                       order.status === "cancelled") && (
-                      <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-500 font-medium border border-gray-200 dark:border-gray-700">
-                        Vòng đời đơn hàng đã khép kín. Không còn thao tác
-                        Workflow khả dụng.
-                      </div>
-                    )}
+                        <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg text-sm text-gray-500 font-medium border border-gray-200 dark:border-gray-700">
+                          Vòng đời đơn hàng đã khép kín. Không còn thao tác
+                          Workflow khả dụng.
+                        </div>
+                      )}
                   </>
                 )}
               </div>
@@ -1059,11 +1204,10 @@ const OrderWorkspacePage: React.FC = () => {
                     Thanh toán hiện tại
                   </span>
                   <span
-                    className={`font-semibold text-sm ${
-                      order.paymentStatus === "paid"
+                    className={`font-semibold text-sm ${order.paymentStatus === "paid"
                         ? "text-green-600 dark:text-green-400"
                         : "text-orange-600 dark:text-orange-400"
-                    }`}
+                      }`}
                   >
                     {order.paymentStatus === "paid"
                       ? "Đã thanh toán"
@@ -1095,6 +1239,78 @@ const OrderWorkspacePage: React.FC = () => {
                         {confirmAction.blockingReason}
                       </p>
                     </div>
+                  </div>
+                </div>
+              ) : confirmAction.type === "incident" ? (
+                <div className="mb-5 space-y-4">
+                  <div className="p-3 rounded-xl border border-yellow-200 bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-800">
+                    <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
+                      ⚠️ Sự cố sẽ được ghi vào lịch sử vận hành để theo dõi.
+                    </p>
+                  </div>
+
+                  {confirmAction.incidentContext?.allowReturnToProcessing && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                        Hướng xử lý tiếp theo <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex flex-col gap-2">
+                        <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition ${incidentAction === "continue" ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400" : "border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
+                          <input
+                            type="radio"
+                            name="incidentAction"
+                            value="continue"
+                            checked={incidentAction === "continue"}
+                            onChange={() => setIncidentAction("continue")}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Tiếp tục giao hàng</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Đơn hàng vẫn giữ nguyên trạng thái Đang giao.</p>
+                          </div>
+                        </label>
+                        <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition ${incidentAction === "return" ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400" : "border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"}`}>
+                          <input
+                            type="radio"
+                            name="incidentAction"
+                            value="return"
+                            checked={incidentAction === "return"}
+                            onChange={() => setIncidentAction("return")}
+                            className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                          />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">Hoàn về cửa hàng</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Đơn hàng chuyển về trạng thái Đang xử lý để shop xử lý lại.</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1.5">
+                      Mô tả sự cố <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={incidentNote}
+                      onChange={(e) => {
+                        setIncidentNote(e.target.value);
+                        if (e.target.value.trim().length >= 10)
+                          setIncidentNoteError("");
+                      }}
+                      rows={3}
+                      placeholder="VD: Khách không có ở nhà, đã gọi điện 2 lần. Sẽ giao lại vào ngày mai."
+                      className={`w-full rounded-xl border px-4 py-3 text-sm font-medium resize-none focus:outline-none focus:ring-2 transition ${incidentNoteError
+                          ? "border-red-400 bg-red-50 focus:ring-red-300 dark:bg-red-900/20"
+                          : "border-gray-200 bg-gray-50 dark:bg-gray-900 dark:border-gray-700 focus:ring-yellow-300 dark:text-gray-200"
+                        }`}
+                    />
+                    {incidentNoteError && (
+                      <p className="mt-1.5 text-xs font-bold text-red-600 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        {incidentNoteError}
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
