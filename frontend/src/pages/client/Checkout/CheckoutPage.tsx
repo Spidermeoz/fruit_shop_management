@@ -1,51 +1,50 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom";
-import Layout from "../../../components/client/layouts/Layout";
-import Footer from "../../../components/client/layouts/Footer";
-import { useCart } from "../../../context/CartContext";
-import { http } from "../../../services/http";
-import { useToast } from "../../../context/ToastContext";
 import {
-  checkoutOrder,
-  getCheckoutQuote,
-  getClientBranches,
-  getAvailablePromotions,
-  CheckoutQuoteChangedError,
-} from "../../../services/api/ordersClient";
-import type { CheckoutQuote, DeliverySlotSummary } from "../../../types/orders";
-import type {
-  ClientBranch,
-  ClientAvailablePromotion,
-} from "../../../services/api/ordersClient";
-import {
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  CreditCard,
-  ShoppingCart,
-  Check,
   AlertCircle,
-  Package,
-  ArrowRight,
   ArrowLeft,
-  Home,
-  Truck,
+  ArrowRight,
   Building,
-  Smartphone,
-  RefreshCw,
-  Save,
-  FileText,
-  Store,
-  GitBranch,
   CalendarClock,
-  Clock3,
-  TicketPercent,
+  Check,
   CheckCircle2,
+  Clock3,
+  CreditCard,
+  FileText,
+  GitBranch,
+  Home,
   Info,
   Loader2,
-  ShieldAlert,
+  Mail,
+  MapPin,
+  Package,
+  Phone,
+  RefreshCw,
+  Save,
+  ShoppingCart,
+  Smartphone,
+  Store,
+  TicketPercent,
+  Truck,
+  User
 } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import Footer from "../../../components/client/layouts/Footer";
+import Layout from "../../../components/client/layouts/Layout";
+import { useCart } from "../../../context/CartContext";
+import { useToast } from "../../../context/ToastContext";
+import type {
+  ClientAvailablePromotion
+} from "../../../services/api/ordersClient";
+import {
+  checkoutOrder,
+  CheckoutQuoteChangedError,
+  getAvailablePromotions,
+  getCheckoutQuote,
+  getClientBranches,
+} from "../../../services/api/ordersClient";
+import { http } from "../../../services/http";
+import type { CheckoutQuote, DeliverySlotSummary } from "../../../types/orders";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface LocationItem {
   name: string;
@@ -103,7 +102,8 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items: cartItems, fetchCart } = useCart();
-  const { showErrorToast, showSuccessToast } = useToast();
+  const { showErrorToast } = useToast();
+  const {showSuccessToast} = useAdminToast();
 
   const selectedItems: number[] = location.state?.selectedItems || [];
 
@@ -811,8 +811,7 @@ const CheckoutPage: React.FC = () => {
       setNewOrderId(String(data.id));
       setShowSuccessModal(true);
       showSuccessToast({
-        title: "Đặt hàng thành công",
-        message: "Đơn hàng của bạn đã được tạo.",
+        message: "Đơn hàng của bạn đã được tạo."
       });
     } catch (err: any) {
       if (err instanceof CheckoutQuoteChangedError) {
@@ -1353,12 +1352,18 @@ const CheckoutPage: React.FC = () => {
 
         <button
           type="button"
+          disabled
           onClick={() => setFulfillmentType("pickup")}
-          className={`rounded-[1.5rem] border-2 p-5 text-left transition-all ${
-            fulfillmentType === "pickup"
-              ? "border-blue-500 bg-blue-50 shadow-sm"
-              : "border-slate-100 hover:border-blue-200 hover:bg-slate-50"
-          }`}
+          className={`rounded-[1.5rem] border-2 p-5 text-left transition-all
+            disabled:cursor-not-allowed
+            disabled:opacity-50
+            disabled:bg-slate-100
+            disabled:border-slate-200
+            ${
+              fulfillmentType === "pickup"
+                ? "border-blue-500 bg-blue-50 shadow-sm"
+                : "border-slate-100 hover:border-blue-200 hover:bg-slate-50"
+            }`}
         >
           <div className="flex items-center gap-4">
             <div className="rounded-2xl bg-white p-3 text-blue-600 shadow-sm">
@@ -1375,144 +1380,7 @@ const CheckoutPage: React.FC = () => {
       </div>,
     );
 
-  const renderBranchBlock = () => {
-    const title =
-      fulfillmentType === "pickup"
-        ? "Chọn chi nhánh nhận hàng"
-        : "Chi nhánh giao hàng";
-    const subtitle =
-      fulfillmentType === "pickup"
-        ? "Chọn chi nhánh bạn muốn đến nhận hàng."
-        : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này.";
-
-    return renderSectionShell(
-      <Building className="h-5 w-5" />,
-      title,
-      subtitle,
-      <div className="space-y-4">
-        {loadingBranches && (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-500">
-            Đang tải danh sách chi nhánh...
-          </div>
-        )}
-
-        {fulfillmentType === "delivery" && !isDeliveryAddressReady && (
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-            <div className="flex items-start gap-3">
-              <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-              <div>
-                <p className="font-bold">
-                  Hoàn tất địa chỉ để xem chi nhánh
-                </p>
-                <p className="mt-1 leading-relaxed">
-                  Sau khi bạn chọn đủ tỉnh/thành, quận/huyện, phường/xã và địa
-                  chỉ cụ thể, hệ thống sẽ hiển thị các chi nhánh có thể phục vụ
-                  khu vực của bạn.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {fulfillmentType === "delivery" &&
-          isDeliveryAddressReady &&
-          quoteLoading && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              <div className="flex items-start gap-3">
-                <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
-                <div>
-                  <p className="font-bold">Đang tìm chi nhánh phục vụ</p>
-                  <p className="mt-1 leading-relaxed">
-                    Hệ thống đang đối chiếu khu vực giao hàng để tìm chi nhánh
-                    phù hợp nhất cho bạn lựa chọn.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {fulfillmentType === "delivery" &&
-          isDeliveryAddressReady &&
-          !quoteLoading &&
-          availableBranches.length > 0 &&
-          !selectedBranchId && (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-              <div className="flex items-start gap-3">
-                <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
-                <div>
-                  <p className="font-bold">Vui lòng chọn chi nhánh bên dưới</p>
-                  <p className="mt-1 leading-relaxed">
-                    {recommendedBranchId
-                      ? "Hệ thống đã gợi ý chi nhánh phù hợp nhất. Bạn có thể chọn chi nhánh đó hoặc một chi nhánh khác theo ý muốn."
-                      : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này."}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-        {availableBranches.length > 0 && !loadingBranches && (
-          <div className="grid gap-3">
-            {availableBranches.map((branch: any) => {
-              const isSelected = selectedBranchId === branch.id;
-              const isRecommended = recommendedBranchId === branch.id;
-              return (
-                <button
-                  key={branch.id}
-                  type="button"
-                  onClick={() => setSelectedBranchId(branch.id)}
-                  className={`rounded-[1.35rem] border-2 p-4 text-left transition-all ${
-                    isSelected
-                      ? "border-green-500 bg-green-50 shadow-sm"
-                      : "border-slate-100 bg-white hover:border-green-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <p className="font-bold text-slate-900">
-                          {branch.name}
-                          {branch.code ? ` (${branch.code})` : ""}
-                        </p>
-                        {isRecommended && (
-                          <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Gợi ý
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm leading-relaxed text-slate-500">
-                        {[branch.addressLine1, branch.district, branch.province]
-                          .filter(Boolean)
-                          .join(", ") || "Đang cập nhật địa chỉ chi nhánh"}
-                      </p>
-                    </div>
-
-                    {isSelected ? (
-                      <span className="shrink-0 rounded-xl bg-green-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-700">
-                        Đã chọn
-                      </span>
-                    ) : (
-                      <span className="shrink-0 rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Chọn
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {errors.branch && (
-          <p className="ml-1 flex items-center gap-1 text-xs font-bold text-red-500">
-            <AlertCircle className="h-3 w-3" />
-            {errors.branch}
-          </p>
-        )}
-      </div>,
-    );
-  };
+    
 
   const renderScheduleBlock = () => {
     if (fulfillmentType !== "delivery") return null;
@@ -1653,6 +1521,145 @@ const CheckoutPage: React.FC = () => {
       </div>,
     );
   };
+
+  const renderBranchBlock = () => {
+      const title =
+        fulfillmentType === "pickup"
+          ? "Chọn chi nhánh nhận hàng"
+          : "Chi nhánh giao hàng";
+      const subtitle =
+        fulfillmentType === "pickup"
+          ? "Chọn chi nhánh bạn muốn đến nhận hàng."
+          : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này.";
+
+      return renderSectionShell(
+        <Building className="h-5 w-5" />,
+        title,
+        subtitle,
+        <div className="space-y-4">
+          {loadingBranches && (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 text-sm font-medium text-slate-500">
+              Đang tải danh sách chi nhánh...
+            </div>
+          )}
+
+          {fulfillmentType === "delivery" && !isDeliveryAddressReady && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              <div className="flex items-start gap-3">
+                <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                <div>
+                  <p className="font-bold">
+                    Hoàn tất địa chỉ để xem chi nhánh
+                  </p>
+                  <p className="mt-1 leading-relaxed">
+                    Sau khi bạn chọn đủ tỉnh/thành, quận/huyện, phường/xã và địa
+                    chỉ cụ thể, hệ thống sẽ hiển thị các chi nhánh có thể phục vụ
+                    khu vực của bạn.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {fulfillmentType === "delivery" &&
+            isDeliveryAddressReady &&
+            quoteLoading && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <div className="flex items-start gap-3">
+                  <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-amber-600" />
+                  <div>
+                    <p className="font-bold">Đang tìm chi nhánh phục vụ</p>
+                    <p className="mt-1 leading-relaxed">
+                      Hệ thống đang đối chiếu khu vực giao hàng để tìm chi nhánh
+                      phù hợp nhất cho bạn lựa chọn.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          {fulfillmentType === "delivery" &&
+            isDeliveryAddressReady &&
+            !quoteLoading &&
+            availableBranches.length > 0 &&
+            !selectedBranchId && (
+              <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                <div className="flex items-start gap-3">
+                  <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+                  <div>
+                    <p className="font-bold">Vui lòng chọn chi nhánh bên dưới</p>
+                    <p className="mt-1 leading-relaxed">
+                      {recommendedBranchId
+                        ? "Hệ thống đã gợi ý chi nhánh phù hợp nhất. Bạn có thể chọn chi nhánh đó hoặc một chi nhánh khác theo ý muốn."
+                        : "Chọn chi nhánh bạn muốn phụ trách giao đơn hàng này."}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          {availableBranches.length > 0 && !loadingBranches && (
+            <div className="grid gap-3">
+              {availableBranches.map((branch: any) => {
+                const isSelected = selectedBranchId === branch.id;
+                const isRecommended = recommendedBranchId === branch.id;
+                return (
+                  <button
+                    key={branch.id}
+                    type="button"
+                    onClick={() => setSelectedBranchId(branch.id)}
+                    className={`rounded-[1.35rem] border-2 p-4 text-left transition-all ${
+                      isSelected
+                        ? "border-green-500 bg-green-50 shadow-sm"
+                        : "border-slate-100 bg-white hover:border-green-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <p className="font-bold text-slate-900">
+                            {branch.name}
+                            {branch.code ? ` (${branch.code})` : ""}
+                          </p>
+                          {isRecommended && (
+                            <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-700">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Gợi ý
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm leading-relaxed text-slate-500">
+                          {[branch.addressLine1, branch.district, branch.province]
+                            .filter(Boolean)
+                            .join(", ") || "Đang cập nhật địa chỉ chi nhánh"}
+                        </p>
+                      </div>
+
+                      {isSelected ? (
+                        <span className="shrink-0 rounded-xl bg-green-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-green-700">
+                          Đã chọn
+                        </span>
+                      ) : (
+                        <span className="shrink-0 rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-slate-500">
+                          Chọn
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {errors.branch && (
+            <p className="ml-1 flex items-center gap-1 text-xs font-bold text-red-500">
+              <AlertCircle className="h-3 w-3" />
+              {errors.branch}
+            </p>
+          )}
+        </div>,
+      );
+    };
 
   const renderPromotionBlock = () =>
     renderSectionShell(
@@ -1882,8 +1889,8 @@ const CheckoutPage: React.FC = () => {
     <div className="space-y-6">
       {renderContactInfoBlock()}
       {renderFulfillmentBlock()}
-      {renderBranchBlock()}
       {renderScheduleBlock()}
+      {renderBranchBlock()}
       {renderPromotionBlock()}
 
       {errors.quote && (

@@ -22,6 +22,7 @@ import {
   AlertCircle,
   CornerDownRight,
 } from "lucide-react";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 // ==========================
 // TYPES
@@ -263,7 +264,8 @@ const ProductDetailPage: React.FC = () => {
     null,
   );
 
-  const { showSuccessToast, showErrorToast } = useToast();
+  const {showErrorToast } = useToast();
+  const {showSuccessToast} = useAdminToast();
 
   useEffect(() => {
     const fetchProductDetail = async () => {
@@ -639,14 +641,7 @@ const ProductDetailPage: React.FC = () => {
       await animationPromise;
 
       showSuccessToast({
-        title: "Thêm vào giỏ hàng thành công",
-        message: (
-          <p>
-            Bạn đã thêm {" "}
-            <span className="font-bold text-slate-900">{quantity}</span>{" "}
-             sản phẩm vào giỏ hàng.
-          </p>
-        ),
+        message: `Thêm ${quantity} SP vào giỏ hàng thành công`
       });
     } catch (err) {
       console.error(err);
@@ -841,13 +836,7 @@ const ProductDetailPage: React.FC = () => {
 
               {/* 2.F SKU & Xuất Xứ Area */}
               <div className="flex flex-wrap items-center gap-2 mb-6 text-sm text-slate-500">
-                {activeVariant?.sku && (
-                  <div>
-                    <span className="font-bold text-slate-700">SKU:</span>{" "}
-                    {activeVariant.sku}
-                  </div>
-                )}
-
+              
                 {activeVariant?.sku && product.origin?.name && (
                   <span className="text-slate-300">|</span>
                 )}
@@ -958,9 +947,6 @@ const ProductDetailPage: React.FC = () => {
                     {selectedStock > 0
                       ? `Còn hàng: ${selectedStock.toLocaleString()}`
                       : "Đã bán hết"}
-                  </span>
-                  <span className="text-slate-400">
-                    Mã SP: {activeVariant?.sku || `#${product.id}`}
                   </span>
                 </div>
 
