@@ -4,6 +4,7 @@ import Layout from "../../../components/client/layouts/Layout";
 import { useAuth } from "../../../context/AuthContext";
 import { useToast } from "../../../context/ToastContext";
 import Footer from "../../../components/client/layouts/Footer";
+import { useAdminToast } from "../../../context/AdminToastContext";
 
 interface LoginFormData {
   email: string;
@@ -25,7 +26,8 @@ const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const { showSuccessToast, showErrorToast } = useToast();
+  const {showErrorToast } = useToast();
+  const {showSuccessToast} = useAdminToast();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -61,8 +63,7 @@ const LoginPage: React.FC = () => {
     try {
       await login(formData.email, formData.password, formData.rememberMe);
       showSuccessToast({
-        title: "Thành công",
-        message: "Đăng nhập thành công!",
+        message: "Đăng nhập thành công!"
       });
       navigate("/");
     } catch (err: any) {

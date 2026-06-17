@@ -497,11 +497,6 @@ const ProfilePage: React.FC = () => {
                       icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
                     },
                     {
-                      id: "orders",
-                      label: "Đơn hàng của tôi",
-                      icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
-                    },
-                    {
                       id: "addresses",
                       label: "Sổ địa chỉ",
                       icon: "M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z",
