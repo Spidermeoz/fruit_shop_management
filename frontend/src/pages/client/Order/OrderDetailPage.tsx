@@ -302,7 +302,7 @@ const OrderDetailPage: React.FC = () => {
 
         <div className="container mx-auto px-4 lg:px-8 py-6 pb-20 max-w-5xl">
           <div className="bg-white rounded-[2.5rem] p-6 md:p-8 shadow-[0_20px_60px_rgba(0,0,0,0.04)] border border-slate-50 mb-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex flex-col items-start gap-6">
               <div>
                 <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">
                   Mã đơn hàng

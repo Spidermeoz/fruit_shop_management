@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ChevronDown,
   ChevronRight,
@@ -256,6 +256,7 @@ const Sidebar: React.FC = () => {
     isUsersSectionActive,
     isContentSectionActive,
   ]);
+  const navigate = useNavigate();
 
   const renderMenuItem = (item: SidebarItem) => {
     const Icon = item.icon;
@@ -329,67 +330,80 @@ const Sidebar: React.FC = () => {
     return <div key={item.name}>{child}</div>;
   };
 
-  const renderGroup = ({
-    title,
-    href,
-    icon: Icon,
-    isActive,
-    isOpen,
-    setIsOpen,
-    children,
-  }: {
-    title: string;
-    href: string;
-    icon: LucideIcon;
-    isActive: boolean;
-    isOpen: boolean;
-    setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
-    children: SidebarItem[];
-  }) => {
-    return (
-      <div className="rounded-xl">
-        <div className="flex items-center gap-2">
-          <Link
-            to={href}
-            onClick={() => !isCollapsed && setIsOpen(true)}
-            className={`flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-              isActive
-                ? "bg-blue-500 text-white"
-                : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-            }`}
-          >
-            <Icon className="w-6 h-6 shrink-0" />
-            {!isCollapsed && <span>{title}</span>}
-          </Link>
+ const renderGroup = ({
+  title,
+  href,
+  icon: Icon,
+  isActive,
+  isOpen,
+  setIsOpen,
+  children,
+}: {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+  isActive: boolean;
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  children: SidebarItem[];
+}) => {
+  const handleNavigate = () => {
+    setIsOpen(true);
+
+    if (children.length > 0) {
+      navigate(children[0].href);
+    } else {
+      navigate(href);
+    }
+  };
+
+  return (
+    <div className="rounded-xl">
+      <div
+        className={`flex items-center rounded-lg transition-colors ${
+          isActive
+            ? "bg-blue-500 text-white"
+            : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={handleNavigate}
+          className="flex min-w-0 flex-1 items-center space-x-3 px-4 py-3 text-left"
+        >
+          <Icon className="h-6 w-6 shrink-0" />
 
           {!isCollapsed && (
-            <button
-              type="button"
-              onClick={() => setIsOpen((prev) => !prev)}
-              className={`rounded-lg p-2 transition-colors ${
-                isActive
-                  ? "text-white hover:bg-blue-600"
-                  : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
-              }`}
-              aria-label={`Toggle ${title.toLowerCase()} menu`}
-            >
-              {isOpen ? (
-                <ChevronDown className="w-5 h-5" />
-              ) : (
-                <ChevronRight className="w-5 h-5" />
-              )}
-            </button>
+            <span className="truncate font-medium">{title}</span>
           )}
-        </div>
+        </button>
 
-        {!isCollapsed && isOpen && (
-          <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
-            {children.map(renderChildItem)}
-          </div>
+        {!isCollapsed && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen((prev) => !prev);
+            }}
+            className={`mr-2 rounded-md p-2 transition-colors`}
+          >
+            {isOpen ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronRight className="h-5 w-5" />
+            )}
+          </button>
         )}
       </div>
-    );
-  };
+
+      {!isCollapsed && isOpen && (
+        <div className="mt-2 ml-3 space-y-1 border-l border-gray-200 pl-3 dark:border-gray-700">
+          {children.map(renderChildItem)}
+        </div>
+      )}
+    </div>
+  );
+};
 
   return (
     <div
