@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
-import { http } from "../../../services/http";
+import { clientHttp as http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
 
 type Step = "request" | "verify" | "reset" | "success";

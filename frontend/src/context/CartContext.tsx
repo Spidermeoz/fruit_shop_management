@@ -7,7 +7,7 @@ import React, {
   useMemo,
   type ReactNode,
 } from "react";
-import { http, tokenStore } from "../services/http";
+import { clientHttp, clientTokenStore } from "../services/http";
 import { useAuth } from "./AuthContext";
 
 export interface CartItem {
@@ -144,7 +144,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
 
     try {
       setIsLoading(true);
-      const res = await http("GET", "/api/v1/client/cart");
+      const res = await clientHttp("GET", "/api/v1/client/cart");
       if (res?.success && Array.isArray(res.data)) {
         setItems(res.data.map(mapCartItem));
       } else {
@@ -163,7 +163,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
       if (!isAuthenticated) return;
 
       try {
-        const res = await http("POST", "/api/v1/client/cart/items", {
+        const res = await clientHttp("POST", "/api/v1/client/cart/items", {
           productVariantId,
           quantity: qty,
         });
@@ -182,7 +182,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const updateItem = useCallback(
     async (productVariantId: number, qty: number) => {
       try {
-        const res = await http(
+        const res = await clientHttp(
           "PATCH",
           `/api/v1/client/cart/items/${productVariantId}`,
           { quantity: qty },
@@ -202,7 +202,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   const removeItem = useCallback(
     async (productVariantId: number) => {
       try {
-        const res = await http(
+        const res = await clientHttp(
           "DELETE",
           `/api/v1/client/cart/items/${productVariantId}`,
         );
@@ -220,7 +220,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
 
   const clearCart = useCallback(async () => {
     try {
-      const res = await http("DELETE", "/api/v1/client/cart/all-items");
+      const res = await clientHttp("DELETE", "/api/v1/client/cart/all-items");
       if (res?.success) {
         setItems([]);
       }
@@ -231,7 +231,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   useEffect(() => {
-    if (!tokenStore.getAccess()) {
+    if (!clientTokenStore.getAccess()) {
       setItems([]);
       setIsLoading(false);
       return;

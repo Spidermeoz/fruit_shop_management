@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
-import { http } from "../../../services/http";
+import { clientHttp as http } from "../../../services/http";
 import Footer from "../../../components/client/layouts/Footer";
 import { getRelatedPostsByProduct } from "../../../services/api/postsClient";
 import type { PostListItem } from "../../../types/posts";

@@ -1,11 +1,16 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { http, tokenStore } from "../services/http";
+import {
+  clientHttp,
+  clientTokenStore,
+  AUTH_ERROR_CLIENT,
+} from "../services/http";
 
 type ClientUser = {
   id: number;
@@ -81,17 +86,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const isAuthenticated = !!user;
 
-  const persistUser = (nextUser: ClientUser | null) => {
+  const persistUser = useCallback((nextUser: ClientUser | null) => {
     setUser(nextUser);
     if (nextUser) {
       localStorage.setItem(CLIENT_USER_KEY, JSON.stringify(nextUser));
     } else {
       localStorage.removeItem(CLIENT_USER_KEY);
     }
-  };
+  }, []);
+
+  // Xử lý khi refresh token hết hạn / fail → force logout
+  const forceLogout = useCallback(() => {
+    clientTokenStore.setAccess(null);
+    clientTokenStore.setRefresh(null);
+    persistUser(null);
+  }, [persistUser]);
+
+  // Lắng nghe auth error event từ http interceptor
+  useEffect(() => {
+    const handler = () => forceLogout();
+    window.addEventListener(AUTH_ERROR_CLIENT, handler);
+    return () => window.removeEventListener(AUTH_ERROR_CLIENT, handler);
+  }, [forceLogout]);
 
   const register = async (input: RegisterInput) => {
-    const res = await http<any>("POST", "/api/v1/client/auth/register", {
+    const res = await clientHttp<any>("POST", "/api/v1/client/auth/register", {
       fullName: input.fullName,
       email: input.email,
       password: input.password,
@@ -106,8 +125,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error("Đăng ký không thành công. Vui lòng thử lại.");
     }
 
-    tokenStore.setAccess(accessToken);
-    tokenStore.setRefresh(refreshToken);
+    clientTokenStore.setAccess(accessToken);
+    clientTokenStore.setRefresh(refreshToken);
     persistUser(nextUser);
   };
 
@@ -116,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     rememberMe?: boolean,
   ) => {
-    const res = await http<any>("POST", "/api/v1/client/auth/login", {
+    const res = await clientHttp<any>("POST", "/api/v1/client/auth/login", {
       email,
       password,
       rememberMe: !!rememberMe,
@@ -130,28 +149,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       throw new Error("Dữ liệu đăng nhập client không hợp lệ");
     }
 
-    tokenStore.setAccess(accessToken);
-    tokenStore.setRefresh(refreshToken);
+    clientTokenStore.setAccess(accessToken);
+    clientTokenStore.setRefresh(refreshToken);
     persistUser(nextUser);
   };
 
   const logout = async () => {
     try {
-      await http("POST", "/api/v1/client/auth/logout");
+      await clientHttp("POST", "/api/v1/client/auth/logout");
     } catch {
       // ignore
     } finally {
-      tokenStore.setAccess(null);
-      tokenStore.setRefresh(null);
+      clientTokenStore.setAccess(null);
+      clientTokenStore.setRefresh(null);
       persistUser(null);
     }
   };
 
   const refreshSession = async () => {
-    const rt = tokenStore.getRefresh();
+    const rt = clientTokenStore.getRefresh();
     if (!rt) throw new Error("No refresh token");
 
-    const res = await http<any>("POST", "/api/v1/client/auth/refresh", {
+    const res = await clientHttp<any>("POST", "/api/v1/client/auth/refresh", {
       refreshToken: rt,
     });
 
@@ -159,33 +178,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!accessToken) {
       throw new Error("Invalid refresh response");
     }
-    tokenStore.setAccess(accessToken);
+    clientTokenStore.setAccess(accessToken);
   };
 
+  // Khởi tạo session khi app mount
   useEffect(() => {
     (async () => {
       try {
-        const rt = tokenStore.getRefresh();
-        const at = tokenStore.getAccess();
+        const rt = clientTokenStore.getRefresh();
+        const at = clientTokenStore.getAccess();
 
+        // Có refresh token nhưng không có access token → refresh
         if (!at && rt) {
           await refreshSession();
         }
 
-        if (tokenStore.getAccess()) {
-          const me = await http<any>("GET", "/api/v1/client/auth/me");
+        if (clientTokenStore.getAccess()) {
+          const me = await clientHttp<any>("GET", "/api/v1/client/auth/me");
           persistUser(normalizeUser(me?.data?.user ?? me?.data ?? null));
         } else {
           persistUser(null);
         }
       } catch {
-        tokenStore.setAccess(null);
-        tokenStore.setRefresh(null);
+        clientTokenStore.setAccess(null);
+        clientTokenStore.setRefresh(null);
         persistUser(null);
       } finally {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const value = useMemo<AuthState>(
@@ -198,6 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       logout,
       refreshSession,
     }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [loading, user, isAuthenticated],
   );
 

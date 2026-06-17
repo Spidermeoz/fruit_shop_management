@@ -1,11 +1,16 @@
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { http, tokenStore } from "../services/http";
+import {
+  adminHttp,
+  adminTokenStore,
+  AUTH_ERROR_ADMIN,
+} from "../services/http";
 
 export interface AdminBranch {
   id: number;
@@ -139,36 +144,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     },
   );
 
-  const persistUser = (nextUser: AdminUser | null) => {
+  const persistUser = useCallback((nextUser: AdminUser | null) => {
     setUser(nextUser);
     if (nextUser) {
       localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
     } else {
       localStorage.removeItem(CURRENT_USER_KEY);
     }
-  };
+  }, []);
 
-  const persistPermissions = (nextPermissions: Permissions) => {
+  const persistPermissions = useCallback((nextPermissions: Permissions) => {
     setPermissions(nextPermissions);
     localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(nextPermissions));
-  };
+  }, []);
 
-  const setCurrentBranchId = (branchId: number | null) => {
+  const setCurrentBranchId = useCallback((branchId: number | null) => {
     setCurrentBranchIdState(branchId);
     if (branchId && Number.isFinite(branchId)) {
       localStorage.setItem(CURRENT_BRANCH_ID_KEY, String(branchId));
     } else {
       localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
     }
-  };
+  }, []);
 
-  const hasPermission = (moduleKey: string, actionKey: string) => {
-    const actions = permissions?.[moduleKey] || [];
-    return Array.isArray(actions) && actions.includes(actionKey);
-  };
+  const hasPermission = useCallback(
+    (moduleKey: string, actionKey: string) => {
+      const actions = permissions?.[moduleKey] || [];
+      return Array.isArray(actions) && actions.includes(actionKey);
+    },
+    [permissions],
+  );
 
-  const refreshMe = async () => {
-    const accessToken = tokenStore.getAccess();
+  // Force logout khi refresh token hết hạn / fail
+  const forceLogout = useCallback(() => {
+    adminTokenStore.setAccess(null);
+    adminTokenStore.setRefresh(null);
+    localStorage.removeItem(CURRENT_USER_KEY);
+    localStorage.removeItem(PERMISSIONS_KEY);
+    localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
+    persistUser(null);
+    persistPermissions({});
+    setCurrentBranchIdState(null);
+  }, [persistUser, persistPermissions]);
+
+  // Lắng nghe auth error event từ http interceptor
+  useEffect(() => {
+    const handler = () => forceLogout();
+    window.addEventListener(AUTH_ERROR_ADMIN, handler);
+    return () => window.removeEventListener(AUTH_ERROR_ADMIN, handler);
+  }, [forceLogout]);
+
+  const refreshMe = useCallback(async () => {
+    const accessToken = adminTokenStore.getAccess();
     if (!accessToken) {
       persistUser(null);
       persistPermissions({});
@@ -176,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       return;
     }
 
-    const res = await http<any>("GET", "/api/v1/auth/me");
+    const res = await adminHttp<any>("GET", "/api/v1/auth/me");
     const nextUser = normalizeUser(res?.data?.user ?? res?.data ?? null);
     const nextPermissions = (res?.data?.permissions ?? {}) as Permissions;
 
@@ -201,10 +228,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } else {
       setCurrentBranchId(primaryBranchId);
     }
-  };
+  }, [currentBranchId, persistUser, persistPermissions, setCurrentBranchId]);
 
   const login = async (email: string, password: string) => {
-    const res = await http<any>("POST", "/api/v1/auth/login", {
+    const res = await adminHttp<any>("POST", "/api/v1/auth/login", {
       email,
       password,
     });
@@ -224,8 +251,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       );
     }
 
-    tokenStore.setAccess(accessToken);
-    tokenStore.setRefresh(refreshToken);
+    adminTokenStore.setAccess(accessToken);
+    adminTokenStore.setRefresh(refreshToken);
     persistUser(nextUser);
     persistPermissions(nextPermissions);
 
@@ -240,38 +267,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
-      await http("POST", "/api/v1/auth/logout");
+      await adminHttp("POST", "/api/v1/auth/logout");
     } catch {
       // ignore
     } finally {
-      tokenStore.setAccess(null);
-      tokenStore.setRefresh(null);
-      localStorage.removeItem(CURRENT_USER_KEY);
-      localStorage.removeItem(PERMISSIONS_KEY);
-      localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
-      persistUser(null);
-      persistPermissions({});
-      setCurrentBranchIdState(null);
+      forceLogout();
     }
   };
 
+  // Khởi tạo session khi app mount
   useEffect(() => {
     (async () => {
       try {
-        const refreshToken = tokenStore.getRefresh();
-        const accessToken = tokenStore.getAccess();
+        const refreshToken = adminTokenStore.getRefresh();
+        const accessToken = adminTokenStore.getAccess();
 
         if (!accessToken && refreshToken) {
-          const refreshRes = await http<any>("POST", "/api/v1/auth/refresh", {
+          const refreshRes = await adminHttp<any>("POST", "/api/v1/auth/refresh", {
             refreshToken,
           });
           const newAccessToken = refreshRes?.data?.accessToken;
           if (newAccessToken) {
-            tokenStore.setAccess(newAccessToken);
+            adminTokenStore.setAccess(newAccessToken);
           }
         }
 
-        if (tokenStore.getAccess()) {
+        if (adminTokenStore.getAccess()) {
           await refreshMe();
         } else {
           persistUser(null);
@@ -280,18 +301,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } catch (err) {
         console.warn("Admin auto-auth failed:", err);
-        tokenStore.setAccess(null);
-        tokenStore.setRefresh(null);
-        localStorage.removeItem(CURRENT_USER_KEY);
-        localStorage.removeItem(PERMISSIONS_KEY);
-        localStorage.removeItem(CURRENT_BRANCH_ID_KEY);
-        persistUser(null);
-        persistPermissions({});
-        setCurrentBranchIdState(null);
+        forceLogout();
       } finally {
         setIsLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const branches = useMemo(() => user?.branches ?? [], [user]);
@@ -333,7 +348,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       null;
 
     setCurrentBranchId(fallback);
-  }, [user, branches, currentBranchId]);
+  }, [user, branches, currentBranchId, setCurrentBranchId]);
 
   return (
     <AuthContext.Provider
