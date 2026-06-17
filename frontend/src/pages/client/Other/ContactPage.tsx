@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../../../components/client/layouts/Layout";
 import Footer from "../../../components/client/layouts/Footer";
-import { http } from "../../../services/http";
+import { clientHttp as http } from "../../../services/http";
 
 interface SettingGeneral {
   website_name?: string | null;

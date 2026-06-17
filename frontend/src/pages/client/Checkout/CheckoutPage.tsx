@@ -1,3 +1,12 @@
+
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import Layout from "../../../components/client/layouts/Layout";
+import Footer from "../../../components/client/layouts/Footer";
+import { useCart } from "../../../context/CartContext";
+import {  http } from "../../../services/http";
+import { useToast } from "../../../context/ToastContext";
+
 import {
   AlertCircle,
   ArrowLeft,
@@ -26,12 +35,6 @@ import {
   Truck,
   User
 } from "lucide-react";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import Footer from "../../../components/client/layouts/Footer";
-import Layout from "../../../components/client/layouts/Layout";
-import { useCart } from "../../../context/CartContext";
-import { useToast } from "../../../context/ToastContext";
 import type {
   ClientAvailablePromotion
 } from "../../../services/api/ordersClient";
@@ -42,7 +45,6 @@ import {
   getCheckoutQuote,
   getClientBranches,
 } from "../../../services/api/ordersClient";
-import { http } from "../../../services/http";
 import type { CheckoutQuote, DeliverySlotSummary } from "../../../types/orders";
 import { useAdminToast } from "../../../context/AdminToastContext";
 

@@ -1,4 +1,4 @@
-import { ApiError, http } from "../http";
+import { ApiError, clientHttp as http } from "../http";
 import type { CheckoutQuote, ClientOrder } from "../../types/orders";
 import { mapClientOrder } from "../../utils/mapOrder";
 
